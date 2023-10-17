@@ -1,0 +1,8 @@
+version: v1
+managed: 
+  enabled: true
+  go_package_prefix:
+    default: github.com/caas-team/sparrow/gen
+plugins:
+  - plugin: buf.build/protocolbuffers/go
+    out: gen
