@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package checks.v1alpha1;
+option go_package = "github.com/caas-team/sparrow/gen/checks/v1alpha1";
+
+service RoundTripService {
+    // RoundTrip is a unary RPC that sends a request message and receives a response message.
+    // This will be used internally to calculate the RoundTrip time.
+    // RoundTrip time is defined as the time taken to send a request and receive a response.
+    // This includes processing time at the server
+    rpc RoundTrip (RoundTripRequest) returns (RoundTripResponse);
+}
+
+message RoundTripRequest {
+}
+
+message RoundTripResponse {
+}

@@ -3,3 +3,6 @@ plugins:
   - plugin: buf.build/protocolbuffers/go
     out: gen
     opt: paths=source_relative
+  - plugin: buf.build/connectrpc/go
+    out: gen
+    opt: paths=source_relative

@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package checks.v1alpha1;
+option go_package = "github.com/caas-team/sparrow/gen/checks/v1alpha1";
+
+service HealthService {
+    // A basic health check. It returns if everything is alright. Only exists to check if the service is up.
+    rpc Health (HealthRequest) returns (HealthResponse);
+}
+
+message HealthRequest {
+}
+
+message HealthResponse {
+}
