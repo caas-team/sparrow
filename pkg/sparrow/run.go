@@ -28,18 +28,6 @@ func (s *Sparrow) Run(ctx context.Context) error {
 	// setup database
 	// setup http server
 
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case result := <-s.c:
-				// TODO write result to database
-				fmt.Println(result)
-			}
-		}
-	}()
-
 	for checkName, checkConfig := range s.config.Checks {
 		check := checks.RegisteredChecks[checkName](checkName)
 		s.checks = append(s.checks, check)
@@ -54,6 +42,13 @@ func (s *Sparrow) Run(ctx context.Context) error {
 		}
 		go check.Run(ctx)
 	}
-
-	return nil
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case result := <-s.c:
+			// TODO write result to database
+			fmt.Println(result)
+		}
+	}
 }
