@@ -17,7 +17,6 @@ type Sparrow struct {
 func New(config *Config) *Sparrow {
 	// TODO read this from config file
 	return &Sparrow{
-
 		config: config,
 		c:      make(chan checks.Result),
 	}
@@ -41,15 +40,10 @@ func (s *Sparrow) Run(ctx context.Context) error {
 		}
 	}()
 
-	for k, checkConfig := range s.config.Checks {
-		var check checks.Check
-		switch k {
-		case "rtt":
-			check = &checks.RoundTrip{}
-		default:
-			continue
-		}
+	for checkName, checkConfig := range s.config.Checks {
+		check := checks.RegisteredChecks[checkName](checkName)
 		s.checks = append(s.checks, check)
+
 		err := check.SetConfig(ctx, checkConfig)
 		if err != nil {
 			return fmt.Errorf("failed to set config for check %s: %w", check.Name(), err)

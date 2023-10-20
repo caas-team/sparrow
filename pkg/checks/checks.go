@@ -6,6 +6,13 @@ import (
 	"time"
 )
 
+// Available Checks will be registered in this map
+// The key is the name of the Check
+// The name needs to map the configuration item key
+var RegisteredChecks = map[string]func(string) Check{
+	"rtt": GetRoundtripCheck,
+}
+
 type Check interface {
 	// Run is called once per check interval
 	// this should error if there is a problem running the check

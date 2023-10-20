@@ -18,6 +18,13 @@ type RoundTrip struct {
 	config roundTripConfig
 }
 
+// Constructor for the RoundtripCheck
+func GetRoundtripCheck(name string) Check {
+	return &RoundTrip{
+		name: name,
+	}
+}
+
 func (rt *RoundTrip) Run(ctx context.Context) (Result, error) {
 	return Result{}, nil
 }
