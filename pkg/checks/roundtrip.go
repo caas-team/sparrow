@@ -18,42 +18,40 @@ type RoundTrip struct {
 	config roundTripConfig
 }
 
-func (c *RoundTrip) Run(ctx context.Context) (Result, error) {
+func (rt *RoundTrip) Run(ctx context.Context) (Result, error) {
 	return Result{}, nil
 }
 
-func (c *RoundTrip) Startup(ctx context.Context, cResult chan<- Result) error {
+func (rt *RoundTrip) Startup(ctx context.Context, cResult chan<- Result) error {
 	// TODO register http handler for this check
 	http.HandleFunc("/rtt", func(w http.ResponseWriter, r *http.Request) {
 		// TODO handle
 	})
 
-	c.c = cResult
+	rt.c = cResult
 	return nil
 }
 
 // Shutdown is called once when the check is unregistered or sparrow shuts down
 
-func (c *RoundTrip) Shutdown(ctx context.Context) error {
+func (rt *RoundTrip) Shutdown(ctx context.Context) error {
 	http.Handle("/rtt", http.NotFoundHandler())
 
 	return nil
 }
 
 // Name returns the name of the check
-func (c *RoundTrip) Name() string {
-	return c.name
+func (rt *RoundTrip) Name() string {
+	return rt.name
 }
 
-func (c *RoundTrip) SetConfig(ctx context.Context, config any) error {
+func (rt *RoundTrip) SetConfig(ctx context.Context, config any) error {
 	checkConfig, ok := config.(roundTripConfig)
 	if !ok {
 		return ErrInvalidConfig
 	}
-	c.config = checkConfig
+	rt.config = checkConfig
 	return nil
 }
 
-var (
-	ErrInvalidConfig = errors.New("invalid config")
-)
+var ErrInvalidConfig = errors.New("invalid config")
