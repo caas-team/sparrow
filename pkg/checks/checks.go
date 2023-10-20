@@ -31,14 +31,6 @@ type Check interface {
 	Name() string
 }
 
-type CheckConfig struct {
-	Enabled       bool
-	IntervalSec   int
-	MaxRetryCount int
-	RetryDelaySec int
-}
-
-
 type Result struct {
 	// data contains performance metrics about the check run
 	Data any
