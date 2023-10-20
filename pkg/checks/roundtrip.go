@@ -2,7 +2,6 @@ package checks
 
 import (
 	"context"
-	"errors"
 	"net/http"
 )
 
@@ -61,4 +60,3 @@ func (rt *RoundTrip) SetConfig(ctx context.Context, config any) error {
 	return nil
 }
 
-var ErrInvalidConfig = errors.New("invalid config")

@@ -2,7 +2,6 @@ package checks
 
 import (
 	"context"
-	"errors"
 	"time"
 )
 
@@ -39,7 +38,6 @@ type CheckConfig struct {
 	RetryDelaySec int
 }
 
-var ErrRetry = errors.New("retry")
 
 type Result struct {
 	// data contains performance metrics about the check run
