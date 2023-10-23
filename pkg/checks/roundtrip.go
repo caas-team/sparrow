@@ -3,12 +3,18 @@ package checks
 import (
 	"context"
 	"net/http"
+
+	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/getkin/kin-openapi/openapi3gen"
 )
 
 // ensure that RoundTrip implements the Check interface
 var _ Check = &RoundTrip{}
 
 type roundTripConfig struct{}
+type PerfData struct {
+	Ms int64 `json:"ms"`
+}
 
 // RoundTrip is a check that measures the round trip time of a request
 type RoundTrip struct {
@@ -60,3 +66,19 @@ func (rt *RoundTrip) SetConfig(ctx context.Context, config any) error {
 	return nil
 }
 
+func (rt *RoundTrip) Schema() (*openapi3.SchemaRef, error) {
+	ref, err := openapi3gen.NewSchemaRefForValue(&Result{
+		Data: PerfData{},
+	}, openapi3.Schemas{})
+	if err != nil {
+		panic("Failed to generate schema" + err.Error())
+	}
+
+	return ref, nil
+}
+
+func NewRoundtrip() *RoundTrip {
+	return &RoundTrip{
+		name: "rtt",
+	}
+}

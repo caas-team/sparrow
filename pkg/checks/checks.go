@@ -3,6 +3,8 @@ package checks
 import (
 	"context"
 	"time"
+
+	"github.com/getkin/kin-openapi/openapi3"
 )
 
 // Available Checks will be registered in this map
@@ -29,6 +31,8 @@ type Check interface {
 	SetConfig(ctx context.Context, config any) error
 	// Name returns the name of the check
 	Name() string
+	// Should return an openapi3.SchemaRef of the result type returned by the check
+	Schema() (*openapi3.SchemaRef, error)
 }
 
 type Result struct {
