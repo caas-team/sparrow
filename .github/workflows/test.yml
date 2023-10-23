@@ -12,7 +12,7 @@ env:
   GOPRIVATE: ${{ secrets.PRIVATE_GO_SERVER }}
 
 jobs:
-  build:
+  test_go:
     runs-on: ubuntu-latest
 
     steps:
