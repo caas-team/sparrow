@@ -41,18 +41,6 @@ body:
   - type: textarea
     attributes:
       label: Relevant logs and/or screenshots, environment information, etc.
-      description: |
-        examples:
-          - Device: [e.g. iPhone6]
-          - OS: [e.g. iOS 17.0]
-          - Browser [e.g. stock browser, safari]
-          - Version [e.g. 22]
-      value: |
-        - Device: 
-        - OS: 
-        - Browser: 
-        - Version:
-      render: Markdown
     validations:
       required: false
 
