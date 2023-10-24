@@ -5,13 +5,12 @@ import (
 	"net/http"
 
 	"github.com/getkin/kin-openapi/openapi3"
-	"github.com/getkin/kin-openapi/openapi3gen"
 )
 
 // ensure that RoundTrip implements the Check interface
 var _ Check = &RoundTrip{}
 
-type roundTripConfig struct{}
+type RoundTripConfig struct{}
 type PerfData struct {
 	Ms int64 `json:"ms"`
 }
@@ -20,7 +19,7 @@ type PerfData struct {
 type RoundTrip struct {
 	name   string
 	c      chan<- Result
-	config roundTripConfig
+	config RoundTripConfig
 }
 
 // Constructor for the RoundtripCheck
@@ -58,7 +57,7 @@ func (rt *RoundTrip) Name() string {
 }
 
 func (rt *RoundTrip) SetConfig(ctx context.Context, config any) error {
-	checkConfig, ok := config.(roundTripConfig)
+	checkConfig, ok := config.(RoundTripConfig)
 	if !ok {
 		return ErrInvalidConfig
 	}
@@ -67,14 +66,8 @@ func (rt *RoundTrip) SetConfig(ctx context.Context, config any) error {
 }
 
 func (rt *RoundTrip) Schema() (*openapi3.SchemaRef, error) {
-	ref, err := openapi3gen.NewSchemaRefForValue(&Result{
-		Data: PerfData{},
-	}, openapi3.Schemas{})
-	if err != nil {
-		panic("Failed to generate schema" + err.Error())
-	}
+	return OpenapiFromPerfData[PerfData](PerfData{})
 
-	return ref, nil
 }
 
 func NewRoundtrip() *RoundTrip {
