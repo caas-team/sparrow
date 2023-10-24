@@ -7,9 +7,8 @@ on:
 
 env:
   PRIVATE_GO_SERVER: ${{ secrets.PRIVATE_GO_SERVER }}
-  CI_USER: ${{ secrets.CI_USER }}
-  CI_JOB_TOKEN: ${{ secrets.CI_JOB_TOKEN }}
   GOPRIVATE: ${{ secrets.PRIVATE_GO_SERVER }}
+  PRIVATE_SERVER_TOKEN: ${{ secrets.PRIVATE_SERVER_TOKEN }}
 
 jobs:
   test_go:
@@ -21,13 +20,12 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
-          go-version: '1.20.10'
-          check-latest: false
+          go-version-file: 'go.mod'
 
       - name: Test
         run: |
           echo "machine $PRIVATE_GO_SERVER" >> ~/.netrc &&\
-          echo "    login $CI_USER" >> ~/.netrc &&\
-          echo "    password $CI_JOB_TOKEN" >> ~/.netrc
+          echo "    login __token__" >> ~/.netrc &&\
+          echo "    password $PRIVATE_SERVER_TOKEN" >> ~/.netrc
           go mod download
           go test --race --coverprofile cover.out -v ./...
