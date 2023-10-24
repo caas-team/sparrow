@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/caas-team/sparrow/pkg/checks"
+	"github.com/getkin/kin-openapi/openapi3"
 )
 
 type Sparrow struct {
@@ -15,11 +16,20 @@ type Sparrow struct {
 
 // New creates a new sparrow from a given configfile
 func New(config *Config) *Sparrow {
-	// TODO read this from config file
-	return &Sparrow{
+	s := &Sparrow{
 		config: config,
 		c:      make(chan checks.Result),
 	}
+	// TODO read this from config file
+	for k, _ := range config.Checks {
+		switch k {
+		case "roundtrip":
+			s.checks = append(s.checks, checks.NewRoundtrip())
+		}
+
+	}
+
+	return s
 }
 
 // Run starts the sparrow
