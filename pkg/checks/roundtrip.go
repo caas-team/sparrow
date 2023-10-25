@@ -11,7 +11,7 @@ import (
 var _ Check = &RoundTrip{}
 
 type RoundTripConfig struct{}
-type PerfData struct {
+type roundTripData struct {
 	Ms int64 `json:"ms"`
 }
 
@@ -66,7 +66,7 @@ func (rt *RoundTrip) SetConfig(ctx context.Context, config any) error {
 }
 
 func (rt *RoundTrip) Schema() (*openapi3.SchemaRef, error) {
-	return OpenapiFromPerfData[PerfData](PerfData{})
+	return OpenapiFromPerfData[roundTripData](roundTripData{})
 
 }
 
