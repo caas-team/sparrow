@@ -23,7 +23,7 @@ func TestSparrow_getOpenapi(t *testing.T) {
 	}
 	tests := []test{
 		{name: "no checks registered", fields: fields{checks: []checks.Check{}, config: NewConfig()}, want: oapiBoilerplate, wantErr: false},
-		{name: "check registered", fields: fields{checks: []checks.Check{checks.NewRoundtrip()}, config: NewConfig()}, want: oapiBoilerplate, wantErr: false},
+		{name: "check registered", fields: fields{checks: []checks.Check{checks.GetRoundtripCheck("rtt")}, config: NewConfig()}, want: oapiBoilerplate, wantErr: false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

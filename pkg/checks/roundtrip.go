@@ -69,9 +69,3 @@ func (rt *RoundTrip) Schema() (*openapi3.SchemaRef, error) {
 	return OpenapiFromPerfData[roundTripData](roundTripData{})
 
 }
-
-func NewRoundtrip() *RoundTrip {
-	return &RoundTrip{
-		name: "rtt",
-	}
-}
