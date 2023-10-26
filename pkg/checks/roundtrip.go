@@ -3,18 +3,23 @@ package checks
 import (
 	"context"
 	"net/http"
+
+	"github.com/getkin/kin-openapi/openapi3"
 )
 
 // ensure that RoundTrip implements the Check interface
 var _ Check = &RoundTrip{}
 
-type roundTripConfig struct{}
+type RoundTripConfig struct{}
+type roundTripData struct {
+	Ms int64 `json:"ms"`
+}
 
 // RoundTrip is a check that measures the round trip time of a request
 type RoundTrip struct {
 	name   string
 	c      chan<- Result
-	config roundTripConfig
+	config RoundTripConfig
 }
 
 // Constructor for the RoundtripCheck
@@ -52,7 +57,7 @@ func (rt *RoundTrip) Name() string {
 }
 
 func (rt *RoundTrip) SetConfig(ctx context.Context, config any) error {
-	checkConfig, ok := config.(roundTripConfig)
+	checkConfig, ok := config.(RoundTripConfig)
 	if !ok {
 		return ErrInvalidConfig
 	}
@@ -60,3 +65,7 @@ func (rt *RoundTrip) SetConfig(ctx context.Context, config any) error {
 	return nil
 }
 
+func (rt *RoundTrip) Schema() (*openapi3.SchemaRef, error) {
+	return OpenapiFromPerfData[roundTripData](roundTripData{})
+
+}

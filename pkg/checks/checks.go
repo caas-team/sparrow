@@ -3,6 +3,8 @@ package checks
 import (
 	"context"
 	"time"
+
+	"github.com/getkin/kin-openapi/openapi3"
 )
 
 // Available Checks will be registered in this map
@@ -29,14 +31,16 @@ type Check interface {
 	SetConfig(ctx context.Context, config any) error
 	// Name returns the name of the check
 	Name() string
+	// Should return an openapi3.SchemaRef of the result type returned by the check
+	Schema() (*openapi3.SchemaRef, error)
 }
 
 type Result struct {
 	// data contains performance metrics about the check run
-	Data any
+	Data any `json:"data"`
 	// Timestamp is the UTC time the check was run
-	Timestamp time.Time
+	Timestamp time.Time `json:"timestamp"`
 	// Err should be nil if the check ran successfully indicating the check is "healthy"
 	// if the check failed, this should be an error message that will be logged and returned to an API user
-	Err error
+	Err string `json:"error"`
 }
