@@ -1,7 +1,8 @@
-package sparrow
+package config
 
 type Config struct {
-	Checks map[string]any
+	Checks  map[string]any
+	Updated chan bool
 }
 
 func NewConfig() *Config {
