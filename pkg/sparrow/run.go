@@ -10,21 +10,25 @@ import (
 )
 
 type Sparrow struct {
-	checks []checks.Check
-	cfg    *config.Config
-	loader config.Loader
-	c      chan checks.Result
+	checks  map[string]checks.Check
+	cResult chan checks.Result
+
+	loader     config.Loader
+	cfg        *config.Config
+	cCfgChecks chan map[string]any
 }
 
 // New creates a new sparrow from a given configfile
 func New(cfg *config.Config) *Sparrow {
 	// TODO read this from config file
-	return &Sparrow{
-		cfg:    cfg,
-		c:      make(chan checks.Result),
-		loader: config.NewLoader(cfg),
-		// loader: config.NewLoader(UpdateChecksConfig), //CALLBACK
+	sparrow := &Sparrow{
+		checks:     make(map[string]checks.Check),
+		cResult:    make(chan checks.Result),
+		cfg:        cfg,
+		cCfgChecks: make(chan map[string]any),
 	}
+	sparrow.loader = config.NewLoader(cfg, sparrow.cCfgChecks)
+	return sparrow
 }
 
 // Run starts the sparrow
@@ -32,81 +36,55 @@ func (s *Sparrow) Run(ctx context.Context) error {
 	// TODO Setup before checks run
 	// setup database
 	// setup http server
-
-	// TODO CAN BE REMOVED
-	for checkName, checkConfig := range s.cfg.Checks {
-		check := checks.RegisteredChecks[checkName](checkName)
-		s.checks = append(s.checks, check)
-
-		err := check.SetConfig(ctx, checkConfig)
-		if err != nil {
-			return fmt.Errorf("failed to set config for check %s: %w", check.Name(), err)
-		}
-		err = check.Startup(ctx, s.c)
-		if err != nil {
-			return fmt.Errorf("failed to startup check %s: %w", check.Name(), err)
-		}
-		go check.Run(ctx)
-	}
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
-		case result := <-s.c:
+		case result := <-s.cResult:
 			// TODO write result to database
 			fmt.Println(result)
-		case <-s.cfg.Updated:
+		case configChecks := <-s.cCfgChecks:
 			// Config got updated
 			// Set checks
-			s.UpdateChecksConfig(ctx)
+			s.cfg.Checks = configChecks
+			s.ReconceilChecks(ctx)
 		}
 	}
 }
 
 // Register new Checks, unregister removed Checks & reset Configs of Checks
-func (s *Sparrow) UpdateChecksConfig(ctx context.Context) {
+func (s *Sparrow) ReconceilChecks(ctx context.Context) {
 	for configCheckName, configChecks := range s.cfg.Checks {
-		newCheckCounter := 0
-		for i, existingCheck := range s.checks {
-			newCheckCounter++
-
+		if existingCheck, ok := s.checks[configCheckName]; ok {
 			// Check already registered, reset config
-			if configCheckName == existingCheck.Name() {
-				err := existingCheck.SetConfig(ctx, configChecks)
-				if err != nil {
-					// log.Errorf("failed to reset config for check, check will run with last applies config - %s: %w", existingCheck.Name(), err)
-				}
-				continue
+			err := existingCheck.SetConfig(ctx, configChecks)
+			if err != nil {
+				// log.Errorf("failed to reset config for check, check will run with last applies config - %s: %w", existingCheck.Name(), err)
 			}
-
-			// TODO: check if to shutdown
-			// Check has been removed from config; shutdown and remove
-			existingCheck.Shutdown(ctx)
-			s.checks = remove(s.checks, i)
+			continue
 		}
-
 		// Check is a new Check and needs to be registered
-		if newCheckCounter+1 >= len(s.checks) {
-			check := checks.RegisteredChecks[configCheckName](configCheckName)
-			s.checks = append(s.checks, check)
+		check := checks.RegisteredChecks[configCheckName](configCheckName)
+		s.checks[configCheckName] = check
 
-			err := check.SetConfig(ctx, configChecks)
-			if err != nil {
-				// log.Errorf("failed to set config for check %s: %w", check.Name(), err)
-			}
-			err = check.Startup(ctx, s.c)
-			if err != nil {
-				// log.Errorf("failed to startup check %s: %w", check.Name(), err)
-			}
-			go check.Run(ctx)
+		err := check.SetConfig(ctx, configChecks)
+		if err != nil {
+			// log.Errorf("failed to set config for check %s: %w", check.Name(), err)
+		}
+		err = check.Startup(ctx, s.cResult)
+		if err != nil {
+			// log.Errorf("failed to startup check %s: %w", check.Name(), err)
+		}
+		go check.Run(ctx)
+	}
+
+	for existingCheckName, existingCheck := range s.checks {
+		// Check has been removed from config; shutdown and remove
+		if _, ok := s.cfg.Checks[existingCheckName]; !ok {
+			existingCheck.Shutdown(ctx)
+			delete(s.checks, existingCheckName)
 		}
 	}
-}
-
-// Remove specific Check from
-func remove(s []checks.Check, i int) []checks.Check {
-	s[i] = s[len(s)-1]
-	return s[:len(s)-1]
 
 }
 
@@ -131,19 +109,19 @@ var oapiBoilerplate = openapi3.T{
 
 func (s *Sparrow) Openapi() (openapi3.T, error) {
 	doc := oapiBoilerplate
-	for _, c := range s.checks {
+	for checkName, c := range s.checks {
 		ref, err := c.Schema()
 		if err != nil {
-			return openapi3.T{}, fmt.Errorf("failed to get schema for check %s: %w", c.Name(), err)
+			return openapi3.T{}, fmt.Errorf("failed to get schema for check %s: %w", checkName, err)
 		}
 
-		routeDesc := fmt.Sprintf("Returns the performance data for check %s", c.Name())
-		bodyDesc := fmt.Sprintf("Metrics for check %s", c.Name())
-		doc.Paths["/v1/metrics/"+c.Name()] = &openapi3.PathItem{
-			Description: c.Name(),
+		routeDesc := fmt.Sprintf("Returns the performance data for check %s", checkName)
+		bodyDesc := fmt.Sprintf("Metrics for check %s", checkName)
+		doc.Paths["/v1/metrics/"+checkName] = &openapi3.PathItem{
+			Description: checkName,
 			Get: &openapi3.Operation{
 				Description: routeDesc,
-				Tags:        []string{"Metrics", c.Name()},
+				Tags:        []string{"Metrics", checkName},
 				Responses: openapi3.Responses{
 					"200": &openapi3.ResponseRef{
 						Value: &openapi3.Response{
