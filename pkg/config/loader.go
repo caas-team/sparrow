@@ -14,11 +14,11 @@ type Loader interface {
 	Run(context.Context)
 }
 
-func NewLoader(cfg *Config) Loader {
+func NewLoader(cfg *Config, cCfgChecks chan<- map[string]any) Loader {
 	switch strings.ToUpper("cfg.loaderTyp") {
 	case gitlabLoader:
-		return NewGitlabLoader(cfg)
+		return NewHttpLoader(cfg, cCfgChecks)
 	default:
-		return NewGitlabLoader(cfg)
+		return NewHttpLoader(cfg, cCfgChecks)
 	}
 }

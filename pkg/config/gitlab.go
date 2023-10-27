@@ -2,24 +2,25 @@ package config
 
 import "context"
 
-type GitlabLoader struct {
-	cfg *Config
+type HttpLoader struct {
+	cfg        *Config
+	cCfgChecks chan<- map[string]any
 }
 
-func NewGitlabLoader(cfg *Config) *GitlabLoader {
-	return &GitlabLoader{
-		cfg: cfg,
+func NewHttpLoader(cfg *Config, cCfgChecks chan<- map[string]any) *HttpLoader {
+	return &HttpLoader{
+		cfg:        cfg,
+		cCfgChecks: cCfgChecks,
 	}
 }
 
-func (gl *GitlabLoader) Run(ctx context.Context) {
+func (gl *HttpLoader) Run(ctx context.Context) {
 	// Get cfg from gitlab
 	// check cfg has changed
-	// send signal or call callbackfunctions
+	// send signal
 
 	// cfg has changed
-	gl.cfg.Checks = map[string]any{
-		"rtt": "bla",
+	gl.cCfgChecks <- map[string]any{
+		"rtt": "check cfg to set dynamically",
 	}
-	gl.cfg.Updated <- true
 }
