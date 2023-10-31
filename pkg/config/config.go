@@ -3,11 +3,45 @@ package config
 type Config struct {
 	Checks  map[string]any
 	Updated chan bool
+	Loader  LoaderConfig
 }
 
+// LoaderConfig is the configuration for loader
+type LoaderConfig struct {
+	LoaderType string
+	http       HttpLoaderConfig
+}
+
+// HttpLoaderConfig is the configuration
+// for the specific http loader
+type HttpLoaderConfig struct {
+	url   string
+	token string
+}
+
+// NewConfig creates a new Config
 func NewConfig() *Config {
-	// TODO read this from config file
 	return &Config{
 		Checks: map[string]any{},
 	}
+}
+
+// Validates the config
+func (c *Config) Validate() error {
+	return nil
+}
+
+// SetLoaderType sets the loader type
+func (c *Config) SetLoaderType(loaderType string) {
+	c.Loader.LoaderType = loaderType
+}
+
+// SetLoaderHttpUrl sets the loader http url
+func (c *Config) SetLoaderHttpUrl(url string) {
+	c.Loader.http.url = url
+}
+
+// SetLoaderHttpToken sets the loader http token
+func (c *Config) SetLoaderHttpToken(token string) {
+	c.Loader.http.token = token
 }
