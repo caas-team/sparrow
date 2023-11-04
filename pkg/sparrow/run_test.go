@@ -27,7 +27,7 @@ func TestSparrow_getOpenapi(t *testing.T) {
 	tests := []test{
 
 		{name: "no checks registered", fields: fields{checks: map[string]checks.Check{}, config: config.NewConfig()}, want: oapiBoilerplate, wantErr: false},
-		{name: "check registered", fields: fields{checks: map[string]checks.Check{"rtt": checks.GetRoundtripCheck("rtt")}, config: config.NewConfig()}, want: oapiBoilerplate, wantErr: false},
+		{name: "check registered", fields: fields{checks: map[string]checks.Check{"rtt": checks.GetRoundtripCheck()}, config: config.NewConfig()}, want: oapiBoilerplate, wantErr: false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -84,10 +84,10 @@ func TestSparrow_ReconceilChecks(t *testing.T) {
 		},
 	}
 
-	checks.RegisteredChecks = map[string]func(string) checks.Check{
-		"alpha": func(s string) checks.Check { return &mockCheck },
-		"beta":  func(s string) checks.Check { return &mockCheck },
-		"gamma": func(s string) checks.Check { return &mockCheck },
+	checks.RegisteredChecks = map[string]func() checks.Check{
+		"alpha": func() checks.Check { return &mockCheck },
+		"beta":  func() checks.Check { return &mockCheck },
+		"gamma": func() checks.Check { return &mockCheck },
 	}
 
 	type fields struct {
@@ -118,7 +118,7 @@ func TestSparrow_ReconceilChecks(t *testing.T) {
 			name: "on checks registered and register another",
 			fields: fields{
 				checks: map[string]checks.Check{
-					"alpha": checks.RegisteredChecks["alpha"]("alpha"),
+					"alpha": checks.RegisteredChecks["alpha"](),
 				},
 				cfg:        &config.Config{},
 				cCfgChecks: make(chan map[string]any),
@@ -132,7 +132,7 @@ func TestSparrow_ReconceilChecks(t *testing.T) {
 			name: "on checks registered but unregister all",
 			fields: fields{
 				checks: map[string]checks.Check{
-					"alpha": checks.RegisteredChecks["alpha"]("alpha"),
+					"alpha": checks.RegisteredChecks["alpha"](),
 				},
 				cfg:        &config.Config{},
 				cCfgChecks: make(chan map[string]any),
@@ -143,8 +143,8 @@ func TestSparrow_ReconceilChecks(t *testing.T) {
 			name: "two checks registered, register another and unregister one",
 			fields: fields{
 				checks: map[string]checks.Check{
-					"alpha": checks.RegisteredChecks["alpha"]("alpha"),
-					"gamma": checks.RegisteredChecks["alpha"]("alpha"),
+					"alpha": checks.RegisteredChecks["alpha"](),
+					"gamma": checks.RegisteredChecks["alpha"](),
 				},
 				cfg:        &config.Config{},
 				cCfgChecks: make(chan map[string]any),
@@ -171,7 +171,7 @@ func TestSparrow_ReconceilChecks(t *testing.T) {
 			s.ReconceilChecks(context.Background())
 
 			for newChecksConfigName := range tt.newChecksConfig {
-				check := checks.RegisteredChecks[newChecksConfigName](newChecksConfigName)
+				check := checks.RegisteredChecks[newChecksConfigName]()
 				assert.Equal(t, check, s.checks[newChecksConfigName])
 			}
 		})

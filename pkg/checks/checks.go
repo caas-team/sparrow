@@ -10,7 +10,7 @@ import (
 // Available Checks will be registered in this map
 // The key is the name of the Check
 // The name needs to map the configuration item key
-var RegisteredChecks = map[string]func(string) Check{
+var RegisteredChecks = map[string]func() Check{
 	"rtt": GetRoundtripCheck,
 }
 

@@ -22,7 +22,7 @@ type RoundTrip struct {
 }
 
 // Constructor for the RoundtripCheck
-func GetRoundtripCheck(name string) Check {
+func GetRoundtripCheck() Check {
 	return &RoundTrip{}
 }
 

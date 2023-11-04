@@ -3,6 +3,7 @@ package sparrow
 import (
 	"context"
 	"fmt"
+	"log"
 
 	"github.com/caas-team/sparrow/pkg/checks"
 	"github.com/caas-team/sparrow/pkg/config"
@@ -54,26 +55,26 @@ func (s *Sparrow) Run(ctx context.Context) error {
 
 // Register new Checks, unregister removed Checks & reset Configs of Checks
 func (s *Sparrow) ReconceilChecks(ctx context.Context) {
-	for configCheckName, configChecks := range s.cfg.Checks {
-		if existingCheck, ok := s.checks[configCheckName]; ok {
+	for name, check := range s.cfg.Checks {
+		if existingCheck, ok := s.checks[name]; ok {
 			// Check already registered, reset config
-			err := existingCheck.SetConfig(ctx, configChecks)
+			err := existingCheck.SetConfig(ctx, check)
 			if err != nil {
-				// log.Errorf("failed to reset config for check, check will run with last applies config - %s: %w", existingCheck.Name(), err)
+				log.Printf("Failed to reset config for check, check will run with last applies config - %s: %s", name, err.Error())
 			}
 			continue
 		}
 		// Check is a new Check and needs to be registered
-		check := checks.RegisteredChecks[configCheckName](configCheckName)
-		s.checks[configCheckName] = check
+		check := checks.RegisteredChecks[name]()
+		s.checks[name] = check
 
-		err := check.SetConfig(ctx, configChecks)
+		err := check.SetConfig(ctx, check)
 		if err != nil {
-			// log.Errorf("failed to set config for check %s: %w", check.Name(), err)
+			log.Printf("Failed to set config for check %s: %s", name, err.Error())
 		}
 		err = check.Startup(ctx, s.cResult)
 		if err != nil {
-			// log.Errorf("failed to startup check %s: %w", check.Name(), err)
+			log.Printf("Failed to startup check %s: %s", name, err.Error())
 		}
 		go check.Run(ctx)
 	}
@@ -109,19 +110,19 @@ var oapiBoilerplate = openapi3.T{
 
 func (s *Sparrow) Openapi() (openapi3.T, error) {
 	doc := oapiBoilerplate
-	for checkName, c := range s.checks {
+	for name, c := range s.checks {
 		ref, err := c.Schema()
 		if err != nil {
-			return openapi3.T{}, fmt.Errorf("failed to get schema for check %s: %w", checkName, err)
+			return openapi3.T{}, fmt.Errorf("failed to get schema for check %s: %w", name, err)
 		}
 
-		routeDesc := fmt.Sprintf("Returns the performance data for check %s", checkName)
-		bodyDesc := fmt.Sprintf("Metrics for check %s", checkName)
-		doc.Paths["/v1/metrics/"+checkName] = &openapi3.PathItem{
-			Description: checkName,
+		routeDesc := fmt.Sprintf("Returns the performance data for check %s", name)
+		bodyDesc := fmt.Sprintf("Metrics for check %s", name)
+		doc.Paths["/v1/metrics/"+name] = &openapi3.PathItem{
+			Description: name,
 			Get: &openapi3.Operation{
 				Description: routeDesc,
-				Tags:        []string{"Metrics", checkName},
+				Tags:        []string{"Metrics", name},
 				Responses: openapi3.Responses{
 					"200": &openapi3.ResponseRef{
 						Value: &openapi3.Response{
