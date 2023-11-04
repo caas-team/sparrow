@@ -64,7 +64,7 @@ func (s *Sparrow) ReconceilChecks(ctx context.Context) {
 			continue
 		}
 		// Check is a new Check and needs to be registered
-		check := checks.RegisteredChecks[configCheckName](configCheckName)
+		check := checks.RegisteredChecks[configCheckName]()
 		s.checks[configCheckName] = check
 
 		err := check.SetConfig(ctx, configChecks)
