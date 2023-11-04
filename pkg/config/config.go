@@ -8,8 +8,9 @@ type Config struct {
 
 // LoaderConfig is the configuration for loader
 type LoaderConfig struct {
-	LoaderType string
-	http       HttpLoaderConfig
+	Type     string
+	Interval int
+	http     HttpLoaderConfig
 }
 
 // HttpLoaderConfig is the configuration
@@ -33,7 +34,12 @@ func (c *Config) Validate() error {
 
 // SetLoaderType sets the loader type
 func (c *Config) SetLoaderType(loaderType string) {
-	c.Loader.LoaderType = loaderType
+	c.Loader.Type = loaderType
+}
+
+// SetLoaderInterval sets the loader interval
+func (c *Config) SetLoaderInterval(loaderInterval int) {
+	c.Loader.Interval = loaderInterval
 }
 
 // SetLoaderHttpUrl sets the loader http url

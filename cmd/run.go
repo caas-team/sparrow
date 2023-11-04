@@ -7,44 +7,54 @@ import (
 	"github.com/caas-team/sparrow/pkg/config"
 	"github.com/caas-team/sparrow/pkg/sparrow"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
-// RunFlags contains the flags for the run command
-type RunFlags struct {
-	// Loader
-	loaderType       string
-	loaderReloadTime int
-	loaderHttpUrl    string
-	loaderHttpToken  string
+type RunFlagsNameMapping struct {
+	loaderType      string
+	loaderInterval  string
+	loaderHttpUrl   string
+	loaderHttpToken string
 }
 
 // NewCmdRun creates a new run command
 func NewCmdRun() *cobra.Command {
-	f := RunFlags{}
+	flagMapping := RunFlagsNameMapping{
+		loaderType:      "loaderType",
+		loaderInterval:  "loaderInterval",
+		loaderHttpUrl:   "loaderHttpUrl",
+		loaderHttpToken: "loaderHttpToken",
+	}
 
 	cmd := &cobra.Command{
 		Use:   "run",
 		Short: "Run sparrow",
 		Long:  `Sparrow will be started with the provided configuration`,
-		Run:   run(&f),
+		Run:   run(&flagMapping),
 	}
 
-	cmd.PersistentFlags().StringVarP(&f.loaderType, "loader-type", "l", "http", "defines the loader type that will load the checks configuration during the runtime")
-	cmd.PersistentFlags().IntVar(&f.loaderReloadTime, "loader-interval", 300, "defines the interval the loader reloads the configuration in seconds")
-	cmd.PersistentFlags().StringVar(&f.loaderHttpUrl, "loader-http-url", "", "http loader: The url where to get the remote configuration")
-	cmd.PersistentFlags().StringVar(&f.loaderHttpToken, "loader-http-token", "", "http loader: Bearer token to authenticate the http endpoint")
+	cmd.PersistentFlags().StringP(flagMapping.loaderType, "l", "http", "defines the loader type that will load the checks configuration during the runtime")
+	cmd.PersistentFlags().Int(flagMapping.loaderInterval, 300, "defines the interval the loader reloads the configuration in seconds")
+	cmd.PersistentFlags().String(flagMapping.loaderHttpUrl, "", "http loader: The url where to get the remote configuration")
+	cmd.PersistentFlags().String(flagMapping.loaderHttpToken, "", "http loader: Bearer token to authenticate the http endpoint")
+
+	viper.BindPFlag(flagMapping.loaderType, cmd.PersistentFlags().Lookup("loaderType"))
+	viper.BindPFlag(flagMapping.loaderInterval, cmd.PersistentFlags().Lookup("loaderInterval"))
+	viper.BindPFlag(flagMapping.loaderHttpUrl, cmd.PersistentFlags().Lookup("loaderHttpUrl"))
+	viper.BindPFlag(flagMapping.loaderHttpToken, cmd.PersistentFlags().Lookup("loaderHttpToken"))
 
 	return cmd
 }
 
 // run is the entry point to start the sparrow
-func run(f *RunFlags) func(cmd *cobra.Command, args []string) {
+func run(fm *RunFlagsNameMapping) func(cmd *cobra.Command, args []string) {
 	return func(cmd *cobra.Command, args []string) {
 		cfg := config.NewConfig()
 
-		cfg.SetLoaderType(f.loaderType)
-		cfg.SetLoaderHttpUrl(f.loaderHttpUrl)
-		cfg.SetLoaderHttpToken(f.loaderHttpToken)
+		cfg.SetLoaderType(viper.GetString(fm.loaderType))
+		cfg.SetLoaderInterval(viper.GetInt(fm.loaderInterval))
+		cfg.SetLoaderHttpUrl(viper.GetString(fm.loaderHttpUrl))
+		cfg.SetLoaderHttpToken(viper.GetString(fm.loaderHttpToken))
 
 		if err := cfg.Validate(); err != nil {
 			log.Panic(err)
