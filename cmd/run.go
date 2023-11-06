@@ -38,10 +38,10 @@ func NewCmdRun() *cobra.Command {
 	cmd.PersistentFlags().String(flagMapping.loaderHttpUrl, "", "http loader: The url where to get the remote configuration")
 	cmd.PersistentFlags().String(flagMapping.loaderHttpToken, "", "http loader: Bearer token to authenticate the http endpoint")
 
-	viper.BindPFlag(flagMapping.loaderType, cmd.PersistentFlags().Lookup("loaderType"))
-	viper.BindPFlag(flagMapping.loaderInterval, cmd.PersistentFlags().Lookup("loaderInterval"))
-	viper.BindPFlag(flagMapping.loaderHttpUrl, cmd.PersistentFlags().Lookup("loaderHttpUrl"))
-	viper.BindPFlag(flagMapping.loaderHttpToken, cmd.PersistentFlags().Lookup("loaderHttpToken"))
+	viper.BindPFlag(flagMapping.loaderType, cmd.PersistentFlags().Lookup(flagMapping.loaderType))
+	viper.BindPFlag(flagMapping.loaderInterval, cmd.PersistentFlags().Lookup(flagMapping.loaderInterval))
+	viper.BindPFlag(flagMapping.loaderHttpUrl, cmd.PersistentFlags().Lookup(flagMapping.loaderHttpUrl))
+	viper.BindPFlag(flagMapping.loaderHttpToken, cmd.PersistentFlags().Lookup(flagMapping.loaderHttpToken))
 
 	return cmd
 }
