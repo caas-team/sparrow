@@ -168,7 +168,7 @@ func TestSparrow_ReconceilChecks(t *testing.T) {
 			// Send new config to channel
 			s.cfg.Checks = tt.newChecksConfig
 
-			s.ReconceilChecks(context.Background())
+			s.ReconcileChecks(context.Background())
 
 			for newChecksConfigName := range tt.newChecksConfig {
 				check := checks.RegisteredChecks[newChecksConfigName]()

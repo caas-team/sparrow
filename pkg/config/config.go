@@ -1,8 +1,7 @@
 package config
 
 type Config struct {
-	Checks  map[string]any
-	Updated chan bool
+	Checks map[string]any
 }
 
 func NewConfig() *Config {

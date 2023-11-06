@@ -48,13 +48,13 @@ func (s *Sparrow) Run(ctx context.Context) error {
 			// Config got updated
 			// Set checks
 			s.cfg.Checks = configChecks
-			s.ReconceilChecks(ctx)
+			s.ReconcileChecks(ctx)
 		}
 	}
 }
 
 // Register new Checks, unregister removed Checks & reset Configs of Checks
-func (s *Sparrow) ReconceilChecks(ctx context.Context) {
+func (s *Sparrow) ReconcileChecks(ctx context.Context) {
 	for name, check := range s.cfg.Checks {
 		if existingCheck, ok := s.checks[name]; ok {
 			// Check already registered, reset config
