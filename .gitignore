@@ -20,3 +20,6 @@
 # Go workspace file
 go.work
 gen
+
+# generated interface mock files
+*_moq.go

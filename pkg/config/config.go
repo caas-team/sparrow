@@ -1,4 +1,4 @@
-package sparrow
+package config
 
 type Config struct {
 	Checks map[string]any
