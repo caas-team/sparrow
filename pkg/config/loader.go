@@ -2,7 +2,6 @@ package config
 
 import (
 	"context"
-	"strings"
 )
 
 const (
@@ -15,10 +14,5 @@ type Loader interface {
 }
 
 func NewLoader(cfg *Config, cCfgChecks chan<- map[string]any) Loader {
-	switch strings.ToUpper("cfg.loaderTyp") {
-	case gitlabLoader:
-		return NewHttpLoader(cfg, cCfgChecks)
-	default:
-		return NewHttpLoader(cfg, cCfgChecks)
-	}
+	return NewHttpLoader(cfg, cCfgChecks)
 }

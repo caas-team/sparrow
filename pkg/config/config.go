@@ -1,9 +1,8 @@
 package config
 
 type Config struct {
-	Checks  map[string]any
-	Updated chan bool
-	Loader  LoaderConfig
+	Checks map[string]any
+	Loader LoaderConfig
 }
 
 // LoaderConfig is the configuration for loader
