@@ -27,6 +27,13 @@ tbd
 
 tbd
 
+Priority of configuration (high to low):
+
+1. CLI flags
+2. Environment variables 
+3. Defined configuration file
+4. Default configuration file
+
 ## Development
 
 tbd
