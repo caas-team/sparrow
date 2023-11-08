@@ -35,6 +35,8 @@ type Check interface {
 }
 
 type Result struct {
+	// Check is the name of the check
+	Check string `json:"-"`
 	// data contains performance metrics about the check run
 	Data any `json:"data"`
 	// Timestamp is the UTC time the check was run

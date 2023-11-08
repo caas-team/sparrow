@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/caas-team/sparrow/pkg/db"
+
 	"github.com/caas-team/sparrow/pkg/checks"
 	"github.com/caas-team/sparrow/pkg/config"
 	"github.com/getkin/kin-openapi/openapi3"
@@ -17,6 +19,8 @@ type Sparrow struct {
 	loader     config.Loader
 	cfg        *config.Config
 	cCfgChecks chan map[string]any
+
+	db db.DB
 }
 
 // New creates a new sparrow from a given configfile
@@ -29,21 +33,23 @@ func New(cfg *config.Config) *Sparrow {
 		cCfgChecks: make(chan map[string]any),
 	}
 	sparrow.loader = config.NewLoader(cfg, sparrow.cCfgChecks)
+	sparrow.db = db.NewInMemory()
 	return sparrow
 }
 
 // Run starts the sparrow
 func (s *Sparrow) Run(ctx context.Context) error {
 	// TODO Setup before checks run
-	// setup database
 	// setup http server
 	for {
 		select {
 		case <-ctx.Done():
+			if err := ctx.Err(); err != nil {
+				return err
+			}
 			return nil
 		case result := <-s.cResult:
-			// TODO write result to database
-			fmt.Println(result)
+			go s.db.Save(result)
 		case configChecks := <-s.cCfgChecks:
 			// Config got updated
 			// Set checks
