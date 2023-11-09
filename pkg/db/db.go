@@ -8,6 +8,8 @@ import (
 
 type DB interface {
 	Save(result checks.ResultDTO)
+	Get(check string) checks.Result
+	List() map[string]*checks.Result
 }
 
 type InMemory struct {
@@ -31,4 +33,21 @@ func (i *InMemory) Save(result checks.ResultDTO) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 	i.data[result.Name] = result.Result
+}
+
+func (i *InMemory) Get(check string) checks.Result {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+	return *i.data[check]
+}
+
+// Returns a copy of the map
+func (i *InMemory) List() map[string]*checks.Result {
+	results := make(map[string]*checks.Result)
+	i.mu.Lock()
+	for k, v := range i.data {
+		results[k] = v
+	}
+	defer i.mu.Unlock()
+	return results
 }
