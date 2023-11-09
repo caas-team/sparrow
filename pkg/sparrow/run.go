@@ -13,8 +13,9 @@ import (
 )
 
 type Sparrow struct {
-	checks  map[string]checks.Check
-	cResult chan checks.Result
+	checks      map[string]checks.Check
+	resultFanIn map[string]chan checks.Result
+	cResult     chan checks.ResultDTO
 
 	loader     config.Loader
 	cfg        *config.Config
@@ -27,10 +28,10 @@ type Sparrow struct {
 func New(cfg *config.Config) *Sparrow {
 	// TODO read this from config file
 	sparrow := &Sparrow{
-		checks:     make(map[string]checks.Check),
-		cResult:    make(chan checks.Result),
-		cfg:        cfg,
-		cCfgChecks: make(chan map[string]any),
+		checks:      make(map[string]checks.Check),
+		resultFanIn: make(map[string]chan checks.Result),
+		cfg:         cfg,
+		cCfgChecks:  make(chan map[string]any),
 	}
 	sparrow.loader = config.NewLoader(cfg, sparrow.cCfgChecks)
 	sparrow.db = db.NewInMemory()
@@ -41,6 +42,7 @@ func New(cfg *config.Config) *Sparrow {
 func (s *Sparrow) Run(ctx context.Context) error {
 	// TODO Setup before checks run
 	// setup http server
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -63,7 +65,7 @@ func (s *Sparrow) Run(ctx context.Context) error {
 func (s *Sparrow) ReconcileChecks(ctx context.Context) {
 	for name, check := range s.cfg.Checks {
 		if existingCheck, ok := s.checks[name]; ok {
-			// Check already registered, reset config
+			// Check already registered, update its config
 			err := existingCheck.SetConfig(ctx, check)
 			if err != nil {
 				log.Printf("Failed to reset config for check, check will run with last applies config - %s: %s", name, err.Error())
@@ -74,11 +76,16 @@ func (s *Sparrow) ReconcileChecks(ctx context.Context) {
 		check := checks.RegisteredChecks[name]()
 		s.checks[name] = check
 
+		// Create a fan in channel for the check
+		checkChan := make(chan checks.Result)
+		s.resultFanIn[name] = checkChan
+
 		err := check.SetConfig(ctx, check)
 		if err != nil {
 			log.Printf("Failed to set config for check %s: %s", name, err.Error())
 		}
-		err = check.Startup(ctx, s.cResult)
+		go fanInResults(checkChan, s.cResult, check.Name())
+		err = check.Startup(ctx, checkChan)
 		if err != nil {
 			log.Printf("Failed to startup check %s: %s", name, err.Error())
 		}
@@ -89,10 +96,28 @@ func (s *Sparrow) ReconcileChecks(ctx context.Context) {
 		// Check has been removed from config; shutdown and remove
 		if _, ok := s.cfg.Checks[existingCheckName]; !ok {
 			existingCheck.Shutdown(ctx)
+			if c, ok := s.resultFanIn[existingCheck.Name()]; ok {
+				// close fan in channel if it exists
+				close(c)
+				delete(s.resultFanIn, existingCheck.Name())
+			}
+
 			delete(s.checks, existingCheckName)
 		}
 	}
 
+}
+
+func fanInResults(checkChan chan checks.Result, cResult chan checks.ResultDTO, name string) {
+	// this is a fan in for the checks
+	// it allows augmenting the results with the check name which is needed by the db
+	// without putting the responsibility of providing the name on every iteration on the check
+	for i := range checkChan {
+		cResult <- checks.ResultDTO{
+			Name:   name,
+			Result: &i,
+		}
+	}
 }
 
 var oapiBoilerplate = openapi3.T{

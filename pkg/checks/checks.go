@@ -32,11 +32,11 @@ type Check interface {
 	SetConfig(ctx context.Context, config any) error
 	// Should return an openapi3.SchemaRef of the result type returned by the check
 	Schema() (*openapi3.SchemaRef, error)
+	// Returns the checks Name
+	Name() string
 }
 
 type Result struct {
-	// Check is the name of the check
-	Check string `json:"-"`
 	// data contains performance metrics about the check run
 	Data any `json:"data"`
 	// Timestamp is the UTC time the check was run
@@ -44,4 +44,9 @@ type Result struct {
 	// Err should be nil if the check ran successfully indicating the check is "healthy"
 	// if the check failed, this should be an error message that will be logged and returned to an API user
 	Err string `json:"error"`
+}
+
+type ResultDTO struct {
+	Name   string
+	Result *Result
 }

@@ -61,3 +61,7 @@ func (rt *RoundTrip) Schema() (*openapi3.SchemaRef, error) {
 	return OpenapiFromPerfData[roundTripData](roundTripData{})
 
 }
+
+func (rt *RoundTrip) Name() string {
+	return "http"
+}
