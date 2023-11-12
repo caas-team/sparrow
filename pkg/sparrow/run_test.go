@@ -2,6 +2,7 @@ package sparrow
 
 import (
 	"context"
+	"log/slog"
 	"reflect"
 	"testing"
 
@@ -158,6 +159,7 @@ func TestSparrow_ReconceilChecks(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &Sparrow{
+				log:        slog.Default(),
 				checks:     tt.fields.checks,
 				cResult:    tt.fields.cResult,
 				loader:     tt.fields.loader,

@@ -2,7 +2,8 @@ package cmd
 
 import (
 	"context"
-	"log"
+	"log/slog"
+	"os"
 
 	"github.com/caas-team/sparrow/pkg/config"
 	"github.com/caas-team/sparrow/pkg/sparrow"
@@ -49,6 +50,7 @@ func NewCmdRun() *cobra.Command {
 // run is the entry point to start the sparrow
 func run(fm *RunFlagsNameMapping) func(cmd *cobra.Command, args []string) {
 	return func(cmd *cobra.Command, args []string) {
+		log := slog.New(slog.NewTextHandler(os.Stderr, nil))
 		cfg := config.NewConfig()
 
 		cfg.SetLoaderType(viper.GetString(fm.loaderType))
@@ -57,12 +59,13 @@ func run(fm *RunFlagsNameMapping) func(cmd *cobra.Command, args []string) {
 		cfg.SetLoaderHttpToken(viper.GetString(fm.loaderHttpToken))
 
 		if err := cfg.Validate(); err != nil {
-			log.Panic(err)
+			log.Error("error while validating the config", "error", err)
+			panic(err)
 		}
 
 		sparrow := sparrow.New(cfg)
 
-		log.Println("running sparrow")
+		log.Info("running sparrow")
 		if err := sparrow.Run(context.Background()); err != nil {
 			panic(err)
 		}

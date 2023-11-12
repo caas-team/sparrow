@@ -3,7 +3,8 @@ package sparrow
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
+	"os"
 
 	"github.com/caas-team/sparrow/pkg/checks"
 	"github.com/caas-team/sparrow/pkg/config"
@@ -17,6 +18,8 @@ type Sparrow struct {
 	loader     config.Loader
 	cfg        *config.Config
 	cCfgChecks chan map[string]any
+
+	log *slog.Logger
 }
 
 // New creates a new sparrow from a given configfile
@@ -27,6 +30,7 @@ func New(cfg *config.Config) *Sparrow {
 		cResult:    make(chan checks.Result),
 		cfg:        cfg,
 		cCfgChecks: make(chan map[string]any),
+		log:        slog.New(slog.NewTextHandler(os.Stderr, nil)),
 	}
 	sparrow.loader = config.NewLoader(cfg, sparrow.cCfgChecks)
 	return sparrow
@@ -60,7 +64,7 @@ func (s *Sparrow) ReconcileChecks(ctx context.Context) {
 			// Check already registered, reset config
 			err := existingCheck.SetConfig(ctx, check)
 			if err != nil {
-				log.Printf("Failed to reset config for check, check will run with last applies config - %s: %s", name, err.Error())
+				s.log.ErrorContext(ctx, "Failed to reset config for check, check will run with last applies config", "name", name, "error", err)
 			}
 			continue
 		}
@@ -70,11 +74,11 @@ func (s *Sparrow) ReconcileChecks(ctx context.Context) {
 
 		err := check.SetConfig(ctx, check)
 		if err != nil {
-			log.Printf("Failed to set config for check %s: %s", name, err.Error())
+			s.log.ErrorContext(ctx, "Failed to set config for check", "name", name, "error", err)
 		}
 		err = check.Startup(ctx, s.cResult)
 		if err != nil {
-			log.Printf("Failed to startup check %s: %s", name, err.Error())
+			s.log.ErrorContext(ctx, "Failed to startup check", "name", name, "error", err)
 		}
 		go check.Run(ctx)
 	}
