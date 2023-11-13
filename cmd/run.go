@@ -50,7 +50,7 @@ func NewCmdRun() *cobra.Command {
 // run is the entry point to start the sparrow
 func run(fm *RunFlagsNameMapping) func(cmd *cobra.Command, args []string) {
 	return func(cmd *cobra.Command, args []string) {
-		log := slog.New(slog.NewTextHandler(os.Stderr, nil))
+		log := slog.New(slog.NewJSONHandler(os.Stderr, nil))
 		cfg := config.NewConfig()
 
 		cfg.SetLoaderType(viper.GetString(fm.loaderType))
@@ -59,13 +59,13 @@ func run(fm *RunFlagsNameMapping) func(cmd *cobra.Command, args []string) {
 		cfg.SetLoaderHttpToken(viper.GetString(fm.loaderHttpToken))
 
 		if err := cfg.Validate(); err != nil {
-			log.Error("error while validating the config", "error", err)
+			log.Error("Error while validating the config", "error", err)
 			panic(err)
 		}
 
 		sparrow := sparrow.New(cfg)
 
-		log.Info("running sparrow")
+		log.Info("Running sparrow")
 		if err := sparrow.Run(context.Background()); err != nil {
 			panic(err)
 		}

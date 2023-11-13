@@ -30,7 +30,7 @@ func New(cfg *config.Config) *Sparrow {
 		cResult:    make(chan checks.Result),
 		cfg:        cfg,
 		cCfgChecks: make(chan map[string]any),
-		log:        slog.New(slog.NewTextHandler(os.Stderr, nil)),
+		log:        slog.New(slog.NewJSONHandler(os.Stderr, nil)),
 	}
 	sparrow.loader = config.NewLoader(cfg, sparrow.cCfgChecks)
 	return sparrow
@@ -60,11 +60,12 @@ func (s *Sparrow) Run(ctx context.Context) error {
 // Register new Checks, unregister removed Checks & reset Configs of Checks
 func (s *Sparrow) ReconcileChecks(ctx context.Context) {
 	for name, check := range s.cfg.Checks {
+		log := s.log.With("name", name)
 		if existingCheck, ok := s.checks[name]; ok {
 			// Check already registered, reset config
 			err := existingCheck.SetConfig(ctx, check)
 			if err != nil {
-				s.log.ErrorContext(ctx, "Failed to reset config for check, check will run with last applies config", "name", name, "error", err)
+				log.ErrorContext(ctx, "Failed to reset config for check, check will run with last applies config", "error", err)
 			}
 			continue
 		}
@@ -74,11 +75,11 @@ func (s *Sparrow) ReconcileChecks(ctx context.Context) {
 
 		err := check.SetConfig(ctx, check)
 		if err != nil {
-			s.log.ErrorContext(ctx, "Failed to set config for check", "name", name, "error", err)
+			log.ErrorContext(ctx, "Failed to set config for check", "name", name, "error", err)
 		}
 		err = check.Startup(ctx, s.cResult)
 		if err != nil {
-			s.log.ErrorContext(ctx, "Failed to startup check", "name", name, "error", err)
+			log.ErrorContext(ctx, "Failed to startup check", "name", name, "error", err)
 		}
 		go check.Run(ctx)
 	}
