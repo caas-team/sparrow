@@ -34,6 +34,16 @@ Priority of configuration (high to low):
 3. Defined configuration file
 4. Default configuration file
 
+Example runtime configuration:
+
+```YAML
+apiVersion: 0.0.1
+kind: Config
+checks:
+  health:
+    enabled: true
+```
+
 ## Development
 
 tbd
