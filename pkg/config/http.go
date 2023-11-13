@@ -67,7 +67,7 @@ func (gl *HttpLoader) GetRuntimeConfig(ctx context.Context) (*RuntimeConfig, err
 	log := gl.log.With("url", gl.cfg.Loader.http.url)
 
 	client := http.DefaultClient
-	client.Timeout = time.Minute
+	client.Timeout = gl.cfg.Loader.http.timeout
 
 	req, err := http.NewRequestWithContext(ctx, "GET", gl.cfg.Loader.http.url, nil)
 	if err != nil {
