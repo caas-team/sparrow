@@ -59,21 +59,26 @@ func (s *Sparrow) Run(ctx context.Context) error {
 
 // Register new Checks, unregister removed Checks & reset Configs of Checks
 func (s *Sparrow) ReconcileChecks(ctx context.Context) {
-	for name, check := range s.cfg.Checks {
+	for name, checkCfg := range s.cfg.Checks {
 		log := s.log.With("name", name)
 		if existingCheck, ok := s.checks[name]; ok {
 			// Check already registered, reset config
-			err := existingCheck.SetConfig(ctx, check)
+			err := existingCheck.SetConfig(ctx, checkCfg)
 			if err != nil {
 				log.ErrorContext(ctx, "Failed to reset config for check, check will run with last applies config", "error", err)
 			}
 			continue
 		}
 		// Check is a new Check and needs to be registered
-		check := checks.RegisteredChecks[name]()
+		getRegisteredCheck := checks.RegisteredChecks[name]
+		if getRegisteredCheck == nil {
+			log.WarnContext(ctx, "Check is not registered")
+			continue
+		}
+		check := getRegisteredCheck()
 		s.checks[name] = check
 
-		err := check.SetConfig(ctx, check)
+		err := check.SetConfig(ctx, checkCfg)
 		if err != nil {
 			log.ErrorContext(ctx, "Failed to set config for check", "name", name, "error", err)
 		}
