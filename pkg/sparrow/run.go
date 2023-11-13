@@ -41,6 +41,10 @@ func (s *Sparrow) Run(ctx context.Context) error {
 	// TODO Setup before checks run
 	// setup database
 	// setup http server
+
+	// Start the runtime configuration loader
+	go s.loader.Run(ctx)
+
 	for {
 		select {
 		case <-ctx.Done():
