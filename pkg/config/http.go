@@ -71,7 +71,7 @@ func (gl *HttpLoader) GetRuntimeConfig(ctx context.Context) (*RuntimeConfig, err
 
 	req, err := http.NewRequestWithContext(ctx, "GET", gl.cfg.Loader.http.url, nil)
 	if err != nil {
-		log.Debug("Could not create http GET request", "error", err.Error())
+		log.Error("Could not create http GET request", "error", err.Error())
 		return nil, err
 	}
 	if gl.cfg.Loader.http.token != "" {
@@ -80,26 +80,26 @@ func (gl *HttpLoader) GetRuntimeConfig(ctx context.Context) (*RuntimeConfig, err
 
 	res, err := client.Do(req)
 	if err != nil {
-		log.Debug("Http get request failed", "error", err.Error())
+		log.Error("Http get request failed", "error", err.Error())
 		return nil, err
 	}
 	defer res.Body.Close()
 
 	if res.StatusCode != 200 {
-		log.Debug("Http get request failed", "status", res.Status)
+		log.Error("Http get request failed", "status", res.Status)
 		return nil, fmt.Errorf("request fail, status is %s", res.Status)
 	}
 
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
-		log.Debug("Could not read response body", "error", err.Error())
+		log.Error("Could not read response body", "error", err.Error())
 		return nil, err
 	}
 	log.Debug("Successfully got response")
 
 	runtimeCfg := &RuntimeConfig{}
 	if err := yaml.Unmarshal(body, &runtimeCfg); err != nil {
-		log.Debug("Could not unmarshal response", "error", err.Error())
+		log.Error("Could not unmarshal response", "error", err.Error())
 		return nil, err
 	}
 
