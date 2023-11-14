@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"os"
 
 	"github.com/caas-team/sparrow/pkg/checks"
 	"github.com/caas-team/sparrow/pkg/config"
@@ -23,14 +22,14 @@ type Sparrow struct {
 }
 
 // New creates a new sparrow from a given configfile
-func New(cfg *config.Config) *Sparrow {
+func New(cfg *config.Config, log *slog.Logger) *Sparrow {
 	// TODO read this from config file
 	sparrow := &Sparrow{
 		checks:     make(map[string]checks.Check),
 		cResult:    make(chan checks.Result),
 		cfg:        cfg,
 		cCfgChecks: make(chan map[string]any),
-		log:        slog.New(slog.NewJSONHandler(os.Stderr, nil)),
+		log:        log,
 	}
 	sparrow.loader = config.NewLoader(cfg, sparrow.cCfgChecks)
 	return sparrow

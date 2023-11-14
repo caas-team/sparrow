@@ -78,7 +78,7 @@ func run(fm *RunFlagsNameMapping) func(cmd *cobra.Command, args []string) {
 			panic(err)
 		}
 
-		sparrow := sparrow.New(cfg)
+		sparrow := sparrow.New(cfg, log)
 
 		log.Info("Running sparrow")
 		if err := sparrow.Run(context.Background()); err != nil {
