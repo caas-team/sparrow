@@ -88,6 +88,10 @@ func (s *Sparrow) ReconcileChecks(ctx context.Context) {
 		err = check.Startup(ctx, checkChan)
 		if err != nil {
 			log.Printf("Failed to startup check %s: %s", name, err.Error())
+			close(checkChan)
+			// TODO discuss whether this should return an error instead?
+			continue
+
 		}
 		go check.Run(ctx)
 	}
