@@ -8,7 +8,7 @@ import (
 )
 
 // ensure that RoundTrip implements the Check interface
-var _ Check = &RoundTrip{}
+var _ Check = (*RoundTrip)(nil)
 
 type RoundTripConfig struct{}
 type roundTripData struct {
@@ -60,8 +60,4 @@ func (rt *RoundTrip) SetConfig(ctx context.Context, config any) error {
 func (rt *RoundTrip) Schema() (*openapi3.SchemaRef, error) {
 	return OpenapiFromPerfData[roundTripData](roundTripData{})
 
-}
-
-func (rt *RoundTrip) Name() string {
-	return "http"
 }

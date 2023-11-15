@@ -84,7 +84,7 @@ func (s *Sparrow) ReconcileChecks(ctx context.Context) {
 		if err != nil {
 			log.Printf("Failed to set config for check %s: %s", name, err.Error())
 		}
-		go fanInResults(checkChan, s.cResult, check.Name())
+		go fanInResults(checkChan, s.cResult, name)
 		err = check.Startup(ctx, checkChan)
 		if err != nil {
 			log.Printf("Failed to startup check %s: %s", name, err.Error())
@@ -96,10 +96,10 @@ func (s *Sparrow) ReconcileChecks(ctx context.Context) {
 		// Check has been removed from config; shutdown and remove
 		if _, ok := s.cfg.Checks[existingCheckName]; !ok {
 			existingCheck.Shutdown(ctx)
-			if c, ok := s.resultFanIn[existingCheck.Name()]; ok {
+			if c, ok := s.resultFanIn[existingCheckName]; ok {
 				// close fan in channel if it exists
 				close(c)
-				delete(s.resultFanIn, existingCheck.Name())
+				delete(s.resultFanIn, existingCheckName)
 			}
 
 			delete(s.checks, existingCheckName)
