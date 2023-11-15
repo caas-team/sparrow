@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/caas-team/sparrow/internal/logger"
 	"github.com/caas-team/sparrow/pkg/checks"
 	"github.com/caas-team/sparrow/pkg/config"
 	"github.com/getkin/kin-openapi/openapi3"
@@ -22,14 +23,14 @@ type Sparrow struct {
 }
 
 // New creates a new sparrow from a given configfile
-func New(cfg *config.Config, log *slog.Logger) *Sparrow {
+func New(ctx context.Context, cfg *config.Config) *Sparrow {
 	// TODO read this from config file
 	sparrow := &Sparrow{
 		checks:     make(map[string]checks.Check),
 		cResult:    make(chan checks.Result),
 		cfg:        cfg,
 		cCfgChecks: make(chan map[string]any),
-		log:        log,
+		log:        logger.FromContext(ctx),
 	}
 	sparrow.loader = config.NewLoader(cfg, sparrow.cCfgChecks)
 	return sparrow
