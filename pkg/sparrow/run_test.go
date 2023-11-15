@@ -2,10 +2,11 @@ package sparrow
 
 import (
 	"context"
-	"github.com/caas-team/sparrow/pkg/db"
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/caas-team/sparrow/pkg/db"
 
 	"github.com/caas-team/sparrow/pkg/checks"
 	"github.com/caas-team/sparrow/pkg/config"
@@ -84,9 +85,6 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 		},
 		StartupFunc: func(ctx context.Context, cResult chan<- checks.Result) error {
 			return nil
-		},
-		NameFunc: func() string {
-			return "check"
 		},
 	}
 
