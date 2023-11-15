@@ -1,16 +1,16 @@
 package db
 
 import (
-	"github.com/caas-team/sparrow/pkg/checks"
 	"reflect"
 	"sync"
 	"testing"
+
+	"github.com/caas-team/sparrow/pkg/checks"
 )
 
 func TestInMemory_Save(t *testing.T) {
 	type fields struct {
-		data map[string]*checks.Result
-		mu   sync.Mutex
+		data map[string]checks.Result
 	}
 	type args struct {
 		result checks.ResultDTO
@@ -20,16 +20,19 @@ func TestInMemory_Save(t *testing.T) {
 		fields fields
 		args   args
 	}{
-		{name: "Saves without error", fields: fields{data: make(map[string]*checks.Result), mu: sync.Mutex{}}, args: args{result: checks.ResultDTO{Name: "Test", Result: &checks.Result{Data: 0}}}},
+		{name: "Saves without error", fields: fields{data: make(map[string]checks.Result)}, args: args{result: checks.ResultDTO{Name: "Test", Result: &checks.Result{Data: 0}}}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			i := &InMemory{
-				data: tt.fields.data,
-				mu:   tt.fields.mu,
+				data: sync.Map{},
 			}
+			for k, v := range tt.fields.data {
+				i.data.Store(k, v)
+			}
+
 			i.Save(tt.args.result)
-			if val, ok := i.data[tt.args.result.Name]; !ok {
+			if val, ok := i.data.Load(tt.args.result.Name); !ok {
 				t.Errorf("Expected to find key %s in map", tt.args.result.Name)
 			} else {
 				if !reflect.DeepEqual(val, tt.args.result.Result) {
@@ -45,7 +48,7 @@ func TestNewInMemory(t *testing.T) {
 		name string
 		want *InMemory
 	}{
-		{name: "Creates without nil pointers", want: &InMemory{data: make(map[string]*checks.Result), mu: sync.Mutex{}}},
+		{name: "Creates without nil pointers", want: &InMemory{data: sync.Map{}}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -59,30 +62,40 @@ func TestNewInMemory(t *testing.T) {
 func TestInMemory_Get(t *testing.T) {
 	type fields struct {
 		data map[string]*checks.Result
-		mu   sync.Mutex
 	}
 	type args struct {
 		check string
+	}
+	type want struct {
+		check checks.Result
+		ok    bool
 	}
 	tests := []struct {
 		name   string
 		fields fields
 		args   args
-		want   checks.Result
+		want   want
 	}{
-		{name: "Can get value", fields: fields{mu: sync.Mutex{}, data: map[string]*checks.Result{
+		{name: "Can get value", fields: fields{data: map[string]*checks.Result{
 			"alpha": {Data: 0},
 			"beta":  {Data: 1},
-		}}, want: checks.Result{Data: 1}, args: args{check: "beta"}},
+		}}, want: want{ok: true, check: checks.Result{Data: 1}}, args: args{check: "beta"}},
+		{name: "Not found", fields: fields{data: map[string]*checks.Result{
+			"alpha": {Data: 0},
+			"beta":  {Data: 1},
+		}}, want: want{ok: false, check: checks.Result{}}, args: args{check: "NOTFOUND"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			i := &InMemory{
-				data: tt.fields.data,
-				mu:   tt.fields.mu,
+				data: sync.Map{},
 			}
-			if got := i.Get(tt.args.check); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("Get() = %v, want %v", got, tt.want)
+			for k, v := range tt.fields.data {
+				i.data.Store(k, v)
+			}
+			if got, ok := i.Get(tt.args.check); !reflect.DeepEqual(got, tt.want.check) || ok != tt.want.ok {
+				t.Errorf("Get() = %v, want %v", got, tt.want.check)
+				t.Errorf("Ok = %v, want %v", ok, tt.want.ok)
 			}
 		})
 	}
@@ -91,20 +104,18 @@ func TestInMemory_Get(t *testing.T) {
 func TestInMemory_List(t *testing.T) {
 	type fields struct {
 		data map[string]*checks.Result
-		mu   sync.Mutex
 	}
 	tests := []struct {
 		name   string
 		fields fields
-		want   map[string]*checks.Result
+		want   map[string]checks.Result
 	}{
 		{name: "Lists all entries", fields: fields{
 			data: map[string]*checks.Result{
 				"alpha": {Data: 0},
 				"beta":  {Data: 1},
 			},
-			mu: sync.Mutex{},
-		}, want: map[string]*checks.Result{
+		}, want: map[string]checks.Result{
 			"alpha": {Data: 0},
 			"beta":  {Data: 1},
 		}},
@@ -112,11 +123,28 @@ func TestInMemory_List(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			i := &InMemory{
-				data: tt.fields.data,
-				mu:   tt.fields.mu,
+				data: sync.Map{},
 			}
-			if got := i.List(); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("List() = %v, want %v", got, tt.want)
+			for k, v := range tt.fields.data {
+				i.data.Store(k, v)
+			}
+
+			if got := i.List(); got == nil {
+				t.Errorf("Expected got != nil")
+			} else {
+				if !reflect.DeepEqual(tt.want, got) {
+					defer t.Fail()
+					t.Log("tt.want != got")
+					for k, v := range tt.want {
+						found, ok := i.data.Load(k)
+						if !ok {
+							t.Logf("Failed to find expected key %s", k)
+						}
+						if !reflect.DeepEqual(v, found) {
+							t.Logf("Value for key %s in db does not equal %v got %v instead", k, v, found)
+						}
+					}
+				}
 			}
 		})
 	}
@@ -132,7 +160,7 @@ func TestInMemory_ListThreadsafe(t *testing.T) {
 		t.Errorf("Expected 2 entries but got %d", len(got))
 	}
 
-	got["alpha"] = &checks.Result{Data: 50}
+	got["alpha"] = checks.Result{Data: 50}
 
 	newGot := db.List()
 	if newGot["alpha"].Data != 0 {
