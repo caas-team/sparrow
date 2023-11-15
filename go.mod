@@ -4,6 +4,7 @@ go 1.21
 
 require (
 	github.com/getkin/kin-openapi v0.120.0
+	github.com/go-chi/chi/v5 v5.0.10
 	github.com/jarcoal/httpmock v1.3.1
 	github.com/spf13/cobra v1.8.0
 	github.com/spf13/viper v1.17.0

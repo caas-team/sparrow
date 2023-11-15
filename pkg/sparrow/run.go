@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/caas-team/sparrow/pkg/api"
 	"github.com/caas-team/sparrow/pkg/checks"
 	"github.com/caas-team/sparrow/pkg/config"
 	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/go-chi/chi/v5"
 )
 
 type Sparrow struct {
@@ -17,6 +19,7 @@ type Sparrow struct {
 	loader     config.Loader
 	cfg        *config.Config
 	cCfgChecks chan map[string]any
+	router     chi.Router
 }
 
 // New creates a new sparrow from a given configfile
@@ -27,8 +30,11 @@ func New(cfg *config.Config) *Sparrow {
 		cResult:    make(chan checks.Result),
 		cfg:        cfg,
 		cCfgChecks: make(chan map[string]any),
+		router:     chi.NewRouter(),
 	}
+
 	sparrow.loader = config.NewLoader(cfg, sparrow.cCfgChecks)
+	api.New(sparrow.router)
 	return sparrow
 }
 
