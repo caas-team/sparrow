@@ -1,12 +1,17 @@
 package config
 
 import (
+	"context"
+	"log/slog"
 	"time"
 
 	"github.com/caas-team/sparrow/internal/helper"
+	"github.com/caas-team/sparrow/internal/logger"
 )
 
 type Config struct {
+	log *slog.Logger
+
 	Checks map[string]any
 	Loader LoaderConfig
 }
@@ -28,8 +33,9 @@ type HttpLoaderConfig struct {
 }
 
 // NewConfig creates a new Config
-func NewConfig() *Config {
+func NewConfig(ctx context.Context) *Config {
 	return &Config{
+		log:    logger.FromContext(ctx),
 		Checks: map[string]any{},
 	}
 }
@@ -75,4 +81,8 @@ func (c *Config) SetLoaderHttpRetryCount(retryCount int) {
 // retryDelay in seconds
 func (c *Config) SetLoaderHttpRetryDelay(retryDelay int) {
 	c.Loader.http.retryCfg.Delay = time.Duration(retryDelay) * time.Second
+}
+
+func (c *Config) GetLogger() *slog.Logger {
+	return c.log
 }

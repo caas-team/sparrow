@@ -64,7 +64,7 @@ func run(fm *RunFlagsNameMapping) func(cmd *cobra.Command, args []string) {
 		log := logger.GetLogger()
 		ctx := logger.IntoContext(context.Background(), log)
 
-		cfg := config.NewConfig()
+		cfg := config.NewConfig(ctx)
 		cfg.SetLoaderType(viper.GetString(fm.loaderType))
 		cfg.SetLoaderInterval(viper.GetInt(fm.loaderInterval))
 		cfg.SetLoaderHttpUrl(viper.GetString(fm.loaderHttpUrl))

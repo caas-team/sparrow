@@ -20,8 +20,7 @@ type HttpLoader struct {
 
 func NewHttpLoader(cfg *Config, cCfgChecks chan<- map[string]any) *HttpLoader {
 	return &HttpLoader{
-		// TODO: set logger from cfg
-		log:        slog.Default().WithGroup("httpLoader"),
+		log:        cfg.GetLogger().WithGroup("httpLoader"),
 		cfg:        cfg,
 		cCfgChecks: cCfgChecks,
 	}

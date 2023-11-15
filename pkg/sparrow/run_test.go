@@ -14,6 +14,7 @@ import (
 )
 
 func TestSparrow_getOpenapi(t *testing.T) {
+	ctx := context.Background()
 	type fields struct {
 		checks  map[string]checks.Check
 		config  *config.Config
@@ -27,8 +28,8 @@ func TestSparrow_getOpenapi(t *testing.T) {
 	}
 	tests := []test{
 
-		{name: "no checks registered", fields: fields{checks: map[string]checks.Check{}, config: config.NewConfig()}, want: oapiBoilerplate, wantErr: false},
-		{name: "check registered", fields: fields{checks: map[string]checks.Check{"rtt": checks.GetRoundtripCheck()}, config: config.NewConfig()}, want: oapiBoilerplate, wantErr: false},
+		{name: "no checks registered", fields: fields{checks: map[string]checks.Check{}, config: config.NewConfig(ctx)}, want: oapiBoilerplate, wantErr: false},
+		{name: "check registered", fields: fields{checks: map[string]checks.Check{"rtt": checks.GetRoundtripCheck()}, config: config.NewConfig(ctx)}, want: oapiBoilerplate, wantErr: false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
