@@ -1,0 +1,5 @@
+apiVersion: 0.0.1
+kind: Config
+checks:
+  testCheck1:
+    enabled: true

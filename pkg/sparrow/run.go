@@ -43,6 +43,9 @@ func (s *Sparrow) Run(ctx context.Context) error {
 	// TODO Setup before checks run
 	// setup http server
 
+	// Start the runtime configuration loader
+	go s.loader.Run(ctx)
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -63,24 +66,29 @@ func (s *Sparrow) Run(ctx context.Context) error {
 
 // Register new Checks, unregister removed Checks & reset Configs of Checks
 func (s *Sparrow) ReconcileChecks(ctx context.Context) {
-	for name, check := range s.cfg.Checks {
+	for name, checkCfg := range s.cfg.Checks {
 		if existingCheck, ok := s.checks[name]; ok {
-			// Check already registered, update its config
-			err := existingCheck.SetConfig(ctx, check)
+			// Check already registered, reset config
+			err := existingCheck.SetConfig(ctx, checkCfg)
 			if err != nil {
 				log.Printf("Failed to reset config for check, check will run with last applies config - %s: %s", name, err.Error())
 			}
 			continue
 		}
 		// Check is a new Check and needs to be registered
-		check := checks.RegisteredChecks[name]()
+		getRegisteredCheck := checks.RegisteredChecks[name]
+		if getRegisteredCheck == nil {
+			log.Printf("Check %s is not registered", name)
+			continue
+		}
+		check := getRegisteredCheck()
 		s.checks[name] = check
 
 		// Create a fan in channel for the check
 		checkChan := make(chan checks.Result)
 		s.resultFanIn[name] = checkChan
 
-		err := check.SetConfig(ctx, check)
+		err := check.SetConfig(ctx, checkCfg)
 		if err != nil {
 			log.Printf("Failed to set config for check %s: %s", name, err.Error())
 		}
