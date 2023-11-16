@@ -30,6 +30,7 @@ func New(cfg *config.Config) *Sparrow {
 	sparrow := &Sparrow{
 		checks:      make(map[string]checks.Check),
 		resultFanIn: make(map[string]chan checks.Result),
+		cResult:     make(chan checks.ResultDTO),
 		cfg:         cfg,
 		cCfgChecks:  make(chan map[string]any),
 	}
