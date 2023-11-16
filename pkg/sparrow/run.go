@@ -36,6 +36,7 @@ func New(cfg *config.Config) *Sparrow {
 	}
 
 	sparrow.loader = config.NewLoader(cfg, sparrow.cCfgChecks)
+	sparrow.db = db.NewInMemory()
 	return sparrow
 }
 
@@ -57,7 +58,7 @@ func (s *Sparrow) Run(ctx context.Context) error {
 			}
 			return nil
 		case result := <-s.cResult:
-			s.db.Save(result)
+			go s.db.Save(result)
 		case configChecks := <-s.cCfgChecks:
 			// Config got updated
 			// Set checks
@@ -123,10 +124,11 @@ func (s *Sparrow) ReconcileChecks(ctx context.Context) {
 
 }
 
+// This is a fan in for the checks.
+//
+// It allows augmenting the results with the check name which is needed by the db
+// without putting the responsibility of providing the name on every iteration on the check
 func fanInResults(checkChan chan checks.Result, cResult chan checks.ResultDTO, name string) {
-	// this is a fan in for the checks
-	// it allows augmenting the results with the check name which is needed by the db
-	// without putting the responsibility of providing the name on every iteration on the check
 	for i := range checkChan {
 		cResult <- checks.ResultDTO{
 			Name:   name,

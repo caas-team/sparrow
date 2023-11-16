@@ -19,7 +19,6 @@ type InMemory struct {
 	// we can use a map of ringbuffers instead of a single value
 	// this ensures that we can save the last N results, where N is the size of the ringbuffer
 	// without having to worry about the size of the map
-	// TODO remoe pointer
 	data sync.Map
 }
 
@@ -35,7 +34,6 @@ func (i *InMemory) Save(result checks.ResultDTO) {
 }
 
 func (i *InMemory) Get(check string) (checks.Result, bool) {
-	// TODO refactor this to copy instead
 	tmp, ok := i.data.Load(check)
 	if !ok {
 		return checks.Result{}, false
