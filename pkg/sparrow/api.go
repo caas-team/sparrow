@@ -31,11 +31,6 @@ func (s *Sparrow) register() {
 //
 // Blocks until context is done
 func (s *Sparrow) api(ctx context.Context) error {
-	// TODO
-	// implement a way for checks to dynamically register and deregister at runtime
-	// easiest way is probably to use a map and write a handler that just does a plain
-	// old map.Get(path) and returns 404 if not found or call the checks handlers
-
 	cErr := make(chan error)
 	s.register()
 	server := http.Server{Addr: ":8081", Handler: s.router}
