@@ -4,6 +4,9 @@ import (
 	"context"
 	"reflect"
 	"testing"
+	"time"
+
+	"github.com/caas-team/sparrow/pkg/db"
 
 	"github.com/caas-team/sparrow/internal/logger"
 	"github.com/caas-team/sparrow/pkg/checks"
@@ -17,7 +20,7 @@ func TestSparrow_getOpenapi(t *testing.T) {
 	type fields struct {
 		checks  map[string]checks.Check
 		config  *config.Config
-		cResult chan checks.Result
+		cResult chan checks.ResultDTO
 	}
 	type test struct {
 		name    string
@@ -48,9 +51,10 @@ func TestSparrow_getOpenapi(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &Sparrow{
-				checks:  tt.fields.checks,
-				cfg:     tt.fields.config,
-				cResult: tt.fields.cResult,
+				checks:      tt.fields.checks,
+				cfg:         tt.fields.config,
+				cResult:     tt.fields.cResult,
+				resultFanIn: make(map[string]chan checks.Result),
 			}
 			got, err := s.Openapi()
 			if (err != nil) != tt.wantErr {
@@ -81,7 +85,7 @@ func TestSparrow_getOpenapi(t *testing.T) {
 	}
 }
 
-func TestSparrow_ReconceilChecks(t *testing.T) {
+func TestSparrow_ReconcileChecks(t *testing.T) {
 	ctx, cancel := logger.NewContextWithLogger(context.Background(), "sparrow-test")
 	defer cancel()
 
@@ -110,11 +114,14 @@ func TestSparrow_ReconceilChecks(t *testing.T) {
 	}
 
 	type fields struct {
-		checks     map[string]checks.Check
-		cResult    chan checks.Result
+		checks      map[string]checks.Check
+		resultFanIn map[string]chan checks.Result
+
+		cResult    chan checks.ResultDTO
 		loader     config.Loader
 		cfg        *config.Config
 		cCfgChecks chan map[string]any
+		db         db.DB
 	}
 
 	tests := []struct {
@@ -125,9 +132,10 @@ func TestSparrow_ReconceilChecks(t *testing.T) {
 		{
 			name: "no checks registered yet but register one",
 			fields: fields{
-				checks:     map[string]checks.Check{},
-				cfg:        &config.Config{},
-				cCfgChecks: make(chan map[string]any),
+				checks:      map[string]checks.Check{},
+				cfg:         &config.Config{},
+				cCfgChecks:  make(chan map[string]any),
+				resultFanIn: make(map[string]chan checks.Result),
 			},
 			newChecksConfig: map[string]any{
 				"alpha": "I like sparrows",
@@ -139,8 +147,9 @@ func TestSparrow_ReconceilChecks(t *testing.T) {
 				checks: map[string]checks.Check{
 					"alpha": checks.RegisteredChecks["alpha"](),
 				},
-				cfg:        &config.Config{},
-				cCfgChecks: make(chan map[string]any),
+				cfg:         &config.Config{},
+				cCfgChecks:  make(chan map[string]any),
+				resultFanIn: make(map[string]chan checks.Result),
 			},
 			newChecksConfig: map[string]any{
 				"alpha": "I like sparrows",
@@ -153,8 +162,9 @@ func TestSparrow_ReconceilChecks(t *testing.T) {
 				checks: map[string]checks.Check{
 					"alpha": checks.RegisteredChecks["alpha"](),
 				},
-				cfg:        &config.Config{},
-				cCfgChecks: make(chan map[string]any),
+				cfg:         &config.Config{},
+				cCfgChecks:  make(chan map[string]any),
+				resultFanIn: make(map[string]chan checks.Result),
 			},
 			newChecksConfig: map[string]any{},
 		},
@@ -165,8 +175,9 @@ func TestSparrow_ReconceilChecks(t *testing.T) {
 					"alpha": checks.RegisteredChecks["alpha"](),
 					"gamma": checks.RegisteredChecks["alpha"](),
 				},
-				cfg:        &config.Config{},
-				cCfgChecks: make(chan map[string]any),
+				cfg:         &config.Config{},
+				cCfgChecks:  make(chan map[string]any),
+				resultFanIn: make(map[string]chan checks.Result),
 			},
 			newChecksConfig: map[string]any{
 				"alpha": "I like sparrows",
@@ -177,11 +188,13 @@ func TestSparrow_ReconceilChecks(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &Sparrow{
-				checks:     tt.fields.checks,
-				cResult:    tt.fields.cResult,
-				loader:     tt.fields.loader,
-				cfg:        tt.fields.cfg,
-				cCfgChecks: tt.fields.cCfgChecks,
+				checks:      tt.fields.checks,
+				resultFanIn: tt.fields.resultFanIn,
+				cResult:     tt.fields.cResult,
+				loader:      tt.fields.loader,
+				cfg:         tt.fields.cfg,
+				cCfgChecks:  tt.fields.cCfgChecks,
+				db:          tt.fields.db,
 			}
 
 			// Send new config to channel
@@ -195,4 +208,32 @@ func TestSparrow_ReconceilChecks(t *testing.T) {
 			}
 		})
 	}
+}
+
+func Test_fanInResults(t *testing.T) {
+
+	checkChan := make(chan checks.Result)
+	cResult := make(chan checks.ResultDTO)
+	name := "check"
+	go fanInResults(checkChan, cResult, name)
+
+	result := checks.Result{
+		Timestamp: time.Time{},
+		Err:       "",
+		Data:      0,
+	}
+
+	checkChan <- result
+	output := <-cResult
+
+	want := checks.ResultDTO{
+		Name:   name,
+		Result: &result,
+	}
+
+	if !reflect.DeepEqual(output, want) {
+		t.Errorf("fanInResults() = %v, want %v", output, want)
+	}
+
+	close(checkChan)
 }

@@ -9,7 +9,7 @@ import (
 )
 
 // ensure that RoundTrip implements the Check interface
-var _ Check = &RoundTrip{}
+var _ Check = (*RoundTrip)(nil)
 
 type RoundTripConfig struct{}
 type roundTripData struct {
