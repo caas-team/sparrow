@@ -1,4 +1,4 @@
-package sparrow
+package api
 
 import (
 	"net/http"
@@ -25,11 +25,11 @@ func Test_routingTree_add(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			r := &routingTree{
+			r := &RoutingTree{
 				tree: tt.fields.tree,
 				mu:   tt.fields.mu,
 			}
-			r.add(tt.args.meth, tt.args.path, tt.args.handler)
+			r.Add(tt.args.meth, tt.args.path, tt.args.handler)
 
 			if _, ok := r.tree[tt.args.meth][tt.args.path]; !ok {
 				t.Errorf("routingTree.add() handler not added")
@@ -57,11 +57,11 @@ func Test_routingTree_remove(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			r := &routingTree{
+			r := &RoutingTree{
 				tree: tt.fields.tree,
 				mu:   tt.fields.mu,
 			}
-			r.remove(tt.args.meth, tt.args.path)
+			r.Remove(tt.args.meth, tt.args.path)
 
 			if _, ok := r.tree[tt.args.meth][tt.args.path]; ok {
 				t.Errorf("routingTree.remove() handler not removed")
@@ -92,11 +92,11 @@ func Test_routingTree_get(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			r := &routingTree{
+			r := &RoutingTree{
 				tree: tt.fields.tree,
 				mu:   tt.fields.mu,
 			}
-			handler, got := r.get(tt.args.meth, tt.args.path)
+			handler, got := r.Get(tt.args.meth, tt.args.path)
 			if got != tt.want1 {
 				t.Errorf("routingTree.get() got1 = %v, want %v", got, tt.want1)
 			} else {

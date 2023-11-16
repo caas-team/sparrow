@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 
+	"github.com/caas-team/sparrow/pkg/api"
 	"github.com/caas-team/sparrow/pkg/checks"
 	"github.com/caas-team/sparrow/pkg/config"
 	"github.com/caas-team/sparrow/pkg/db"
@@ -14,7 +15,7 @@ type Sparrow struct {
 	// TODO refactor this struct to be less convoluted
 	// split up responsibilities more clearly
 	checks      map[string]checks.Check
-	routingTree routingTree
+	routingTree api.RoutingTree
 	resultFanIn map[string]chan checks.Result
 	cResult     chan checks.ResultDTO
 
@@ -30,7 +31,7 @@ func New(cfg *config.Config) *Sparrow {
 	// TODO read this from config file
 	sparrow := &Sparrow{
 		router:      chi.NewRouter(),
-		routingTree: NewRoutingTree(),
+		routingTree: api.NewRoutingTree(),
 		checks:      make(map[string]checks.Check),
 		cResult:     make(chan checks.ResultDTO),
 		resultFanIn: make(map[string]chan checks.Result),
@@ -101,7 +102,7 @@ func (s *Sparrow) ReconcileChecks(ctx context.Context) {
 			log.Printf("Failed to set config for check %s: %s", name, err.Error())
 		}
 		go fanInResults(checkChan, s.cResult, name)
-		err = check.Startup(ctx, checkChan)
+		err = check.Startup(ctx, checkChan, &s.routingTree)
 		if err != nil {
 			log.Printf("Failed to startup check %s: %s", name, err.Error())
 			close(checkChan)

@@ -2,8 +2,11 @@ package checks
 
 import (
 	"context"
+	"fmt"
 	"net/http"
+	"time"
 
+	"github.com/caas-team/sparrow/pkg/api"
 	"github.com/getkin/kin-openapi/openapi3"
 )
 
@@ -27,10 +30,19 @@ func GetRoundtripCheck() Check {
 }
 
 func (rt *RoundTrip) Run(ctx context.Context) (Result, error) {
-	return Result{}, nil
+	for {
+		select {
+		case <-ctx.Done():
+			return Result{}, ctx.Err()
+		case <-time.After(time.Second):
+			fmt.Println("Sending data to db")
+			rt.c <- Result{Timestamp: time.Now(), Err: "", Data: roundTripData{Ms: 1000}}
+		}
+
+	}
 }
 
-func (rt *RoundTrip) Startup(ctx context.Context, cResult chan<- Result) error {
+func (rt *RoundTrip) Startup(ctx context.Context, cResult chan<- Result, router *api.RoutingTree) error {
 	// TODO register http handler for this check
 	http.HandleFunc("/rtt", func(w http.ResponseWriter, r *http.Request) {
 		// TODO handle

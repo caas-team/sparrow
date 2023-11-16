@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/caas-team/sparrow/pkg/api"
 	"github.com/caas-team/sparrow/pkg/db"
 
 	"github.com/caas-team/sparrow/pkg/checks"
@@ -83,7 +84,7 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 		ShutdownFunc: func(ctx context.Context) error {
 			return nil
 		},
-		StartupFunc: func(ctx context.Context, cResult chan<- checks.Result) error {
+		StartupFunc: func(ctx context.Context, cResult chan<- checks.Result, router *api.RoutingTree) error {
 			return nil
 		},
 	}

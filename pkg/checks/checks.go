@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/caas-team/sparrow/pkg/api"
 	"github.com/getkin/kin-openapi/openapi3"
 )
 
@@ -23,7 +24,7 @@ type Check interface {
 	// Startup is called once when the check is registered
 	// In the Run() method, the check should send results to the cResult channel
 	// this will cause sparrow to update its data store with the results
-	Startup(ctx context.Context, cResult chan<- Result) error
+	Startup(ctx context.Context, cResult chan<- Result, router *api.RoutingTree) error
 	// Shutdown is called once when the check is unregistered or sparrow shuts down
 	Shutdown(ctx context.Context) error
 	// SetConfig is called once when the check is registered

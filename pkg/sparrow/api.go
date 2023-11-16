@@ -179,7 +179,7 @@ func (s *Sparrow) handleChecks(w http.ResponseWriter, r *http.Request) {
 	meth := r.Method
 	path := r.URL.Path
 
-	handler, ok := s.routingTree.get(meth, path)
+	handler, ok := s.routingTree.Get(meth, path)
 	if !ok {
 		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte(http.StatusText(http.StatusNotFound)))
