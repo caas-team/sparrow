@@ -3,7 +3,6 @@ package sparrow
 import (
 	"context"
 	"fmt"
-	"log/slog"
 
 	"github.com/caas-team/sparrow/internal/logger"
 	"github.com/caas-team/sparrow/pkg/checks"
@@ -18,19 +17,16 @@ type Sparrow struct {
 	loader     config.Loader
 	cfg        *config.Config
 	cCfgChecks chan map[string]any
-
-	log *slog.Logger
 }
 
 // New creates a new sparrow from a given configfile
-func New(ctx context.Context, cfg *config.Config) *Sparrow {
+func New(cfg *config.Config) *Sparrow {
 	// TODO read this from config file
 	sparrow := &Sparrow{
 		checks:     make(map[string]checks.Check),
 		cResult:    make(chan checks.Result),
 		cfg:        cfg,
 		cCfgChecks: make(chan map[string]any),
-		log:        logger.FromContext(ctx),
 	}
 	sparrow.loader = config.NewLoader(cfg, sparrow.cCfgChecks)
 	return sparrow
@@ -38,6 +34,8 @@ func New(ctx context.Context, cfg *config.Config) *Sparrow {
 
 // Run starts the sparrow
 func (s *Sparrow) Run(ctx context.Context) error {
+	ctx, cancel := logger.NewContextWithLogger(ctx, "sparrow")
+	defer cancel()
 	// TODO Setup before checks run
 	// setup database
 	// setup http server
@@ -64,7 +62,7 @@ func (s *Sparrow) Run(ctx context.Context) error {
 // Register new Checks, unregister removed Checks & reset Configs of Checks
 func (s *Sparrow) ReconcileChecks(ctx context.Context) {
 	for name, checkCfg := range s.cfg.Checks {
-		log := s.log.With("name", name)
+		log := logger.FromContext(ctx).With("name", name)
 		if existingCheck, ok := s.checks[name]; ok {
 			// Check already registered, reset config
 			err := existingCheck.SetConfig(ctx, checkCfg)

@@ -2,10 +2,10 @@ package sparrow
 
 import (
 	"context"
-	"log/slog"
 	"reflect"
 	"testing"
 
+	"github.com/caas-team/sparrow/internal/logger"
 	"github.com/caas-team/sparrow/pkg/checks"
 	"github.com/caas-team/sparrow/pkg/config"
 	"github.com/getkin/kin-openapi/openapi3"
@@ -14,7 +14,6 @@ import (
 )
 
 func TestSparrow_getOpenapi(t *testing.T) {
-	ctx := context.Background()
 	type fields struct {
 		checks  map[string]checks.Check
 		config  *config.Config
@@ -27,9 +26,24 @@ func TestSparrow_getOpenapi(t *testing.T) {
 		wantErr bool
 	}
 	tests := []test{
-
-		{name: "no checks registered", fields: fields{checks: map[string]checks.Check{}, config: config.NewConfig(ctx)}, want: oapiBoilerplate, wantErr: false},
-		{name: "check registered", fields: fields{checks: map[string]checks.Check{"rtt": checks.GetRoundtripCheck()}, config: config.NewConfig(ctx)}, want: oapiBoilerplate, wantErr: false},
+		{
+			name: "no checks registered",
+			fields: fields{
+				checks: map[string]checks.Check{},
+				config: config.NewConfig(),
+			},
+			want:    oapiBoilerplate,
+			wantErr: false,
+		},
+		{
+			name: "check registered",
+			fields: fields{
+				checks: map[string]checks.Check{"rtt": checks.GetRoundtripCheck()},
+				config: config.NewConfig(),
+			},
+			want:    oapiBoilerplate,
+			wantErr: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -68,6 +82,9 @@ func TestSparrow_getOpenapi(t *testing.T) {
 }
 
 func TestSparrow_ReconceilChecks(t *testing.T) {
+	ctx, cancel := logger.NewContextWithLogger(context.Background(), "sparrow-test")
+	defer cancel()
+
 	mockCheck := checks.CheckMock{
 		RunFunc: func(ctx context.Context) (checks.Result, error) {
 			return checks.Result{}, nil
@@ -160,7 +177,6 @@ func TestSparrow_ReconceilChecks(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &Sparrow{
-				log:        slog.Default(),
 				checks:     tt.fields.checks,
 				cResult:    tt.fields.cResult,
 				loader:     tt.fields.loader,
@@ -171,7 +187,7 @@ func TestSparrow_ReconceilChecks(t *testing.T) {
 			// Send new config to channel
 			s.cfg.Checks = tt.newChecksConfig
 
-			s.ReconcileChecks(context.Background())
+			s.ReconcileChecks(ctx)
 
 			for newChecksConfigName := range tt.newChecksConfig {
 				check := checks.RegisteredChecks[newChecksConfigName]()
