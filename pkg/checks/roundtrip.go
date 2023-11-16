@@ -42,7 +42,7 @@ func (rt *RoundTrip) Run(ctx context.Context) (Result, error) {
 	}
 }
 
-func (rt *RoundTrip) Startup(ctx context.Context, cResult chan<- Result, router *api.RoutingTree) error {
+func (rt *RoundTrip) Startup(ctx context.Context, cResult chan<- Result) error {
 	// TODO register http handler for this check
 	http.HandleFunc("/rtt", func(w http.ResponseWriter, r *http.Request) {
 		// TODO handle
@@ -72,4 +72,12 @@ func (rt *RoundTrip) SetConfig(ctx context.Context, config any) error {
 func (rt *RoundTrip) Schema() (*openapi3.SchemaRef, error) {
 	return OpenapiFromPerfData[roundTripData](roundTripData{})
 
+}
+
+func (rt *RoundTrip) RegisterHandler(ctx context.Context, router *api.RoutingTree) {
+	router.Add(http.MethodGet, "/rtt", http.NotFoundHandler().ServeHTTP)
+}
+
+func (rt *RoundTrip) DeregisterHandler(ctx context.Context, router *api.RoutingTree) {
+	router.Remove(http.MethodGet, "/rtt")
 }
