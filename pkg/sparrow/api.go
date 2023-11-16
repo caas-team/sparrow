@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/go-chi/chi/v5"
 	"gopkg.in/yaml.v3"
 )
 
@@ -20,8 +21,8 @@ func (s *Sparrow) register() {
 	// TODO register handlers
 	// GET /openapi
 	s.router.Get("/openapi.yaml", s.getOpenapi)
-
 	// GET /v1/metrics/*checks
+	s.router.Get(fmt.Sprintf("/v1/metrics/{%s}", urlParamCheckName), s.getCheckMetrics)
 }
 
 // Serves the data api.
@@ -112,6 +113,29 @@ func (s *Sparrow) Openapi() (openapi3.T, error) {
 	}
 
 	return doc, nil
+}
+
+func (s *Sparrow) getCheckMetrics(w http.ResponseWriter, r *http.Request) {
+	name := chi.URLParam(r, urlParamCheckName)
+	if name == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(http.StatusText(http.StatusBadRequest)))
+		return
+	}
+	res, ok := s.db.Get(name)
+	if !ok {
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte(http.StatusText(http.StatusNotFound)))
+		return
+	}
+
+	enc := json.NewEncoder(w)
+	if err := enc.Encode(res); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(http.StatusText(http.StatusInternalServerError)))
+		return
+	}
+	w.Header().Add("Content-Type", "application/json")
 }
 
 func (s *Sparrow) getOpenapi(w http.ResponseWriter, r *http.Request) {
