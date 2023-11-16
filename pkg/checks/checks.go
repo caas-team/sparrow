@@ -32,7 +32,6 @@ type Check interface {
 	SetConfig(ctx context.Context, config any) error
 	// Should return an openapi3.SchemaRef of the result type returned by the check
 	Schema() (*openapi3.SchemaRef, error)
-	// Returns the checks Name
 }
 
 type Result struct {
