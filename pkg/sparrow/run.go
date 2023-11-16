@@ -47,7 +47,6 @@ func (s *Sparrow) Run(ctx context.Context) error {
 	go s.loader.Run(ctx)
 	go s.api(ctx)
 	// register routes dynamically https://github.com/gofiber/fiber/issues/735#issuecomment-678586434
-	s.ReconcileChecks(ctx)
 
 	for {
 		select {
