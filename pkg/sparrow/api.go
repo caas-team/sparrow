@@ -23,6 +23,8 @@ func (s *Sparrow) register() {
 	s.router.Get("/openapi.yaml", s.getOpenapi)
 	// GET /v1/metrics/*checks
 	s.router.Get(fmt.Sprintf("/v1/metrics/{%s}", urlParamCheckName), s.getCheckMetrics)
+	// * /checks/*
+	s.router.HandleFunc("/checks/*", s.handleChecks)
 }
 
 // Serves the data api.
@@ -171,7 +173,20 @@ func (s *Sparrow) getOpenapi(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(http.StatusText(http.StatusInternalServerError)))
 		return
 	}
+}
 
+func (s *Sparrow) handleChecks(w http.ResponseWriter, r *http.Request) {
+	meth := r.Method
+	path := r.URL.Path
+
+	handler, ok := s.routingTree.get(meth, path)
+	if !ok {
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte(http.StatusText(http.StatusNotFound)))
+		return
+	}
+
+	handler(w, r)
 }
 
 var ErrServeApi = errors.New("failed to serve api")

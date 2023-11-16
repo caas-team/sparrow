@@ -11,7 +11,10 @@ import (
 )
 
 type Sparrow struct {
+	// TODO refactor this struct to be less convoluted
+	// split up responsibilities more clearly
 	checks      map[string]checks.Check
+	routingTree routingTree
 	resultFanIn map[string]chan checks.Result
 	cResult     chan checks.ResultDTO
 
@@ -27,6 +30,7 @@ func New(cfg *config.Config) *Sparrow {
 	// TODO read this from config file
 	sparrow := &Sparrow{
 		router:      chi.NewRouter(),
+		routingTree: NewRoutingTree(),
 		checks:      make(map[string]checks.Check),
 		cResult:     make(chan checks.ResultDTO),
 		resultFanIn: make(map[string]chan checks.Result),
