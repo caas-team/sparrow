@@ -34,11 +34,6 @@ func NewConfig() *Config {
 	}
 }
 
-// Validates the config
-func (c *Config) Validate() error {
-	return nil
-}
-
 // SetLoaderType sets the loader type
 func (c *Config) SetLoaderType(loaderType string) {
 	c.Loader.Type = loaderType
