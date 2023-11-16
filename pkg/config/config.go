@@ -9,6 +9,12 @@ import (
 type Config struct {
 	Checks map[string]any
 	Loader LoaderConfig
+	Api    ApiConfig
+}
+
+// ApiConfig is the configuration for the data API
+type ApiConfig struct {
+	Port string
 }
 
 // LoaderConfig is the configuration for loader

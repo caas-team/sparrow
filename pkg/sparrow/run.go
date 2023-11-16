@@ -2,14 +2,11 @@ package sparrow
 
 import (
 	"context"
-	"fmt"
 	"log"
 
-	"github.com/caas-team/sparrow/pkg/api"
-	"github.com/caas-team/sparrow/pkg/db"
 	"github.com/caas-team/sparrow/pkg/checks"
 	"github.com/caas-team/sparrow/pkg/config"
-	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/caas-team/sparrow/pkg/db"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -22,23 +19,22 @@ type Sparrow struct {
 	cfg        *config.Config
 	cCfgChecks chan map[string]any
 	router     chi.Router
-	db db.DB
+	db         db.DB
 }
 
 // New creates a new sparrow from a given configfile
 func New(cfg *config.Config) *Sparrow {
 	// TODO read this from config file
 	sparrow := &Sparrow{
-		router:     chi.NewRouter(),
+		router:      chi.NewRouter(),
 		checks:      make(map[string]checks.Check),
 		resultFanIn: make(map[string]chan checks.Result),
 		cfg:         cfg,
 		cCfgChecks:  make(chan map[string]any),
+		db:          db.NewInMemory(),
 	}
 
 	sparrow.loader = config.NewLoader(cfg, sparrow.cCfgChecks)
-	sparrow.db = db.NewInMemory()
-	api.New(sparrow.router)
 	return sparrow
 }
 
@@ -49,6 +45,9 @@ func (s *Sparrow) Run(ctx context.Context) error {
 
 	// Start the runtime configuration loader
 	go s.loader.Run(ctx)
+	go s.api(ctx)
+	// register routes dynamically https://github.com/gofiber/fiber/issues/735#issuecomment-678586434
+	s.ReconcileChecks(ctx)
 
 	for {
 		select {
@@ -134,54 +133,4 @@ func fanInResults(checkChan chan checks.Result, cResult chan checks.ResultDTO, n
 			Result: &i,
 		}
 	}
-}
-
-var oapiBoilerplate = openapi3.T{
-	OpenAPI: "3.0.0",
-	Info: &openapi3.Info{
-		Title:       "Sparrow Metrics API",
-		Description: "Serves metrics collected by sparrows checks",
-		Contact: &openapi3.Contact{
-			URL:   "https://caas.telekom.de",
-			Email: "caas-request@telekom.de",
-			Name:  "CaaS Team",
-		},
-	},
-	Paths:      make(openapi3.Paths),
-	Extensions: make(map[string]interface{}),
-	Components: &openapi3.Components{
-		Schemas: make(openapi3.Schemas),
-	},
-	Servers: openapi3.Servers{},
-}
-
-func (s *Sparrow) Openapi() (openapi3.T, error) {
-	doc := oapiBoilerplate
-	for name, c := range s.checks {
-		ref, err := c.Schema()
-		if err != nil {
-			return openapi3.T{}, fmt.Errorf("failed to get schema for check %s: %w", name, err)
-		}
-
-		routeDesc := fmt.Sprintf("Returns the performance data for check %s", name)
-		bodyDesc := fmt.Sprintf("Metrics for check %s", name)
-		doc.Paths["/v1/metrics/"+name] = &openapi3.PathItem{
-			Description: name,
-			Get: &openapi3.Operation{
-				Description: routeDesc,
-				Tags:        []string{"Metrics", name},
-				Responses: openapi3.Responses{
-					"200": &openapi3.ResponseRef{
-						Value: &openapi3.Response{
-							Description: &bodyDesc,
-							Content:     openapi3.NewContentWithSchemaRef(ref, []string{"application/json"}),
-						},
-					},
-				},
-			},
-		}
-
-	}
-
-	return doc, nil
 }
