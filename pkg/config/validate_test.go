@@ -21,7 +21,7 @@ func TestConfig_Validate(t *testing.T) {
 			fields: fields{
 				Loader: LoaderConfig{
 					http: HttpLoaderConfig{
-						url:     "test.de",
+						url:     "https://test.de/config",
 						timeout: time.Second,
 						retryCfg: helper.RetryConfig{
 							Count: 1,
@@ -39,6 +39,23 @@ func TestConfig_Validate(t *testing.T) {
 				Loader: LoaderConfig{
 					http: HttpLoaderConfig{
 						url:     "",
+						timeout: time.Second,
+						retryCfg: helper.RetryConfig{
+							Count: 1,
+							Delay: time.Second,
+						},
+					},
+					Interval: time.Second,
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "url malformed",
+			fields: fields{
+				Loader: LoaderConfig{
+					http: HttpLoaderConfig{
+						url:     "this is not a valid url",
 						timeout: time.Second,
 						retryCfg: helper.RetryConfig{
 							Count: 1,
@@ -74,7 +91,7 @@ func TestConfig_Validate(t *testing.T) {
 				Checks: nil,
 				Loader: tt.fields.Loader,
 			}
-			if err := c.Validate(); (err != nil) != tt.wantErr {
+			if err := c.Validate(&RunFlagsNameMapping{}); (err != nil) != tt.wantErr {
 				t.Errorf("Config.Validate() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
