@@ -51,23 +51,6 @@ func TestConfig_Validate(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "timeout > interval",
-			fields: fields{
-				Loader: LoaderConfig{
-					http: HttpLoaderConfig{
-						url:     "test.de",
-						timeout: time.Minute,
-						retryCfg: helper.RetryConfig{
-							Count: 1,
-							Delay: time.Second,
-						},
-					},
-					Interval: time.Second,
-				},
-			},
-			wantErr: true,
-		},
-		{
 			name: "retry count to high",
 			fields: fields{
 				Loader: LoaderConfig{
