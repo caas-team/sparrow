@@ -12,6 +12,10 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+type encoder interface {
+	Encode(v any) error
+}
+
 func (s *Sparrow) register() {
 	// TODO register handlers
 	// GET /openapi
@@ -122,14 +126,17 @@ func (s *Sparrow) getOpenapi(w http.ResponseWriter, r *http.Request) {
 
 	mime := r.Header.Get("Accept")
 
-	var marshaler Encoder
+	var marshaler encoder
 	switch mime {
 	case "application/json":
 		marshaler = json.NewEncoder(w)
+		w.Header().Add("Content-Type", "application/json")
 	case "application/yaml":
 		marshaler = yaml.NewEncoder(w)
+		w.Header().Add("Content-Type", "application/yaml")
 	default:
 		marshaler = yaml.NewEncoder(w)
+		w.Header().Add("Content-Type", "application/yaml")
 	}
 
 	err = marshaler.Encode(oapi)
@@ -147,6 +154,4 @@ var ErrServeApi = errors.New("failed to serve api")
 var ErrApiContext = errors.New("api context cancelled")
 var ErrCreateOpenapiSchema = errors.New("failed to get schema for check")
 
-type Encoder interface {
-	Encode(v any) error
-}
+var urlParamCheckName = "checkName"
