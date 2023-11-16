@@ -1,7 +1,7 @@
 package api
 
 import (
-	"github.com/caas-team/pkg/db"
+	"github.com/caas-team/sparrow/pkg/db"
 	"github.com/go-chi/chi/v5"
 )
 
