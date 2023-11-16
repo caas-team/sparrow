@@ -28,6 +28,7 @@ func New(cfg *config.Config) *Sparrow {
 	sparrow := &Sparrow{
 		router:      chi.NewRouter(),
 		checks:      make(map[string]checks.Check),
+		cResult:     make(chan checks.ResultDTO),
 		resultFanIn: make(map[string]chan checks.Result),
 		cfg:         cfg,
 		cCfgChecks:  make(chan map[string]any),
@@ -56,7 +57,7 @@ func (s *Sparrow) Run(ctx context.Context) error {
 			}
 			return nil
 		case result := <-s.cResult:
-			go s.db.Save(result)
+			s.db.Save(result)
 		case configChecks := <-s.cCfgChecks:
 			// Config got updated
 			// Set checks
