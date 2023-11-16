@@ -43,3 +43,8 @@ type Result struct {
 	// if the check failed, this should be an error message that will be logged and returned to an API user
 	Err string `json:"error"`
 }
+
+type ResultDTO struct {
+	Name   string
+	Result *Result
+}
