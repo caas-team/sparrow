@@ -33,14 +33,14 @@ func (s *Sparrow) register() {
 func (s *Sparrow) api(ctx context.Context) error {
 	cErr := make(chan error)
 	s.register()
-	server := http.Server{Addr: ":8081", Handler: s.router}
+	server := http.Server{Addr: s.cfg.Api.Port, Handler: s.router}
 
 	// run http server in goroutine
 	go func(cErr chan error) {
+		defer close(cErr)
 		if err := server.ListenAndServe(); err != nil {
 			cErr <- err
 		}
-		close(cErr)
 	}(cErr)
 
 	select {
