@@ -1,13 +1,18 @@
 package config
 
 import (
+	"context"
 	"testing"
 	"time"
 
 	"github.com/caas-team/sparrow/internal/helper"
+	"github.com/caas-team/sparrow/internal/logger"
 )
 
 func TestConfig_Validate(t *testing.T) {
+	ctx, cancel := logger.NewContextWithLogger(context.Background(), "validation-test")
+	defer cancel()
+
 	type fields struct {
 		Loader LoaderConfig
 	}
@@ -91,7 +96,7 @@ func TestConfig_Validate(t *testing.T) {
 				Checks: nil,
 				Loader: tt.fields.Loader,
 			}
-			if err := c.Validate(&RunFlagsNameMapping{}); (err != nil) != tt.wantErr {
+			if err := c.Validate(ctx, &RunFlagsNameMapping{}); (err != nil) != tt.wantErr {
 				t.Errorf("Config.Validate() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})

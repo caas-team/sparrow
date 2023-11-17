@@ -1,20 +1,23 @@
 package config
 
 import (
+	"context"
 	"fmt"
-	"log/slog"
 	"net/url"
+
+	"github.com/caas-team/sparrow/internal/logger"
 )
 
 // Validates the config
-func (c *Config) Validate(fm *RunFlagsNameMapping) error {
-	// TODO: get logger from context
-	log := slog.Default().WithGroup("validation")
-	ok := true
+func (c *Config) Validate(ctx context.Context, fm *RunFlagsNameMapping) error {
+	ctx, cancel := logger.NewContextWithLogger(ctx, "configValidation")
+	defer cancel()
+	log := logger.FromContext(ctx)
 
+	ok := true
 	if _, err := url.ParseRequestURI(c.Loader.http.url); err != nil {
 		ok = false
-		log.Error("The loader http url is not a valid url",
+		log.ErrorContext(ctx, "The loader http url is not a valid url",
 			fm.LoaderHttpUrl, c.Loader.http.url)
 	}
 

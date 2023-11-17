@@ -64,7 +64,7 @@ func run(fm *config.RunFlagsNameMapping) func(cmd *cobra.Command, args []string)
 		cfg.SetLoaderHttpRetryCount(viper.GetInt(fm.LoaderHttpRetryCount))
 		cfg.SetLoaderHttpRetryDelay(viper.GetInt(fm.LoaderHttpRetryDelay))
 
-		if err := cfg.Validate(fm); err != nil {
+		if err := cfg.Validate(ctx, fm); err != nil {
 			log.Error("Error while validating the config", "error", err)
 			panic(err)
 		}
