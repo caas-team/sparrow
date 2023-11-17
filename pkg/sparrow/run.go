@@ -2,8 +2,8 @@ package sparrow
 
 import (
 	"context"
-	"log"
 
+	"github.com/caas-team/sparrow/internal/logger"
 	"github.com/caas-team/sparrow/pkg/api"
 	"github.com/caas-team/sparrow/pkg/checks"
 	"github.com/caas-team/sparrow/pkg/config"
@@ -47,6 +47,8 @@ func New(cfg *config.Config) *Sparrow {
 
 // Run starts the sparrow
 func (s *Sparrow) Run(ctx context.Context) error {
+	ctx, cancel := logger.NewContextWithLogger(ctx, "sparrow")
+	defer cancel()
 	// TODO Setup before checks run
 	// setup http server
 
@@ -76,18 +78,19 @@ func (s *Sparrow) Run(ctx context.Context) error {
 // Register new Checks, unregister removed Checks & reset Configs of Checks
 func (s *Sparrow) ReconcileChecks(ctx context.Context) {
 	for name, checkCfg := range s.cfg.Checks {
+		log := logger.FromContext(ctx).With("name", name)
 		if existingCheck, ok := s.checks[name]; ok {
 			// Check already registered, reset config
 			err := existingCheck.SetConfig(ctx, checkCfg)
 			if err != nil {
-				log.Printf("Failed to reset config for check, check will run with last applies config - %s: %s", name, err.Error())
+				log.ErrorContext(ctx, "Failed to reset config for check, check will run with last applies config", "error", err)
 			}
 			continue
 		}
 		// Check is a new Check and needs to be registered
 		getRegisteredCheck := checks.RegisteredChecks[name]
 		if getRegisteredCheck == nil {
-			log.Printf("Check %s is not registered", name)
+			log.WarnContext(ctx, "Check is not registered")
 			continue
 		}
 		check := getRegisteredCheck()
@@ -99,12 +102,12 @@ func (s *Sparrow) ReconcileChecks(ctx context.Context) {
 
 		err := check.SetConfig(ctx, checkCfg)
 		if err != nil {
-			log.Printf("Failed to set config for check %s: %s", name, err.Error())
+			log.ErrorContext(ctx, "Failed to set config for check", "name", name, "error", err)
 		}
 		go fanInResults(checkChan, s.cResult, name)
 		err = check.Startup(ctx, checkChan)
 		if err != nil {
-			log.Printf("Failed to startup check %s: %s", name, err.Error())
+			log.ErrorContext(ctx, "Failed to startup check", "name", name, "error", err)
 			close(checkChan)
 			// TODO discuss whether this should return an error instead?
 			continue

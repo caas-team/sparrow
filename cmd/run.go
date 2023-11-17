@@ -2,8 +2,8 @@ package cmd
 
 import (
 	"context"
-	"log"
 
+	"github.com/caas-team/sparrow/internal/logger"
 	"github.com/caas-team/sparrow/pkg/config"
 	"github.com/caas-team/sparrow/pkg/sparrow"
 	"github.com/spf13/cobra"
@@ -51,6 +51,9 @@ func NewCmdRun() *cobra.Command {
 // run is the entry point to start the sparrow
 func run(fm *config.RunFlagsNameMapping) func(cmd *cobra.Command, args []string) {
 	return func(cmd *cobra.Command, args []string) {
+		log := logger.NewLogger()
+		ctx := logger.IntoContext(context.Background(), log)
+
 		cfg := config.NewConfig()
 
 		cfg.SetLoaderType(viper.GetString(fm.LoaderType))
@@ -61,15 +64,16 @@ func run(fm *config.RunFlagsNameMapping) func(cmd *cobra.Command, args []string)
 		cfg.SetLoaderHttpRetryCount(viper.GetInt(fm.LoaderHttpRetryCount))
 		cfg.SetLoaderHttpRetryDelay(viper.GetInt(fm.LoaderHttpRetryDelay))
 
-		if err := cfg.Validate(fm); err != nil {
-			log.Panic(err)
+		if err := cfg.Validate(ctx, fm); err != nil {
+			log.Error("Error while validating the config", "error", err)
+			panic(err)
 		}
 
 		sparrow := sparrow.New(cfg)
 
-		log.Println("running sparrow")
-		if err := sparrow.Run(context.Background()); err != nil {
-			log.Panic(err)
+		log.Info("Running sparrow")
+		if err := sparrow.Run(ctx); err != nil {
+			panic(err)
 		}
 	}
 }

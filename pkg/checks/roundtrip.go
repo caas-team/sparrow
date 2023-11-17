@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/caas-team/sparrow/pkg/api"
+	"github.com/caas-team/sparrow/internal/logger"
 	"github.com/getkin/kin-openapi/openapi3"
 )
 
@@ -30,6 +31,8 @@ func GetRoundtripCheck() Check {
 }
 
 func (rt *RoundTrip) Run(ctx context.Context) (Result, error) {
+	ctx, cancel := logger.NewContextWithLogger(ctx, "roundTrip")
+	defer cancel()
 	for {
 		select {
 		case <-ctx.Done():

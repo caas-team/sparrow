@@ -4,24 +4,21 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/caas-team/sparrow/internal/helper"
+	"github.com/caas-team/sparrow/internal/logger"
 	"gopkg.in/yaml.v3"
 )
 
 type HttpLoader struct {
-	log        *slog.Logger
 	cfg        *Config
 	cCfgChecks chan<- map[string]any
 }
 
 func NewHttpLoader(cfg *Config, cCfgChecks chan<- map[string]any) *HttpLoader {
 	return &HttpLoader{
-		// TODO: set logger from cfg
-		log:        slog.Default().WithGroup("httpLoader"),
 		cfg:        cfg,
 		cCfgChecks: cCfgChecks,
 	}
@@ -33,8 +30,11 @@ func NewHttpLoader(cfg *Config, cCfgChecks chan<- map[string]any) *HttpLoader {
 // loader interval configuration. A failed request will be retried defined
 // by the retry configuration
 func (gl *HttpLoader) Run(ctx context.Context) {
-	var runtimeCfg *RuntimeConfig
+	ctx, cancel := logger.NewContextWithLogger(ctx, "httpLoader")
+	defer cancel()
+	log := logger.FromContext(ctx)
 
+	var runtimeCfg *RuntimeConfig
 	for {
 		getConfigRetry := helper.Retry(func(ctx context.Context) error {
 			var err error
@@ -44,11 +44,11 @@ func (gl *HttpLoader) Run(ctx context.Context) {
 		}, gl.cfg.Loader.http.retryCfg)
 
 		if err := getConfigRetry(ctx); err != nil {
-			gl.log.Error("Could not get remote runtime configuration", "error", err)
+			log.Error("Could not get remote runtime configuration", "error", err)
 			return
 		}
 
-		gl.log.Info("Successfully got remote runtime configuration")
+		log.Info("Successfully got remote runtime configuration")
 		gl.cCfgChecks <- runtimeCfg.Checks
 
 		timer := time.NewTimer(gl.cfg.Loader.Interval)
@@ -64,7 +64,7 @@ func (gl *HttpLoader) Run(ctx context.Context) {
 
 // GetRuntimeConfig gets the remote runtime configuration
 func (gl *HttpLoader) GetRuntimeConfig(ctx context.Context) (*RuntimeConfig, error) {
-	log := gl.log.With("url", gl.cfg.Loader.http.url)
+	log := logger.FromContext(ctx).With("url", gl.cfg.Loader.http.url)
 
 	client := http.DefaultClient
 	client.Timeout = gl.cfg.Loader.http.timeout
