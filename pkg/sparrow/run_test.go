@@ -8,6 +8,7 @@ import (
 
 	"github.com/caas-team/sparrow/pkg/db"
 
+	"github.com/caas-team/sparrow/internal/logger"
 	"github.com/caas-team/sparrow/pkg/checks"
 	"github.com/caas-team/sparrow/pkg/config"
 	"github.com/getkin/kin-openapi/openapi3"
@@ -28,7 +29,6 @@ func TestSparrow_getOpenapi(t *testing.T) {
 		wantErr bool
 	}
 	tests := []test{
-
 		{name: "no checks registered", fields: fields{checks: map[string]checks.Check{}, config: config.NewConfig()}, want: oapiBoilerplate, wantErr: false},
 		{name: "check registered", fields: fields{checks: map[string]checks.Check{"rtt": checks.GetRoundtripCheck()}, config: config.NewConfig()}, want: oapiBoilerplate, wantErr: false},
 	}
@@ -70,6 +70,9 @@ func TestSparrow_getOpenapi(t *testing.T) {
 }
 
 func TestSparrow_ReconcileChecks(t *testing.T) {
+	ctx, cancel := logger.NewContextWithLogger(context.Background(), "sparrow-test")
+	defer cancel()
+
 	mockCheck := checks.CheckMock{
 		RunFunc: func(ctx context.Context) (checks.Result, error) {
 			return checks.Result{}, nil
@@ -181,7 +184,7 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 			// Send new config to channel
 			s.cfg.Checks = tt.newChecksConfig
 
-			s.ReconcileChecks(context.Background())
+			s.ReconcileChecks(ctx)
 
 			for newChecksConfigName := range tt.newChecksConfig {
 				check := checks.RegisteredChecks[newChecksConfigName]()

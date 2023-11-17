@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/caas-team/sparrow/internal/logger"
 	"github.com/jarcoal/httpmock"
 	"github.com/stretchr/testify/require"
 )
@@ -117,12 +118,12 @@ func TestHttpLoader_GetRuntimeConfig(t *testing.T) {
 				},
 			)
 
-			ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+			handler := slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug})
+			ctx := logger.IntoContext(context.Background(), logger.NewLogger(handler).WithGroup("httpLoader-test"))
+			ctx, cancel := context.WithTimeout(ctx, time.Second*10)
 			defer cancel()
 
-			handler := slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug})
 			gl := &HttpLoader{
-				log:        slog.New(handler),
 				cfg:        tt.cfg,
 				cCfgChecks: make(chan<- map[string]any),
 			}

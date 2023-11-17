@@ -2,9 +2,11 @@ package helper
 
 import (
 	"context"
-	"log"
+	"fmt"
 	"math"
 	"time"
+
+	"github.com/caas-team/sparrow/internal/logger"
 )
 
 type RetryConfig struct {
@@ -18,6 +20,7 @@ type Effector func(context.Context) error
 // Retry will retry the run the effector function in an exponential backoff
 func Retry(effector Effector, rc RetryConfig) func(ctx context.Context) error {
 	return func(ctx context.Context) error {
+		log := logger.FromContext(ctx)
 		for r := 1; ; r++ {
 			err := effector(ctx)
 			if err == nil || r > rc.Count {
@@ -25,7 +28,7 @@ func Retry(effector Effector, rc RetryConfig) func(ctx context.Context) error {
 			}
 
 			delay := getExpBackoff(rc.Delay, r)
-			log.Printf("Effector call failed, retrying in %v", delay)
+			log.WarnContext(ctx, fmt.Sprintf("Effector call failed, retrying in %v", delay))
 
 			timer := time.NewTimer(delay)
 			defer timer.Stop()
