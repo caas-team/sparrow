@@ -20,7 +20,7 @@ type encoder interface {
 func (s *Sparrow) register() {
 	// TODO register handlers
 	// GET /openapi
-	s.router.Get("/openapi.yaml", s.getOpenapi)
+	s.router.Get("/openapi", s.getOpenapi)
 	// GET /v1/metrics/*checks
 	s.router.Get(fmt.Sprintf("/v1/metrics/{%s}", urlParamCheckName), s.getCheckMetrics)
 	// * /checks/*
