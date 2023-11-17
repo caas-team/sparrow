@@ -18,6 +18,7 @@ import (
 	"github.com/caas-team/sparrow/pkg/db"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/go-chi/chi/v5"
+	"gopkg.in/yaml.v3"
 )
 
 func TestSparrow_register(t *testing.T) {
@@ -251,6 +252,56 @@ func TestSparrow_handleChecks(t *testing.T) {
 			}
 			if !reflect.DeepEqual(body, tt.want) {
 				t.Errorf("Sparrow.handleChecks() = %v, want %v", body, tt.want)
+			}
+
+		})
+	}
+}
+
+func TestSparrow_getOpenapi(t *testing.T) {
+	s := Sparrow{}
+
+	type args struct {
+		request  *http.Request
+		response *httptest.ResponseRecorder
+		headers  map[string]string
+	}
+
+	type test struct {
+		name    string
+		args    args
+		decoder func(*httptest.ResponseRecorder) error
+	}
+
+	tests := []test{
+		{name: "yaml is default", args: args{request: httptest.NewRequest(http.MethodGet, "/openapi.yaml", bytes.NewBuffer([]byte{})), response: httptest.NewRecorder(), headers: map[string]string{}}, decoder: func(rr *httptest.ResponseRecorder) error {
+			b := rr.Body.Bytes()
+			return yaml.Unmarshal(b, &openapi3.T{})
+		}},
+		{name: "set json via accept header", args: args{request: httptest.NewRequest(http.MethodGet, "/openapi.yaml", bytes.NewBuffer([]byte{})), response: httptest.NewRecorder(), headers: map[string]string{"Accept": "application/json"}}, decoder: func(rr *httptest.ResponseRecorder) error {
+			b := rr.Body.Bytes()
+			return json.Unmarshal(b, &openapi3.T{})
+		}},
+		{name: "set yaml via accept header", args: args{request: httptest.NewRequest(http.MethodGet, "/openapi.yaml", bytes.NewBuffer([]byte{})), response: httptest.NewRecorder(), headers: map[string]string{"Accept": "text/yaml"}}, decoder: func(rr *httptest.ResponseRecorder) error {
+			b := rr.Body.Bytes()
+			return yaml.Unmarshal(b, &openapi3.T{})
+		}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			for h, v := range tt.args.headers {
+				tt.args.request.Header.Add(h, v)
+			}
+
+			s.getOpenapi(tt.args.response, tt.args.request)
+
+			if err := tt.decoder(tt.args.response); err != nil {
+				t.Errorf("failed to decode response Sparrow.getOpenapi() = %v", err)
+			}
+
+			if tt.args.response.Code != http.StatusOK {
+				t.Errorf("Sparrow.getOpenapi() = %v, want %v", tt.args.response.Code, http.StatusOK)
 			}
 
 		})
