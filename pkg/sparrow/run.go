@@ -55,7 +55,6 @@ func (s *Sparrow) Run(ctx context.Context) error {
 	// Start the runtime configuration loader
 	go s.loader.Run(ctx)
 	go s.api(ctx)
-	// register routes dynamically https://github.com/gofiber/fiber/issues/735#issuecomment-678586434
 
 	for {
 		select {
@@ -119,7 +118,6 @@ func (s *Sparrow) ReconcileChecks(ctx context.Context) {
 	for existingCheckName, existingCheck := range s.checks {
 		// Check has been removed from config; shutdown and remove
 		if _, ok := s.cfg.Checks[existingCheckName]; !ok {
-			// TODO handle this error
 			existingCheck.DeregisterHandler(ctx, &s.routingTree)
 			existingCheck.Shutdown(ctx)
 			if c, ok := s.resultFanIn[existingCheckName]; ok {
