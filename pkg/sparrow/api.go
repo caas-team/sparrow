@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/caas-team/sparrow/internal/logger"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/go-chi/chi/v5"
 	"gopkg.in/yaml.v3"
@@ -17,7 +18,7 @@ type encoder interface {
 	Encode(v any) error
 }
 
-func (s *Sparrow) register() {
+func (s *Sparrow) register(ctx context.Context) {
 	// TODO register handlers
 	// GET /openapi
 	s.router.Get("/openapi", s.getOpenapi)
@@ -25,6 +26,7 @@ func (s *Sparrow) register() {
 	s.router.Get(fmt.Sprintf("/v1/metrics/{%s}", urlParamCheckName), s.getCheckMetrics)
 	// * /checks/*
 	s.router.HandleFunc("/checks/*", s.handleChecks)
+	s.router.Use(logger.Middleware(ctx))
 }
 
 // Serves the data api.
@@ -32,7 +34,7 @@ func (s *Sparrow) register() {
 // Blocks until context is done
 func (s *Sparrow) api(ctx context.Context) error {
 	cErr := make(chan error)
-	s.register()
+	s.register(ctx)
 	server := http.Server{Addr: s.cfg.Api.Port, Handler: s.router}
 
 	// run http server in goroutine

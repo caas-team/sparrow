@@ -27,7 +27,7 @@ func TestSparrow_register(t *testing.T) {
 		router: r,
 	}
 
-	s.register()
+	s.register(context.Background())
 
 	expectedRoutes := []string{"/openapi.yaml", "/v1/metrics/{checkName}", "/checks/*"}
 	routes := r.Routes()
