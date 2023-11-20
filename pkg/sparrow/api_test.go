@@ -91,7 +91,7 @@ func TestSparrow_Openapi(t *testing.T) {
 				router:      tt.fields.router,
 				db:          tt.fields.db,
 			}
-			got, err := s.Openapi()
+			got, err := s.Openapi(context.Background())
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Sparrow.Openapi() error = %v, wantErr %v", err, tt.wantErr)
 				return
