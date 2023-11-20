@@ -152,9 +152,6 @@ func (s *Sparrow) getOpenapi(w http.ResponseWriter, r *http.Request) {
 	case "application/json":
 		marshaler = json.NewEncoder(w)
 		w.Header().Add("Content-Type", "application/json")
-	case "text/yaml":
-		marshaler = yaml.NewEncoder(w)
-		w.Header().Add("Content-Type", "text/yaml")
 	default:
 		marshaler = yaml.NewEncoder(w)
 		w.Header().Add("Content-Type", "text/yaml")
