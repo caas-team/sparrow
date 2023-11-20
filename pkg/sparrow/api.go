@@ -18,14 +18,19 @@ type encoder interface {
 	Encode(v any) error
 }
 
+const urlParamCheckName = "checkName"
+
+var ErrServeApi = errors.New("failed to serve api")
+var ErrApiContext = errors.New("api context cancelled")
+var ErrCreateOpenapiSchema = errors.New("failed to get schema for check")
+
 func (s *Sparrow) register(ctx context.Context) {
-	// TODO register handlers
-	// GET /openapi
 	s.router.Use(logger.Middleware(ctx))
 	s.router.Get("/openapi", s.getOpenapi)
-	// GET /v1/metrics/*checks
+	// Handles public user facing json api
 	s.router.Get(fmt.Sprintf("/v1/metrics/{%s}", urlParamCheckName), s.getCheckMetrics)
-	// * /checks/*
+	// Handles internal api
+	// handlers are (de)registered by the checks themselves
 	s.router.HandleFunc("/checks/*", s.handleChecks)
 }
 
@@ -177,6 +182,9 @@ func (s *Sparrow) getOpenapi(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// handleChecks handles all requests to /checks/*
+// It delegates the request to the corresponding check handler
+// Returns a 404 if no handler is registered for the request
 func (s *Sparrow) handleChecks(w http.ResponseWriter, r *http.Request) {
 	method := r.Method
 	path := r.URL.Path
@@ -190,9 +198,3 @@ func (s *Sparrow) handleChecks(w http.ResponseWriter, r *http.Request) {
 
 	handler(w, r)
 }
-
-var ErrServeApi = errors.New("failed to serve api")
-var ErrApiContext = errors.New("api context cancelled")
-var ErrCreateOpenapiSchema = errors.New("failed to get schema for check")
-
-var urlParamCheckName = "checkName"

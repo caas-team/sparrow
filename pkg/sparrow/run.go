@@ -14,16 +14,18 @@ import (
 type Sparrow struct {
 	// TODO refactor this struct to be less convoluted
 	// split up responsibilities more clearly
-	checks      map[string]checks.Check
-	routingTree api.RoutingTree
+	db     db.DB
+	checks map[string]checks.Check
+
 	resultFanIn map[string]chan checks.Result
 	cResult     chan checks.ResultDTO
 
-	loader     config.Loader
 	cfg        *config.Config
+	loader     config.Loader
 	cCfgChecks chan map[string]any
-	router     chi.Router
-	db         db.DB
+
+	routingTree api.RoutingTree
+	router      chi.Router
 }
 
 // New creates a new sparrow from a given configfile

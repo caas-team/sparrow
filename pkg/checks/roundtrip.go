@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/caas-team/sparrow/pkg/api"
 	"github.com/caas-team/sparrow/internal/logger"
+	"github.com/caas-team/sparrow/pkg/api"
 	"github.com/getkin/kin-openapi/openapi3"
 )
 
@@ -78,9 +78,13 @@ func (rt *RoundTrip) Schema() (*openapi3.SchemaRef, error) {
 }
 
 func (rt *RoundTrip) RegisterHandler(ctx context.Context, router *api.RoutingTree) {
-	router.Add(http.MethodGet, "/rtt", http.NotFoundHandler().ServeHTTP)
+	router.Add(http.MethodGet, "/rtt", rt.handleRoundtrip)
 }
 
 func (rt *RoundTrip) DeregisterHandler(ctx context.Context, router *api.RoutingTree) {
 	router.Remove(http.MethodGet, "/rtt")
+}
+
+func (rt *RoundTrip) handleRoundtrip(w http.ResponseWriter, r *http.Request) {
+	// TODO handle
 }

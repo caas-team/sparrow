@@ -2,16 +2,16 @@ package sparrow
 
 import (
 	"context"
+	"errors"
 	"reflect"
 	"testing"
 	"time"
 
-	"github.com/caas-team/sparrow/pkg/api"
-	"github.com/caas-team/sparrow/pkg/db"
-
 	"github.com/caas-team/sparrow/internal/logger"
+	"github.com/caas-team/sparrow/pkg/api"
 	"github.com/caas-team/sparrow/pkg/checks"
 	"github.com/caas-team/sparrow/pkg/config"
+	"github.com/caas-team/sparrow/pkg/db"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/stretchr/testify/assert"
 )
@@ -169,4 +169,18 @@ func Test_fanInResults(t *testing.T) {
 	}
 
 	close(checkChan)
+}
+
+func TestSparrow_Run(t *testing.T) {
+	c := &config.Config{
+		Api: config.ApiConfig{Port: ":9090"},
+	}
+
+	s := New(c)
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err := s.Run(ctx); err != nil && !errors.Is(err, context.DeadlineExceeded) {
+		t.Errorf("Sparrow.Run() error = %v", err)
+	}
 }
