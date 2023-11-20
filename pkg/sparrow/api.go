@@ -168,10 +168,10 @@ func (s *Sparrow) getOpenapi(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Sparrow) handleChecks(w http.ResponseWriter, r *http.Request) {
-	meth := r.Method
+	method := r.Method
 	path := r.URL.Path
 
-	handler, ok := s.routingTree.Get(meth, path)
+	handler, ok := s.routingTree.Get(method, path)
 	if !ok {
 		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte(http.StatusText(http.StatusNotFound)))

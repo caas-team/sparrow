@@ -12,13 +12,13 @@ type RoutingTree struct {
 	mu   sync.RWMutex
 }
 
-func (r *RoutingTree) Add(meth, path string, handler http.HandlerFunc) {
+func (r *RoutingTree) Add(method, path string, handler http.HandlerFunc) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if _, ok := r.tree[meth]; !ok {
-		r.tree[meth] = make(map[string]http.HandlerFunc)
+	if _, ok := r.tree[method]; !ok {
+		r.tree[method] = make(map[string]http.HandlerFunc)
 	}
-	r.tree[meth][path] = handler
+	r.tree[method][path] = handler
 }
 
 func (r *RoutingTree) Remove(meth, path string) {
@@ -30,13 +30,13 @@ func (r *RoutingTree) Remove(meth, path string) {
 	delete(r.tree[meth], path)
 }
 
-func (r *RoutingTree) Get(meth, path string) (http.HandlerFunc, bool) {
+func (r *RoutingTree) Get(method, path string) (http.HandlerFunc, bool) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	if _, ok := r.tree[meth]; !ok {
+	if _, ok := r.tree[method]; !ok {
 		return nil, false
 	}
-	handler, ok := r.tree[meth][path]
+	handler, ok := r.tree[method][path]
 	return handler, ok
 }
 
