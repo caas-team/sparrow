@@ -34,6 +34,7 @@ func NewCmdRoot(version string) *cobra.Command {
 func Execute(version string) {
 	cmd := NewCmdRoot(version)
 	cmd.AddCommand(NewCmdRun())
+	cmd.AddCommand(NewCmdGenDocs(cmd))
 
 	if err := cmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
