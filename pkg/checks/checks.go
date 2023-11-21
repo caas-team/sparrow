@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/caas-team/sparrow/pkg/api"
 	"github.com/getkin/kin-openapi/openapi3"
 )
 
@@ -32,6 +33,10 @@ type Check interface {
 	SetConfig(ctx context.Context, config any) error
 	// Should return an openapi3.SchemaRef of the result type returned by the check
 	Schema() (*openapi3.SchemaRef, error)
+	// Allows the check to register a handler on sparrows http server at runtime
+	RegisterHandler(ctx context.Context, router *api.RoutingTree)
+	// Allows the check to deregister a handler on sparrows http server at runtime
+	DeregisterHandler(ctx context.Context, router *api.RoutingTree)
 }
 
 type Result struct {

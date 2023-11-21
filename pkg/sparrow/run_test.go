@@ -2,72 +2,19 @@ package sparrow
 
 import (
 	"context"
+	"errors"
 	"reflect"
 	"testing"
 	"time"
 
-	"github.com/caas-team/sparrow/pkg/db"
-
 	"github.com/caas-team/sparrow/internal/logger"
+	"github.com/caas-team/sparrow/pkg/api"
 	"github.com/caas-team/sparrow/pkg/checks"
 	"github.com/caas-team/sparrow/pkg/config"
+	"github.com/caas-team/sparrow/pkg/db"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/stretchr/testify/assert"
-	"gopkg.in/yaml.v3"
 )
-
-func TestSparrow_getOpenapi(t *testing.T) {
-	type fields struct {
-		checks  map[string]checks.Check
-		config  *config.Config
-		cResult chan checks.ResultDTO
-	}
-	type test struct {
-		name    string
-		fields  fields
-		want    openapi3.T
-		wantErr bool
-	}
-	tests := []test{
-		{name: "no checks registered", fields: fields{checks: map[string]checks.Check{}, config: config.NewConfig()}, want: oapiBoilerplate, wantErr: false},
-		{name: "check registered", fields: fields{checks: map[string]checks.Check{"rtt": checks.GetRoundtripCheck()}, config: config.NewConfig()}, want: oapiBoilerplate, wantErr: false},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			s := &Sparrow{
-				checks:      tt.fields.checks,
-				cfg:         tt.fields.config,
-				cResult:     tt.fields.cResult,
-				resultFanIn: make(map[string]chan checks.Result),
-			}
-			got, err := s.Openapi()
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Sparrow.getOpenapi() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("Sparrow.getOpenapi() = %v, want %v", got, tt.want)
-			}
-
-			bgot, err := yaml.Marshal(got)
-			if err != nil {
-				t.Errorf("OpenapiFromPerfData() error = %v", err)
-				return
-			}
-			t.Logf("\nGot:\n%s", string(bgot))
-
-			bwant, err := yaml.Marshal(tt.want)
-			if err != nil {
-				t.Errorf("OpenapiFromPerfData() error = %v", err)
-				return
-			}
-
-			if !reflect.DeepEqual(bgot, bwant) {
-				t.Errorf("Sparrow.getOpenapi() = %v, want %v", bgot, bwant)
-			}
-		})
-	}
-}
 
 func TestSparrow_ReconcileChecks(t *testing.T) {
 	ctx, cancel := logger.NewContextWithLogger(context.Background(), "sparrow-test")
@@ -89,6 +36,8 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 		StartupFunc: func(ctx context.Context, cResult chan<- checks.Result) error {
 			return nil
 		},
+		RegisterHandlerFunc:   func(ctx context.Context, router *api.RoutingTree) {},
+		DeregisterHandlerFunc: func(ctx context.Context, router *api.RoutingTree) {},
 	}
 
 	checks.RegisteredChecks = map[string]func() checks.Check{
@@ -220,4 +169,18 @@ func Test_fanInResults(t *testing.T) {
 	}
 
 	close(checkChan)
+}
+
+func TestSparrow_Run(t *testing.T) {
+	c := &config.Config{
+		Api: config.ApiConfig{Port: ":9090"},
+	}
+
+	s := New(c)
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err := s.Run(ctx); err != nil && !errors.Is(err, context.DeadlineExceeded) {
+		t.Errorf("Sparrow.Run() error = %v", err)
+	}
 }

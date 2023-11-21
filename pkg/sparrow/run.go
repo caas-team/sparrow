@@ -2,38 +2,46 @@ package sparrow
 
 import (
 	"context"
-	"fmt"
-
-	"github.com/caas-team/sparrow/pkg/db"
 
 	"github.com/caas-team/sparrow/internal/logger"
+	"github.com/caas-team/sparrow/pkg/api"
 	"github.com/caas-team/sparrow/pkg/checks"
 	"github.com/caas-team/sparrow/pkg/config"
-	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/caas-team/sparrow/pkg/db"
+	"github.com/go-chi/chi/v5"
 )
 
 type Sparrow struct {
-	checks      map[string]checks.Check
+	// TODO refactor this struct to be less convoluted
+	// split up responsibilities more clearly
+	db     db.DB
+	checks map[string]checks.Check
+
 	resultFanIn map[string]chan checks.Result
 	cResult     chan checks.ResultDTO
 
-	loader     config.Loader
 	cfg        *config.Config
+	loader     config.Loader
 	cCfgChecks chan map[string]any
 
-	db db.DB
+	routingTree api.RoutingTree
+	router      chi.Router
 }
 
 // New creates a new sparrow from a given configfile
 func New(cfg *config.Config) *Sparrow {
 	// TODO read this from config file
 	sparrow := &Sparrow{
+		router:      chi.NewRouter(),
+		routingTree: api.NewRoutingTree(),
 		checks:      make(map[string]checks.Check),
-		resultFanIn: make(map[string]chan checks.Result),
 		cResult:     make(chan checks.ResultDTO),
+		resultFanIn: make(map[string]chan checks.Result),
 		cfg:         cfg,
 		cCfgChecks:  make(chan map[string]any),
+		db:          db.NewInMemory(),
 	}
+
 	sparrow.loader = config.NewLoader(cfg, sparrow.cCfgChecks)
 	sparrow.db = db.NewInMemory()
 	return sparrow
@@ -48,6 +56,7 @@ func (s *Sparrow) Run(ctx context.Context) error {
 
 	// Start the runtime configuration loader
 	go s.loader.Run(ctx)
+	go s.api(ctx)
 
 	for {
 		select {
@@ -103,14 +112,15 @@ func (s *Sparrow) ReconcileChecks(ctx context.Context) {
 			close(checkChan)
 			// TODO discuss whether this should return an error instead?
 			continue
-
 		}
+		check.RegisterHandler(ctx, &s.routingTree)
 		go check.Run(ctx)
 	}
 
 	for existingCheckName, existingCheck := range s.checks {
 		// Check has been removed from config; shutdown and remove
 		if _, ok := s.cfg.Checks[existingCheckName]; !ok {
+			existingCheck.DeregisterHandler(ctx, &s.routingTree)
 			existingCheck.Shutdown(ctx)
 			if c, ok := s.resultFanIn[existingCheckName]; ok {
 				// close fan in channel if it exists
@@ -135,54 +145,4 @@ func fanInResults(checkChan chan checks.Result, cResult chan checks.ResultDTO, n
 			Result: &i,
 		}
 	}
-}
-
-var oapiBoilerplate = openapi3.T{
-	OpenAPI: "3.0.0",
-	Info: &openapi3.Info{
-		Title:       "Sparrow Metrics API",
-		Description: "Serves metrics collected by sparrows checks",
-		Contact: &openapi3.Contact{
-			URL:   "https://caas.telekom.de",
-			Email: "caas-request@telekom.de",
-			Name:  "CaaS Team",
-		},
-	},
-	Paths:      make(openapi3.Paths),
-	Extensions: make(map[string]interface{}),
-	Components: &openapi3.Components{
-		Schemas: make(openapi3.Schemas),
-	},
-	Servers: openapi3.Servers{},
-}
-
-func (s *Sparrow) Openapi() (openapi3.T, error) {
-	doc := oapiBoilerplate
-	for name, c := range s.checks {
-		ref, err := c.Schema()
-		if err != nil {
-			return openapi3.T{}, fmt.Errorf("failed to get schema for check %s: %w", name, err)
-		}
-
-		routeDesc := fmt.Sprintf("Returns the performance data for check %s", name)
-		bodyDesc := fmt.Sprintf("Metrics for check %s", name)
-		doc.Paths["/v1/metrics/"+name] = &openapi3.PathItem{
-			Description: name,
-			Get: &openapi3.Operation{
-				Description: routeDesc,
-				Tags:        []string{"Metrics", name},
-				Responses: openapi3.Responses{
-					"200": &openapi3.ResponseRef{
-						Value: &openapi3.Response{
-							Description: &bodyDesc,
-							Content:     openapi3.NewContentWithSchemaRef(ref, []string{"application/json"}),
-						},
-					},
-				},
-			},
-		}
-
-	}
-
-	return doc, nil
 }

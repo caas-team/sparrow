@@ -2,9 +2,12 @@ package checks
 
 import (
 	"context"
+	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/caas-team/sparrow/internal/logger"
+	"github.com/caas-team/sparrow/pkg/api"
 	"github.com/getkin/kin-openapi/openapi3"
 )
 
@@ -30,7 +33,16 @@ func GetRoundtripCheck() Check {
 func (rt *RoundTrip) Run(ctx context.Context) (Result, error) {
 	ctx, cancel := logger.NewContextWithLogger(ctx, "roundTrip")
 	defer cancel()
-	return Result{}, nil
+	for {
+		select {
+		case <-ctx.Done():
+			return Result{}, ctx.Err()
+		case <-time.After(time.Second):
+			fmt.Println("Sending data to db")
+			rt.c <- Result{Timestamp: time.Now(), Err: "", Data: roundTripData{Ms: 1000}}
+		}
+
+	}
 }
 
 func (rt *RoundTrip) Startup(ctx context.Context, cResult chan<- Result) error {
@@ -63,4 +75,16 @@ func (rt *RoundTrip) SetConfig(ctx context.Context, config any) error {
 func (rt *RoundTrip) Schema() (*openapi3.SchemaRef, error) {
 	return OpenapiFromPerfData[roundTripData](roundTripData{})
 
+}
+
+func (rt *RoundTrip) RegisterHandler(ctx context.Context, router *api.RoutingTree) {
+	router.Add(http.MethodGet, "/rtt", rt.handleRoundtrip)
+}
+
+func (rt *RoundTrip) DeregisterHandler(ctx context.Context, router *api.RoutingTree) {
+	router.Remove(http.MethodGet, "/rtt")
+}
+
+func (rt *RoundTrip) handleRoundtrip(w http.ResponseWriter, r *http.Request) {
+	// TODO handle
 }

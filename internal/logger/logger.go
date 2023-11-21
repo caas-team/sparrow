@@ -3,6 +3,7 @@ package logger
 import (
 	"context"
 	"log/slog"
+	"net/http"
 	"os"
 )
 
@@ -47,4 +48,14 @@ func FromContext(ctx context.Context) *slog.Logger {
 		}
 	}
 	return NewLogger()
+}
+
+// Take whatever context we already have and write it into the request context
+func Middleware(ctx context.Context) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
+
 }
