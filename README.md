@@ -31,7 +31,7 @@ The `sparrow` performs several checks to monitor the health of the infrastructur
 
 1. Health check - `health`: The `sparrow` is able perform an http-based (HTTP/1.1) health check to provided endpoints. The `sparrow` will expose its own health check endpoint as well.
 
-2. Roundtrip time - `rtt`: The `sparrow` is able to communicate with other `sparrow` instances to calculate the time a request takes to the target and back. The check is http (HTTP/1.1) based as well.
+2. Latency check - `rtt`: The `sparrow` is able to communicate with other `sparrow` instances to calculate the time a request takes to the target and back. The check is http (HTTP/1.1) based as well.
 
 ## Installation
 
@@ -59,7 +59,7 @@ The configuration is divided into two parts. The startup configuration and the r
 
 ### Startup
 
-The available configuration options can found in the [CLI flag documentation](cmd/docs/sparrow.md).
+The available configuration options can found in the [CLI flag documentation](docs/sparrow.md).
 
 The `sparrow` is able to get the startup configuration from different sources as follows.
 

@@ -1,6 +1,6 @@
 package cmd
 
-//go:generate go run ../main.go gen-docs --path ../cmd/docs
+//go:generate go run ../main.go gen-docs --path ../docs
 
 import (
 	"github.com/spf13/cobra"

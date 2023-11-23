@@ -22,7 +22,7 @@
       "args": [
         "gen-docs",
         "--path",
-        "cmd/docs"
+        "docs"
       ]
     }
   ]
