@@ -21,8 +21,8 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 	defer cancel()
 
 	mockCheck := checks.CheckMock{
-		RunFunc: func(ctx context.Context) (checks.Result, error) {
-			return checks.Result{}, nil
+		RunFunc: func(ctx context.Context) error {
+			return nil
 		},
 		SchemaFunc: func() (*openapi3.SchemaRef, error) {
 			return nil, nil

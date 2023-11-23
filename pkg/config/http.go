@@ -85,9 +85,9 @@ func (gl *HttpLoader) GetRuntimeConfig(ctx context.Context) (*RuntimeConfig, err
 	}
 	defer res.Body.Close()
 
-	if res.StatusCode != 200 {
+	if res.StatusCode != http.StatusOK {
 		log.Error("Http get request failed", "status", res.Status)
-		return nil, fmt.Errorf("request fail, status is %s", res.Status)
+		return nil, fmt.Errorf("request failed, status is %s", res.Status)
 	}
 
 	body, err := io.ReadAll(res.Body)
