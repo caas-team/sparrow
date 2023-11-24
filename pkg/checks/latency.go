@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/mitchellh/mapstructure"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/caas-team/sparrow/internal/logger"
@@ -35,8 +36,15 @@ type Latency struct {
 }
 
 type LatencyConfig struct {
-	Endpoints []string
-	Interval  time.Duration
+	Targets  []string
+	Interval time.Duration
+}
+
+type LatencyResultDTO struct {
+	Code int
+	DNS  time.Duration
+	TLS  time.Duration
+	Dial time.Duration
 }
 
 type LatencyResult struct {
@@ -44,6 +52,15 @@ type LatencyResult struct {
 	DNS  Metric
 	TLS  Metric
 	Dial Metric
+}
+
+func (s *LatencyResult) ToDTO() LatencyResultDTO {
+	return LatencyResultDTO{
+		Code: s.Code,
+		DNS:  s.DNS.Duration(),
+		TLS:  s.TLS.Duration(),
+		Dial: s.Dial.Duration(),
+	}
 }
 
 type Metric struct {
@@ -77,9 +94,13 @@ func (l *Latency) Run(ctx context.Context) error {
 			return nil
 		case <-time.After(l.cfg.Interval):
 			results, err := l.check(ctx)
+			errval := ""
+			if err != nil {
+				errval = err.Error()
+			}
 			checkResult := Result{
 				Data:      results,
-				Err:       err.Error(),
+				Err:       errval,
 				Timestamp: time.Now(),
 			}
 
@@ -104,8 +125,9 @@ func (l *Latency) Shutdown(ctx context.Context) error {
 }
 
 func (l *Latency) SetConfig(ctx context.Context, config any) error {
-	c, ok := config.(LatencyConfig)
-	if !ok {
+	var c LatencyConfig
+	err := mapstructure.Decode(config, &c)
+	if err != nil {
 		return ErrInvalidConfig
 	}
 	l.mu.Lock()
@@ -131,12 +153,12 @@ func (l *Latency) Handler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func (l *Latency) check(ctx context.Context) (map[string]LatencyResult, error) {
+func (l *Latency) check(ctx context.Context) (map[string]LatencyResultDTO, error) {
 	cl := http.Client{}
-	results := map[string]LatencyResult{}
+	results := map[string]LatencyResultDTO{}
 	wg, ctx := errgroup.WithContext(ctx)
 	// TODO mutex
-	for _, e := range l.cfg.Endpoints {
+	for _, e := range l.cfg.Targets {
 		wg.Go(func(ctx context.Context, e string) func() error {
 			return func() error {
 				req, err := http.NewRequestWithContext(ctx, http.MethodGet, e, nil)
@@ -155,7 +177,7 @@ func (l *Latency) check(ctx context.Context) (map[string]LatencyResult, error) {
 
 				result.Code = response.StatusCode
 				// This does not need a mutex since the map key we're writing to is not dynamic
-				results[e] = result
+				results[e] = result.ToDTO()
 				return nil
 			}
 		}(ctx, e))

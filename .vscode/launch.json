@@ -11,10 +11,6 @@
         "run",
         "--config",
         "config.yaml",
-        "-l",
-        "file",
-        "--loaderFile",
-        "config.yaml"
       ]
     },
     {
