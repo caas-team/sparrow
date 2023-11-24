@@ -25,8 +25,7 @@ var ErrApiContext = errors.New("api context cancelled")
 var ErrCreateOpenapiSchema = errors.New("failed to get schema for check")
 
 func (s *Sparrow) register(ctx context.Context) {
-	// TODO: currently raising error
-	//s.router.Use(logger.Middleware(ctx))
+	s.router.Use(logger.Middleware(ctx))
 
 	// Handles OpenApi spec
 	s.router.Get("/openapi", s.getOpenapi)
