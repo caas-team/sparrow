@@ -4,8 +4,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/caas-team/sparrow/pkg/api"
 	"github.com/getkin/kin-openapi/openapi3"
+
+	"github.com/caas-team/sparrow/pkg/api"
 )
 
 // Available Checks will be registered in this map
@@ -13,6 +14,7 @@ import (
 // The name needs to map the configuration item key
 var RegisteredChecks = map[string]func() Check{
 	"rtt": GetRoundtripCheck,
+  "latency": NewLatencyCheck,
 }
 
 //go:generate moq -out checks_moq.go . Check
@@ -20,7 +22,7 @@ type Check interface {
 	// Run is called once per check interval
 	// this should error if there is a problem running the check
 	// Returns an error and a result. Returning a non nil error will cause a shutdown of the system
-	Run(ctx context.Context) (Result, error)
+	Run(ctx context.Context) error
 	// Startup is called once when the check is registered
 	// In the Run() method, the check should send results to the cResult channel
 	// this will cause sparrow to update its data store with the results

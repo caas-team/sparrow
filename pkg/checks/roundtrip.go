@@ -6,18 +6,21 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/getkin/kin-openapi/openapi3"
+
 	"github.com/caas-team/sparrow/internal/logger"
 	"github.com/caas-team/sparrow/pkg/api"
-	"github.com/getkin/kin-openapi/openapi3"
 )
 
 // ensure that RoundTrip implements the Check interface
 var _ Check = (*RoundTrip)(nil)
 
-type RoundTripConfig struct{}
-type roundTripData struct {
-	Ms int64 `json:"ms"`
-}
+type (
+	RoundTripConfig struct{}
+	roundTripData   struct {
+		Ms int64 `json:"ms"`
+	}
+)
 
 // RoundTrip is a check that measures the round trip time of a request
 type RoundTrip struct {
@@ -30,18 +33,17 @@ func GetRoundtripCheck() Check {
 	return &RoundTrip{}
 }
 
-func (rt *RoundTrip) Run(ctx context.Context) (Result, error) {
+func (rt *RoundTrip) Run(ctx context.Context) error {
 	ctx, cancel := logger.NewContextWithLogger(ctx, "roundTrip")
 	defer cancel()
 	for {
 		select {
 		case <-ctx.Done():
-			return Result{}, ctx.Err()
+			return ctx.Err()
 		case <-time.After(time.Second):
 			fmt.Println("Sending data to db")
 			rt.c <- Result{Timestamp: time.Now(), Err: "", Data: roundTripData{Ms: 1000}}
 		}
-
 	}
 }
 
@@ -74,7 +76,6 @@ func (rt *RoundTrip) SetConfig(ctx context.Context, config any) error {
 
 func (rt *RoundTrip) Schema() (*openapi3.SchemaRef, error) {
 	return OpenapiFromPerfData[roundTripData](roundTripData{})
-
 }
 
 func (rt *RoundTrip) RegisterHandler(ctx context.Context, router *api.RoutingTree) {
