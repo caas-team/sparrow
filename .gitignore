@@ -26,3 +26,6 @@ gen
 
 # generated interface mock files
 *_moq.go
+
+# test configs for debug launch configuration
+.vscode/config

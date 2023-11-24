@@ -12,6 +12,18 @@
         "--config",
         ".vscode/config/local.config.yaml"
       ]
+    },
+    {
+      "name": "Gen md docs",
+      "type": "go",
+      "request": "launch",
+      "mode": "auto",
+      "program": "${workspaceFolder}/main.go",
+      "args": [
+        "gen-docs",
+        "--path",
+        "docs"
+      ]
     }
   ]
 }
