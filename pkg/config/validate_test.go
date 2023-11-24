@@ -25,6 +25,7 @@ func TestConfig_Validate(t *testing.T) {
 			name: "config ok",
 			fields: fields{
 				Loader: LoaderConfig{
+					Type: "http",
 					http: HttpLoaderConfig{
 						url:     "https://test.de/config",
 						timeout: time.Second,
@@ -42,6 +43,7 @@ func TestConfig_Validate(t *testing.T) {
 			name: "url missing",
 			fields: fields{
 				Loader: LoaderConfig{
+					Type: "http",
 					http: HttpLoaderConfig{
 						url:     "",
 						timeout: time.Second,
@@ -59,6 +61,7 @@ func TestConfig_Validate(t *testing.T) {
 			name: "url malformed",
 			fields: fields{
 				Loader: LoaderConfig{
+					Type: "http",
 					http: HttpLoaderConfig{
 						url:     "this is not a valid url",
 						timeout: time.Second,
@@ -76,6 +79,7 @@ func TestConfig_Validate(t *testing.T) {
 			name: "retry count to high",
 			fields: fields{
 				Loader: LoaderConfig{
+					Type: "http",
 					http: HttpLoaderConfig{
 						url:     "test.de",
 						timeout: time.Minute,
