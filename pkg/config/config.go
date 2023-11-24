@@ -22,6 +22,7 @@ type LoaderConfig struct {
 	Type     string
 	Interval time.Duration
 	http     HttpLoaderConfig
+	file     FileLoaderConfig
 }
 
 // HttpLoaderConfig is the configuration
@@ -33,6 +34,10 @@ type HttpLoaderConfig struct {
 	retryCfg helper.RetryConfig
 }
 
+type FileLoaderConfig struct {
+	path string
+}
+
 // NewConfig creates a new Config
 func NewConfig() *Config {
 	return &Config{
@@ -41,12 +46,16 @@ func NewConfig() *Config {
 }
 
 func (c *Config) SetApiPort(port string) {
-  c.Api.Port = port
+	c.Api.Port = port
 }
 
 // SetLoaderType sets the loader type
 func (c *Config) SetLoaderType(loaderType string) {
 	c.Loader.Type = loaderType
+}
+
+func (c *Config) SetLoaderFile(loaderFile string) {
+  c.Loader.file.path = loaderFile
 }
 
 // SetLoaderInterval sets the loader interval

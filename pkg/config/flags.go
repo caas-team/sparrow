@@ -8,5 +8,6 @@ type RunFlagsNameMapping struct {
 	LoaderHttpTimeout    string
 	LoaderHttpRetryCount string
 	LoaderHttpRetryDelay string
+	LoaderFile           string
 	ApiPort              string
 }

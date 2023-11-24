@@ -21,6 +21,7 @@ func NewCmdRun() *cobra.Command {
 		LoaderHttpTimeout:    "loaderHttpTimeout",
 		LoaderHttpRetryCount: "loaderHttpRetryCount",
 		LoaderHttpRetryDelay: "loaderHttpRetryDelay",
+		LoaderFile:           "loaderFile",
 		ApiPort:              "api-port",
 	}
 
@@ -39,6 +40,7 @@ func NewCmdRun() *cobra.Command {
 	cmd.PersistentFlags().Int(flagMapping.LoaderHttpTimeout, 30, "http loader: The timeout for the http request in seconds")
 	cmd.PersistentFlags().Int(flagMapping.LoaderHttpRetryCount, 3, "http loader: Amount of retries trying to load the configuration")
 	cmd.PersistentFlags().Int(flagMapping.LoaderHttpRetryDelay, 1, "http loader: The initial delay between retries in seconds")
+	cmd.PersistentFlags().String(flagMapping.LoaderFile, "config.yaml", "file loader: The file to read the runtime config from")
 
 	viper.BindPFlag(flagMapping.ApiPort, cmd.PersistentFlags().Lookup(flagMapping.ApiPort))
 	viper.BindPFlag(flagMapping.LoaderType, cmd.PersistentFlags().Lookup(flagMapping.LoaderType))
@@ -48,6 +50,7 @@ func NewCmdRun() *cobra.Command {
 	viper.BindPFlag(flagMapping.LoaderHttpTimeout, cmd.PersistentFlags().Lookup(flagMapping.LoaderHttpTimeout))
 	viper.BindPFlag(flagMapping.LoaderHttpRetryCount, cmd.PersistentFlags().Lookup(flagMapping.LoaderHttpRetryCount))
 	viper.BindPFlag(flagMapping.LoaderHttpRetryDelay, cmd.PersistentFlags().Lookup(flagMapping.LoaderHttpRetryDelay))
+	viper.BindPFlag(flagMapping.LoaderFile, cmd.PersistentFlags().Lookup(flagMapping.LoaderFile))
 
 	return cmd
 }
@@ -68,6 +71,7 @@ func run(fm *config.RunFlagsNameMapping) func(cmd *cobra.Command, args []string)
 		cfg.SetLoaderHttpTimeout(viper.GetInt(fm.LoaderHttpTimeout))
 		cfg.SetLoaderHttpRetryCount(viper.GetInt(fm.LoaderHttpRetryCount))
 		cfg.SetLoaderHttpRetryDelay(viper.GetInt(fm.LoaderHttpRetryDelay))
+    cfg.SetLoaderFile(viper.GetString(fm.LoaderFile))
 
 		if err := cfg.Validate(ctx, fm); err != nil {
 			log.Error("Error while validating the config", "error", err)
