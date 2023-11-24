@@ -14,19 +14,6 @@ import (
 	"github.com/mitchellh/mapstructure"
 )
 
-type HealthConfig struct {
-	Enabled        bool     `json:"enabled,omitempty"`
-	Targets        []string `json:"targets,omitempty"`
-	HealthEndpoint bool     `json:"healthEndpoint,omitempty"`
-}
-type healthData struct {
-	Targets []Target `json:"targets"`
-}
-type Target struct {
-	Target string `json:"target"`
-	Status string `json:"status"`
-}
-
 // Health is a check that measures the availability of an endpoint
 type Health struct {
 	route  string
@@ -35,13 +22,31 @@ type Health struct {
 	done   chan bool
 }
 
+// Configuration of the health check config
+type HealthConfig struct {
+	Enabled        bool     `json:"enabled,omitempty"`
+	Targets        []string `json:"targets,omitempty"`
+	HealthEndpoint bool     `json:"healthEndpoint,omitempty"`
+}
+
+// Data that will be stored in the database
+type healthData struct {
+	Targets []Target `json:"targets"`
+}
+
+type Target struct {
+	Target string `json:"target"`
+	Status string `json:"status"`
+}
+
 // Constructor for the HealthCheck
 func GetHealthCheck() Check {
 	return &Health{
-		route: "/health",
+		route: "/checks/health",
 	}
 }
 
+// Starts the health check
 func (h *Health) Run(ctx context.Context) error {
 	ctx, cancel := logger.NewContextWithLogger(ctx, "health")
 	defer cancel()
@@ -69,6 +74,7 @@ func (h *Health) Run(ctx context.Context) error {
 	}
 }
 
+// Startup is called once when the health check is registered
 func (h *Health) Startup(ctx context.Context, cResult chan<- Result) error {
 	h.c = cResult
 	return nil
@@ -82,6 +88,7 @@ func (h *Health) Shutdown(ctx context.Context) error {
 	return nil
 }
 
+// SetConfig sets the configuration for the health check
 func (h *Health) SetConfig(ctx context.Context, config any) error {
 	var checkCfg HealthConfig
 	if err := mapstructure.Decode(config, &checkCfg); err != nil {
@@ -91,24 +98,33 @@ func (h *Health) SetConfig(ctx context.Context, config any) error {
 	return nil
 }
 
+// Schema provides the schema of the data that will be provided
+// by the heath check
 func (h *Health) Schema() (*openapi3.SchemaRef, error) {
 	return OpenapiFromPerfData[healthData](healthData{})
 
 }
 
+// RegisterHandler dynamically registers a server handler
+// if it is enabled by the config
 func (h *Health) RegisterHandler(ctx context.Context, router *api.RoutingTree) {
-	if h.config.Enabled {
-		router.Add(http.MethodGet, h.route, func(_ http.ResponseWriter, _ *http.Request) { return })
+	if h.config.HealthEndpoint {
+		router.Add(http.MethodGet, h.route, func(w http.ResponseWriter, _ *http.Request) {
+			w.Write([]byte("ok"))
+		})
 	}
 }
 
+// DeregisterHandler dynamically deletes the server handler
 func (h *Health) DeregisterHandler(ctx context.Context, router *api.RoutingTree) {
 	router.Remove(http.MethodGet, h.route)
 }
 
+// Check performs a health check using a retry function
+// to get the health status for all targets
 func (h *Health) Check(ctx context.Context) healthData {
 	log := logger.FromContext(ctx)
-	if len(h.config.Targets) != 0 {
+	if len(h.config.Targets) == 0 {
 		log.Debug("No targets defined")
 		return healthData{}
 	}
@@ -156,6 +172,8 @@ func (h *Health) Check(ctx context.Context) healthData {
 	return healthData
 }
 
+// getHealth performs a http get request
+// returns ok if status code is 200
 func getHealth(ctx context.Context, url string) error {
 	log := logger.FromContext(ctx).With("url", url)
 
