@@ -18,12 +18,12 @@ import (
 var _ Check = (*Latency)(nil)
 
 func NewLatencyCheck() Check {
-  return &Latency{
-    mu :sync.Mutex{},
-    cfg: LatencyConfig{},
-    c: nil,
-    done: make(chan bool),
-  }
+	return &Latency{
+		mu:   sync.Mutex{},
+		cfg:  LatencyConfig{},
+		c:    nil,
+		done: make(chan bool),
+	}
 
 }
 
@@ -89,8 +89,8 @@ func (l *Latency) Run(ctx context.Context) error {
 }
 
 func (l *Latency) Startup(ctx context.Context, cResult chan<- Result) error {
-  log := logger.FromContext(ctx).WithGroup("latency")
-  log.Debug("Starting latency check")
+	log := logger.FromContext(ctx).WithGroup("latency")
+	log.Debug("Starting latency check")
 
 	l.c = cResult
 	return nil
@@ -135,6 +135,7 @@ func (l *Latency) check(ctx context.Context) (map[string]LatencyResult, error) {
 	cl := http.Client{}
 	results := map[string]LatencyResult{}
 	wg, ctx := errgroup.WithContext(ctx)
+	// TODO mutex
 	for _, e := range l.cfg.Endpoints {
 		wg.Go(func(ctx context.Context, e string) func() error {
 			return func() error {
@@ -160,9 +161,9 @@ func (l *Latency) check(ctx context.Context) (map[string]LatencyResult, error) {
 		}(ctx, e))
 	}
 
-  if err := wg.Wait(); err != nil {
-    return nil, err
-  }
+	if err := wg.Wait(); err != nil {
+		return nil, err
+	}
 
 	return results, nil
 }
