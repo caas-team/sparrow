@@ -1,31 +1,67 @@
-<h1 align="center">
-    `sparrow` aka Check Sparrow
-</h1>
+# `sparrow` aka Check Sparrow <!-- omit from toc -->
 
 <p align="center">
-    <a href="https://github.com/caas-team/sparrow/actions/workflows/end2end.yaml" title="End2End Testing"><img src="https://github.com/caas-team/sparrow/actions/workflows/end2end.yaml/badge.svg"></a>
     <a href="/../../commits/" title="Last Commit"><img src="https://img.shields.io/github/last-commit/caas-team/sparrow?style=flat"></a>
     <a href="/../../issues" title="Open Issues"><img src="https://img.shields.io/github/issues/caas-team/sparrow?style=flat"></a>
     <a href="./LICENSE" title="License"><img src="https://img.shields.io/badge/License-Apache%202.0-green.svg?style=flat"></a>
 </p>
 
-<p align="center">
-  <a href="#development">Development</a> •
-  <a href="#documentation">Documentation</a> •
-  <a href="#support-and-feedback">Support</a> •
-  <a href="#how-to-contribute">Contribute</a> •
-  <a href="#licensing">Licensing</a>
-</p>
+- [About this component](#about-this-component)
+- [Installation](#installation)
+  - [Binary](#binary)
+  - [Container Image](#container-image)
+  - [Helm](#helm)
+- [Usage](#usage)
+- [Configuration](#configuration)
+  - [Startup](#startup)
+  - [Runtime](#runtime)
+  - [API](#api)
+- [Code of Conduct](#code-of-conduct)
+- [Working Language](#working-language)
+- [Support and Feedback](#support-and-feedback)
+- [How to Contribute](#how-to-contribute)
+- [Licensing](#licensing)
 
-tbd
+
+The `sparrow` is an infrastructure monitoring tool. The binary includes several checks (e.g. health check) that will be executed periodically.
 
 ## About this component
 
-tbd
+The `sparrow` performs several checks to monitor the health of the infrastructure and network from its point of view. The following checks are available:
+
+1. Health check - `health`: The `sparrow` is able perform an http-based (HTTP/1.1) health check to provided endpoints. The `sparrow` will expose its own health check endpoint as well.
+
+2. Latency check - `rtt`: The `sparrow` is able to communicate with other `sparrow` instances to calculate the time a request takes to the target and back. The check is http (HTTP/1.1) based as well.
 
 ## Installation
 
+The `sparrow` is provided as an small binary & a container image.
+
+### Binary
+
 tbd
+
+### Container Image
+
+tbd
+
+### Helm
+
+tbd
+
+## Usage
+
+Use `sparrow run` to execute the instance.
+
+## Configuration
+
+The configuration is divided into two parts. The startup configuration and the runtime configuration. The startup configuration is a technical configuration to configure the `sparrow` instance itself. The runtime configuration will be loaded by the `loader` from a remote endpoint. This configuration consist of the checks configuration.
+
+### Startup
+
+The available configuration options can found in the [CLI flag documentation](docs/sparrow.md).
+
+The `sparrow` is able to get the startup configuration from different sources as follows.
 
 Priority of configuration (high to low):
 
@@ -34,7 +70,11 @@ Priority of configuration (high to low):
 3. Defined configuration file
 4. Default configuration file
 
-Example runtime configuration:
+### Runtime
+
+Besides the technical startup configuration the configuration for the `sparrow` checks is loaded dynamically from an http endpoint. The `loader` is able to load the configuration dynamically during the runtime. Checks can be enabled, disabled and configured. The available loader confutation options for the startup configuration can be found in [here](sparrow_run.md)
+
+Example format of a runtime configuration:
 
 ```YAML
 apiVersion: 0.0.1
@@ -44,9 +84,9 @@ checks:
     enabled: true
 ```
 
-## Development
+### API
 
-tbd
+The `sparrow` exposes an API that does provide access to the check results. Each check will register its own endpoint at `/v1/metrics/{check-name}`. The API definition will be exposed at `/openapi`
 
 ## Code of Conduct
 
@@ -60,10 +100,6 @@ Consequently, all content will be made available primarily in English.
 We also ask all interested people to use English as the preferred language to create issues,
 in their code (comments, documentation, etc.) and when you send requests to us.
 The application itself and all end-user facing content will be made available in other languages as needed.
-
-## Documentation
-
-tbd
 
 ## Support and Feedback
 
