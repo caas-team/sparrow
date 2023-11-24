@@ -47,7 +47,7 @@ func (rt *RoundTrip) Run(ctx context.Context) (Result, error) {
 
 func (rt *RoundTrip) Startup(ctx context.Context, cResult chan<- Result) error {
 	// TODO register http handler for this check
-	http.HandleFunc("/rtt", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("rtt", func(w http.ResponseWriter, r *http.Request) {
 		// TODO handle
 	})
 
@@ -58,7 +58,7 @@ func (rt *RoundTrip) Startup(ctx context.Context, cResult chan<- Result) error {
 // Shutdown is called once when the check is unregistered or sparrow shuts down
 
 func (rt *RoundTrip) Shutdown(ctx context.Context) error {
-	http.Handle("/rtt", http.NotFoundHandler())
+	http.Handle("rtt", http.NotFoundHandler())
 
 	return nil
 }
@@ -78,11 +78,11 @@ func (rt *RoundTrip) Schema() (*openapi3.SchemaRef, error) {
 }
 
 func (rt *RoundTrip) RegisterHandler(ctx context.Context, router *api.RoutingTree) {
-	router.Add(http.MethodGet, "/rtt", rt.handleRoundtrip)
+	router.Add(http.MethodGet, "rtt", rt.handleRoundtrip)
 }
 
 func (rt *RoundTrip) DeregisterHandler(ctx context.Context, router *api.RoutingTree) {
-	router.Remove(http.MethodGet, "/rtt")
+	router.Remove(http.MethodGet, "rtt")
 }
 
 func (rt *RoundTrip) handleRoundtrip(w http.ResponseWriter, r *http.Request) {
