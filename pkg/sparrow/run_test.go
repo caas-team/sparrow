@@ -174,6 +174,9 @@ func Test_fanInResults(t *testing.T) {
 func TestSparrow_Run(t *testing.T) {
 	c := &config.Config{
 		Api: config.ApiConfig{Port: ":9090"},
+		Loader: config.LoaderConfig{
+			Type: "http",
+		},
 	}
 
 	s := New(c)
