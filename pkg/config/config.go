@@ -40,6 +40,10 @@ func NewConfig() *Config {
 	}
 }
 
+func (c *Config) SetApiPort(port string) {
+  c.Api.Port = port
+}
+
 // SetLoaderType sets the loader type
 func (c *Config) SetLoaderType(loaderType string) {
 	c.Loader.Type = loaderType

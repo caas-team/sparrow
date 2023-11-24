@@ -3,11 +3,12 @@ package cmd
 import (
 	"context"
 
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
+
 	"github.com/caas-team/sparrow/internal/logger"
 	"github.com/caas-team/sparrow/pkg/config"
 	"github.com/caas-team/sparrow/pkg/sparrow"
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 // NewCmdRun creates a new run command
@@ -20,6 +21,7 @@ func NewCmdRun() *cobra.Command {
 		LoaderHttpTimeout:    "loaderHttpTimeout",
 		LoaderHttpRetryCount: "loaderHttpRetryCount",
 		LoaderHttpRetryDelay: "loaderHttpRetryDelay",
+		ApiPort:              "api-port",
 	}
 
 	cmd := &cobra.Command{
@@ -29,6 +31,7 @@ func NewCmdRun() *cobra.Command {
 		Run:   run(&flagMapping),
 	}
 
+	cmd.PersistentFlags().String(flagMapping.ApiPort, ":8080", "Specifies the address to bind the api to")
 	cmd.PersistentFlags().StringP(flagMapping.LoaderType, "l", "http", "defines the loader type that will load the checks configuration during the runtime")
 	cmd.PersistentFlags().Int(flagMapping.LoaderInterval, 300, "defines the interval the loader reloads the configuration in seconds")
 	cmd.PersistentFlags().String(flagMapping.LoaderHttpUrl, "", "http loader: The url where to get the remote configuration")
@@ -37,6 +40,7 @@ func NewCmdRun() *cobra.Command {
 	cmd.PersistentFlags().Int(flagMapping.LoaderHttpRetryCount, 3, "http loader: Amount of retries trying to load the configuration")
 	cmd.PersistentFlags().Int(flagMapping.LoaderHttpRetryDelay, 1, "http loader: The initial delay between retries in seconds")
 
+	viper.BindPFlag(flagMapping.ApiPort, cmd.PersistentFlags().Lookup(flagMapping.ApiPort))
 	viper.BindPFlag(flagMapping.LoaderType, cmd.PersistentFlags().Lookup(flagMapping.LoaderType))
 	viper.BindPFlag(flagMapping.LoaderInterval, cmd.PersistentFlags().Lookup(flagMapping.LoaderInterval))
 	viper.BindPFlag(flagMapping.LoaderHttpUrl, cmd.PersistentFlags().Lookup(flagMapping.LoaderHttpUrl))
@@ -56,6 +60,7 @@ func run(fm *config.RunFlagsNameMapping) func(cmd *cobra.Command, args []string)
 
 		cfg := config.NewConfig()
 
+		cfg.SetApiPort(viper.GetString(fm.ApiPort))
 		cfg.SetLoaderType(viper.GetString(fm.LoaderType))
 		cfg.SetLoaderInterval(viper.GetInt(fm.LoaderInterval))
 		cfg.SetLoaderHttpUrl(viper.GetString(fm.LoaderHttpUrl))
