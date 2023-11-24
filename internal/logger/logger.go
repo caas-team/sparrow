@@ -50,11 +50,13 @@ func FromContext(ctx context.Context) *slog.Logger {
 	return NewLogger()
 }
 
-// Take whatever context we already have and write it into the request context
+// Take the logger from the context and add it to the request context
 func Middleware(ctx context.Context) func(http.Handler) http.Handler {
+	log := FromContext(ctx)
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			next.ServeHTTP(w, r.WithContext(ctx))
+			reqCtx := IntoContext(r.Context(), log)
+			next.ServeHTTP(w, r.WithContext(reqCtx))
 		})
 	}
 
