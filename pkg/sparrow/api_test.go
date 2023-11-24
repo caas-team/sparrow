@@ -46,7 +46,7 @@ func TestSparrow_register(t *testing.T) {
 
 func TestSparrow_api_shutdownWhenContextCanceled(t *testing.T) {
 	s := Sparrow{
-		cfg:    &config.Config{Api: config.ApiConfig{Port: ":8080"}},
+		cfg:    &config.Config{Api: config.ApiConfig{ListeningAddress: ":8080"}},
 		router: chi.NewRouter(),
 	}
 	ctx, cancel := context.WithCancel(context.Background())

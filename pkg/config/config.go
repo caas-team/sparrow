@@ -14,7 +14,7 @@ type Config struct {
 
 // ApiConfig is the configuration for the data API
 type ApiConfig struct {
-	Port string
+	ListeningAddress string
 }
 
 // LoaderConfig is the configuration for loader
@@ -38,6 +38,10 @@ func NewConfig() *Config {
 	return &Config{
 		Checks: map[string]any{},
 	}
+}
+
+func (c *Config) SetApiListeningAddress(address string) {
+	c.Api.ListeningAddress = address
 }
 
 // SetLoaderType sets the loader type

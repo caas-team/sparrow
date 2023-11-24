@@ -173,7 +173,7 @@ func Test_fanInResults(t *testing.T) {
 
 func TestSparrow_Run(t *testing.T) {
 	c := &config.Config{
-		Api: config.ApiConfig{Port: ":9090"},
+		Api: config.ApiConfig{ListeningAddress: ":9090"},
 	}
 
 	s := New(c)
