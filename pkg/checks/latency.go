@@ -41,25 +41,28 @@ type LatencyConfig struct {
 }
 
 type LatencyResultDTO struct {
-	Code int
-	DNS  time.Duration
-	TLS  time.Duration
-	Dial time.Duration
+	Code  int
+	Error *string
+	DNS   time.Duration
+	TLS   time.Duration
+	Dial  time.Duration
 }
 
 type LatencyResult struct {
-	Code int
-	DNS  Metric
-	TLS  Metric
-	Dial Metric
+	Code  int
+	Error *string
+	DNS   Metric
+	TLS   Metric
+	Dial  Metric
 }
 
 func (s *LatencyResult) ToDTO() LatencyResultDTO {
 	return LatencyResultDTO{
-		Code: s.Code,
-		DNS:  s.DNS.Duration(),
-		TLS:  s.TLS.Duration(),
-		Dial: s.Dial.Duration(),
+		Code:  s.Code,
+		Error: s.Error,
+		DNS:   s.DNS.Duration(),
+		TLS:   s.TLS.Duration(),
+		Dial:  s.Dial.Duration(),
 	}
 }
 
@@ -172,7 +175,8 @@ func (l *Latency) check(ctx context.Context) (map[string]LatencyResultDTO, error
 
 				response, err := cl.Do(req)
 				if err != nil {
-					return err
+					errval := err.Error()
+					result.Error = &errval
 				}
 
 				result.Code = response.StatusCode
