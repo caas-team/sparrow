@@ -82,7 +82,7 @@ The default loader is an `http` loader that is able to get the runtime configura
 
 Available loader:
 - `http`: The default. Loads configuration from a remote endpoint. Token authentication is available. Additional configuration parameter have the prefix `loaderHttp`.
-- `file`: Loads configuration once from a local file. Additional configuration parameter have the prefix `loaderFile`. This is just for development purposes.
+- `file` (experimental): Loads configuration once from a local file. Additional configuration parameter have the prefix `loaderFile`. This is just for development purposes.
 
 ### Runtime
 
