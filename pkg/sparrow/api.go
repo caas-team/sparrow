@@ -189,7 +189,7 @@ func (s *Sparrow) getOpenapi(w http.ResponseWriter, r *http.Request) {
 // Returns a 404 if no handler is registered for the request
 func (s *Sparrow) handleChecks(w http.ResponseWriter, r *http.Request) {
 	method := r.Method
-	path := r.URL.Path
+	path := chi.URLParam(r, "*")
 
 	handler, ok := s.routingTree.Get(method, path)
 	if !ok {
