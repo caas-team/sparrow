@@ -46,7 +46,7 @@ func TestSparrow_register(t *testing.T) {
 
 func TestSparrow_api_shutdownWhenContextCanceled(t *testing.T) {
 	s := Sparrow{
-		cfg:    &config.Config{Api: config.ApiConfig{Port: ":8080"}},
+		cfg:    &config.Config{Api: config.ApiConfig{ListeningAddress: ":8080"}},
 		router: chi.NewRouter(),
 	}
 	ctx, cancel := context.WithCancel(context.Background())
@@ -194,6 +194,15 @@ func TestSparrow_getCheckMetrics(t *testing.T) {
 	}
 }
 
+func addRouteParams(r *http.Request, values map[string]string) *http.Request {
+	rctx := chi.NewRouteContext()
+	for k, v := range values {
+		rctx.URLParams.Add(k, v)
+	}
+
+	return r.WithContext(context.WithValue(r.Context(), chi.RouteCtxKey, rctx))
+}
+
 func TestSparrow_handleChecks(t *testing.T) {
 	type route struct {
 		Method  string
@@ -224,7 +233,7 @@ func TestSparrow_handleChecks(t *testing.T) {
 		wantCode int
 	}{
 		{name: "no check handlers", fields: fields{routingTree: api.NewRoutingTree()}, args: args{w: httptest.NewRecorder(), r: httptest.NewRequest(http.MethodGet, "/v1/notfound", bytes.NewBuffer([]byte{}))}, wantCode: http.StatusNotFound, want: []byte(http.StatusText(http.StatusNotFound))},
-		{name: "has check handlers", fields: fields{routingTree: api.NewRoutingTree(), routes: []route{{Method: http.MethodGet, Path: "/v1/test", Handler: func(w http.ResponseWriter, r *http.Request) { w.Write([]byte("test")) }}}}, args: args{w: httptest.NewRecorder(), r: httptest.NewRequest(http.MethodGet, "/v1/test", bytes.NewBuffer([]byte{}))}, wantCode: http.StatusOK, want: []byte("test")},
+		{name: "has check handlers", fields: fields{routingTree: api.NewRoutingTree(), routes: []route{{Method: http.MethodGet, Path: "/v1/test", Handler: func(w http.ResponseWriter, r *http.Request) { w.Write([]byte("test")) }}}}, args: args{w: httptest.NewRecorder(), r: addRouteParams(httptest.NewRequest(http.MethodGet, "/v1/test", bytes.NewBuffer([]byte{})), map[string]string{"*": "/v1/test"})}, wantCode: http.StatusOK, want: []byte("test")},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

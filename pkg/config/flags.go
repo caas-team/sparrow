@@ -1,6 +1,8 @@
 package config
 
 type RunFlagsNameMapping struct {
+	ApiListeningAddress string
+
 	LoaderType           string
 	LoaderInterval       string
 	LoaderHttpUrl        string

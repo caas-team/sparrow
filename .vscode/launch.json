@@ -10,11 +10,7 @@
       "args": [
         "run",
         "--config",
-        "config.yaml",
-        "-l",
-        "file",
-        "--loaderFile",
-        "config.yaml"
+        ".vscode/config/local.config.yaml"
       ]
     },
     {
