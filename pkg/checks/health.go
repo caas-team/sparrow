@@ -42,7 +42,7 @@ type Target struct {
 // Constructor for the HealthCheck
 func GetHealthCheck() Check {
 	return &Health{
-		route: "/checks/health",
+		route: "health",
 	}
 }
 
@@ -148,6 +148,7 @@ func (h *Health) Check(ctx context.Context) healthData {
 
 		go func() {
 			defer wg.Done()
+
 			targetData := Target{
 				Target: target,
 				Status: "healthy",
@@ -177,8 +178,9 @@ func (h *Health) Check(ctx context.Context) healthData {
 func getHealth(ctx context.Context, url string) error {
 	log := logger.FromContext(ctx).With("url", url)
 
-	client := http.DefaultClient
-	client.Timeout = time.Second * 5
+	client := &http.Client{
+		Timeout: time.Second * 5,
+	}
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
