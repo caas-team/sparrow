@@ -30,13 +30,13 @@ func GetRoundtripCheck() Check {
 	return &RoundTrip{}
 }
 
-func (rt *RoundTrip) Run(ctx context.Context) (Result, error) {
+func (rt *RoundTrip) Run(ctx context.Context) error {
 	ctx, cancel := logger.NewContextWithLogger(ctx, "roundTrip")
 	defer cancel()
 	for {
 		select {
 		case <-ctx.Done():
-			return Result{}, ctx.Err()
+			return ctx.Err()
 		case <-time.After(time.Second):
 			fmt.Println("Sending data to db")
 			rt.c <- Result{Timestamp: time.Now(), Err: "", Data: roundTripData{Ms: 1000}}

@@ -15,6 +15,7 @@
 - [Configuration](#configuration)
   - [Startup](#startup)
   - [Runtime](#runtime)
+  - [Check: Health](#check-health)
   - [API](#api)
 - [Code of Conduct](#code-of-conduct)
 - [Working Language](#working-language)
@@ -83,6 +84,26 @@ checks:
   health:
     enabled: true
 ```
+
+### Check: Health
+
+Available configuration options:
+
+- `checks.health.enabled` (boolean): Currently not used.
+- `checks.health.targets` (list of strings): List of targets to send health probe. Needs to be a valid url. Can be another `sparrow` instance. Use health endpoint, e.g. `https://sparrow-dns.telekom.de/checks/health`. The remote `sparrow` instance needs the `healthEndpoint` enabled.
+- `checks.health.healthEndpoint` (boolean): Needs to be activated when the `sparrow` should expose its own health endpoint. Mandatory if another `sparrow` instance wants perform a health check.
+
+Example configuration:
+
+```YAML
+checks:
+  health:
+    enabled: true
+    targets:
+      - "https://gitlab.devops.telekom.de"
+    healthEndpoint: false
+```
+
 
 ### API
 

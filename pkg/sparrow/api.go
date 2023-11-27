@@ -26,6 +26,8 @@ var ErrCreateOpenapiSchema = errors.New("failed to get schema for check")
 
 func (s *Sparrow) register(ctx context.Context) {
 	s.router.Use(logger.Middleware(ctx))
+
+	// Handles OpenApi spec
 	s.router.Get("/openapi", s.getOpenapi)
 	// Handles public user facing json api
 	s.router.Get(fmt.Sprintf("/v1/metrics/{%s}", urlParamCheckName), s.getCheckMetrics)
@@ -41,7 +43,7 @@ func (s *Sparrow) api(ctx context.Context) error {
 	log := logger.FromContext(ctx)
 	cErr := make(chan error)
 	s.register(ctx)
-	server := http.Server{Addr: s.cfg.Api.Port, Handler: s.router}
+	server := http.Server{Addr: s.cfg.Api.ListeningAddress, Handler: s.router}
 
 	// run http server in goroutine
 	go func(cErr chan error) {
