@@ -4,16 +4,16 @@ import (
 	"context"
 	"time"
 
-	"github.com/caas-team/sparrow/pkg/api"
 	"github.com/getkin/kin-openapi/openapi3"
+
+	"github.com/caas-team/sparrow/pkg/api"
 )
 
 // Available Checks will be registered in this map
 // The key is the name of the Check
 // The name needs to map the configuration item key
 var RegisteredChecks = map[string]func() Check{
-	"rtt":    GetRoundtripCheck,
-	"health": GetHealthCheck,
+	"health": NewHealthCheck,
 }
 
 //go:generate moq -out checks_moq.go . Check

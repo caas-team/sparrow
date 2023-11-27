@@ -22,6 +22,7 @@ type LoaderConfig struct {
 	Type     string
 	Interval time.Duration
 	http     HttpLoaderConfig
+	file     FileLoaderConfig
 }
 
 // HttpLoaderConfig is the configuration
@@ -31,6 +32,10 @@ type HttpLoaderConfig struct {
 	token    string
 	timeout  time.Duration
 	retryCfg helper.RetryConfig
+}
+
+type FileLoaderConfig struct {
+	path string
 }
 
 // NewConfig creates a new Config
@@ -47,6 +52,10 @@ func (c *Config) SetApiListeningAddress(address string) {
 // SetLoaderType sets the loader type
 func (c *Config) SetLoaderType(loaderType string) {
 	c.Loader.Type = loaderType
+}
+
+func (c *Config) SetLoaderFilePath(loaderFilePath string) {
+	c.Loader.file.path = loaderFilePath
 }
 
 // SetLoaderInterval sets the loader interval

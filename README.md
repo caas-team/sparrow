@@ -14,6 +14,7 @@
 - [Usage](#usage)
 - [Configuration](#configuration)
   - [Startup](#startup)
+    - [Loader](#loader)
   - [Runtime](#runtime)
   - [Check: Health](#check-health)
   - [API](#api)
@@ -70,6 +71,18 @@ Priority of configuration (high to low):
 2. Environment variables 
 3. Defined configuration file
 4. Default configuration file
+
+#### Loader
+
+The loader component of the `sparrow` will load the [Runtime](#runtime) configuration dynamically.
+
+The loader can be selected by specifying the `loaderType` configuration parameter.
+
+The default loader is an `http` loader that is able to get the runtime configuration from a remote endpoint.
+
+Available loader:
+- `http`: The default. Loads configuration from a remote endpoint. Token authentication is available. Additional configuration parameter have the prefix `loaderHttp`.
+- `file` (experimental): Loads configuration once from a local file. Additional configuration parameter have the prefix `loaderFile`. This is just for development purposes.
 
 ### Runtime
 

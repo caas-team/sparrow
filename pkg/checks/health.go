@@ -40,7 +40,7 @@ type Target struct {
 }
 
 // Constructor for the HealthCheck
-func GetHealthCheck() Check {
+func NewHealthCheck() Check {
 	return &Health{
 		route: "health",
 	}

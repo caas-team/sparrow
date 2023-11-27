@@ -7,13 +7,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/stretchr/testify/assert"
+
 	"github.com/caas-team/sparrow/internal/logger"
 	"github.com/caas-team/sparrow/pkg/api"
 	"github.com/caas-team/sparrow/pkg/checks"
 	"github.com/caas-team/sparrow/pkg/config"
 	"github.com/caas-team/sparrow/pkg/db"
-	"github.com/getkin/kin-openapi/openapi3"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestSparrow_ReconcileChecks(t *testing.T) {
@@ -144,7 +145,6 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 }
 
 func Test_fanInResults(t *testing.T) {
-
 	checkChan := make(chan checks.Result)
 	cResult := make(chan checks.ResultDTO)
 	name := "check"
@@ -174,6 +174,9 @@ func Test_fanInResults(t *testing.T) {
 func TestSparrow_Run(t *testing.T) {
 	c := &config.Config{
 		Api: config.ApiConfig{ListeningAddress: ":9090"},
+		Loader: config.LoaderConfig{
+			Type: "http",
+		},
 	}
 
 	s := New(c)

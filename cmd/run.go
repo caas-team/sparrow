@@ -3,11 +3,12 @@ package cmd
 import (
 	"context"
 
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
+
 	"github.com/caas-team/sparrow/internal/logger"
 	"github.com/caas-team/sparrow/pkg/config"
 	"github.com/caas-team/sparrow/pkg/sparrow"
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 // NewCmdRun creates a new run command
@@ -21,6 +22,7 @@ func NewCmdRun() *cobra.Command {
 		LoaderHttpTimeout:    "loaderHttpTimeout",
 		LoaderHttpRetryCount: "loaderHttpRetryCount",
 		LoaderHttpRetryDelay: "loaderHttpRetryDelay",
+		LoaderFilePath:       "loaderFilePath",
 	}
 
 	cmd := &cobra.Command{
@@ -32,13 +34,15 @@ func NewCmdRun() *cobra.Command {
 
 	cmd.PersistentFlags().String(flagMapping.ApiListeningAddress, ":8080", "api: The address the server is listening on")
 
-	cmd.PersistentFlags().StringP(flagMapping.LoaderType, "l", "http", "defines the loader type that will load the checks configuration during the runtime")
+	cmd.PersistentFlags().StringP(flagMapping.LoaderType, "l", "http",
+		"defines the loader type that will load the checks configuration during the runtime. The fallback is the fileLoader")
 	cmd.PersistentFlags().Int(flagMapping.LoaderInterval, 300, "defines the interval the loader reloads the configuration in seconds")
 	cmd.PersistentFlags().String(flagMapping.LoaderHttpUrl, "", "http loader: The url where to get the remote configuration")
 	cmd.PersistentFlags().String(flagMapping.LoaderHttpToken, "", "http loader: Bearer token to authenticate the http endpoint")
 	cmd.PersistentFlags().Int(flagMapping.LoaderHttpTimeout, 30, "http loader: The timeout for the http request in seconds")
 	cmd.PersistentFlags().Int(flagMapping.LoaderHttpRetryCount, 3, "http loader: Amount of retries trying to load the configuration")
 	cmd.PersistentFlags().Int(flagMapping.LoaderHttpRetryDelay, 1, "http loader: The initial delay between retries in seconds")
+	cmd.PersistentFlags().String(flagMapping.LoaderFilePath, "config.yaml", "file loader: The path to the file to read the runtime config from")
 
 	viper.BindPFlag(flagMapping.ApiListeningAddress, cmd.PersistentFlags().Lookup(flagMapping.ApiListeningAddress))
 
@@ -49,6 +53,7 @@ func NewCmdRun() *cobra.Command {
 	viper.BindPFlag(flagMapping.LoaderHttpTimeout, cmd.PersistentFlags().Lookup(flagMapping.LoaderHttpTimeout))
 	viper.BindPFlag(flagMapping.LoaderHttpRetryCount, cmd.PersistentFlags().Lookup(flagMapping.LoaderHttpRetryCount))
 	viper.BindPFlag(flagMapping.LoaderHttpRetryDelay, cmd.PersistentFlags().Lookup(flagMapping.LoaderHttpRetryDelay))
+	viper.BindPFlag(flagMapping.LoaderFilePath, cmd.PersistentFlags().Lookup(flagMapping.LoaderFilePath))
 
 	return cmd
 }
@@ -70,6 +75,7 @@ func run(fm *config.RunFlagsNameMapping) func(cmd *cobra.Command, args []string)
 		cfg.SetLoaderHttpTimeout(viper.GetInt(fm.LoaderHttpTimeout))
 		cfg.SetLoaderHttpRetryCount(viper.GetInt(fm.LoaderHttpRetryCount))
 		cfg.SetLoaderHttpRetryDelay(viper.GetInt(fm.LoaderHttpRetryDelay))
+		cfg.SetLoaderFilePath(viper.GetString(fm.LoaderFilePath))
 
 		if err := cfg.Validate(ctx, fm); err != nil {
 			log.Error("Error while validating the config", "error", err)
