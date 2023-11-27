@@ -33,7 +33,8 @@ func NewCmdRun() *cobra.Command {
 	}
 
 	cmd.PersistentFlags().String(flagMapping.ApiPort, ":8080", "Specifies the address to bind the api to")
-	cmd.PersistentFlags().StringP(flagMapping.LoaderType, "l", "http", "defines the loader type that will load the checks configuration during the runtime")
+	cmd.PersistentFlags().StringP(flagMapping.LoaderType, "l", "http",
+		"defines the loader type that will load the checks configuration during the runtime. The fallback is the fileLoader")
 	cmd.PersistentFlags().Int(flagMapping.LoaderInterval, 300, "defines the interval the loader reloads the configuration in seconds")
 	cmd.PersistentFlags().String(flagMapping.LoaderHttpUrl, "", "http loader: The url where to get the remote configuration")
 	cmd.PersistentFlags().String(flagMapping.LoaderHttpToken, "", "http loader: Bearer token to authenticate the http endpoint")
@@ -71,7 +72,7 @@ func run(fm *config.RunFlagsNameMapping) func(cmd *cobra.Command, args []string)
 		cfg.SetLoaderHttpTimeout(viper.GetInt(fm.LoaderHttpTimeout))
 		cfg.SetLoaderHttpRetryCount(viper.GetInt(fm.LoaderHttpRetryCount))
 		cfg.SetLoaderHttpRetryDelay(viper.GetInt(fm.LoaderHttpRetryDelay))
-    cfg.SetLoaderFile(viper.GetString(fm.LoaderFile))
+		cfg.SetLoaderFile(viper.GetString(fm.LoaderFile))
 
 		if err := cfg.Validate(ctx, fm); err != nil {
 			log.Error("Error while validating the config", "error", err)
