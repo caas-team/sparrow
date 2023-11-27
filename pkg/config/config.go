@@ -54,8 +54,8 @@ func (c *Config) SetLoaderType(loaderType string) {
 	c.Loader.Type = loaderType
 }
 
-func (c *Config) SetLoaderFile(loaderFile string) {
-	c.Loader.file.path = loaderFile
+func (c *Config) SetLoaderFilePath(loaderFilePath string) {
+	c.Loader.file.path = loaderFilePath
 }
 
 // SetLoaderInterval sets the loader interval

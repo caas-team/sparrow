@@ -13,8 +13,7 @@ import (
 // The key is the name of the Check
 // The name needs to map the configuration item key
 var RegisteredChecks = map[string]func() Check{
-	"rtt":    GetRoundtripCheck,
-	"health": GetHealthCheck,
+	"health": NewHealthCheck,
 }
 
 //go:generate moq -out checks_moq.go . Check
