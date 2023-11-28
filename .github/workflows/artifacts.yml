@@ -1,19 +1,6 @@
 name: Artifacts
 
-on:
-  push
-  # workflow_call:
-  #   inputs:
-  #     publish:
-  #       description: Publish image to github registry
-  #       default: false
-  #       required: false
-  #       type: boolean
-  #     release:
-  #       description: Release build
-  #       default: false
-  #       required: false
-  #       type: boolean
+on: push
 
 permissions:
   contents: read
@@ -63,36 +50,13 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ github.token }}
-        if: inputs.publish
 
       - name: Build and push image
         id: build
         uses: docker/build-push-action@v5
         with:
+          context: .
+          push: true
           tags: ${{ steps.meta.outputs.tags }}
-          build-args: VERSION={{version}}
-
-      - name: Set image ref
-        id: image-ref
-        run: echo "value=${{ steps.image-name.outputs.value }}@${{ steps.build.outputs.digest }}" >> "$GITHUB_OUTPUT"
-
-      - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@0.14.0
-        with:
-          input: image
-          image-ref: image-ref.outputs
-          format: sarif
-          output: trivy-results.sarif
-          severity: "CRITICAL,HIGH"
-
-      - name: Upload Trivy scan results as artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: "[${{ github.job }}] Trivy scan results"
-          path: trivy-results.sarif
-          retention-days: 7
-
-      - name: Upload Trivy scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v2
-        with:
-          sarif_file: trivy-results.sarif
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: VERSION=${{version}}
