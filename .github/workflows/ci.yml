@@ -7,7 +7,7 @@ on:
 jobs:
   artifacts:
     name: Artifacts
-    uses: ./.github/workflows/artifacts.yaml
+    uses: ./.github/workflows/artifacts.yml
     with:
       push: ${{ github.event_name == 'push' }}
     permissions:
