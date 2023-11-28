@@ -63,7 +63,9 @@ jobs:
 
       - name: Set image ref
         id: image-ref
-        run: echo "value=${{ steps.image-name.outputs.value }}@${{ steps.build.outputs.digest }}" >> "$GITHUB_OUTPUT"
+        run: |
+          - echo "value=${{ steps.image-name.outputs.value }}@${{ steps.build.outputs.digest }}" >> "$GITHUB_OUTPUT"
+          - docker image list
 
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
