@@ -1,6 +1,13 @@
 name: Artifacts
 
-on: push
+on:
+  workflow_call:
+    inputs:
+      push:
+        description: Push image to registry
+        default: false
+        required: false
+        type: boolean
 
 permissions:
   contents: read
@@ -78,6 +85,7 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ github.token }}
+        if: inputs.push
 
       - name: Build and push image
         id: push
@@ -89,3 +97,4 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: VERSION=${{ github.ref_name }}
+        if: inputs.push

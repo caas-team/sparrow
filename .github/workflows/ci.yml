@@ -1,0 +1,17 @@
+name: Continuous Integration
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  artifacts:
+    name: Artifacts
+    uses: ./.github/workflows/artifacts.yaml
+    with:
+      push: ${{ github.event_name == 'push' }}
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      security-events: write
