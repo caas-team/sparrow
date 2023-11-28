@@ -1,8 +1,8 @@
-name: Continuous Integration
+name: Release
 
 on:
   push:
-  pull_request:
+    tags: ["[0-9]+.[0-9]+.[0-9]+*"]
 
 permissions:
   contents: read
@@ -11,6 +11,8 @@ jobs:
   artifacts:
     name: Artifacts
     uses: ./.github/workflows/artifacts.yml
+    with:
+      push: true
     permissions:
       contents: read
       packages: write
