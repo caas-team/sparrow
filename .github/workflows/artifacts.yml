@@ -1,18 +1,19 @@
 name: Artifacts
 
 on:
-  workflow_call:
-    inputs:
-      publish:
-        description: Publish image to github registry
-        default: false
-        required: false
-        type: boolean
-      release:
-        description: Release build
-        default: false
-        required: false
-        type: boolean
+  push
+  # workflow_call:
+  #   inputs:
+  #     publish:
+  #       description: Publish image to github registry
+  #       default: false
+  #       required: false
+  #       type: boolean
+  #     release:
+  #       description: Release build
+  #       default: false
+  #       required: false
+  #       type: boolean
 
 permissions:
   contents: read
