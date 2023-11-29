@@ -50,12 +50,13 @@ func TestInMemory_Save(t *testing.T) {
 			}
 
 			i.Save(tt.args.result)
-			if val, ok := i.data.Load(tt.args.result.Name); !ok {
-				t.Errorf("Expected to find key %s in map", tt.args.result.Name)
-			} else {
-				if !reflect.DeepEqual(val, tt.args.result.Result) {
-					t.Errorf("Expected val to be %v but got: %v", val, tt.args.result.Result)
-				}
+			val, ok := i.data.Load(tt.args.result.Name)
+			if !ok {
+				t.Fatalf("Expected to find key %s in map", tt.args.result.Name)
+			}
+
+			if !reflect.DeepEqual(val, tt.args.result.Result) {
+				t.Fatalf("Expected val to be %v but got: %v", val, tt.args.result.Result)
 			}
 		})
 	}
@@ -147,20 +148,22 @@ func TestInMemory_List(t *testing.T) {
 				i.data.Store(k, v)
 			}
 
-			if got := i.List(); got == nil {
-				t.Errorf("Expected got != nil")
-			} else {
-				if !reflect.DeepEqual(tt.want, got) {
-					defer t.Fail()
-					t.Log("tt.want != got")
-					for k, v := range tt.want {
-						found, ok := i.data.Load(k)
-						if !ok {
-							t.Logf("Failed to find expected key %s", k)
-						}
-						if !reflect.DeepEqual(v, found) {
-							t.Logf("Value for key %s in db does not equal %v got %v instead", k, v, found)
-						}
+			got := i.List()
+
+			if got == nil {
+				t.Fatalf("Expected got != nil")
+			}
+
+			if !reflect.DeepEqual(tt.want, got) {
+				defer t.Fail()
+				t.Log("tt.want != got")
+				for k, v := range tt.want {
+					found, ok := i.data.Load(k)
+					if !ok {
+						t.Logf("Failed to find expected key %s", k)
+					}
+					if !reflect.DeepEqual(v, found) {
+						t.Logf("Value for key %s in db does not equal %v got %v instead", k, v, found)
 					}
 				}
 			}
@@ -184,5 +187,4 @@ func TestInMemory_ListThreadsafe(t *testing.T) {
 	if newGot["alpha"].Data != 0 {
 		t.Errorf("Expected alpha to be 0 but got %d", newGot["alpha"].Data)
 	}
-
 }

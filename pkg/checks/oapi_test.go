@@ -49,7 +49,6 @@ func TestOpenapiFromPerfData(t *testing.T) {
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("OpenapiFromPerfData() = %v, want %v", got, tt.want)
 			}
-
 		})
 	}
 }
