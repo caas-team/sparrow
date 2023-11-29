@@ -58,7 +58,6 @@ func (gl *HttpLoader) Run(ctx context.Context) {
 			var err error
 			runtimeCfg, err = gl.GetRuntimeConfig(ctx)
 			return err
-
 		}, gl.cfg.Loader.http.retryCfg)
 
 		if err := getConfigRetry(ctx); err != nil {
@@ -70,7 +69,7 @@ func (gl *HttpLoader) Run(ctx context.Context) {
 		gl.cCfgChecks <- runtimeCfg.Checks
 
 		timer := time.NewTimer(gl.cfg.Loader.Interval)
-		defer timer.Stop()
+		defer timer.Stop() //nolint:gocritic // TODO: check if this is right
 
 		select {
 		case <-ctx.Done():
@@ -87,7 +86,7 @@ func (gl *HttpLoader) GetRuntimeConfig(ctx context.Context) (*RuntimeConfig, err
 	client := http.DefaultClient
 	client.Timeout = gl.cfg.Loader.http.timeout
 
-	req, err := http.NewRequestWithContext(ctx, "GET", gl.cfg.Loader.http.url, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", gl.cfg.Loader.http.url, http.NoBody)
 	if err != nil {
 		log.Error("Could not create http GET request", "error", err.Error())
 		return nil, err

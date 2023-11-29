@@ -29,6 +29,13 @@ import (
 	"github.com/caas-team/sparrow/pkg/sparrow"
 )
 
+const (
+	defaultLoaderHttpTimeout = 30
+	defaultLoaderInterval    = 300
+	defaultHttpRetryCount    = 3
+	defaultHttpRetryDelay    = 1
+)
+
 // NewCmdRun creates a new run command
 func NewCmdRun() *cobra.Command {
 	flagMapping := config.RunFlagsNameMapping{
@@ -51,27 +58,24 @@ func NewCmdRun() *cobra.Command {
 	}
 
 	cmd.PersistentFlags().String(flagMapping.ApiListeningAddress, ":8080", "api: The address the server is listening on")
-
-	cmd.PersistentFlags().StringP(flagMapping.LoaderType, "l", "http",
-		"defines the loader type that will load the checks configuration during the runtime. The fallback is the fileLoader")
-	cmd.PersistentFlags().Int(flagMapping.LoaderInterval, 300, "defines the interval the loader reloads the configuration in seconds")
+	cmd.PersistentFlags().StringP(flagMapping.LoaderType, "l", "http", "defines the loader type that will load the checks configuration during the runtime. The fallback is the fileLoader")
+	cmd.PersistentFlags().Int(flagMapping.LoaderInterval, defaultLoaderInterval, "defines the interval the loader reloads the configuration in seconds")
 	cmd.PersistentFlags().String(flagMapping.LoaderHttpUrl, "", "http loader: The url where to get the remote configuration")
 	cmd.PersistentFlags().String(flagMapping.LoaderHttpToken, "", "http loader: Bearer token to authenticate the http endpoint")
-	cmd.PersistentFlags().Int(flagMapping.LoaderHttpTimeout, 30, "http loader: The timeout for the http request in seconds")
-	cmd.PersistentFlags().Int(flagMapping.LoaderHttpRetryCount, 3, "http loader: Amount of retries trying to load the configuration")
-	cmd.PersistentFlags().Int(flagMapping.LoaderHttpRetryDelay, 1, "http loader: The initial delay between retries in seconds")
+	cmd.PersistentFlags().Int(flagMapping.LoaderHttpTimeout, defaultLoaderHttpTimeout, "http loader: The timeout for the http request in seconds")
+	cmd.PersistentFlags().Int(flagMapping.LoaderHttpRetryCount, defaultHttpRetryCount, "http loader: Amount of retries trying to load the configuration")
+	cmd.PersistentFlags().Int(flagMapping.LoaderHttpRetryDelay, defaultHttpRetryDelay, "http loader: The initial delay between retries in seconds")
 	cmd.PersistentFlags().String(flagMapping.LoaderFilePath, "config.yaml", "file loader: The path to the file to read the runtime config from")
 
-	viper.BindPFlag(flagMapping.ApiListeningAddress, cmd.PersistentFlags().Lookup(flagMapping.ApiListeningAddress))
-
-	viper.BindPFlag(flagMapping.LoaderType, cmd.PersistentFlags().Lookup(flagMapping.LoaderType))
-	viper.BindPFlag(flagMapping.LoaderInterval, cmd.PersistentFlags().Lookup(flagMapping.LoaderInterval))
-	viper.BindPFlag(flagMapping.LoaderHttpUrl, cmd.PersistentFlags().Lookup(flagMapping.LoaderHttpUrl))
-	viper.BindPFlag(flagMapping.LoaderHttpToken, cmd.PersistentFlags().Lookup(flagMapping.LoaderHttpToken))
-	viper.BindPFlag(flagMapping.LoaderHttpTimeout, cmd.PersistentFlags().Lookup(flagMapping.LoaderHttpTimeout))
-	viper.BindPFlag(flagMapping.LoaderHttpRetryCount, cmd.PersistentFlags().Lookup(flagMapping.LoaderHttpRetryCount))
-	viper.BindPFlag(flagMapping.LoaderHttpRetryDelay, cmd.PersistentFlags().Lookup(flagMapping.LoaderHttpRetryDelay))
-	viper.BindPFlag(flagMapping.LoaderFilePath, cmd.PersistentFlags().Lookup(flagMapping.LoaderFilePath))
+	_ = viper.BindPFlag(flagMapping.ApiListeningAddress, cmd.PersistentFlags().Lookup(flagMapping.ApiListeningAddress))
+	_ = viper.BindPFlag(flagMapping.LoaderType, cmd.PersistentFlags().Lookup(flagMapping.LoaderType))
+	_ = viper.BindPFlag(flagMapping.LoaderInterval, cmd.PersistentFlags().Lookup(flagMapping.LoaderInterval))
+	_ = viper.BindPFlag(flagMapping.LoaderHttpUrl, cmd.PersistentFlags().Lookup(flagMapping.LoaderHttpUrl))
+	_ = viper.BindPFlag(flagMapping.LoaderHttpToken, cmd.PersistentFlags().Lookup(flagMapping.LoaderHttpToken))
+	_ = viper.BindPFlag(flagMapping.LoaderHttpTimeout, cmd.PersistentFlags().Lookup(flagMapping.LoaderHttpTimeout))
+	_ = viper.BindPFlag(flagMapping.LoaderHttpRetryCount, cmd.PersistentFlags().Lookup(flagMapping.LoaderHttpRetryCount))
+	_ = viper.BindPFlag(flagMapping.LoaderHttpRetryDelay, cmd.PersistentFlags().Lookup(flagMapping.LoaderHttpRetryDelay))
+	_ = viper.BindPFlag(flagMapping.LoaderFilePath, cmd.PersistentFlags().Lookup(flagMapping.LoaderFilePath))
 
 	return cmd
 }
@@ -100,10 +104,9 @@ func run(fm *config.RunFlagsNameMapping) func(cmd *cobra.Command, args []string)
 			panic(err)
 		}
 
-		sparrow := sparrow.New(cfg)
-
+		s := sparrow.New(cfg)
 		log.Info("Running sparrow")
-		if err := sparrow.Run(ctx); err != nil {
+		if err := s.Run(ctx); err != nil {
 			panic(err)
 		}
 	}

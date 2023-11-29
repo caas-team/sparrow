@@ -42,7 +42,7 @@ type Sparrow struct {
 	loader     config.Loader
 	cCfgChecks chan map[string]any
 
-	routingTree api.RoutingTree
+	routingTree *api.RoutingTree
 	router      chi.Router
 }
 
@@ -74,7 +74,13 @@ func (s *Sparrow) Run(ctx context.Context) error {
 
 	// Start the runtime configuration loader
 	go s.loader.Run(ctx)
-	go s.api(ctx)
+	go func() {
+		err := s.api(ctx)
+		if err != nil {
+			panic(err)
+			// TODO: discuss what should happen - probably panic?
+		}
+	}()
 
 	for {
 		select {
@@ -94,9 +100,10 @@ func (s *Sparrow) Run(ctx context.Context) error {
 	}
 }
 
-// Register new Checks, unregister removed Checks & reset Configs of Checks
+// ReconcileChecks registers new Checks, unregisters removed Checks & resets the Configs of Checks
 func (s *Sparrow) ReconcileChecks(ctx context.Context) {
 	for name, checkCfg := range s.cfg.Checks {
+		name := name
 		log := logger.FromContext(ctx).With("name", name)
 		if existingCheck, ok := s.checks[name]; ok {
 			// Check already registered, reset config
@@ -115,7 +122,7 @@ func (s *Sparrow) ReconcileChecks(ctx context.Context) {
 		check := getRegisteredCheck()
 		s.checks[name] = check
 
-		// Create a fan in channel for the check
+		// Create a fan in a channel for the check
 		checkChan := make(chan checks.Result)
 		s.resultFanIn[name] = checkChan
 
@@ -131,25 +138,37 @@ func (s *Sparrow) ReconcileChecks(ctx context.Context) {
 			// TODO discuss whether this should return an error instead?
 			continue
 		}
-		check.RegisterHandler(ctx, &s.routingTree)
-		go check.Run(ctx)
+		check.RegisterHandler(ctx, s.routingTree)
+		go func() {
+			err := check.Run(ctx)
+			if err != nil {
+				log.ErrorContext(ctx, "Failed to run check", "name", name, "error", err)
+				// TODO: anything else to do here?
+			}
+		}()
 	}
 
 	for existingCheckName, existingCheck := range s.checks {
 		// Check has been removed from config; shutdown and remove
-		if _, ok := s.cfg.Checks[existingCheckName]; !ok {
-			existingCheck.DeregisterHandler(ctx, &s.routingTree)
-			existingCheck.Shutdown(ctx)
-			if c, ok := s.resultFanIn[existingCheckName]; ok {
-				// close fan in channel if it exists
-				close(c)
-				delete(s.resultFanIn, existingCheckName)
-			}
-
-			delete(s.checks, existingCheckName)
+		log := logger.FromContext(ctx).With("checkName", existingCheckName)
+		if _, ok := s.cfg.Checks[existingCheckName]; ok {
+			continue
 		}
-	}
 
+		existingCheck.DeregisterHandler(ctx, s.routingTree)
+		err := existingCheck.Shutdown(ctx)
+		if err != nil {
+			log.ErrorContext(ctx, "Failed to shutdown check", "error", err)
+			// TODO: discuss what should happen
+		}
+		if c, ok := s.resultFanIn[existingCheckName]; ok {
+			// close fan in the channel if it exists
+			close(c)
+			delete(s.resultFanIn, existingCheckName)
+		}
+
+		delete(s.checks, existingCheckName)
+	}
 }
 
 // This is a fan in for the checks.

@@ -38,9 +38,9 @@ func TestHealth_SetConfig(t *testing.T) {
 	}{
 		{
 			name: "simple config",
-			inputConfig: map[string]interface{}{
+			inputConfig: map[string]any{
 				"enabled": true,
-				"targets": []interface{}{
+				"targets": []any{
 					"test",
 				},
 				"healthEndpoint": true,
@@ -56,7 +56,7 @@ func TestHealth_SetConfig(t *testing.T) {
 		},
 		{
 			name: "missing config field",
-			inputConfig: map[string]interface{}{
+			inputConfig: map[string]any{
 				"healthEndpoint": true,
 			},
 			expectedConfig: HealthConfig{
@@ -68,7 +68,7 @@ func TestHealth_SetConfig(t *testing.T) {
 		},
 		{
 			name: "wrong type",
-			inputConfig: map[string]interface{}{
+			inputConfig: map[string]any{
 				"enabled":        "not bool",
 				"target":         "not a slice",
 				"healthEndpoint": true,
@@ -265,7 +265,7 @@ func TestHealth_Check(t *testing.T) {
 			got := h.Check(tt.ctx)
 			assert.Equal(t, len(got.Targets), len(tt.want.Targets), "Amount of targets is not equal")
 			for _, target := range tt.want.Targets {
-				var helperStatus = "unhealthy"
+				helperStatus := "unhealthy"
 				if tt.registerdEndpoints[target.Target] == 200 {
 					helperStatus = "healthy"
 				}

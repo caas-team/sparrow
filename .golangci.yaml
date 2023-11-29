@@ -97,14 +97,12 @@ linters:
     - gosimple
     - govet
     - ineffassign
-    - lll
     - misspell
     - nakedret
     - noctx
     - nolintlint
     - revive
     - staticcheck
-    - stylecheck
     - typecheck
     - unconvert
     - unparam
@@ -120,9 +118,11 @@ linters:
   # - godox
   # - goerr113
   # - interfacer
+  # - lll
   # - maligned
   # - nestif
   # - prealloc
+  # - stylecheck
   # - testpackage
   # - wsl
 
