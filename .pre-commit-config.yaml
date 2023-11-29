@@ -1,0 +1,12 @@
+repos:
+  - repo: https://github.com/tekwizely/pre-commit-golang
+    rev: v1.0.0-rc.1
+    hooks:
+      - id: go-mod-tidy-repo
+      - id: go-test-repo-mod
+      - id: go-vet-repo-mod
+      - id: go-fumpt-repo
+        args: [-l, -w]
+      - id: golangci-lint-repo-mod
+        # concurrency 1 is needed in case your machine can't handle the golangci
+        args: [--config, .golangci.yaml, --, --fix]
