@@ -21,7 +21,7 @@ func NewLatencyCheck() Check {
 		mu:   sync.Mutex{},
 		cfg:  LatencyConfig{},
 		c:    nil,
-		done: make(chan bool),
+		done: make(chan bool, 1),
 	}
 
 }

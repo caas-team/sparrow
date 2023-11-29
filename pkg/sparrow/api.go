@@ -59,7 +59,7 @@ func (s *Sparrow) register(ctx context.Context) {
 // Blocks until context is done
 func (s *Sparrow) api(ctx context.Context) error {
 	log := logger.FromContext(ctx).WithGroup("api")
-	cErr := make(chan error)
+	cErr := make(chan error, 1)
 	s.register(ctx)
 	server := http.Server{Addr: s.cfg.Api.ListeningAddress, Handler: s.router}
 

@@ -25,7 +25,7 @@ import (
 )
 
 func TestNewFileLoader(t *testing.T) {
-	l := NewFileLoader(&Config{Loader: LoaderConfig{file: FileLoaderConfig{path: "config.yaml"}}}, make(chan<- map[string]any))
+	l := NewFileLoader(&Config{Loader: LoaderConfig{file: FileLoaderConfig{path: "config.yaml"}}}, make(chan<- map[string]any, 1))
 
 	if l.path != "config.yaml" {
 		t.Errorf("Expected path to be config.yaml, got %s", l.path)
@@ -53,7 +53,7 @@ func TestFileLoader_Run(t *testing.T) {
 		args   args
 		want   want
 	}{
-		{name: "Loads config from file", fields: fields{path: "testdata/config.yaml", c: make(chan map[string]any)}, args: func() args {
+		{name: "Loads config from file", fields: fields{path: "testdata/config.yaml", c: make(chan map[string]any, 1)}, args: func() args {
 			ctx, cancel := context.WithCancel(context.Background())
 			return args{ctx: &ctx, cancel: &cancel}
 		}(), want: want{cfg: map[string]any{"testCheck1": map[string]any{"enabled": true}}}},
