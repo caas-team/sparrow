@@ -22,7 +22,7 @@ func NewCmdRun() *cobra.Command {
 		LoaderHttpRetryCount: "loaderHttpRetryCount",
 		LoaderHttpRetryDelay: "loaderHttpRetryDelay",
 		LoaderFile:           "loaderFile",
-		ApiPort:              "api-port",
+		ApiPort:              "apiPort",
 	}
 
 	cmd := &cobra.Command{
