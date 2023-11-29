@@ -1,3 +1,21 @@
+// sparrow
+// (C) 2023, Deutsche Telekom IT GmbH
+//
+// Deutsche Telekom IT GmbH and all other contributors /
+// copyright owners license this file to you under the Apache
+// License, Version 2.0 (the "License"); you may not use this
+// file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 package sparrow
 
 import (
@@ -26,6 +44,8 @@ var ErrCreateOpenapiSchema = errors.New("failed to get schema for check")
 
 func (s *Sparrow) register(ctx context.Context) {
 	s.router.Use(logger.Middleware(ctx))
+
+	// Handles OpenApi spec
 	s.router.Get("/openapi", s.getOpenapi)
 	// Handles public user facing json api
 	s.router.Get(fmt.Sprintf("/v1/metrics/{%s}", urlParamCheckName), s.getCheckMetrics)
@@ -41,12 +61,12 @@ func (s *Sparrow) api(ctx context.Context) error {
 	log := logger.FromContext(ctx).WithGroup("api")
 	cErr := make(chan error)
 	s.register(ctx)
-	server := http.Server{Addr: s.cfg.Api.Port, Handler: s.router}
+	server := http.Server{Addr: s.cfg.Api.ListeningAddress, Handler: s.router}
 
 	// run http server in goroutine
 	go func(cErr chan error) {
 		defer close(cErr)
-		log.Info("serving api", "port", s.cfg.Api.Port)
+		log.Info("serving api", "addr", s.cfg.Api.ListeningAddress)
 		if err := server.ListenAndServe(); err != nil {
 			log.Error("failed to serve api", "error", err)
 			cErr <- err

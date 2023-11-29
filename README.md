@@ -14,7 +14,9 @@
 - [Usage](#usage)
 - [Configuration](#configuration)
   - [Startup](#startup)
+    - [Loader](#loader)
   - [Runtime](#runtime)
+  - [Check: Health](#check-health)
   - [API](#api)
 - [Code of Conduct](#code-of-conduct)
 - [Working Language](#working-language)
@@ -70,6 +72,18 @@ Priority of configuration (high to low):
 3. Defined configuration file
 4. Default configuration file
 
+#### Loader
+
+The loader component of the `sparrow` will load the [Runtime](#runtime) configuration dynamically.
+
+The loader can be selected by specifying the `loaderType` configuration parameter.
+
+The default loader is an `http` loader that is able to get the runtime configuration from a remote endpoint.
+
+Available loader:
+- `http`: The default. Loads configuration from a remote endpoint. Token authentication is available. Additional configuration parameter have the prefix `loaderHttp`.
+- `file` (experimental): Loads configuration once from a local file. Additional configuration parameter have the prefix `loaderFile`. This is just for development purposes.
+
 ### Runtime
 
 Besides the technical startup configuration the configuration for the `sparrow` checks is loaded dynamically from an http endpoint. The `loader` is able to load the configuration dynamically during the runtime. Checks can be enabled, disabled and configured. The available loader confutation options for the startup configuration can be found in [here](sparrow_run.md)
@@ -83,6 +97,26 @@ checks:
   health:
     enabled: true
 ```
+
+### Check: Health
+
+Available configuration options:
+
+- `checks.health.enabled` (boolean): Currently not used.
+- `checks.health.targets` (list of strings): List of targets to send health probe. Needs to be a valid url. Can be another `sparrow` instance. Use health endpoint, e.g. `https://sparrow-dns.telekom.de/checks/health`. The remote `sparrow` instance needs the `healthEndpoint` enabled.
+- `checks.health.healthEndpoint` (boolean): Needs to be activated when the `sparrow` should expose its own health endpoint. Mandatory if another `sparrow` instance wants perform a health check.
+
+Example configuration:
+
+```YAML
+checks:
+  health:
+    enabled: true
+    targets:
+      - "https://gitlab.devops.telekom.de"
+    healthEndpoint: false
+```
+
 
 ### API
 
