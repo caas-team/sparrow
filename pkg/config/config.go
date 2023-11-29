@@ -14,7 +14,8 @@ type Config struct {
 
 // ApiConfig is the configuration for the data API
 type ApiConfig struct {
-	Port string
+	Port     string
+	Interval string
 }
 
 // LoaderConfig is the configuration for loader
@@ -55,7 +56,7 @@ func (c *Config) SetLoaderType(loaderType string) {
 }
 
 func (c *Config) SetLoaderFile(loaderFile string) {
-  c.Loader.file.path = loaderFile
+	c.Loader.file.path = loaderFile
 }
 
 // SetLoaderInterval sets the loader interval

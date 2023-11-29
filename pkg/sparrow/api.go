@@ -38,7 +38,7 @@ func (s *Sparrow) register(ctx context.Context) {
 //
 // Blocks until context is done
 func (s *Sparrow) api(ctx context.Context) error {
-	log := logger.FromContext(ctx)
+	log := logger.FromContext(ctx).WithGroup("api")
 	cErr := make(chan error)
 	s.register(ctx)
 	server := http.Server{Addr: s.cfg.Api.Port, Handler: s.router}
@@ -46,6 +46,7 @@ func (s *Sparrow) api(ctx context.Context) error {
 	// run http server in goroutine
 	go func(cErr chan error) {
 		defer close(cErr)
+		log.Info("serving api", "port", s.cfg.Api.Port)
 		if err := server.ListenAndServe(); err != nil {
 			log.Error("failed to serve api", "error", err)
 			cErr <- err
