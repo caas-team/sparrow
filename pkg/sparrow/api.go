@@ -58,14 +58,15 @@ func (s *Sparrow) register(ctx context.Context) {
 //
 // Blocks until context is done
 func (s *Sparrow) api(ctx context.Context) error {
-	log := logger.FromContext(ctx)
-	cErr := make(chan error)
+	log := logger.FromContext(ctx).WithGroup("api")
+	cErr := make(chan error, 1)
 	s.register(ctx)
 	server := http.Server{Addr: s.cfg.Api.ListeningAddress, Handler: s.router}
 
 	// run http server in goroutine
 	go func(cErr chan error) {
 		defer close(cErr)
+		log.Info("serving api", "addr", s.cfg.Api.ListeningAddress)
 		if err := server.ListenAndServe(); err != nil {
 			log.Error("failed to serve api", "error", err)
 			cErr <- err

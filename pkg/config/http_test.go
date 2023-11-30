@@ -143,7 +143,7 @@ func TestHttpLoader_GetRuntimeConfig(t *testing.T) {
 
 			gl := &HttpLoader{
 				cfg:        tt.cfg,
-				cCfgChecks: make(chan<- map[string]any),
+				cCfgChecks: make(chan<- map[string]any, 1),
 			}
 			gl.cfg.Loader.http.url = endpoint
 

@@ -117,6 +117,35 @@ checks:
     healthEndpoint: false
 ```
 
+### Check: Latency
+
+Available configuration options:
+
+- `checks`
+  - `latency`
+    - `enabled` (boolean): Currently not used.
+    - `interval` (integer): Interval in seconds to perform the latency check.
+    - `timeout` (integer): Timeout in seconds for the latency check.
+    - `retry`
+      - `count` (integer): Number of retries for the latency check.
+      - `delay` (integer): Delay in seconds between retries for the latency check.
+    - `targets` (list of strings): List of targets to send latency probe. Needs to be a valid url. Can be another `sparrow` instance. Use latency endpoint, e.g. `https://sparrow-dns.telekom.de/checks/latency`. The remote `sparrow` instance needs the `latencyEndpoint` enabled.
+    - `latencyEndpoint` (boolean): Needs to be activated when the `sparrow` should expose its own latency endpoint. Mandatory if another `sparrow` instance wants perform a latency check.
+Example configuration:
+
+```yaml
+checks:
+  latency:
+    enabled: true
+    interval: 1
+    timeout: 3
+    retry:
+      count: 3
+      delay: 1
+    targets:
+      - https://example.com/
+      - https://google.com/
+```
 
 ### API
 

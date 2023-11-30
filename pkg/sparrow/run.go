@@ -53,10 +53,10 @@ func New(cfg *config.Config) *Sparrow {
 		router:      chi.NewRouter(),
 		routingTree: api.NewRoutingTree(),
 		checks:      make(map[string]checks.Check),
-		cResult:     make(chan checks.ResultDTO),
+		cResult:     make(chan checks.ResultDTO, 1),
 		resultFanIn: make(map[string]chan checks.Result),
 		cfg:         cfg,
-		cCfgChecks:  make(chan map[string]any),
+		cCfgChecks:  make(chan map[string]any, 1),
 		db:          db.NewInMemory(),
 	}
 
@@ -116,7 +116,7 @@ func (s *Sparrow) ReconcileChecks(ctx context.Context) {
 		s.checks[name] = check
 
 		// Create a fan in channel for the check
-		checkChan := make(chan checks.Result)
+		checkChan := make(chan checks.Result, 1)
 		s.resultFanIn[name] = checkChan
 
 		err := check.SetConfig(ctx, checkCfg)

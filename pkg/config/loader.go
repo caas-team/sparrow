@@ -22,10 +22,6 @@ import (
 	"context"
 )
 
-const (
-	gitlabLoader = "GITLAB"
-	localLoader  = "LOCAL"
-)
 
 type Loader interface {
 	Run(context.Context)

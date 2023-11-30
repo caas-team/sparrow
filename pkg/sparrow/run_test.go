@@ -86,7 +86,7 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 			fields: fields{
 				checks:      map[string]checks.Check{},
 				cfg:         &config.Config{},
-				cCfgChecks:  make(chan map[string]any),
+				cCfgChecks:  make(chan map[string]any, 1),
 				resultFanIn: make(map[string]chan checks.Result),
 			},
 			newChecksConfig: map[string]any{
@@ -100,7 +100,7 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 					"alpha": checks.RegisteredChecks["alpha"](),
 				},
 				cfg:         &config.Config{},
-				cCfgChecks:  make(chan map[string]any),
+				cCfgChecks:  make(chan map[string]any, 1),
 				resultFanIn: make(map[string]chan checks.Result),
 			},
 			newChecksConfig: map[string]any{
@@ -115,7 +115,7 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 					"alpha": checks.RegisteredChecks["alpha"](),
 				},
 				cfg:         &config.Config{},
-				cCfgChecks:  make(chan map[string]any),
+				cCfgChecks:  make(chan map[string]any, 1),
 				resultFanIn: make(map[string]chan checks.Result),
 			},
 			newChecksConfig: map[string]any{},
@@ -128,7 +128,7 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 					"gamma": checks.RegisteredChecks["alpha"](),
 				},
 				cfg:         &config.Config{},
-				cCfgChecks:  make(chan map[string]any),
+				cCfgChecks:  make(chan map[string]any, 1),
 				resultFanIn: make(map[string]chan checks.Result),
 			},
 			newChecksConfig: map[string]any{
@@ -163,8 +163,8 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 }
 
 func Test_fanInResults(t *testing.T) {
-	checkChan := make(chan checks.Result)
-	cResult := make(chan checks.ResultDTO)
+	checkChan := make(chan checks.Result, 1)
+	cResult := make(chan checks.ResultDTO, 1)
 	name := "check"
 	go fanInResults(checkChan, cResult, name)
 

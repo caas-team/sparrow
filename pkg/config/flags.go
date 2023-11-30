@@ -19,7 +19,7 @@
 package config
 
 type RunFlagsNameMapping struct {
-	ApiListeningAddress string
+	ApiAddress string
 
 	LoaderType           string
 	LoaderInterval       string
