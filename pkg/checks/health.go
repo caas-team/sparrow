@@ -82,7 +82,7 @@ func (h *Health) Run(ctx context.Context) error {
 			return nil
 		case <-time.After(delay):
 			log.Info("Start health check run")
-			hd := h.Check(ctx)
+			hd := h.check(ctx)
 
 			log.Debug("Saving health check data to database")
 			h.c <- Result{Timestamp: time.Now(), Data: hd}
@@ -142,9 +142,9 @@ func (h *Health) DeregisterHandler(_ context.Context, router *api.RoutingTree) {
 	router.Remove(http.MethodGet, h.route)
 }
 
-// Check performs a health check using a retry function
+// check performs a health check using a retry function
 // to get the health status for all targets
-func (h *Health) Check(ctx context.Context) healthData {
+func (h *Health) check(ctx context.Context) healthData {
 	log := logger.FromContext(ctx)
 	if len(h.config.Targets) == 0 {
 		log.Debug("No targets defined")
@@ -165,7 +165,7 @@ func (h *Health) Check(ctx context.Context) healthData {
 			return getHealth(ctx, target)
 		}, helper.RetryConfig{
 			Count: 3,
-			Delay: time.Microsecond,
+			Delay: time.Second,
 		})
 
 		go func() {

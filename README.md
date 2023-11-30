@@ -117,6 +117,10 @@ checks:
     healthEndpoint: false
 ```
 
+The health check will set the target status `healthy` for status code 200, otherwise `unhealthy`.
+
+The check is re-running after a fixed delay of one minute and will perform a health request for every target.
+
 
 ### API
 

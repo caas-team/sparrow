@@ -262,7 +262,7 @@ func TestHealth_Check(t *testing.T) {
 					Targets: tt.targets,
 				},
 			}
-			got := h.Check(tt.ctx)
+			got := h.check(tt.ctx)
 			assert.Equal(t, len(got.Targets), len(tt.want.Targets), "Amount of targets is not equal")
 			for _, target := range tt.want.Targets {
 				helperStatus := "unhealthy"
