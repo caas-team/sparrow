@@ -10,6 +10,7 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/caas-team/sparrow/internal/helper"
 	"github.com/caas-team/sparrow/internal/logger"
 	"github.com/caas-team/sparrow/pkg/api"
 )
@@ -37,6 +38,7 @@ type LatencyConfig struct {
 	Targets  []string
 	Interval time.Duration
 	Timeout  time.Duration
+	Retry    helper.RetryConfig
 }
 
 type LatencyResult struct {
@@ -93,8 +95,8 @@ func (l *Latency) SetConfig(ctx context.Context, config any) error {
 	if err != nil {
 		return ErrInvalidConfig
 	}
-	asSecond := time.Second * c.Interval
-	c.Interval = asSecond
+	c.Interval = time.Second * c.Interval
+	c.Retry.Delay = time.Second * c.Retry.Delay
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.cfg = c
@@ -141,22 +143,27 @@ func (l *Latency) check(ctx context.Context) (map[string]LatencyResult, error) {
 
 				req = req.WithContext(ctx)
 
-				start := time.Now()
-				response, err := cl.Do(req)
-				if err != nil {
-					errval := err.Error()
-					latencyresult.Error = &errval
-					log.Error("Error while checking latency", "error", err)
-				} else {
-					latencyresult.Code = response.StatusCode
-				}
-				end := time.Now()
+				helper.Retry(func(ctx context.Context) error {
+					start := time.Now()
+					response, err := cl.Do(req)
+					if err != nil {
+						errval := err.Error()
+						latencyresult.Error = &errval
+						log.Error("Error while checking latency", "error", err)
 
-				latencyresult.Total = end.Sub(start).Milliseconds()
+					} else {
+						latencyresult.Code = response.StatusCode
+					}
+					end := time.Now()
 
-				mu.Lock()
-				defer mu.Unlock()
-				results[e] = latencyresult
+					latencyresult.Total = end.Sub(start).Milliseconds()
+
+					mu.Lock()
+					defer mu.Unlock()
+					results[e] = latencyresult
+
+					return err
+				}, l.cfg.Retry)(ctx) // ignore return value, since we set it in the closure
 				return nil
 			}
 		}(ctx, e))
