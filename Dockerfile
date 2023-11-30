@@ -1,7 +1,5 @@
-ARG GO_VERSION
+FROM golang:1.21-bullseye as gobuild
 ARG VERSION
-
-FROM golang:${GO_VERSION}-bullseye as gobuild
 RUN adduser \
     --disabled-password \
     --shell "/sbin/nologin" \
@@ -13,7 +11,7 @@ WORKDIR /app
 ADD . .
 RUN go mod download
 RUN go mod verify
-RUN CGO_ENABLED=0 go build -ldflags "-s -w -X main.version=${VERSION}" -o sparrow .
+RUN CGO_ENABLED=0 go build -ldflags '-s -w -extldflags "-static" -X main.version=${VERSION}' -o sparrow .
 
 FROM scratch
 COPY --from=gobuild /etc/passwd /etc/passwd
