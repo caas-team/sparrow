@@ -13,6 +13,27 @@ permissions:
   contents: read
 
 jobs:
+  binary:
+    name: Binary
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version-file: "go.mod"
+      
+      - name: Install dependencies
+        run: go get .
+      
+      - name: Build
+        run: VERSION=${{ github.ref_name }} CGO_ENABLED=0 go build -ldflags "-s -w -X main.version=${VERSION}" -o sparrow .
+
   container-image:
     name: Container image
     runs-on: ubuntu-latest
