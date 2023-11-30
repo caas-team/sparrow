@@ -32,7 +32,6 @@ type Config struct {
 
 // ApiConfig is the configuration for the data API
 type ApiConfig struct {
-	Interval         string
 	ListeningAddress string
 }
 
