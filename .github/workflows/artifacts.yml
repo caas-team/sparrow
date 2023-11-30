@@ -50,6 +50,10 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=raw,value=latest,enable={{is_default_branch}}
+      
+      - name: Get go mod version
+        id: go-version
+        run: go mod edit -json | jq -r .Go | { read value; echo "value=$value"; } >> "$GITHUB_OUTPUT"
 
       - name: Build image
         id: build
@@ -59,7 +63,9 @@ jobs:
           load: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          build-args: VERSION=${{ github.ref_name }}
+          build-args: |
+            GO_VERSION=${{ steps.go-version.outputs.value }}
+            VERSION=${{ github.ref_name }}
 
       - name: Set image ref
         id: image-ref
@@ -96,5 +102,7 @@ jobs:
           platforms: linux/amd64,linux/arm64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          build-args: VERSION=${{ github.ref_name }}
+          build-args: |
+            GO_VERSION=${{ steps.go-version.outputs.value }}
+            VERSION=${{ github.ref_name }}
         if: inputs.push
