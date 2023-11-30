@@ -11,6 +11,8 @@
         "run",
         "--config",
         "config.yaml",
+        "--apiAddress",
+        ":9090"
       ]
     },
     {

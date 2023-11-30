@@ -32,7 +32,7 @@ type Config struct {
 
 // ApiConfig is the configuration for the data API
 type ApiConfig struct {
-	Interval string
+	Interval         string
 	ListeningAddress string
 }
 
@@ -64,7 +64,7 @@ func NewConfig() *Config {
 	}
 }
 
-func (c *Config) SetApiListeningAddress(address string) {
+func (c *Config) SetApiAddress(address string) {
 	c.Api.ListeningAddress = address
 }
 
