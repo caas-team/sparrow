@@ -123,10 +123,11 @@ func (l *Latency) Handler(w http.ResponseWriter, r *http.Request) {
 func (l *Latency) check(ctx context.Context) (map[string]LatencyResult, error) {
 	log := logger.FromContext(ctx).WithGroup("check")
 	log.Debug("Checking latency")
-	var mu sync.Mutex
+
+	var resultMutex sync.Mutex
 	results := map[string]LatencyResult{}
+
 	wg, ctx := errgroup.WithContext(ctx)
-	// TODO mutex
 	for _, e := range l.cfg.Targets {
 		wg.Go(func(ctx context.Context, e string) func() error {
 			return func() error {
@@ -158,8 +159,8 @@ func (l *Latency) check(ctx context.Context) (map[string]LatencyResult, error) {
 
 					latencyresult.Total = end.Sub(start).Milliseconds()
 
-					mu.Lock()
-					defer mu.Unlock()
+					resultMutex.Lock()
+					defer resultMutex.Unlock()
 					results[e] = latencyresult
 
 					return err
