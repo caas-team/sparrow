@@ -2,7 +2,7 @@ project_name: sparrow
 builds:
   - env: [CGO_ENABLED=0]
     ldflags:
-      - -s -w -X main.version={{ .Tag }}
+      - -s -w -X main.version=v{{ .Version }}
       - -extldflags "-static"
     goos:
       - linux
@@ -11,27 +11,14 @@ builds:
       - arm64
 dockers:
   - image_templates:
-      - "ghcr.io/y-eight/sparrow:latest"
-      - "ghcr.io/y-eight/sparrow:{{ .Tag }}"
-      - "ghcr.io/y-eight/sparrow:v{{ .Major }}.{{ .Minor }}"
-      - "ghcr.io/y-eight/sparrow:v{{ .Major }}"
+      - "ghcr.io/y-eight/sparrow:v{{ .Version }}"
     dockerfile: Dockerfile
     build_flag_templates:
       - --label=org.opencontainers.image.title={{ .ProjectName }}
-      - --label=org.opencontainers.image.description={{ .ProjectName }}
+      - --label=org.opencontainers.image.description="This is a pre-release version. Do not use this in production!"
       - --label=org.opencontainers.image.url=https://caas.telekom.de
       - --label=org.opencontainers.image.source=https://github.com/caas-team/sparrow
       - --label=org.opencontainers.image.version={{ .Version }}
       - --label=org.opencontainers.image.created={{ .Timestamp }}
       - --label=org.opencontainers.image.revision={{ .FullCommit }}
       - --label=org.opencontainers.image.licenses="Apache 2.0"
-nfpms:
-  - maintainer: CaaS <opensource@telekom.de>
-    description: |-
-      Monitoring tool to gather infrastructure network information
-    homepage: https://github.com/caas-team
-    license: Apache 2.0
-    formats:
-      - deb
-      - rpm
-      - apk
