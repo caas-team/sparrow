@@ -60,3 +60,9 @@ Create the name of the service account to use
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}
 {{- end }}
+
+{{- define "sparrowConfig" -}}
+{{- range $key, $value := .Values.sparrow }}
+{{ $key }}: {{ $value }}
+{{- end }}
+{{- end }}

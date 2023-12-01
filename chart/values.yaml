@@ -28,48 +28,51 @@ serviceAccount:
 podAnnotations: {}
 podLabels: {}
 
-# podSecurityContext: {}
-podSecurityContext:
-  fsGroup: 1000
-  supplementalGroups:
-  - 1000
+podSecurityContext: {}
+# podSecurityContext:
+#   fsGroup: 1000
+#   supplementalGroups:
+#   - 1000
 
-# securityContext: {}
-securityContext:
-  allowPrivilegeEscalation: false
-  capabilities:
-    drop:
-    - ALL
-  privileged: false
-  readOnlyRootFilesystem: true
-  runAsUser: 1000
-  runAsGroup: 1000
+securityContext: {}
+# securityContext:
+#   allowPrivilegeEscalation: false
+#   capabilities:
+#     drop:
+#     - ALL
+#   privileged: false
+#   readOnlyRootFilesystem: true
+#   runAsUser: 1000
+#   runAsGroup: 1000
 
 service:
   type: ClusterIP
-  port: 80
+  port: 8080
 
-# resources: {}
-resources:
-  limits:
-    cpu: 500m
-    memory: 512Mi
-  requests:
-    cpu: 100m
-    memory: 128Mi
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+  hosts:
+    - host: chart-example.local
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  tls: []
+  #  - secretName: chart-example-tls
+  #    hosts:
+  #      - chart-example.local
 
-# Additional volumes on the output Deployment definition.
-volumes: []
-# - name: foo
-#   secret:
-#     secretName: mysecret
-#     optional: false
-
-# Additional volumeMounts on the output Deployment definition.
-volumeMounts: []
-# - name: foo
-#   mountPath: "/etc/foo"
-#   readOnly: true
+resources: {}
+# resources:
+#   limits:
+#     cpu: 500m
+#     memory: 512Mi
+#   requests:
+#     cpu: 100m
+#     memory: 128Mi
 
 nodeSelector: {}
 
@@ -77,14 +80,24 @@ tolerations: []
 
 affinity: {}
 
-# configution of the Sparrow
+# startup configution of the Sparrow
+# see: https://github.com/caas-team/sparrow/blob/main/docs/sparrow_run.md
 sparrow:
-  apiAddress:
-  loaderFilePath:
-  loaderHttpRetryCount:
-  loaderHttpRetryDelay:
-  loaderHttpTimeout:
-  loaderHttpToken:
-  loaderHttpUrl:
-  loaderInterval:
-  loaderType:
+  #apiAddress:
+  loaderFilePath: /runconfig/checks.yaml
+  #loaderHttpRetryCount:
+  #loaderHttpRetryDelay:
+  #loaderHttpTimeout:
+  #loaderHttpToken:
+  #loaderHttpUrl:
+  #loaderInterval:
+  loaderType: file
+
+# runtime configution of the Sparrow
+# see: https://github.com/caas-team/sparrow#runtime
+sparrowConfig:
+  enabled: true
+  targets:
+    - "https://www.telekom.de"
+    - "https://gitlab.devops.telekom.de"
+  healthEndpoint: false

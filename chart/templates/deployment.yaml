@@ -32,9 +32,7 @@ spec:
       containers:
         - args:
           - --config
-          - "/.config.yaml"
-          #command:
-          #- sparrow
+          - "/config/.sparrow.yaml"
           name: {{ .Chart.Name }}
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
@@ -44,25 +42,20 @@ spec:
             - name: http
               containerPort: {{ .Values.service.port }}
               protocol: TCP
-          livenessProbe:
-            httpGet:
-              path: /
-              port: http
-          readinessProbe:
-            httpGet:
-              path: /
-              port: http
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
-          {{- with .Values.volumeMounts }}
           volumeMounts:
-            - name: name
-              mountPath: /.config.yaml
-          {{- end }}
+            - name: sparrow
+              mountPath: /config
+            - name: run
+              mountPath: /runconfig
       volumes:
-        - name: config
+        - name: sparrow
           secret:
             secretName: {{ include "sparrow.fullname" . }}
+        - name: run
+          configMap:
+            name: {{ include "sparrow.fullname" . }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

@@ -1,0 +1,20 @@
+{{- if .Values.sparrowConfig}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "sparrow.fullname" . }}
+  labels:
+    {{- include "sparrow.labels" . | nindent 4 }}
+data:
+  checks.yaml: |
+    apiVersion: 0.0.1
+    kind: Config
+    checks:
+      health:
+        enabled: {{ .Values.sparrowConfig.enabled  }}
+        targets:
+        {{- with .Values.sparrowConfig.targets }}
+        {{- toYaml . | nindent 10 }}
+        {{- end }}
+        healthEndpoint: {{ .Values.sparrowConfig.healthEndpoint  }}
+{{- end }}

@@ -4,7 +4,7 @@ description: A Helm chart to install Sparrow
 type: application
 keywords:
   - monitoring
-version: 0.0.1
+version: 0.0.2
 appVersion: "v0.0.0-SNAPSHOT-6477ffc"
 sources:
   - https://github.com/caas-team/sparrow
