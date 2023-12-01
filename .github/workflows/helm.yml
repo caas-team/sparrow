@@ -1,0 +1,28 @@
+name: Build & Push Chart
+
+on: push
+#  push:
+#    branches:
+#      - main
+    
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v2
+      - name: Helm lint & package & push
+        run: |
+          cd chart
+          helm registry login ${GHR} -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
+          helm registry login ${MTR} -u ${DOCKER_USERNAME} -p ${DOCKER_PASSWORD}
+          helm lint .
+          helm package .
+          helm push $(ls *.tgz| head -1) oci://${GHR}/${{ github.repository_owner }}/charts
+          helm push $(ls *.tgz| head -1) oci://${MTR}/${ORG}/charts
+        env:
+          DOCKER_USERNAME: ${{secrets.DOCKER_USERNAME}}
+          DOCKER_PASSWORD: ${{secrets.DOCKER_PASSWORD}}
+          GHR: ghcr.io
+          MTR: mtr.devops.telekom.de
+          ORG: caas
