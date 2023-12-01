@@ -11,10 +11,10 @@ builds:
       - arm64
 dockers:
   - image_templates:
-      - "ghcr.io/y-eight/sparrow:latest"
-      - "ghcr.io/y-eight/sparrow:{{ .Tag }}"
-      - "ghcr.io/y-eight/sparrow:v{{ .Major }}.{{ .Minor }}"
-      - "ghcr.io/y-eight/sparrow:v{{ .Major }}"
+      - "ghcr.io/caas-team/sparrow:latest"
+      - "ghcr.io/caas-team/sparrow:{{ .Tag }}"
+      - "ghcr.io/caas-team/sparrow:v{{ .Major }}.{{ .Minor }}"
+      - "ghcr.io/caas-team/sparrow:v{{ .Major }}"
     dockerfile: Dockerfile
     build_flag_templates:
       - --label=org.opencontainers.image.title={{ .ProjectName }}

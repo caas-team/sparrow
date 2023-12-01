@@ -77,11 +77,11 @@ Use `sparrow run` to execute the instance using the binary.
 
 ### Container Image
 
-Run a `sparrow` container by using e.g. `docker run ghcr.io/y-eight/sparrow`.
+Run a `sparrow` container by using e.g. `docker run ghcr.io/caas-team/sparrow`.
 
-Pass the available configuration arguments to the container e.g. `docker run ghcr.io/y-eight/sparrow --help`.
+Pass the available configuration arguments to the container e.g. `docker run ghcr.io/caas-team/sparrow --help`.
 
-Start the instance using a mounted startup configuration file e.g. `docker run -v /config:/config  ghcr.io/y-eight/sparrow --config /config/config.yaml`.
+Start the instance using a mounted startup configuration file e.g. `docker run -v /config:/config  ghcr.io/caas-team/sparrow --config /config/config.yaml`.
 
 ## Configuration
 
