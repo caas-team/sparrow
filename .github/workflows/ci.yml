@@ -54,10 +54,5 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build & push snapshot artifacts
-        uses: goreleaser/goreleaser-action@v5
-        with:
-          version: latest
-          args: release --snapshot --clean --config .goreleaser-ci.yaml
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Push snapshot container image
+        run: docker push ghcr.io/y-eight/sparrow:v${{ steps.version.outputs.value }}
