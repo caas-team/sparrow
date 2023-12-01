@@ -27,7 +27,7 @@ jobs:
         uses: goreleaser/goreleaser-action@v5
         with:
           version: latest
-          args: release --snapshot --skip=announce,publish --clean --config .goreleaser-ci.yaml
+          args: release --snapshot --clean --config .goreleaser-ci.yaml
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
