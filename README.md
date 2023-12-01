@@ -12,11 +12,13 @@
   - [Container Image](#container-image)
   - [Helm](#helm)
 - [Usage](#usage)
+  - [Container Image](#container-image-1)
 - [Configuration](#configuration)
   - [Startup](#startup)
     - [Loader](#loader)
   - [Runtime](#runtime)
   - [Check: Health](#check-health)
+  - [Check: Latency](#check-latency)
   - [API](#api)
 - [Code of Conduct](#code-of-conduct)
 - [Working Language](#working-language)
@@ -39,13 +41,31 @@ The `sparrow` performs several checks to monitor the health of the infrastructur
 
 The `sparrow` is provided as an small binary & a container image.
 
+Please see the [release notes](https://github.com/caas-team/sparrow/releases) for to get the latest version.
+
 ### Binary
 
-tbd
+The binary is available for several distributions. Currently the binary needs to be installed from a provided bundle or source.
+
+```sh
+curl https://github.com/caas-team/sparrow/releases/download/v${RELEASE_VERSION}/sparrow_${RELEASE_VERSION}_linux_amd64.tar.gz -Lo sparrow.tar.gz
+curl https://github.com/caas-team/sparrow/releases/download/v${RELEASE_VERSION}/sparrow_${RELEASE_VERSION}_checksums.txt -Lo checksums.txt
+```
+
+For example release `v0.0.1`:
+```sh
+curl https://github.com/caas-team/sparrow/releases/download/v0.0.1/sparrow_0.0.1_linux_amd64.tar.gz -Lo sparrow.tar.gz
+curl https://github.com/caas-team/sparrow/releases/download/v0.0.1/sparrow_0.0.1_checksums.txt -Lo checksums.txt
+```
+
+Extract the binary:
+```sh
+tar -xf sparrow.tar.gz
+```
 
 ### Container Image
 
-tbd
+The [sparrow container images](https://github.com/caas-team/sparrow/pkgs/container/sparrow) for dedicated [release](https://github.com/caas-team/sparrow/releases) can be found in the GitHub registry.
 
 ### Helm
 
@@ -53,7 +73,15 @@ tbd
 
 ## Usage
 
-Use `sparrow run` to execute the instance.
+Use `sparrow run` to execute the instance using the binary.
+
+### Container Image
+
+Run a `sparrow` container by using e.g. `docker run ghcr.io/y-eight/sparrow`.
+
+Pass the available configuration arguments to the container e.g. `docker run ghcr.io/y-eight/sparrow --help`.
+
+Start the instance using a mounted startup configuration file e.g. `docker run -v /config:/config  ghcr.io/y-eight/sparrow --config /config/config.yaml`.
 
 ## Configuration
 
