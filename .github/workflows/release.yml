@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   rel:
-    name: Release
+    name: Release Sparrow
     runs-on: ubuntu-latest
     steps:
 
@@ -29,7 +29,8 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: goreleaser/goreleaser-action@v5
+      - name: Build, push & release
+        uses: goreleaser/goreleaser-action@v5
         with:
           version: latest
           args: release --clean
