@@ -11,7 +11,7 @@ builds:
       - arm64
 dockers:
   - image_templates:
-      - "ghcr.io/y-eight/sparrow:v{{ .Version }}"
+      - "ghcr.io/caas-team/sparrow:v{{ .Version }}"
     dockerfile: Dockerfile
     build_flag_templates:
       - --label=org.opencontainers.image.title={{ .ProjectName }}
