@@ -28,22 +28,20 @@ serviceAccount:
 podAnnotations: {}
 podLabels: {}
 
-podSecurityContext: {}
-# podSecurityContext:
-#   fsGroup: 1000
-#   supplementalGroups:
-#   - 1000
+podSecurityContext:
+  fsGroup: 1000
+  supplementalGroups:
+  - 1000
 
-securityContext: {}
-# securityContext:
-#   allowPrivilegeEscalation: false
-#   capabilities:
-#     drop:
-#     - ALL
-#   privileged: false
-#   readOnlyRootFilesystem: true
-#   runAsUser: 1000
-#   runAsGroup: 1000
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+    - ALL
+  privileged: false
+  readOnlyRootFilesystem: true
+  runAsUser: 1000
+  runAsGroup: 1000
 
 service:
   type: ClusterIP
