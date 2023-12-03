@@ -20,6 +20,8 @@ A Helm chart to install Sparrow
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | affinity | object | `{}` |  |
+| extraArgs.loaderFilePath | string | `"/runconfig/checks.yaml"` |  |
+| extraArgs.loaderType | string | `"file"` |  |
 | fullnameOverride | string | `""` |  |
 | image.pullPolicy | string | `"IfNotPresent"` |  |
 | image.repository | string | `"ghcr.io/caas-team/sparrow"` |  |
@@ -36,22 +38,31 @@ A Helm chart to install Sparrow
 | nodeSelector | object | `{}` |  |
 | podAnnotations | object | `{}` |  |
 | podLabels | object | `{}` |  |
-| podSecurityContext | object | `{}` |  |
+| podSecurityContext.fsGroup | int | `1000` |  |
+| podSecurityContext.supplementalGroups[0] | int | `1000` |  |
 | replicaCount | int | `1` |  |
 | resources | object | `{}` |  |
-| securityContext | object | `{}` |  |
+| runtimeConfig.enabled | bool | `true` |  |
+| runtimeConfig.healthEndpoint | bool | `false` |  |
+| runtimeConfig.latency.enabled | bool | `true` |  |
+| runtimeConfig.latency.interval | int | `1` |  |
+| runtimeConfig.latency.retry.count | int | `3` |  |
+| runtimeConfig.latency.retry.delay | int | `1` |  |
+| runtimeConfig.latency.timeout | int | `3` |  |
+| runtimeConfig.targets[0] | string | `"https://www.example.com/"` |  |
+| runtimeConfig.targets[1] | string | `"https://www.google.com/"` |  |
+| securityContext.allowPrivilegeEscalation | bool | `false` |  |
+| securityContext.capabilities.drop[0] | string | `"ALL"` |  |
+| securityContext.privileged | bool | `false` |  |
+| securityContext.readOnlyRootFilesystem | bool | `true` |  |
+| securityContext.runAsGroup | int | `1000` |  |
+| securityContext.runAsUser | int | `1000` |  |
 | service.port | int | `8080` |  |
 | service.type | string | `"ClusterIP"` |  |
 | serviceAccount.annotations | object | `{}` |  |
 | serviceAccount.automount | bool | `true` |  |
 | serviceAccount.create | bool | `true` |  |
 | serviceAccount.name | string | `""` |  |
-| sparrow.loaderFilePath | string | `"/runconfig/checks.yaml"` |  |
-| sparrow.loaderType | string | `"file"` |  |
-| sparrowConfig.enabled | bool | `true` |  |
-| sparrowConfig.healthEndpoint | bool | `false` |  |
-| sparrowConfig.targets[0] | string | `"https://www.telekom.de"` |  |
-| sparrowConfig.targets[1] | string | `"https://gitlab.devops.telekom.de"` |  |
 | tolerations | list | `[]` |  |
 
 ----------------------------------------------
