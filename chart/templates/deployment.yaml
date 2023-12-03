@@ -30,9 +30,17 @@ spec:
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
+        {{- if or .Values.extraArgs .Values.startupConfig}}
         - args:
+        {{- end }}
+          {{- if .Values.startupConfig}}
           - --config
-          - "/config/.sparrow.yaml"
+          - /startconfig/.sparrow.yaml
+          {{- end }}
+          {{- range $key, $value := .Values.extraArgs }}
+          - --{{ $key }}
+          - {{ $value }}
+          {{- end }}
           name: {{ .Chart.Name }}
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
@@ -40,22 +48,36 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
             - name: http
-              containerPort: {{ .Values.service.port }}
+              containerPort: {{ .Values.service.port | default 8080 }}
               protocol: TCP
+          {{- if .Values.resources }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+          {{- end }}
+          {{- if or .Values.runtimeConfig .Values.startupConfig}}
           volumeMounts:
-            - name: sparrow
-              mountPath: /config
-            - name: run
+          {{- end }}
+          {{- if .Values.startupConfig}}
+            - name: startup
+              mountPath: /startconfig
+          {{- end }}
+          {{- if .Values.runtimeConfig}}
+            - name: runtime
               mountPath: /runconfig
+          {{- end }}
+      {{- if or .Values.runtimeConfig .Values.startupConfig}}
       volumes:
-        - name: sparrow
+      {{- end }}
+      {{- if .Values.startupConfig}}
+        - name: startup
           secret:
             secretName: {{ include "sparrow.fullname" . }}
-        - name: run
+      {{- end }}
+      {{- if .Values.runtimeConfig}}
+        - name: runtime
           configMap:
             name: {{ include "sparrow.fullname" . }}
+      {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

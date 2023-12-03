@@ -1,4 +1,4 @@
-{{- if .Values.sparrowConfig}}
+{{- if .Values.runtimeConfig}}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -11,10 +11,19 @@ data:
     kind: Config
     checks:
       health:
-        enabled: {{ .Values.sparrowConfig.enabled  }}
+        enabled: {{ .Values.runtimeConfig.enabled  }}
         targets:
-        {{- with .Values.sparrowConfig.targets }}
+        {{- with .Values.runtimeConfig.targets }}
         {{- toYaml . | nindent 10 }}
         {{- end }}
-        healthEndpoint: {{ .Values.sparrowConfig.healthEndpoint  }}
+        healthEndpoint: {{ .Values.runtimeConfig.healthEndpoint  }}
+        {{- if .Values.runtimeConfig.latency.enabled}}
+        latency:
+          enabled: true
+          interval: {{ .Values.runtimeConfig.latency.interval | default 1 }}
+          timeout: {{ .Values.runtimeConfig.latency.timeout | default 3 }}
+          retry:
+            count: {{ .Values.runtimeConfig.latency.retry.count | default 3 }}
+            delay: {{ .Values.runtimeConfig.latency.retry.delay | default 1 }}
+        {{- end }}
 {{- end }}

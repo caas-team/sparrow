@@ -78,22 +78,28 @@ tolerations: []
 
 affinity: {}
 
+# extra command line start parameters
+# see: https://github.com/caas-team/sparrow/blob/main/docs/sparrow_run.md
+extraArgs:
+  loaderFilePath: /runconfig/checks.yaml
+  loaderType: file
+
 # startup configuration of the Sparrow
 # see: https://github.com/caas-team/sparrow/blob/main/docs/sparrow_run.md
-sparrow:
+#startupConfig:
   #apiAddress:
-  loaderFilePath: /runconfig/checks.yaml
+  #loaderFilePath: /runconfig/checks.yaml
   #loaderHttpRetryCount:
   #loaderHttpRetryDelay:
   #loaderHttpTimeout:
   #loaderHttpToken:
   #loaderHttpUrl:
   #loaderInterval:
-  loaderType: file
+  #loaderType: file
 
 # runtime configuration of the Sparrow
 # see: https://github.com/caas-team/sparrow#runtime
-sparrowConfig:
+runtimeConfig:
   enabled: true
   healthEndpoint: false
   latency:

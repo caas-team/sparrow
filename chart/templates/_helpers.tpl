@@ -61,8 +61,8 @@ Create the name of the service account to use
 {{- end }}
 {{- end }}
 
-{{- define "sparrowConfig" -}}
-{{- range $key, $value := .Values.sparrow }}
+{{- define "startupConfig" -}}
+{{- range $key, $value := .Values.startupConfig }}
 {{ $key }}: {{ $value }}
 {{- end }}
 {{- end }}
