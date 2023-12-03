@@ -78,7 +78,7 @@ tolerations: []
 
 affinity: {}
 
-# startup configution of the Sparrow
+# startup configuration of the Sparrow
 # see: https://github.com/caas-team/sparrow/blob/main/docs/sparrow_run.md
 sparrow:
   #apiAddress:
@@ -91,7 +91,7 @@ sparrow:
   #loaderInterval:
   loaderType: file
 
-# runtime configution of the Sparrow
+# runtime configuration of the Sparrow
 # see: https://github.com/caas-team/sparrow#runtime
 sparrowConfig:
   enabled: true
