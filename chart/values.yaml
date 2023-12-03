@@ -95,7 +95,14 @@ sparrow:
 # see: https://github.com/caas-team/sparrow#runtime
 sparrowConfig:
   enabled: true
-  targets:
-    - "https://www.telekom.de"
-    - "https://gitlab.devops.telekom.de"
   healthEndpoint: false
+  latency:
+    enabled: true
+    interval: 1
+    timeout: 3
+    retry:
+      count: 3
+      delay: 1
+  targets:
+    - "https://www.example.com/"
+    - "https://www.google.com/"
