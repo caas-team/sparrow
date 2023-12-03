@@ -62,7 +62,7 @@ jobs:
     - name: Wait for Sparrow
       run: |
         sleep 60
-    - name: Check Sparrow
+    - name: Healthcheck
       run: |
         kubectl create job curl --image=mtr.devops.telekom.de/mcsps/curl:7.65.3 -- curl -f -v -H 'Content-Type: application/json'  http://sparrow:8080/v1/metrics/health
         kubectl wait --for=condition=complete job/curl
