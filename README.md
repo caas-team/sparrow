@@ -69,20 +69,17 @@ The [sparrow container images](https://github.com/caas-team/sparrow/pkgs/contain
 
 ### Helm
 
-Sparrow can be install via Helm chart. The chart is provided in multiple registries, so you may choose the one that suits you best:
+Sparrow can be install via Helm chart. The chart is provided in the github registry:
 
 ```sh
 helm -n sparrow upgrade -i sparrow oci://ghcr.io/caas-team/charts/sparrow --version 1.0.0 --create-namespace
 ```
-or
 
-```sh
-helm -n sparrow upgrade -i sparrow oci://mtr.devops.telekom.de/caas/charts/sparrow --version 1.0.0 --create-namespace
-```
-
-Default settings are fine for a local running configuration, see also our [end2end workflow](https://github.com/caas-team/sparrow/actions/workflows/end2end.yml).
+Default settings are fine for a local running configuration.
 
 See [Chart README](./chart/README.md) for available values and more details.
+
+Additionally check out the sparrow [configuration](#configuration) variants.
 
 ## Usage
 
