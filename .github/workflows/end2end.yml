@@ -64,7 +64,7 @@ jobs:
         sleep 60
     - name: Healthcheck
       run: |
-        kubectl create job curl --image=mtr.devops.telekom.de/mcsps/curl:7.65.3 -- curl -f -v -H 'Content-Type: application/json'  http://sparrow:8080/v1/metrics/health
+        kubectl create job curl --image=quay.io/curl/curl:latest -- curl -f -v -H 'Content-Type: application/json'  http://sparrow:8080/v1/metrics/health
         kubectl wait --for=condition=complete job/curl
         STATUS=$(kubectl get job curl -o jsonpath={.status.succeeded})
         if [[ $STATUS  -ne  1 ]]
