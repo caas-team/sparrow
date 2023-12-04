@@ -6,7 +6,7 @@ keywords:
   - monitoring
 version: 0.0.2
 appVersion: "v0.0.0-SNAPSHOT-6477ffc"
-icon: https://github.com/caas-team/sparrow/blob/main/sparrow.png
+icon: https://github.com/caas-team/sparrow/blob/main/docs/img/sparrow.png
 sources:
   - https://github.com/caas-team/sparrow
 maintainers:
