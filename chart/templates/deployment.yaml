@@ -41,6 +41,13 @@ spec:
           - --{{ $key }}
           - {{ $value }}
           {{- end }}
+          {{- if .Values.env }}
+          env:
+          {{- range $key, $val := .Values.env }}
+            - name: {{ $key }}
+              value: {{ $val | quote }}
+          {{- end }}
+          {{- end }}
           name: {{ .Chart.Name }}
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}

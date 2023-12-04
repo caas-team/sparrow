@@ -1,0 +1,19 @@
+{{- if .Values.networkPolicies.proxy.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "sparrow.fullname" . }}-proxy-np
+  labels:
+    {{- include "sparrow.labels" . | nindent 4 }}
+spec:
+  egress:
+  - ports:
+    - port: {{ .Values.networkPolicies.proxy.port }}
+      protocol: TCP
+    to:
+    - ipBlock:
+        cidr: {{ .Values.networkPolicies.proxy.ip }}/32
+  podSelector: {}
+  policyTypes:
+  - Egress
+{{- end }}

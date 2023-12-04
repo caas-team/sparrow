@@ -20,12 +20,12 @@ A Helm chart to install Sparrow
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | affinity | object | `{}` |  |
-| extraArgs.loaderFilePath | string | `"/runconfig/checks.yaml"` |  |
-| extraArgs.loaderType | string | `"file"` |  |
+| env | object | `{}` |  |
+| extraArgs | object | `{"loaderFilePath":"/runconfig/checks.yaml","loaderType":"file"}` | extra command line start parameters see: https://github.com/caas-team/sparrow/blob/main/docs/sparrow_run.md |
 | fullnameOverride | string | `""` |  |
 | image.pullPolicy | string | `"IfNotPresent"` |  |
 | image.repository | string | `"ghcr.io/caas-team/sparrow"` |  |
-| image.tag | string | `""` |  |
+| image.tag | string | `""` | Overrides the image tag whose default is the chart appVersion. |
 | imagePullSecrets | list | `[]` |  |
 | ingress.annotations | object | `{}` |  |
 | ingress.className | string | `""` |  |
@@ -35,6 +35,7 @@ A Helm chart to install Sparrow
 | ingress.hosts[0].paths[0].pathType | string | `"ImplementationSpecific"` |  |
 | ingress.tls | list | `[]` |  |
 | nameOverride | string | `""` |  |
+| networkPolicies | object | `{"proxy":{"enabled":false}}` | define a network policy that will open egress traffic to a proxy |
 | nodeSelector | object | `{}` |  |
 | podAnnotations | object | `{}` |  |
 | podLabels | object | `{}` |  |
@@ -42,15 +43,7 @@ A Helm chart to install Sparrow
 | podSecurityContext.supplementalGroups[0] | int | `1000` |  |
 | replicaCount | int | `1` |  |
 | resources | object | `{}` |  |
-| runtimeConfig.enabled | bool | `true` |  |
-| runtimeConfig.healthEndpoint | bool | `false` |  |
-| runtimeConfig.latency.enabled | bool | `true` |  |
-| runtimeConfig.latency.interval | int | `1` |  |
-| runtimeConfig.latency.retry.count | int | `3` |  |
-| runtimeConfig.latency.retry.delay | int | `1` |  |
-| runtimeConfig.latency.timeout | int | `3` |  |
-| runtimeConfig.targets[0] | string | `"https://www.example.com/"` |  |
-| runtimeConfig.targets[1] | string | `"https://www.google.com/"` |  |
+| runtimeConfig | object | `{"health":{"enabled":true,"healthEndpoint":false,"targets":["https://www.example.com/","https://www.google.com/"]}}` | runtime configuration of the Sparrow see: https://github.com/caas-team/sparrow#runtime |
 | securityContext.allowPrivilegeEscalation | bool | `false` |  |
 | securityContext.capabilities.drop[0] | string | `"ALL"` |  |
 | securityContext.privileged | bool | `false` |  |
@@ -59,10 +52,10 @@ A Helm chart to install Sparrow
 | securityContext.runAsUser | int | `1000` |  |
 | service.port | int | `8080` |  |
 | service.type | string | `"ClusterIP"` |  |
-| serviceAccount.annotations | object | `{}` |  |
-| serviceAccount.automount | bool | `true` |  |
-| serviceAccount.create | bool | `true` |  |
-| serviceAccount.name | string | `""` |  |
+| serviceAccount.annotations | object | `{}` | Annotations to add to the service account |
+| serviceAccount.automount | bool | `true` | Automatically mount a ServiceAccount's API credentials? |
+| serviceAccount.create | bool | `true` | Specifies whether a service account should be created |
+| serviceAccount.name | string | `""` | The name of the service account to use. If not set and create is true, a name is generated using the fullname template |
 | tolerations | list | `[]` |  |
 
 ----------------------------------------------
