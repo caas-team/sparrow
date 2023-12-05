@@ -59,7 +59,7 @@ jobs:
           --timeout 300s \
           --set extraArgs.loaderType=file \
           --set extraArgs.loaderFilePath=/runconfig/checks.yaml \
-          --set iamge.tag=${{ steps.version.outputs.value }} \
+          --set image.tag=${{ steps.version.outputs.value }} \
           chart
     - name: Check Pods
       run: |
