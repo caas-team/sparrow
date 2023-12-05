@@ -8,7 +8,6 @@ import (
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/mitchellh/mapstructure"
-	"golang.org/x/sync/errgroup"
 
 	"github.com/caas-team/sparrow/internal/helper"
 	"github.com/caas-team/sparrow/internal/logger"
@@ -123,58 +122,69 @@ func (l *Latency) Handler(w http.ResponseWriter, r *http.Request) {
 func (l *Latency) check(ctx context.Context) (map[string]LatencyResult, error) {
 	log := logger.FromContext(ctx).WithGroup("check")
 	log.Debug("Checking latency")
+	if len(l.cfg.Targets) == 0 {
+		log.Debug("No targets defined")
+		return map[string]LatencyResult{}, nil
+	}
 
-	var resultMutex sync.Mutex
-	results := map[string]LatencyResult{}
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+	results := make(map[string]LatencyResult, len(l.cfg.Targets))
 
-	wg, ctx := errgroup.WithContext(ctx)
-	for _, e := range l.cfg.Targets {
-		// Create a local copy of the loop variable for each goroutine to prevent race conditions
-		target := e
-		wg.Go(func() error {
-			cl := http.Client{
-				Timeout: l.cfg.Timeout * time.Second,
-			}
-			req, err := http.NewRequestWithContext(ctx, http.MethodGet, target, nil)
+	for _, tar := range l.cfg.Targets {
+		target := tar
+		wg.Add(1)
+		go func(target string) {
+			defer wg.Done()
+			log := log.With("target", target)
+			log.Debug("Starting retry routine to get latency", "target", target)
+
+			err := helper.Retry(func(ctx context.Context) error {
+				res := getLatency(ctx, target)
+				mu.Lock()
+				results[target] = res
+				mu.Unlock()
+				return nil
+			}, l.cfg.Retry)(ctx)
 			if err != nil {
-				log.Error("Error while creating request", "error", err)
-				return err
+				log.Error("Error while checking latency", "error", err)
 			}
-
-			var latencyresult LatencyResult
-
-			req = req.WithContext(ctx)
-
-			helper.Retry(func(ctx context.Context) error {
-				start := time.Now()
-				response, err := cl.Do(req)
-				if err != nil {
-					errval := err.Error()
-					latencyresult.Error = &errval
-					log.Error("Error while checking latency", "error", err)
-
-				} else {
-					latencyresult.Code = response.StatusCode
-				}
-				end := time.Now()
-
-				latencyresult.Total = end.Sub(start).Milliseconds()
-
-				resultMutex.Lock()
-				defer resultMutex.Unlock()
-				results[target] = latencyresult
-
-				return err
-			}, l.cfg.Retry)(ctx) // ignore return value, since we set it in the closure
-			return nil
-
-		})
+		}(target)
 	}
+	wg.Wait()
 
-	if err := wg.Wait(); err != nil {
-		log.Error("Error while checking latency", "error", err)
-		return nil, err
-	}
-
+	log.Info("Successfully got latency to all targets")
 	return results, nil
+}
+
+// getLatency performs an HTTP get request and returns ok if request succeeds
+func getLatency(ctx context.Context, url string) LatencyResult {
+	log := logger.FromContext(ctx).With("url", url)
+	var res LatencyResult
+	client := &http.Client{
+		Timeout: time.Second * 5,
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		log.Error("Error while creating request", "error", err)
+		errval := err.Error()
+		res.Error = &errval
+		return res
+	}
+
+	start := time.Now()
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Error("Error while checking latency", "error", err)
+		errval := err.Error()
+		res.Error = &errval
+	} else {
+		res.Code = resp.StatusCode
+	}
+	end := time.Now()
+
+	res.Total = end.Sub(start).Milliseconds()
+
+	return res
 }
