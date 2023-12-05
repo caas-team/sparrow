@@ -1,8 +1,10 @@
 project_name: sparrow
+snapshot:
+  name_template: "commit-{{ .ShortCommit }}"
 builds:
   - env: [CGO_ENABLED=0]
     ldflags:
-      - -s -w -X main.version=v{{ .Version }}
+      - -s -w -X main.version={{ .Version }}
       - -extldflags "-static"
     goos:
       - linux
@@ -11,7 +13,7 @@ builds:
       - arm64
 dockers:
   - image_templates:
-      - "ghcr.io/caas-team/sparrow:v{{ .Version }}"
+      - "ghcr.io/caas-team/sparrow:{{ .Version }}"
     dockerfile: Dockerfile
     build_flag_templates:
       - --label=org.opencontainers.image.title={{ .ProjectName }}
