@@ -233,3 +233,70 @@ func TestNewLatencyCheck(t *testing.T) {
 		t.Error("NewLatencyCheck() should not be nil")
 	}
 }
+
+func TestLatency_Run(t *testing.T) {
+	httpmock.Activate()
+	defer httpmock.Deactivate()
+
+	httpmock.RegisterResponder(http.MethodGet, "http://success.com", httpmock.NewStringResponder(200, "ok"))
+	httpmock.RegisterResponder(http.MethodGet, "http://fail.com", httpmock.NewStringResponder(500, "fail"))
+	httpmock.RegisterResponder(http.MethodGet, "http://timeout.com", httpmock.NewErrorResponder(context.DeadlineExceeded))
+
+	c := NewLatencyCheck()
+	results := make(chan Result, 1)
+	c.Startup(context.Background(), results)
+
+	c.SetConfig(context.Background(), LatencyConfig{
+		Targets:  []string{"http://success.com", "http://fail.com", "http://timeout.com"},
+		Interval: time.Second * 120,
+		Timeout:  time.Second * 1,
+	})
+	go c.Run(context.Background())
+	defer c.Shutdown(context.Background())
+
+	result := <-results
+	wantResult := Result{
+		Timestamp: result.Timestamp,
+		Err:       "",
+		Data: map[string]LatencyResult{
+			"http://success.com": {
+				Code:  200,
+				Error: nil,
+				Total: 0,
+			},
+			"http://fail.com": {
+				Code:  500,
+				Error: nil,
+				Total: 0,
+			},
+			"http://timeout.com": {
+				Code:  0,
+				Error: stringPointer("Get \"http://timeout.com\": context deadline exceeded"),
+				Total: 0,
+			},
+		},
+	}
+
+	if wantResult.Timestamp != result.Timestamp {
+		t.Errorf("Latency.Run() = %v, want %v", result.Timestamp, wantResult.Timestamp)
+	}
+	if wantResult.Err != result.Err {
+		t.Errorf("Latency.Run() = %v, want %v", result.Err, wantResult.Err)
+	}
+	wantData := wantResult.Data.(map[string]LatencyResult)
+	data := result.Data.(map[string]LatencyResult)
+
+	for k, v := range wantData {
+		if v.Code != data[k].Code {
+			t.Errorf("Latency.Run() = %v, want %v", data[k].Code, v.Code)
+		}
+		if v.Total != data[k].Total {
+			t.Errorf("Latency.Run() = %v, want %v", data[k].Total, v.Total)
+		}
+		if v.Error != nil && data[k].Error != nil {
+			if *v.Error != *data[k].Error {
+				t.Errorf("Latency.Run() = %v, want %v", *data[k].Error, *v.Error)
+			}
+		}
+	}
+}
