@@ -129,45 +129,46 @@ func (l *Latency) check(ctx context.Context) (map[string]LatencyResult, error) {
 
 	wg, ctx := errgroup.WithContext(ctx)
 	for _, e := range l.cfg.Targets {
-		wg.Go(func(ctx context.Context, e string) func() error {
-			return func() error {
-				cl := http.Client{
-					Timeout: l.cfg.Timeout * time.Second,
-				}
-				req, err := http.NewRequestWithContext(ctx, http.MethodGet, e, nil)
-				if err != nil {
-					log.Error("Error while creating request", "error", err)
-					return err
-				}
-
-				var latencyresult LatencyResult
-
-				req = req.WithContext(ctx)
-
-				helper.Retry(func(ctx context.Context) error {
-					start := time.Now()
-					response, err := cl.Do(req)
-					if err != nil {
-						errval := err.Error()
-						latencyresult.Error = &errval
-						log.Error("Error while checking latency", "error", err)
-
-					} else {
-						latencyresult.Code = response.StatusCode
-					}
-					end := time.Now()
-
-					latencyresult.Total = end.Sub(start).Milliseconds()
-
-					resultMutex.Lock()
-					defer resultMutex.Unlock()
-					results[e] = latencyresult
-
-					return err
-				}, l.cfg.Retry)(ctx) // ignore return value, since we set it in the closure
-				return nil
+		// Create a local copy of the loop variable for each goroutine to prevent race conditions
+		target := e
+		wg.Go(func() error {
+			cl := http.Client{
+				Timeout: l.cfg.Timeout * time.Second,
 			}
-		}(ctx, e))
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, target, nil)
+			if err != nil {
+				log.Error("Error while creating request", "error", err)
+				return err
+			}
+
+			var latencyresult LatencyResult
+
+			req = req.WithContext(ctx)
+
+			helper.Retry(func(ctx context.Context) error {
+				start := time.Now()
+				response, err := cl.Do(req)
+				if err != nil {
+					errval := err.Error()
+					latencyresult.Error = &errval
+					log.Error("Error while checking latency", "error", err)
+
+				} else {
+					latencyresult.Code = response.StatusCode
+				}
+				end := time.Now()
+
+				latencyresult.Total = end.Sub(start).Milliseconds()
+
+				resultMutex.Lock()
+				defer resultMutex.Unlock()
+				results[target] = latencyresult
+
+				return err
+			}, l.cfg.Retry)(ctx) // ignore return value, since we set it in the closure
+			return nil
+
+		})
 	}
 
 	if err := wg.Wait(); err != nil {
