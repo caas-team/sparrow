@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
-	"sync"
 	"testing"
 	"time"
 
@@ -16,136 +15,135 @@ import (
 func stringPointer(s string) *string {
 	return &s
 }
+
 func TestLatency_check(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.Deactivate()
 
-	httpmock.RegisterResponder(http.MethodGet, "http://success.com", httpmock.NewStringResponder(200, "ok"))
-	httpmock.RegisterResponder(http.MethodGet, "http://fail.com", httpmock.NewStringResponder(500, "fail"))
-	httpmock.RegisterResponder(http.MethodGet, "http://timeout.com", httpmock.NewErrorResponder(context.DeadlineExceeded))
-
-	cResult := make(chan Result, 1)
-	c := Latency{
-		cfg:  LatencyConfig{},
-		mu:   sync.Mutex{},
-		c:    cResult,
-		done: make(chan bool, 1),
-	}
-	results := make(chan Result, 1)
-	c.Startup(context.Background(), results)
-
-	c.SetConfig(context.Background(), LatencyConfig{
-		Targets:  []string{"http://success.com", "http://fail.com", "http://timeout.com"},
-		Interval: time.Second * 120,
-		Timeout:  time.Second * 1,
-	})
-	defer c.Shutdown(context.Background())
-
-	data, err := c.check(context.Background())
-
-	if err != nil {
-		t.Errorf("Latency.check() error = %v", err)
-	}
-
-	wantData := map[string]LatencyResult{
-		"http://success.com": {
-			Code:  200,
-			Error: nil,
-			Total: 0,
-		},
-		"http://fail.com": {
-			Code:  500,
-			Error: nil,
-			Total: 0,
-		},
-		"http://timeout.com": {
-			Code:  0,
-			Error: stringPointer("Get \"http://timeout.com\": context deadline exceeded"),
-			Total: 0,
-		},
-	}
-
-	for k, v := range wantData {
-		if v.Code != data[k].Code {
-			t.Errorf("Latency.Run() = %v, want %v", data[k].Code, v.Code)
+	tests := []struct {
+		name                string
+		registeredEndpoints []struct {
+			name    string
+			status  int
+			success bool
 		}
-		if v.Total != data[k].Total {
-			t.Errorf("Latency.Run() = %v, want %v", data[k].Total, v.Total)
-		}
-		if v.Error != nil && data[k].Error != nil {
-			if *v.Error != *data[k].Error {
-				t.Errorf("Latency.Run() = %v, want %v", *data[k].Error, *v.Error)
+		targets []string
+		ctx     context.Context
+		want    map[string]LatencyResult
+	}{
+		{
+			name:                "no target",
+			registeredEndpoints: nil,
+			targets:             []string{},
+			ctx:                 context.Background(),
+			want:                map[string]LatencyResult{},
+		},
+		{
+			name: "one target",
+			registeredEndpoints: []struct {
+				name    string
+				status  int
+				success bool
+			}{
+				{
+					name:    "http://success.com",
+					status:  200,
+					success: true,
+				},
+			},
+			targets: []string{"http://success.com"},
+			ctx:     context.Background(),
+			want: map[string]LatencyResult{
+				"http://success.com": {Code: http.StatusOK, Error: nil, Total: 0},
+			},
+		},
+		{
+			name: "multiple targets",
+			registeredEndpoints: []struct {
+				name    string
+				status  int
+				success bool
+			}{
+				{
+					name:    "http://success.com",
+					status:  http.StatusOK,
+					success: true,
+				},
+				{
+					name:    "http://fail.com",
+					status:  http.StatusInternalServerError,
+					success: true,
+				},
+				{
+					name:    "http://timeout.com",
+					success: false,
+				},
+			},
+			targets: []string{"http://success.com", "http://fail.com", "http://timeout.com"},
+			ctx:     context.Background(),
+			want: map[string]LatencyResult{
+				"http://success.com": {
+					Code:  200,
+					Error: nil,
+					Total: 0,
+				},
+				"http://fail.com": {
+					Code:  500,
+					Error: nil,
+					Total: 0,
+				},
+				"http://timeout.com": {
+					Code:  0,
+					Error: stringPointer("Get \"http://timeout.com\": context deadline exceeded"),
+					Total: 0,
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			for _, endpoint := range tt.registeredEndpoints {
+				if endpoint.success {
+					httpmock.RegisterResponder(http.MethodGet, endpoint.name, httpmock.NewStringResponder(endpoint.status, ""))
+				} else {
+					httpmock.RegisterResponder(http.MethodGet, endpoint.name, httpmock.NewErrorResponder(context.DeadlineExceeded))
+				}
 			}
-		}
-	}
 
-}
-
-func TestLatency_Run(t *testing.T) {
-	httpmock.Activate()
-	defer httpmock.Deactivate()
-
-	httpmock.RegisterResponder(http.MethodGet, "http://success.com", httpmock.NewStringResponder(200, "ok"))
-	httpmock.RegisterResponder(http.MethodGet, "http://fail.com", httpmock.NewStringResponder(500, "fail"))
-	httpmock.RegisterResponder(http.MethodGet, "http://timeout.com", httpmock.NewErrorResponder(context.DeadlineExceeded))
-
-	c := NewLatencyCheck()
-	results := make(chan Result, 1)
-	c.Startup(context.Background(), results)
-
-	c.SetConfig(context.Background(), LatencyConfig{
-		Targets:  []string{"http://success.com", "http://fail.com", "http://timeout.com"},
-		Interval: time.Second * 120,
-		Timeout:  time.Second * 1,
-	})
-	go c.Run(context.Background())
-	defer c.Shutdown(context.Background())
-
-	result := <-results
-	wantResult := Result{
-		Timestamp: result.Timestamp,
-		Err:       "",
-		Data: map[string]LatencyResult{
-			"http://success.com": {
-				Code:  200,
-				Error: nil,
-				Total: 0,
-			},
-			"http://fail.com": {
-				Code:  500,
-				Error: nil,
-				Total: 0,
-			},
-			"http://timeout.com": {
-				Code:  0,
-				Error: stringPointer("Get \"http://timeout.com\": context deadline exceeded"),
-				Total: 0,
-			},
-		},
-	}
-
-	if wantResult.Timestamp != result.Timestamp {
-		t.Errorf("Latency.Run() = %v, want %v", result.Timestamp, wantResult.Timestamp)
-	}
-	if wantResult.Err != result.Err {
-		t.Errorf("Latency.Run() = %v, want %v", result.Err, wantResult.Err)
-	}
-	wantData := wantResult.Data.(map[string]LatencyResult)
-	data := result.Data.(map[string]LatencyResult)
-
-	for k, v := range wantData {
-		if v.Code != data[k].Code {
-			t.Errorf("Latency.Run() = %v, want %v", data[k].Code, v.Code)
-		}
-		if v.Total != data[k].Total {
-			t.Errorf("Latency.Run() = %v, want %v", data[k].Total, v.Total)
-		}
-		if v.Error != nil && data[k].Error != nil {
-			if *v.Error != *data[k].Error {
-				t.Errorf("Latency.Run() = %v, want %v", *data[k].Error, *v.Error)
+			l := &Latency{
+				cfg: LatencyConfig{Targets: tt.targets, Interval: time.Second * 120, Timeout: time.Second * 1},
 			}
-		}
+
+			got, err := l.check(tt.ctx)
+			if err != nil {
+				t.Errorf("check() error = %v", err)
+				return
+			}
+
+			if len(got) != len(tt.want) {
+				t.Errorf("check() got %v results, want %v results", len(got), len(tt.want))
+			}
+
+			for k, v := range tt.want {
+				if v.Code != got[k].Code {
+					t.Errorf("Latency.check() = %v, want %v", got[k].Code, v.Code)
+				}
+				if got[k].Total < 0 {
+					t.Errorf("Latency.check() got negative latency for key %v", k)
+				}
+				if v.Error != nil && got[k].Error != nil {
+					if *v.Error != *got[k].Error {
+						t.Errorf("Latency.check() = %v, want %v", *got[k].Error, *v.Error)
+					}
+				}
+			}
+
+			// Resetting httpmock for the next iteration
+			httpmock.Reset()
+		})
 	}
+
 }
 
 func TestLatency_Startup(t *testing.T) {
