@@ -47,10 +47,10 @@ jobs:
         run: helm registry login ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
 
       - name: Helm lint
-        run: helm lint chart/
+        run: helm lint ./chart
       
       - name: Helm package
-        run: helm package chart/ -d chart/
+        run: helm package ./chart -d ./chart
         
       - name: Push helm package
-        run: helm push $(ls chart/*.tgz| head -1) oci://ghcr.io/${{ github.repository_owner }}/charts
+        run: helm push $(ls ./chart/*.tgz| head -1) oci://ghcr.io/${{ github.repository_owner }}/charts
