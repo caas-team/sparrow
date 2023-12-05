@@ -49,12 +49,17 @@ jobs:
       run: |
         curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
         helm version
+    - name: Get Image Tag
+      id: version
+      run: echo "value=commit-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
     - name: Install Sparrow
       run: |
         helm upgrade -i sparrow \
           --atomic \
           --timeout 300s \
-          --set sparrow.loaderType=file \
+          --set extraArgs.loaderType=file \
+          --set extraArgs.loaderFilePath=/runconfig/checks.yaml \
+          --set iamge.tag=${{ steps.version.outputs.value }} \
           chart
     - name: Check Pods
       run: |
