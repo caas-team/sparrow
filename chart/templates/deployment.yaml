@@ -35,7 +35,7 @@ spec:
         {{- end }}
           {{- if .Values.startupConfig}}
           - --config
-          - /startconfig/.sparrow.yaml
+          - /startupconfig/.sparrow.yaml
           {{- else if .Values.extraArgs }}
           {{- range $key, $value := .Values.extraArgs }}
           - --{{ $key }}
@@ -67,7 +67,7 @@ spec:
           {{- end }}
           {{- if .Values.startupConfig}}
             - name: startup
-              mountPath: /startconfig
+              mountPath: /startupconfig
           {{- end }}
           {{- if .Values.runtimeConfig}}
             - name: runtime
