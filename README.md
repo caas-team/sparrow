@@ -1,4 +1,4 @@
-# sparrow <!-- omit from toc -->
+# Sparrow - Infrastructure Monitoring<!-- omit from toc -->
 
 <p align="center">
     <a href="/../../commits/" title="Last Commit"><img src="https://img.shields.io/github/last-commit/caas-team/sparrow?style=flat"></a>
