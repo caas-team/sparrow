@@ -60,7 +60,6 @@ func (i *InMemory) Get(check string) (checks.Result, bool) {
 	result := tmp.(*checks.Result)
 
 	return *result, true
-
 }
 
 // Returns a copy of the map

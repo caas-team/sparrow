@@ -58,8 +58,8 @@ func (r *RoutingTree) Get(method, path string) (http.HandlerFunc, bool) {
 	return handler, ok
 }
 
-func NewRoutingTree() RoutingTree {
-	return RoutingTree{
+func NewRoutingTree() *RoutingTree {
+	return &RoutingTree{
 		tree: make(map[string]map[string]http.HandlerFunc),
 		mu:   sync.RWMutex{},
 	}

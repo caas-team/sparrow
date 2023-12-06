@@ -24,7 +24,6 @@ func NewLatencyCheck() Check {
 		c:    nil,
 		done: make(chan bool, 1),
 	}
-
 }
 
 type Latency struct {
@@ -82,14 +81,14 @@ func (l *Latency) Startup(ctx context.Context, cResult chan<- Result) error {
 	return nil
 }
 
-func (l *Latency) Shutdown(ctx context.Context) error {
+func (l *Latency) Shutdown(_ context.Context) error {
 	l.done <- true
 	close(l.done)
 
 	return nil
 }
 
-func (l *Latency) SetConfig(ctx context.Context, config any) error {
+func (l *Latency) SetConfig(_ context.Context, config any) error {
 	var c LatencyConfig
 	err := mapstructure.Decode(config, &c)
 	if err != nil {
@@ -108,15 +107,15 @@ func (l *Latency) Schema() (*openapi3.SchemaRef, error) {
 	return OpenapiFromPerfData(make(map[string]LatencyResult))
 }
 
-func (l *Latency) RegisterHandler(ctx context.Context, router *api.RoutingTree) {
+func (l *Latency) RegisterHandler(_ context.Context, router *api.RoutingTree) {
 	router.Add(http.MethodGet, "v1alpha1/latency", l.Handler)
 }
 
-func (l *Latency) DeregisterHandler(ctx context.Context, router *api.RoutingTree) {
+func (l *Latency) DeregisterHandler(_ context.Context, router *api.RoutingTree) {
 	router.Remove(http.MethodGet, "v1alpha1/latency")
 }
 
-func (l *Latency) Handler(w http.ResponseWriter, r *http.Request) {
+func (l *Latency) Handler(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -134,37 +133,36 @@ func (l *Latency) check(ctx context.Context) (map[string]LatencyResult, error) {
 				cl := http.Client{
 					Timeout: l.cfg.Timeout * time.Second,
 				}
-				req, err := http.NewRequestWithContext(ctx, http.MethodGet, e, nil)
+				req, err := http.NewRequestWithContext(ctx, http.MethodGet, e, http.NoBody)
 				if err != nil {
 					log.Error("Error while creating request", "error", err)
 					return err
 				}
 
-				var latencyresult LatencyResult
+				var result LatencyResult
 
 				req = req.WithContext(ctx)
 
 				helper.Retry(func(ctx context.Context) error {
 					start := time.Now()
-					response, err := cl.Do(req)
+					response, err := cl.Do(req) //nolint:bodyclose // Tom has refactored this function
 					if err != nil {
 						errval := err.Error()
-						latencyresult.Error = &errval
+						result.Error = &errval
 						log.Error("Error while checking latency", "error", err)
-
 					} else {
-						latencyresult.Code = response.StatusCode
+						result.Code = response.StatusCode
 					}
 					end := time.Now()
 
-					latencyresult.Total = end.Sub(start).Milliseconds()
+					result.Total = end.Sub(start).Milliseconds()
 
 					resultMutex.Lock()
 					defer resultMutex.Unlock()
-					results[e] = latencyresult
+					results[e] = result
 
 					return err
-				}, l.cfg.Retry)(ctx) // ignore return value, since we set it in the closure
+				}, l.cfg.Retry)(ctx) //nolint: errcheck //ignore return value, since we set it in the closure
 				return nil
 			}
 		}(ctx, e))

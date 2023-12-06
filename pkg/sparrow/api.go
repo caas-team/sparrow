@@ -36,11 +36,17 @@ type encoder interface {
 	Encode(v any) error
 }
 
-const urlParamCheckName = "checkName"
+const (
+	urlParamCheckName = "checkName"
+	readHeaderTimeout = time.Second * 5
+	shutdownTimeout   = time.Second * 5
+)
 
-var ErrServeApi = errors.New("failed to serve api")
-var ErrApiContext = errors.New("api context cancelled")
-var ErrCreateOpenapiSchema = errors.New("failed to get schema for check")
+var (
+	ErrServeApi            = errors.New("failed to serve api")
+	ErrApiContext          = errors.New("api context canceled")
+	ErrCreateOpenapiSchema = errors.New("failed to get schema for check")
+)
 
 func (s *Sparrow) register(ctx context.Context) {
 	s.router.Use(logger.Middleware(ctx))
@@ -61,14 +67,15 @@ func (s *Sparrow) api(ctx context.Context) error {
 	log := logger.FromContext(ctx).WithGroup("api")
 	cErr := make(chan error, 1)
 	s.register(ctx)
-	server := http.Server{Addr: s.cfg.Api.ListeningAddress, Handler: s.router}
+
+	server := http.Server{Addr: s.cfg.Api.ListeningAddress, Handler: s.router, ReadHeaderTimeout: readHeaderTimeout}
 
 	// run http server in goroutine
 	go func(cErr chan error) {
 		defer close(cErr)
 		log.Info("serving api", "addr", s.cfg.Api.ListeningAddress)
 		if err := server.ListenAndServe(); err != nil {
-			log.Error("failed to serve api", "error", err)
+			log.Error("Failed to serve api", "error", err)
 			cErr <- err
 		}
 	}(cErr)
@@ -76,15 +83,18 @@ func (s *Sparrow) api(ctx context.Context) error {
 	select {
 	case <-ctx.Done():
 		if ctx.Err() != nil {
-			shutdownCtx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 			defer cancel()
-			server.Shutdown(shutdownCtx)
-			log.Error("api context cancelled", "error", ctx.Err())
+			err := server.Shutdown(shutdownCtx)
+			if err != nil {
+				log.Error("Failed to shutdown api server", "error", err)
+			}
+			log.Error("Api context canceled", "error", ctx.Err())
 			return fmt.Errorf("%w: %w", ErrApiContext, ctx.Err())
 		}
 	case err := <-cErr:
-		if err == http.ErrServerClosed || err == nil {
-			log.Info("api server closed")
+		if errors.Is(err, http.ErrServerClosed) || err == nil {
+			log.Info("Api server closed")
 			return nil
 		}
 		log.Error("failed to serve api", "error", err)
@@ -107,7 +117,7 @@ var oapiBoilerplate = openapi3.T{
 		},
 	},
 	Paths:      make(openapi3.Paths),
-	Extensions: make(map[string]interface{}),
+	Extensions: make(map[string]any),
 	Components: &openapi3.Components{
 		Schemas: make(openapi3.Schemas),
 	},
@@ -141,7 +151,6 @@ func (s *Sparrow) Openapi(ctx context.Context) (openapi3.T, error) {
 				},
 			},
 		}
-
 	}
 
 	return doc, nil
@@ -152,21 +161,32 @@ func (s *Sparrow) getCheckMetrics(w http.ResponseWriter, r *http.Request) {
 	name := chi.URLParam(r, urlParamCheckName)
 	if name == "" {
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(http.StatusText(http.StatusBadRequest)))
+		_, err := w.Write([]byte(http.StatusText(http.StatusBadRequest)))
+		if err != nil {
+			log.Error("Failed to write response", "error", err)
+		}
 		return
 	}
 	res, ok := s.db.Get(name)
 	if !ok {
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(http.StatusText(http.StatusNotFound)))
+		_, err := w.Write([]byte(http.StatusText(http.StatusNotFound)))
+		if err != nil {
+			log.Error("Failed to write response", "error", err)
+		}
 		return
 	}
 
 	enc := json.NewEncoder(w)
+	enc.SetIndent("", "  ")
+
 	if err := enc.Encode(res); err != nil {
 		log.Error("failed to encode response", "error", err)
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(http.StatusText(http.StatusInternalServerError)))
+		_, err = w.Write([]byte(http.StatusText(http.StatusInternalServerError)))
+		if err != nil {
+			log.Error("Failed to write response", "error", err)
+		}
 		return
 	}
 	w.Header().Add("Content-Type", "application/json")
@@ -178,7 +198,10 @@ func (s *Sparrow) getOpenapi(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Error("failed to create openapi", "error", err)
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(http.StatusText(http.StatusInternalServerError)))
+		_, err = w.Write([]byte(http.StatusText(http.StatusInternalServerError)))
+		if err != nil {
+			log.Error("Failed to write response", "error", err)
+		}
 		return
 	}
 
@@ -198,7 +221,10 @@ func (s *Sparrow) getOpenapi(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Error("failed to marshal openapi", "error", err)
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(http.StatusText(http.StatusInternalServerError)))
+		_, err = w.Write([]byte(http.StatusText(http.StatusInternalServerError)))
+		if err != nil {
+			log.Error("Failed to write response", "error", err)
+		}
 		return
 	}
 }
@@ -209,11 +235,15 @@ func (s *Sparrow) getOpenapi(w http.ResponseWriter, r *http.Request) {
 func (s *Sparrow) handleChecks(w http.ResponseWriter, r *http.Request) {
 	method := r.Method
 	path := chi.URLParam(r, "*")
+	log := logger.FromContext(r.Context())
 
 	handler, ok := s.routingTree.Get(method, path)
 	if !ok {
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(http.StatusText(http.StatusNotFound)))
+		_, err := w.Write([]byte(http.StatusText(http.StatusNotFound)))
+		if err != nil {
+			log.Error("Failed to write response", "error", err)
+		}
 		return
 	}
 

@@ -16,6 +16,7 @@ import (
 func stringPointer(s string) *string {
 	return &s
 }
+
 func TestLatency_check(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.Deactivate()
@@ -32,17 +33,18 @@ func TestLatency_check(t *testing.T) {
 		done: make(chan bool, 1),
 	}
 	results := make(chan Result, 1)
-	c.Startup(context.Background(), results)
+	_ = c.Startup(context.Background(), results)
 
-	c.SetConfig(context.Background(), LatencyConfig{
+	_ = c.SetConfig(context.Background(), LatencyConfig{
 		Targets:  []string{"http://success.com", "http://fail.com", "http://timeout.com"},
 		Interval: time.Second * 120,
 		Timeout:  time.Second * 1,
 	})
-	defer c.Shutdown(context.Background())
+	defer func(c *Latency, _ context.Context) {
+		_ = c.Shutdown(context.Background())
+	}(&c, context.Background())
 
 	data, err := c.check(context.Background())
-
 	if err != nil {
 		t.Errorf("Latency.check() error = %v", err)
 	}
@@ -78,7 +80,6 @@ func TestLatency_check(t *testing.T) {
 			}
 		}
 	}
-
 }
 
 func TestLatency_Run(t *testing.T) {
@@ -91,15 +92,19 @@ func TestLatency_Run(t *testing.T) {
 
 	c := NewLatencyCheck()
 	results := make(chan Result, 1)
-	c.Startup(context.Background(), results)
+	_ = c.Startup(context.Background(), results)
 
-	c.SetConfig(context.Background(), LatencyConfig{
+	_ = c.SetConfig(context.Background(), LatencyConfig{
 		Targets:  []string{"http://success.com", "http://fail.com", "http://timeout.com"},
 		Interval: time.Second * 120,
 		Timeout:  time.Second * 1,
 	})
-	go c.Run(context.Background())
-	defer c.Shutdown(context.Background())
+	go func() {
+		_ = c.Run(context.Background())
+	}()
+	defer func(c Check, ctx context.Context) {
+		_ = c.Shutdown(ctx)
+	}(c, context.Background())
 
 	result := <-results
 	wantResult := Result{
@@ -162,7 +167,6 @@ func TestLatency_Shutdown(t *testing.T) {
 		done: cDone,
 	}
 	err := c.Shutdown(context.Background())
-
 	if err != nil {
 		t.Errorf("Shutdown() error = %v", err)
 	}
@@ -170,7 +174,6 @@ func TestLatency_Shutdown(t *testing.T) {
 	if !<-cDone {
 		t.Error("Shutdown() should be ok")
 	}
-
 }
 
 func TestLatency_SetConfig(t *testing.T) {
@@ -180,7 +183,6 @@ func TestLatency_SetConfig(t *testing.T) {
 	}
 
 	err := c.SetConfig(context.Background(), wantCfg)
-
 	if err != nil {
 		t.Errorf("SetConfig() error = %v", err)
 	}
@@ -193,9 +195,9 @@ func TestLatency_RegisterHandler(t *testing.T) {
 	c := Latency{}
 
 	rt := api.NewRoutingTree()
-	c.RegisterHandler(context.Background(), &rt)
+	c.RegisterHandler(context.Background(), rt)
 
-	h, ok := rt.Get("GET", "v1alpha1/latency")
+	h, ok := rt.Get(http.MethodGet, "v1alpha1/latency")
 
 	if !ok {
 		t.Error("RegisterHandler() should be ok")
@@ -203,8 +205,8 @@ func TestLatency_RegisterHandler(t *testing.T) {
 	if h == nil {
 		t.Error("RegisterHandler() should not be nil")
 	}
-	c.DeregisterHandler(context.Background(), &rt)
-	h, ok = rt.Get("GET", "v1alpha1/latency")
+	c.DeregisterHandler(context.Background(), rt)
+	h, ok = rt.Get(http.MethodGet, "v1alpha1/latency")
 
 	if ok {
 		t.Error("DeregisterHandler() should not be ok")
@@ -213,20 +215,18 @@ func TestLatency_RegisterHandler(t *testing.T) {
 	if h != nil {
 		t.Error("DeregisterHandler() should be nil")
 	}
-
 }
 
 func TestLatency_Handler(t *testing.T) {
 	c := Latency{}
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/v1alpha1/latency", nil)
+	req := httptest.NewRequest(http.MethodGet, "/v1alpha1/latency", http.NoBody)
 
 	c.Handler(rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Errorf("Handler() should be ok, got %d", rec.Code)
 	}
-
 }
 
 func TestNewLatencyCheck(t *testing.T) {

@@ -44,6 +44,6 @@ func NewCmdGenDocs(rootCmd *cobra.Command) *cobra.Command {
 // run is the entry point to start the sparrow
 func runGenDocs(rootCmd *cobra.Command, path *string) func(cmd *cobra.Command, args []string) {
 	return func(cmd *cobra.Command, args []string) {
-		doc.GenMarkdownTree(rootCmd, *path)
+		_ = doc.GenMarkdownTree(rootCmd, *path)
 	}
 }

@@ -26,14 +26,14 @@ import (
 	"github.com/caas-team/sparrow/internal/logger"
 )
 
-// Validates the config
+// Validate validates the config
 func (c *Config) Validate(ctx context.Context, fm *RunFlagsNameMapping) error {
 	ctx, cancel := logger.NewContextWithLogger(ctx, "configValidation")
 	defer cancel()
 	log := logger.FromContext(ctx)
 
 	ok := true
-	switch c.Loader.Type {
+	switch c.Loader.Type { //nolint:gocritic
 	case "http":
 		if _, err := url.ParseRequestURI(c.Loader.http.url); err != nil {
 			ok = false
