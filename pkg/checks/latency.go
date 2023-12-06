@@ -148,6 +148,7 @@ func (l *Latency) check(ctx context.Context) map[string]LatencyResult {
 			err := helper.Retry(func(ctx context.Context) error {
 				mu.Lock()
 				defer mu.Unlock()
+				l.client.Timeout = l.cfg.Timeout
 				res := getLatency(ctx, l.client, target)
 				results[target] = res
 				return nil
