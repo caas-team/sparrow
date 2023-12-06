@@ -25,6 +25,9 @@ func stringPointer(s string) *string {
 }
 
 func TestLatency_Run(t *testing.T) {
+	httpmock.Activate()
+	t.Cleanup(httpmock.DeactivateAndReset)
+
 	tests := []struct {
 		name                string
 		registeredEndpoints []struct {
@@ -63,8 +66,6 @@ func TestLatency_Run(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			httpmock.Activate()
-			t.Cleanup(httpmock.DeactivateAndReset)
 			for _, endpoint := range tt.registeredEndpoints {
 				if endpoint.success {
 					httpmock.RegisterResponder(http.MethodGet, endpoint.name, httpmock.NewStringResponder(endpoint.status, ""))
@@ -108,6 +109,7 @@ func TestLatency_Run(t *testing.T) {
 			if result.Err != tt.want.Err {
 				t.Errorf("Latency.Run() = %v, want %v", result.Err, tt.want.Err)
 			}
+			httpmock.Reset()
 		})
 	}
 }
