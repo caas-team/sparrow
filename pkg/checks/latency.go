@@ -129,7 +129,7 @@ func (l *Latency) check(ctx context.Context) (map[string]LatencyResult, error) {
 
 	var mu sync.Mutex
 	var wg sync.WaitGroup
-	results := make(map[string]LatencyResult, len(l.cfg.Targets))
+	results := map[string]LatencyResult{}
 
 	for _, tar := range l.cfg.Targets {
 		target := tar
