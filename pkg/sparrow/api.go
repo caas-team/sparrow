@@ -178,6 +178,8 @@ func (s *Sparrow) getCheckMetrics(w http.ResponseWriter, r *http.Request) {
 	}
 
 	enc := json.NewEncoder(w)
+	enc.SetIndent("", "  ")
+
 	if err := enc.Encode(res); err != nil {
 		log.Error("failed to encode response", "error", err)
 		w.WriteHeader(http.StatusInternalServerError)
