@@ -77,5 +77,4 @@ func Middleware(ctx context.Context) func(http.Handler) http.Handler {
 			next.ServeHTTP(w, r.WithContext(reqCtx))
 		})
 	}
-
 }

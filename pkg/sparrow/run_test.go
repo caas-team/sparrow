@@ -20,7 +20,6 @@ package sparrow
 
 import (
 	"context"
-	"errors"
 	"net/http"
 	"reflect"
 	"testing"
@@ -191,19 +190,29 @@ func Test_fanInResults(t *testing.T) {
 	close(checkChan)
 }
 
+// TestSparrow_Run tests that the Run method starts the API
 func TestSparrow_Run(t *testing.T) {
+	// create simple file loader config
 	c := &config.Config{
 		Api: config.ApiConfig{ListeningAddress: ":9090"},
 		Loader: config.LoaderConfig{
-			Type: "http",
+			Type:     "file",
+			Interval: time.Second * 1,
 		},
 	}
 
-	s := New(c)
+	c.SetLoaderFilePath("../config/testdata/config.yaml")
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
-	if err := s.Run(ctx); err != nil && !errors.Is(err, context.DeadlineExceeded) {
-		t.Errorf("Sparrow.Run() error = %v", err)
-	}
+	// start sparrow
+	s := New(c)
+	ctx := context.Background()
+	go func() {
+		err := s.Run(ctx)
+		if err != nil {
+			t.Errorf("Sparrow.Run() error = %v", err)
+		}
+	}()
+
+	t.Log("Letting API run shortly")
+	time.Sleep(time.Millisecond * 150)
 }

@@ -20,6 +20,7 @@ package sparrow
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/caas-team/sparrow/internal/logger"
 	"github.com/caas-team/sparrow/pkg/api"
@@ -32,7 +33,8 @@ import (
 type Sparrow struct {
 	// TODO refactor this struct to be less convoluted
 	// split up responsibilities more clearly
-	db     db.DB
+	db db.DB
+	// the existing checks
 	checks map[string]checks.Check
 
 	resultFanIn map[string]chan checks.Result
@@ -42,13 +44,12 @@ type Sparrow struct {
 	loader     config.Loader
 	cCfgChecks chan map[string]any
 
-	routingTree api.RoutingTree
+	routingTree *api.RoutingTree
 	router      chi.Router
 }
 
 // New creates a new sparrow from a given configfile
 func New(cfg *config.Config) *Sparrow {
-	// TODO read this from config file
 	sparrow := &Sparrow{
 		router:      chi.NewRouter(),
 		routingTree: api.NewRoutingTree(),
@@ -69,12 +70,15 @@ func New(cfg *config.Config) *Sparrow {
 func (s *Sparrow) Run(ctx context.Context) error {
 	ctx, cancel := logger.NewContextWithLogger(ctx, "sparrow")
 	defer cancel()
-	// TODO Setup before checks run
-	// setup http server
 
 	// Start the runtime configuration loader
 	go s.loader.Run(ctx)
-	go s.api(ctx)
+	go func() {
+		err := s.api(ctx)
+		if err != nil {
+			panic(fmt.Sprintf("Failed to start api: %v", err))
+		}
+	}()
 
 	for {
 		select {
@@ -94,9 +98,11 @@ func (s *Sparrow) Run(ctx context.Context) error {
 	}
 }
 
-// Register new Checks, unregister removed Checks & reset Configs of Checks
+// ReconcileChecks registers new Checks, unregisters removed Checks,
+// resets the Configs of Checks and starts running the checks
 func (s *Sparrow) ReconcileChecks(ctx context.Context) {
 	for name, checkCfg := range s.cfg.Checks {
+		name := name
 		log := logger.FromContext(ctx).With("name", name)
 		if existingCheck, ok := s.checks[name]; ok {
 			// Check already registered, reset config
@@ -115,7 +121,7 @@ func (s *Sparrow) ReconcileChecks(ctx context.Context) {
 		check := getRegisteredCheck()
 		s.checks[name] = check
 
-		// Create a fan in channel for the check
+		// Create a fan in a channel for the check
 		checkChan := make(chan checks.Result, 1)
 		s.resultFanIn[name] = checkChan
 
@@ -128,28 +134,37 @@ func (s *Sparrow) ReconcileChecks(ctx context.Context) {
 		if err != nil {
 			log.ErrorContext(ctx, "Failed to startup check", "name", name, "error", err)
 			close(checkChan)
-			// TODO discuss whether this should return an error instead?
 			continue
 		}
-		check.RegisterHandler(ctx, &s.routingTree)
-		go check.Run(ctx)
+		check.RegisterHandler(ctx, s.routingTree)
+		go func() {
+			err := check.Run(ctx)
+			if err != nil {
+				log.ErrorContext(ctx, "Failed to run check", "name", name, "error", err)
+			}
+		}()
 	}
 
 	for existingCheckName, existingCheck := range s.checks {
-		// Check has been removed from config; shutdown and remove
-		if _, ok := s.cfg.Checks[existingCheckName]; !ok {
-			existingCheck.DeregisterHandler(ctx, &s.routingTree)
-			existingCheck.Shutdown(ctx)
-			if c, ok := s.resultFanIn[existingCheckName]; ok {
-				// close fan in channel if it exists
-				close(c)
-				delete(s.resultFanIn, existingCheckName)
-			}
-
-			delete(s.checks, existingCheckName)
+		log := logger.FromContext(ctx).With("checkName", existingCheckName)
+		if _, ok := s.cfg.Checks[existingCheckName]; ok {
+			continue
 		}
-	}
 
+		// Check has been removed from config; shutdown and remove
+		existingCheck.DeregisterHandler(ctx, s.routingTree)
+		err := existingCheck.Shutdown(ctx)
+		if err != nil {
+			log.ErrorContext(ctx, "Failed to shutdown check", "error", err)
+		}
+		if c, ok := s.resultFanIn[existingCheckName]; ok {
+			// close fan in the channel if it exists
+			close(c)
+			delete(s.resultFanIn, existingCheckName)
+		}
+
+		delete(s.checks, existingCheckName)
+	}
 }
 
 // This is a fan in for the checks.

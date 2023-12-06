@@ -20,6 +20,7 @@ package checks
 
 import (
 	"context"
+	"net/http"
 	"testing"
 
 	"github.com/jarcoal/httpmock"
@@ -38,9 +39,9 @@ func TestHealth_SetConfig(t *testing.T) {
 	}{
 		{
 			name: "simple config",
-			inputConfig: map[string]interface{}{
+			inputConfig: map[string]any{
 				"enabled": true,
-				"targets": []interface{}{
+				"targets": []any{
 					"test",
 				},
 				"healthEndpoint": true,
@@ -56,7 +57,7 @@ func TestHealth_SetConfig(t *testing.T) {
 		},
 		{
 			name: "missing config field",
-			inputConfig: map[string]interface{}{
+			inputConfig: map[string]any{
 				"healthEndpoint": true,
 			},
 			expectedConfig: HealthConfig{
@@ -68,7 +69,7 @@ func TestHealth_SetConfig(t *testing.T) {
 		},
 		{
 			name: "wrong type",
-			inputConfig: map[string]interface{}{
+			inputConfig: map[string]any{
 				"enabled":        "not bool",
 				"target":         "not a slice",
 				"healthEndpoint": true,
@@ -143,7 +144,7 @@ func Test_getHealth(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		httpmock.RegisterResponder("GET", endpoint, tt.httpResponder)
+		httpmock.RegisterResponder(http.MethodGet, endpoint, tt.httpResponder)
 		t.Run(tt.name, func(t *testing.T) {
 			if err := getHealth(tt.args.ctx, tt.args.url); (err != nil) != tt.wantErr {
 				t.Errorf("getHealth() error = %v, wantErr %v", err, tt.wantErr)
@@ -252,7 +253,7 @@ func TestHealth_Check(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			for endpoint, statuscode := range tt.registerdEndpoints {
-				httpmock.RegisterResponder("GET", endpoint,
+				httpmock.RegisterResponder(http.MethodGet, endpoint,
 					httpmock.NewStringResponder(statuscode, ""),
 				)
 			}
@@ -262,10 +263,10 @@ func TestHealth_Check(t *testing.T) {
 					Targets: tt.targets,
 				},
 			}
-			got := h.Check(tt.ctx)
+			got := h.check(tt.ctx)
 			assert.Equal(t, len(got.Targets), len(tt.want.Targets), "Amount of targets is not equal")
 			for _, target := range tt.want.Targets {
-				var helperStatus = "unhealthy"
+				helperStatus := "unhealthy"
 				if tt.registerdEndpoints[target.Target] == 200 {
 					helperStatus = "healthy"
 				}

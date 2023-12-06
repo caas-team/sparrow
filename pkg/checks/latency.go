@@ -2,6 +2,7 @@ package checks
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"sync"
 	"time"
@@ -24,7 +25,6 @@ func NewLatencyCheck() Check {
 		done:   make(chan bool, 1),
 		client: &http.Client{},
 	}
-
 }
 
 type Latency struct {
@@ -59,11 +59,8 @@ func (l *Latency) Run(ctx context.Context) error {
 		case <-l.done:
 			return nil
 		case <-time.After(l.cfg.Interval):
-			results, err := l.check(ctx)
+			results := l.check(ctx)
 			errval := ""
-			if err != nil {
-				errval = err.Error()
-			}
 			checkResult := Result{
 				Data:      results,
 				Err:       errval,
@@ -83,14 +80,14 @@ func (l *Latency) Startup(ctx context.Context, cResult chan<- Result) error {
 	return nil
 }
 
-func (l *Latency) Shutdown(ctx context.Context) error {
+func (l *Latency) Shutdown(_ context.Context) error {
 	l.done <- true
 	close(l.done)
 
 	return nil
 }
 
-func (l *Latency) SetConfig(ctx context.Context, config any) error {
+func (l *Latency) SetConfig(_ context.Context, config any) error {
 	var c LatencyConfig
 	err := mapstructure.Decode(config, &c)
 	if err != nil {
@@ -116,24 +113,24 @@ func (l *Latency) Schema() (*openapi3.SchemaRef, error) {
 	return OpenapiFromPerfData(make(map[string]LatencyResult))
 }
 
-func (l *Latency) RegisterHandler(ctx context.Context, router *api.RoutingTree) {
+func (l *Latency) RegisterHandler(_ context.Context, router *api.RoutingTree) {
 	router.Add(http.MethodGet, "v1alpha1/latency", l.Handler)
 }
 
-func (l *Latency) DeregisterHandler(ctx context.Context, router *api.RoutingTree) {
+func (l *Latency) DeregisterHandler(_ context.Context, router *api.RoutingTree) {
 	router.Remove(http.MethodGet, "v1alpha1/latency")
 }
 
-func (l *Latency) Handler(w http.ResponseWriter, r *http.Request) {
+func (l *Latency) Handler(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func (l *Latency) check(ctx context.Context) (map[string]LatencyResult, error) {
+func (l *Latency) check(ctx context.Context) map[string]LatencyResult {
 	log := logger.FromContext(ctx).WithGroup("check")
 	log.Debug("Checking latency")
 	if len(l.cfg.Targets) == 0 {
 		log.Debug("No targets defined")
-		return map[string]LatencyResult{}, nil
+		return map[string]LatencyResult{}
 	}
 
 	var mu sync.Mutex
@@ -145,8 +142,8 @@ func (l *Latency) check(ctx context.Context) (map[string]LatencyResult, error) {
 		wg.Add(1)
 		go func(target string) {
 			defer wg.Done()
-			log := log.With("target", target)
-			log.Debug("Starting retry routine to get latency", "target", target)
+			lo := log.With("target", target)
+			lo.Debug("Starting retry routine to get latency", "target", target)
 
 			err := helper.Retry(func(ctx context.Context) error {
 				mu.Lock()
@@ -156,14 +153,14 @@ func (l *Latency) check(ctx context.Context) (map[string]LatencyResult, error) {
 				return nil
 			}, l.cfg.Retry)(ctx)
 			if err != nil {
-				log.Error("Error while checking latency", "error", err)
+				lo.Error("Error while checking latency", "error", err)
 			}
 		}(target)
 	}
 	wg.Wait()
 
 	log.Info("Successfully got latency to all targets")
-	return results, nil
+	return results
 }
 
 // getLatency performs an HTTP get request and returns ok if request succeeds
@@ -171,7 +168,7 @@ func getLatency(ctx context.Context, client *http.Client, url string) LatencyRes
 	log := logger.FromContext(ctx).With("url", url)
 	var res LatencyResult
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 	if err != nil {
 		log.Error("Error while creating request", "error", err)
 		errval := err.Error()
@@ -180,17 +177,21 @@ func getLatency(ctx context.Context, client *http.Client, url string) LatencyRes
 	}
 
 	start := time.Now()
-	resp, err := client.Do(req)
+	resp, err := client.Do(req) //nolint:bodyclose // Closed in defer below
 	if err != nil {
 		log.Error("Error while checking latency", "error", err)
 		errval := err.Error()
 		res.Error = &errval
-	} else {
-		res.Code = resp.StatusCode
+		return res
 	}
+
+	res.Code = resp.StatusCode
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body)
+
 	end := time.Now()
 
 	res.Total = end.Sub(start).Milliseconds()
-
 	return res
 }

@@ -1,0 +1,133 @@
+# Default values for sparrow.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicaCount: 1
+
+image:
+  repository: ghcr.io/caas-team/sparrow
+  pullPolicy: IfNotPresent
+  # -- Overrides the image tag whose default is the chart appVersion.
+  tag: ""
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  # -- Specifies whether a service account should be created
+  create: true
+  # -- Automatically mount a ServiceAccount's API credentials?
+  automount: true
+  # -- Annotations to add to the service account
+  annotations: {}
+  # -- The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext:
+  fsGroup: 1000
+  supplementalGroups:
+    - 1000
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  privileged: false
+  readOnlyRootFilesystem: true
+  runAsUser: 1000
+  runAsGroup: 1000
+
+service:
+  type: ClusterIP
+  port: 8080
+
+ingress:
+  enabled: false
+  className: ""
+  annotations:
+    {}
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+  hosts:
+    - host: chart-example.local
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  tls: []
+  #  - secretName: chart-example-tls
+  #    hosts:
+  #      - chart-example.local
+
+env:
+  {}
+  # HTTP_PROXY:
+  # HTTPS_PROXY:
+  # NO_PROXY:
+
+# -- define a network policy that will
+# open egress traffic to a proxy
+networkPolicies:
+  proxy:
+    enabled: false
+    # ip: 1.2.3.4
+    # port: 8080
+
+resources: {}
+# resources:
+#   limits:
+#     cpu: 500m
+#     memory: 512Mi
+#   requests:
+#     cpu: 100m
+#     memory: 128Mi
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+# -- extra command line start parameters
+# see: https://github.com/caas-team/sparrow/blob/main/docs/sparrow_run.md
+extraArgs:
+  loaderFilePath: /runconfig/checks.yaml
+  loaderType: file
+
+# -- startup configuration of the Sparrow
+# see: https://github.com/caas-team/sparrow/blob/main/docs/sparrow_run.md
+# startupConfig:
+#   apiAddress:
+#   loaderFilePath: /runconfig/checks.yaml
+#   loaderHttpRetryCount:
+#   loaderHttpRetryDelay:
+#   loaderHttpTimeout:
+#   loaderHttpToken:
+#   loaderHttpUrl:
+#   loaderInterval:
+#   loaderType: http | file
+
+# -- runtime configuration of the Sparrow
+# see: https://github.com/caas-team/sparrow#runtime
+runtimeConfig:
+  health:
+    enabled: true
+    targets:
+      - "https://www.example.com/"
+      - "https://www.google.com/"
+    healthEndpoint: false
+  latency:
+    enabled: true
+    interval: 1
+    timeout: 3
+    retry:
+      count: 3
+      delay: 1
+    targets:
+      - https://example.com/
+      - https://google.com/

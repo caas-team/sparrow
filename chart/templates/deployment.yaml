@@ -1,0 +1,100 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "sparrow.fullname" . }}
+  labels:
+    {{- include "sparrow.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "sparrow.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+      {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "sparrow.labels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "sparrow.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        {{- if or .Values.extraArgs .Values.startupConfig}}
+        - args:
+        {{- end }}
+          {{- if .Values.startupConfig}}
+          - --config
+          - /startupconfig/.sparrow.yaml
+          {{- else if .Values.extraArgs }}
+          {{- range $key, $value := .Values.extraArgs }}
+          - --{{ $key }}
+          - {{ $value }}
+          {{- end }}
+          {{- end }}
+          {{- if .Values.env }}
+          env:
+          {{- range $key, $val := .Values.env }}
+            - name: {{ $key }}
+              value: {{ $val | quote }}
+          {{- end }}
+          {{- end }}
+          name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.port | default 8080 }}
+              protocol: TCP
+          {{- if .Values.resources }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          {{- end }}
+          {{- if or .Values.runtimeConfig .Values.startupConfig}}
+          volumeMounts:
+          {{- end }}
+          {{- if .Values.startupConfig}}
+            - name: startup
+              mountPath: /startupconfig
+          {{- end }}
+          {{- if .Values.runtimeConfig}}
+            - name: runtime
+              mountPath: /runconfig
+          {{- end }}
+      {{- if or .Values.runtimeConfig .Values.startupConfig}}
+      volumes:
+      {{- end }}
+      {{- if .Values.startupConfig}}
+        - name: startup
+          secret:
+            secretName: {{ include "sparrow.fullname" . }}
+      {{- end }}
+      {{- if .Values.runtimeConfig}}
+        - name: runtime
+          configMap:
+            name: {{ include "sparrow.fullname" . }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

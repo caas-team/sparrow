@@ -40,7 +40,7 @@ type Health struct {
 	done   chan bool
 }
 
-// Configuration of the health check config
+// HealthConfig contains the health check config
 type HealthConfig struct {
 	Enabled        bool     `json:"enabled,omitempty"`
 	Targets        []string `json:"targets,omitempty"`
@@ -57,21 +57,21 @@ type Target struct {
 	Status string `json:"status"`
 }
 
-// Constructor for the HealthCheck
+// NewHealthCheck creates a new HealthCheck
 func NewHealthCheck() Check {
 	return &Health{
 		route: "health",
 	}
 }
 
-// Starts the health check
+// Run starts the health check
 func (h *Health) Run(ctx context.Context) error {
 	ctx, cancel := logger.NewContextWithLogger(ctx, "health")
 	defer cancel()
 	log := logger.FromContext(ctx)
 
 	for {
-		delay := time.Minute
+		delay := time.Second * 15
 		log.Info("Next health check will run after delay", "delay", delay.String())
 		select {
 		case <-ctx.Done():
@@ -82,10 +82,10 @@ func (h *Health) Run(ctx context.Context) error {
 			return nil
 		case <-time.After(delay):
 			log.Info("Start health check run")
-			healthData := h.Check(ctx)
+			hd := h.check(ctx)
 
 			log.Debug("Saving health check data to database")
-			h.c <- Result{Timestamp: time.Now(), Data: healthData}
+			h.c <- Result{Timestamp: time.Now(), Data: hd}
 
 			log.Info("Successfully finished health check run")
 		}
@@ -93,13 +93,13 @@ func (h *Health) Run(ctx context.Context) error {
 }
 
 // Startup is called once when the health check is registered
-func (h *Health) Startup(ctx context.Context, cResult chan<- Result) error {
+func (h *Health) Startup(_ context.Context, cResult chan<- Result) error {
 	h.c = cResult
 	return nil
 }
 
 // Shutdown is called once when the check is unregistered or sparrow shuts down
-func (h *Health) Shutdown(ctx context.Context) error {
+func (h *Health) Shutdown(_ context.Context) error {
 	http.Handle(h.route, http.NotFoundHandler())
 	h.done <- true
 
@@ -107,7 +107,7 @@ func (h *Health) Shutdown(ctx context.Context) error {
 }
 
 // SetConfig sets the configuration for the health check
-func (h *Health) SetConfig(ctx context.Context, config any) error {
+func (h *Health) SetConfig(_ context.Context, config any) error {
 	var checkCfg HealthConfig
 	if err := mapstructure.Decode(config, &checkCfg); err != nil {
 		return ErrInvalidConfig
@@ -117,7 +117,7 @@ func (h *Health) SetConfig(ctx context.Context, config any) error {
 }
 
 // SetClient sets the http client for the health check
-func (h *Health) SetClient(c *http.Client) {
+func (h *Health) SetClient(_ *http.Client) {
 	// TODO: implement with issue #31
 }
 
@@ -125,27 +125,30 @@ func (h *Health) SetClient(c *http.Client) {
 // by the heath check
 func (h *Health) Schema() (*openapi3.SchemaRef, error) {
 	return OpenapiFromPerfData[healthData](healthData{})
-
 }
 
 // RegisterHandler dynamically registers a server handler
 // if it is enabled by the config
 func (h *Health) RegisterHandler(ctx context.Context, router *api.RoutingTree) {
+	log := logger.FromContext(ctx)
 	if h.config.HealthEndpoint {
 		router.Add(http.MethodGet, h.route, func(w http.ResponseWriter, _ *http.Request) {
-			w.Write([]byte("ok"))
+			_, err := w.Write([]byte("ok"))
+			if err != nil {
+				log.Error("Could not write response", "error", err.Error())
+			}
 		})
 	}
 }
 
 // DeregisterHandler dynamically deletes the server handler
-func (h *Health) DeregisterHandler(ctx context.Context, router *api.RoutingTree) {
+func (h *Health) DeregisterHandler(_ context.Context, router *api.RoutingTree) {
 	router.Remove(http.MethodGet, h.route)
 }
 
-// Check performs a health check using a retry function
+// check performs a health check using a retry function
 // to get the health status for all targets
-func (h *Health) Check(ctx context.Context) healthData {
+func (h *Health) check(ctx context.Context) healthData {
 	log := logger.FromContext(ctx)
 	if len(h.config.Targets) == 0 {
 		log.Debug("No targets defined")
@@ -153,7 +156,7 @@ func (h *Health) Check(ctx context.Context) healthData {
 	}
 	log.Debug("Getting health status for each target in separate routine", "amount", len(h.config.Targets))
 
-	var healthData healthData
+	var hd healthData
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 
@@ -166,7 +169,7 @@ func (h *Health) Check(ctx context.Context) healthData {
 			return getHealth(ctx, target)
 		}, helper.RetryConfig{
 			Count: 3,
-			Delay: time.Microsecond,
+			Delay: time.Second,
 		})
 
 		go func() {
@@ -184,7 +187,7 @@ func (h *Health) Check(ctx context.Context) healthData {
 
 			l.Debug("Successfully got health status of target", "status", targetData.Status)
 			mu.Lock()
-			healthData.Targets = append(healthData.Targets, targetData)
+			hd.Targets = append(hd.Targets, targetData)
 			mu.Unlock()
 		}()
 	}
@@ -193,7 +196,7 @@ func (h *Health) Check(ctx context.Context) healthData {
 	wg.Wait()
 
 	log.Info("Successfully got health status from all targets")
-	return healthData
+	return hd
 }
 
 // getHealth performs a http get request
@@ -205,7 +208,7 @@ func getHealth(ctx context.Context, url string) error {
 		Timeout: time.Second * 5,
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 	if err != nil {
 		log.Error("Could not create http GET request", "error", err.Error())
 		return err

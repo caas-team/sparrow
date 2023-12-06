@@ -1,0 +1,35 @@
+{{- if .Values.runtimeConfig}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "sparrow.fullname" . }}
+  labels:
+    {{- include "sparrow.labels" . | nindent 4 }}
+data:
+  checks.yaml: |
+    apiVersion: 0.0.1
+    kind: Config
+    checks:
+      {{- if .Values.runtimeConfig.health}}
+      health:
+        enabled: {{ .Values.runtimeConfig.health.enabled }}
+        targets:
+        {{- with .Values.runtimeConfig.health.targets }}
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        healthEndpoint: {{ .Values.runtimeConfig.health.healthEndpoint  }}
+      {{- end }}
+      {{- if .Values.runtimeConfig.latency }}
+      latency:
+        enabled: true
+        interval: {{ .Values.runtimeConfig.latency.interval | default 1 }}
+        timeout: {{ .Values.runtimeConfig.latency.timeout | default 3 }}
+        retry:
+          count: {{ .Values.runtimeConfig.latency.retry.count | default 3 }}
+          delay: {{ .Values.runtimeConfig.latency.retry.delay | default 1 }}
+        targets:
+        {{- with .Values.runtimeConfig.latency.targets }}
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+      {{- end }}
+{{- end }}

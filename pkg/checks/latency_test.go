@@ -76,14 +76,20 @@ func TestLatency_Run(t *testing.T) {
 
 			c := NewLatencyCheck()
 			results := make(chan Result, 1)
-			c.Startup(tt.ctx, results)
+			err := c.Startup(tt.ctx, results)
+			if err != nil {
+				t.Fatalf("Latency.Startup() error = %v", err)
+			}
 
 			c.SetClient(&http.Client{Transport: httpmock.DefaultTransport})
-			c.SetConfig(tt.ctx, LatencyConfig{
+			err = c.SetConfig(tt.ctx, LatencyConfig{
 				Targets:  tt.targets,
 				Interval: time.Second * 120,
 				Timeout:  time.Second * 5,
 			})
+			if err != nil {
+				t.Fatalf("Latency.SetConfig() error = %v", err)
+			}
 
 			go func() {
 				err := c.Run(tt.ctx)
@@ -192,7 +198,7 @@ func TestLatency_check(t *testing.T) {
 				},
 				timeoutURL: {
 					Code:  0,
-					Error: stringPointer(fmt.Sprintf("Get \"%s\": context deadline exceeded", timeoutURL)),
+					Error: stringPointer(fmt.Sprintf("Get %q: context deadline exceeded", timeoutURL)),
 					Total: 0,
 				},
 			},
@@ -214,11 +220,7 @@ func TestLatency_check(t *testing.T) {
 				client: &http.Client{Transport: httpmock.DefaultTransport},
 			}
 
-			got, err := l.check(tt.ctx)
-			if err != nil {
-				t.Errorf("check() error = %v", err)
-				return
-			}
+			got := l.check(tt.ctx)
 
 			if len(got) != len(tt.want) {
 				t.Errorf("check() got %v results, want %v results", len(got), len(tt.want))
@@ -242,7 +244,6 @@ func TestLatency_check(t *testing.T) {
 			httpmock.Reset()
 		})
 	}
-
 }
 
 func TestLatency_Startup(t *testing.T) {
@@ -259,7 +260,6 @@ func TestLatency_Shutdown(t *testing.T) {
 		done: cDone,
 	}
 	err := c.Shutdown(context.Background())
-
 	if err != nil {
 		t.Errorf("Shutdown() error = %v", err)
 	}
@@ -267,7 +267,6 @@ func TestLatency_Shutdown(t *testing.T) {
 	if !<-cDone {
 		t.Error("Shutdown() should be ok")
 	}
-
 }
 
 func TestLatency_SetConfig(t *testing.T) {
@@ -277,7 +276,6 @@ func TestLatency_SetConfig(t *testing.T) {
 	}
 
 	err := c.SetConfig(context.Background(), wantCfg)
-
 	if err != nil {
 		t.Errorf("SetConfig() error = %v", err)
 	}
@@ -290,9 +288,9 @@ func TestLatency_RegisterHandler(t *testing.T) {
 	c := Latency{}
 
 	rt := api.NewRoutingTree()
-	c.RegisterHandler(context.Background(), &rt)
+	c.RegisterHandler(context.Background(), rt)
 
-	h, ok := rt.Get("GET", "v1alpha1/latency")
+	h, ok := rt.Get(http.MethodGet, "v1alpha1/latency")
 
 	if !ok {
 		t.Error("RegisterHandler() should be ok")
@@ -300,8 +298,8 @@ func TestLatency_RegisterHandler(t *testing.T) {
 	if h == nil {
 		t.Error("RegisterHandler() should not be nil")
 	}
-	c.DeregisterHandler(context.Background(), &rt)
-	h, ok = rt.Get("GET", "v1alpha1/latency")
+	c.DeregisterHandler(context.Background(), rt)
+	h, ok = rt.Get(http.MethodGet, "v1alpha1/latency")
 
 	if ok {
 		t.Error("DeregisterHandler() should not be ok")
@@ -310,20 +308,18 @@ func TestLatency_RegisterHandler(t *testing.T) {
 	if h != nil {
 		t.Error("DeregisterHandler() should be nil")
 	}
-
 }
 
 func TestLatency_Handler(t *testing.T) {
 	c := Latency{}
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/v1alpha1/latency", nil)
+	req := httptest.NewRequest(http.MethodGet, "/v1alpha1/latency", http.NoBody)
 
 	c.Handler(rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Errorf("Handler() should be ok, got %d", rec.Code)
 	}
-
 }
 
 func TestNewLatencyCheck(t *testing.T) {

@@ -60,6 +60,9 @@ func TestSparrow_register(t *testing.T) {
 		}
 	}
 
+	if len(expectedRoutes) != len(routes) {
+		t.Errorf("Sparrow.register() = %v, want %v", len(routes), len(expectedRoutes))
+	}
 }
 
 func TestSparrow_api_shutdownWhenContextCanceled(t *testing.T) {
@@ -73,61 +76,14 @@ func TestSparrow_api_shutdownWhenContextCanceled(t *testing.T) {
 	if err := s.api(ctx); !errors.Is(err, context.Canceled) {
 		t.Error("Expected ErrApiContext")
 	}
-
-}
-
-func TestSparrow_Openapi(t *testing.T) {
-	type fields struct {
-		checks      map[string]checks.Check
-		routingTree api.RoutingTree
-		resultFanIn map[string]chan checks.Result
-		cResult     chan checks.ResultDTO
-		loader      config.Loader
-		cfg         *config.Config
-		cCfgChecks  chan map[string]any
-		router      chi.Router
-		db          db.DB
-	}
-	tests := []struct {
-		name    string
-		fields  fields
-		want    openapi3.T
-		wantErr bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			s := &Sparrow{
-				checks:      tt.fields.checks,
-				routingTree: tt.fields.routingTree,
-				resultFanIn: tt.fields.resultFanIn,
-				cResult:     tt.fields.cResult,
-				loader:      tt.fields.loader,
-				cfg:         tt.fields.cfg,
-				cCfgChecks:  tt.fields.cCfgChecks,
-				router:      tt.fields.router,
-				db:          tt.fields.db,
-			}
-			got, err := s.Openapi(context.Background())
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Sparrow.Openapi() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("Sparrow.Openapi() = %v, want %v", got, tt.want)
-			}
-		})
-	}
 }
 
 func testDb() *db.InMemory {
+	d := db.NewInMemory()
+	d.Save(checks.ResultDTO{Name: "alpha", Result: &checks.Result{Timestamp: time.Now(), Err: "", Data: 1}})
+	d.Save(checks.ResultDTO{Name: "beta", Result: &checks.Result{Timestamp: time.Now(), Err: "", Data: 1}})
 
-	db := db.NewInMemory()
-	db.Save(checks.ResultDTO{Name: "alpha", Result: &checks.Result{Timestamp: time.Now(), Err: "", Data: 1}})
-	db.Save(checks.ResultDTO{Name: "beta", Result: &checks.Result{Timestamp: time.Now(), Err: "", Data: 1}})
-
-	return db
+	return d
 }
 
 func chiRequest(r *http.Request, value string) *http.Request {
@@ -137,10 +93,11 @@ func chiRequest(r *http.Request, value string) *http.Request {
 	r = r.WithContext(context.WithValue(r.Context(), chi.RouteCtxKey, rctx))
 	return r
 }
+
 func TestSparrow_getCheckMetrics(t *testing.T) {
 	type fields struct {
 		checks      map[string]checks.Check
-		routingTree api.RoutingTree
+		routingTree *api.RoutingTree
 		resultFanIn map[string]chan checks.Result
 		cResult     chan checks.ResultDTO
 		loader      config.Loader
@@ -179,7 +136,7 @@ func TestSparrow_getCheckMetrics(t *testing.T) {
 				db:          tt.fields.db,
 			}
 			s.getCheckMetrics(tt.args.w, tt.args.r)
-			resp := tt.args.w.Result()
+			resp := tt.args.w.Result() //nolint:bodyclose
 			body, _ := io.ReadAll(resp.Body)
 
 			if tt.wantCode == http.StatusOK {
@@ -229,7 +186,7 @@ func TestSparrow_handleChecks(t *testing.T) {
 	}
 	type fields struct {
 		checks      map[string]checks.Check
-		routingTree api.RoutingTree
+		routingTree *api.RoutingTree
 		resultFanIn map[string]chan checks.Result
 		cResult     chan checks.ResultDTO
 		loader      config.Loader
@@ -251,7 +208,7 @@ func TestSparrow_handleChecks(t *testing.T) {
 		wantCode int
 	}{
 		{name: "no check handlers", fields: fields{routingTree: api.NewRoutingTree()}, args: args{w: httptest.NewRecorder(), r: httptest.NewRequest(http.MethodGet, "/v1/notfound", bytes.NewBuffer([]byte{}))}, wantCode: http.StatusNotFound, want: []byte(http.StatusText(http.StatusNotFound))},
-		{name: "has check handlers", fields: fields{routingTree: api.NewRoutingTree(), routes: []route{{Method: http.MethodGet, Path: "/v1/test", Handler: func(w http.ResponseWriter, r *http.Request) { w.Write([]byte("test")) }}}}, args: args{w: httptest.NewRecorder(), r: addRouteParams(httptest.NewRequest(http.MethodGet, "/v1/test", bytes.NewBuffer([]byte{})), map[string]string{"*": "/v1/test"})}, wantCode: http.StatusOK, want: []byte("test")},
+		{name: "has check handlers", fields: fields{routingTree: api.NewRoutingTree(), routes: []route{{Method: http.MethodGet, Path: "/v1/test", Handler: func(w http.ResponseWriter, r *http.Request) { w.Write([]byte("test")) }}}}, args: args{w: httptest.NewRecorder(), r: addRouteParams(httptest.NewRequest(http.MethodGet, "/v1/test", bytes.NewBuffer([]byte{})), map[string]string{"*": "/v1/test"})}, wantCode: http.StatusOK, want: []byte("test")}, //nolint:errcheck
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -271,7 +228,7 @@ func TestSparrow_handleChecks(t *testing.T) {
 				s.routingTree.Add(route.Method, route.Path, route.Handler)
 			}
 			s.handleChecks(tt.args.w, tt.args.r)
-			resp := tt.args.w.Result()
+			resp := tt.args.w.Result() //nolint:bodyclose
 			body, _ := io.ReadAll(resp.Body)
 
 			if tt.wantCode != resp.StatusCode {
@@ -280,7 +237,6 @@ func TestSparrow_handleChecks(t *testing.T) {
 			if !reflect.DeepEqual(body, tt.want) {
 				t.Errorf("Sparrow.handleChecks() = %v, want %v", body, tt.want)
 			}
-
 		})
 	}
 }
@@ -330,7 +286,6 @@ func TestSparrow_getOpenapi(t *testing.T) {
 			if tt.args.response.Code != http.StatusOK {
 				t.Errorf("Sparrow.getOpenapi() = %v, want %v", tt.args.response.Code, http.StatusOK)
 			}
-
 		})
 	}
 }

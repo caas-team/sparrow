@@ -27,7 +27,7 @@ import (
 )
 
 func TestRetry(t *testing.T) {
-	var effectorFuncCallCounter = 0
+	effectorFuncCallCounter := 0
 	ctx, cancel := context.WithCancel(context.Background())
 
 	type args struct {

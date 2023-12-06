@@ -1,4 +1,4 @@
-# `sparrow` aka Check Sparrow <!-- omit from toc -->
+# Sparrow - Infrastructure Monitoring<!-- omit from toc -->
 
 <p align="center">
     <a href="/../../commits/" title="Last Commit"><img src="https://img.shields.io/github/last-commit/caas-team/sparrow?style=flat"></a>
@@ -35,7 +35,7 @@ The `sparrow` performs several checks to monitor the health of the infrastructur
 
 1. Health check - `health`: The `sparrow` is able perform an http-based (HTTP/1.1) health check to provided endpoints. The `sparrow` will expose its own health check endpoint as well.
 
-2. Latency check - `rtt`: The `sparrow` is able to communicate with other `sparrow` instances to calculate the time a request takes to the target and back. The check is http (HTTP/1.1) based as well.
+2. Latency check - `latency`: The `sparrow` is able to communicate with other `sparrow` instances to calculate the time a request takes to the target and back. The check is http (HTTP/1.1) based as well.
 
 ## Installation
 
@@ -69,7 +69,28 @@ The [sparrow container images](https://github.com/caas-team/sparrow/pkgs/contain
 
 ### Helm
 
-tbd
+Sparrow can be install via Helm Chart. The chart is provided in the GitHub registry:
+
+```sh
+helm -n sparrow upgrade -i sparrow oci://ghcr.io/caas-team/charts/sparrow --version 1.0.0 --create-namespace
+```
+
+The default settings are fine for a local running configuration. With the default Helm values the sparrow loader uses a runtime configuration that is provided in a ConfigMap. The ConfigMap can be set by defining the `runtimeConfig` section.
+
+To be able to load the configuration during the runtime dynamically, the sparrow loader needs to be set to type `http`.
+
+Use the following configuration values to use a runtime configuration by the `http` loader:
+
+```yaml
+startupConfig:
+  loaderType: http
+  loaderHttpUrl: https://url-to-runtime-config.de/api/config%2Eyaml
+
+runtimeConfig: {}
+```
+For all available value options see [Chart README](./chart/README.md).
+
+Additionally check out the sparrow [configuration](#configuration) variants.
 
 ## Usage
 

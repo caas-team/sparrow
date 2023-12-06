@@ -1,0 +1,18 @@
+apiVersion: v2
+name: sparrow
+description: A Helm chart to install Sparrow
+type: application
+keywords:
+  - monitoring
+version: 0.0.2
+appVersion: "v0.1.0"
+icon: https://github.com/caas-team/sparrow/blob/main/docs/img/sparrow.png
+sources:
+  - https://github.com/caas-team/sparrow
+maintainers:
+  - name: eumel8
+    email: f.kloeker@telekom.de
+    url: https://www.telekom.com
+  - name: y-eight
+    email: maximilian.schubert@telekom.de
+    url: https://www.telekom.com
