@@ -86,7 +86,7 @@ func (gl *HttpLoader) GetRuntimeConfig(ctx context.Context) (*RuntimeConfig, err
 	client := http.DefaultClient
 	client.Timeout = gl.cfg.Loader.http.timeout
 
-	req, err := http.NewRequestWithContext(ctx, "GET", gl.cfg.Loader.http.url, http.NoBody)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, gl.cfg.Loader.http.url, http.NoBody)
 	if err != nil {
 		log.Error("Could not create http GET request", "error", err.Error())
 		return nil, err

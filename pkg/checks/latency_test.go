@@ -197,7 +197,7 @@ func TestLatency_RegisterHandler(t *testing.T) {
 	rt := api.NewRoutingTree()
 	c.RegisterHandler(context.Background(), rt)
 
-	h, ok := rt.Get("GET", "v1alpha1/latency")
+	h, ok := rt.Get(http.MethodGet, "v1alpha1/latency")
 
 	if !ok {
 		t.Error("RegisterHandler() should be ok")
@@ -206,7 +206,7 @@ func TestLatency_RegisterHandler(t *testing.T) {
 		t.Error("RegisterHandler() should not be nil")
 	}
 	c.DeregisterHandler(context.Background(), rt)
-	h, ok = rt.Get("GET", "v1alpha1/latency")
+	h, ok = rt.Get(http.MethodGet, "v1alpha1/latency")
 
 	if ok {
 		t.Error("DeregisterHandler() should not be ok")

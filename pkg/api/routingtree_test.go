@@ -35,7 +35,7 @@ func Test_routingTree_add(t *testing.T) {
 		rtree *RoutingTree
 		args  args
 	}{
-		{name: "can add handler", rtree: &RoutingTree{tree: map[string]map[string]http.HandlerFunc{}, mu: sync.RWMutex{}}, args: args{meth: "GET", path: "/test", handler: func(w http.ResponseWriter, r *http.Request) {}}},
+		{name: "can add handler", rtree: &RoutingTree{tree: map[string]map[string]http.HandlerFunc{}, mu: sync.RWMutex{}}, args: args{meth: http.MethodGet, path: "/test", handler: func(w http.ResponseWriter, r *http.Request) {}}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -58,8 +58,8 @@ func Test_routingTree_remove(t *testing.T) {
 		rtree *RoutingTree
 		args  args
 	}{
-		{name: "can remove handler if not exists", rtree: &RoutingTree{tree: map[string]map[string]http.HandlerFunc{}, mu: sync.RWMutex{}}, args: args{meth: "GET", path: "/test"}},
-		{name: "can remove handler if exists", rtree: &RoutingTree{tree: map[string]map[string]http.HandlerFunc{"GET": {"/test": func(w http.ResponseWriter, r *http.Request) {}}}, mu: sync.RWMutex{}}, args: args{meth: "GET", path: "/test"}},
+		{name: "can remove handler if not exists", rtree: &RoutingTree{tree: map[string]map[string]http.HandlerFunc{}, mu: sync.RWMutex{}}, args: args{meth: http.MethodGet, path: "/test"}},
+		{name: "can remove handler if exists", rtree: &RoutingTree{tree: map[string]map[string]http.HandlerFunc{http.MethodGet: {"/test": func(w http.ResponseWriter, r *http.Request) {}}}, mu: sync.RWMutex{}}, args: args{meth: http.MethodGet, path: "/test"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -84,9 +84,9 @@ func Test_routingTree_get(t *testing.T) {
 		want  http.HandlerFunc
 		want1 bool
 	}{
-		{name: "Can get handler if exists", rtree: &RoutingTree{tree: map[string]map[string]http.HandlerFunc{"GET": {"/test": func(w http.ResponseWriter, r *http.Request) {}}}, mu: sync.RWMutex{}}, args: args{meth: "GET", path: "/test"}, want: func(w http.ResponseWriter, r *http.Request) {}, want1: true},
-		{name: "Return false if path not exists", rtree: &RoutingTree{tree: map[string]map[string]http.HandlerFunc{"GET": {"/test": func(w http.ResponseWriter, r *http.Request) {}}}, mu: sync.RWMutex{}}, args: args{meth: "GET", path: "/test2"}, want: nil, want1: false},
-		{name: "Return false if method not exists", rtree: &RoutingTree{tree: map[string]map[string]http.HandlerFunc{"GET": {"/test": func(w http.ResponseWriter, r *http.Request) {}}}, mu: sync.RWMutex{}}, args: args{meth: "POST", path: "/test2"}, want: nil, want1: false},
+		{name: "Can get handler if exists", rtree: &RoutingTree{tree: map[string]map[string]http.HandlerFunc{http.MethodGet: {"/test": func(w http.ResponseWriter, r *http.Request) {}}}, mu: sync.RWMutex{}}, args: args{meth: http.MethodGet, path: "/test"}, want: func(w http.ResponseWriter, r *http.Request) {}, want1: true},
+		{name: "Return false if path not exists", rtree: &RoutingTree{tree: map[string]map[string]http.HandlerFunc{http.MethodGet: {"/test": func(w http.ResponseWriter, r *http.Request) {}}}, mu: sync.RWMutex{}}, args: args{meth: http.MethodGet, path: "/test2"}, want: nil, want1: false},
+		{name: "Return false if method not exists", rtree: &RoutingTree{tree: map[string]map[string]http.HandlerFunc{http.MethodGet: {"/test": func(w http.ResponseWriter, r *http.Request) {}}}, mu: sync.RWMutex{}}, args: args{meth: http.MethodPost, path: "/test2"}, want: nil, want1: false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

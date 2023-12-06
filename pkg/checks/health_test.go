@@ -20,6 +20,7 @@ package checks
 
 import (
 	"context"
+	"net/http"
 	"testing"
 
 	"github.com/jarcoal/httpmock"
@@ -143,7 +144,7 @@ func Test_getHealth(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		httpmock.RegisterResponder("GET", endpoint, tt.httpResponder)
+		httpmock.RegisterResponder(http.MethodGet, endpoint, tt.httpResponder)
 		t.Run(tt.name, func(t *testing.T) {
 			if err := getHealth(tt.args.ctx, tt.args.url); (err != nil) != tt.wantErr {
 				t.Errorf("getHealth() error = %v, wantErr %v", err, tt.wantErr)
@@ -252,7 +253,7 @@ func TestHealth_Check(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			for endpoint, statuscode := range tt.registerdEndpoints {
-				httpmock.RegisterResponder("GET", endpoint,
+				httpmock.RegisterResponder(http.MethodGet, endpoint,
 					httpmock.NewStringResponder(statuscode, ""),
 				)
 			}

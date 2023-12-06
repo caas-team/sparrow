@@ -203,7 +203,7 @@ func getHealth(ctx context.Context, url string) error {
 		Timeout: time.Second * 5,
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "GET", url, http.NoBody)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 	if err != nil {
 		log.Error("Could not create http GET request", "error", err.Error())
 		return err
