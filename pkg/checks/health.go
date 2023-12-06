@@ -71,7 +71,7 @@ func (h *Health) Run(ctx context.Context) error {
 	log := logger.FromContext(ctx)
 
 	for {
-		delay := time.Minute
+		delay := time.Second * 15
 		log.Info("Next health check will run after delay", "delay", delay.String())
 		select {
 		case <-ctx.Done():
