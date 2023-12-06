@@ -77,6 +77,7 @@ func TestLatency_Run(t *testing.T) {
 			results := make(chan Result, 1)
 			c.Startup(tt.ctx, results)
 
+			c.SetClient(&http.Client{Transport: httpmock.DefaultTransport})
 			c.SetConfig(tt.ctx, LatencyConfig{
 				Targets:  tt.targets,
 				Interval: time.Second * 120,
@@ -207,7 +208,8 @@ func TestLatency_check(t *testing.T) {
 			}
 
 			l := &Latency{
-				cfg: LatencyConfig{Targets: tt.targets, Interval: time.Second * 120, Timeout: time.Second * 1},
+				cfg:    LatencyConfig{Targets: tt.targets, Interval: time.Second * 120, Timeout: time.Second * 1},
+				client: &http.Client{Transport: httpmock.DefaultTransport},
 			}
 
 			got, err := l.check(tt.ctx)

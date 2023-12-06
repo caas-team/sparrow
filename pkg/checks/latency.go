@@ -18,19 +18,21 @@ var _ Check = (*Latency)(nil)
 
 func NewLatencyCheck() Check {
 	return &Latency{
-		mu:   sync.Mutex{},
-		cfg:  LatencyConfig{},
-		c:    nil,
-		done: make(chan bool, 1),
+		mu:     sync.Mutex{},
+		cfg:    LatencyConfig{},
+		c:      nil,
+		done:   make(chan bool, 1),
+		client: &http.Client{},
 	}
 
 }
 
 type Latency struct {
-	cfg  LatencyConfig
-	mu   sync.Mutex
-	c    chan<- Result
-	done chan bool
+	cfg    LatencyConfig
+	mu     sync.Mutex
+	c      chan<- Result
+	done   chan bool
+	client *http.Client
 }
 
 type LatencyConfig struct {
@@ -103,6 +105,13 @@ func (l *Latency) SetConfig(ctx context.Context, config any) error {
 	return nil
 }
 
+// SetClient sets the http client for the latency check
+func (l *Latency) SetClient(c *http.Client) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.client = c
+}
+
 func (l *Latency) Schema() (*openapi3.SchemaRef, error) {
 	return OpenapiFromPerfData(make(map[string]LatencyResult))
 }
@@ -140,10 +149,10 @@ func (l *Latency) check(ctx context.Context) (map[string]LatencyResult, error) {
 			log.Debug("Starting retry routine to get latency", "target", target)
 
 			err := helper.Retry(func(ctx context.Context) error {
-				res := getLatency(ctx, target, l.cfg.Timeout)
 				mu.Lock()
+				defer mu.Unlock()
+				res := getLatency(ctx, l.client, target)
 				results[target] = res
-				mu.Unlock()
 				return nil
 			}, l.cfg.Retry)(ctx)
 			if err != nil {
@@ -158,12 +167,9 @@ func (l *Latency) check(ctx context.Context) (map[string]LatencyResult, error) {
 }
 
 // getLatency performs an HTTP get request and returns ok if request succeeds
-func getLatency(ctx context.Context, url string, timeout time.Duration) LatencyResult {
+func getLatency(ctx context.Context, client *http.Client, url string) LatencyResult {
 	log := logger.FromContext(ctx).With("url", url)
 	var res LatencyResult
-	client := &http.Client{
-		Timeout: timeout,
-	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
