@@ -64,8 +64,8 @@ func (s *Sparrow) register(ctx context.Context) {
 //
 // Blocks until context is done
 func (s *Sparrow) api(ctx context.Context) error {
-	log := logger.FromContext(ctx)
-	cErr := make(chan error)
+	log := logger.FromContext(ctx).WithGroup("api")
+	cErr := make(chan error, 1)
 	s.register(ctx)
 
 	server := http.Server{Addr: s.cfg.Api.ListeningAddress, Handler: s.router, ReadHeaderTimeout: readHeaderTimeout}
@@ -73,8 +73,9 @@ func (s *Sparrow) api(ctx context.Context) error {
 	// run http server in goroutine
 	go func(cErr chan error) {
 		defer close(cErr)
+		log.Info("serving api", "addr", s.cfg.Api.ListeningAddress)
 		if err := server.ListenAndServe(); err != nil {
-			log.Error("failed to serve api", "error", err)
+			log.Error("Failed to serve api", "error", err)
 			cErr <- err
 		}
 	}(cErr)
@@ -86,15 +87,14 @@ func (s *Sparrow) api(ctx context.Context) error {
 			defer cancel()
 			err := server.Shutdown(shutdownCtx)
 			if err != nil {
-				log.Error("failed to shutdown api", "error", err)
-				// TODO: panic? return error?
+				log.Error("Failed to shutdown api server", "error", err)
 			}
-			log.Error("api context canceled", "error", ctx.Err())
+			log.Error("Api context canceled", "error", ctx.Err())
 			return fmt.Errorf("%w: %w", ErrApiContext, ctx.Err())
 		}
 	case err := <-cErr:
 		if errors.Is(err, http.ErrServerClosed) || err == nil {
-			log.Info("api server closed")
+			log.Info("Api server closed")
 			return nil
 		}
 		log.Error("failed to serve api", "error", err)
@@ -163,8 +163,7 @@ func (s *Sparrow) getCheckMetrics(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		_, err := w.Write([]byte(http.StatusText(http.StatusBadRequest)))
 		if err != nil {
-			log.Error("failed to write response", "error", err)
-			// TODO: anything else to do here?
+			log.Error("Failed to write response", "error", err)
 		}
 		return
 	}
@@ -173,8 +172,7 @@ func (s *Sparrow) getCheckMetrics(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 		_, err := w.Write([]byte(http.StatusText(http.StatusNotFound)))
 		if err != nil {
-			log.Error("failed to write response", "error", err)
-			// TODO: anything else to do here?
+			log.Error("Failed to write response", "error", err)
 		}
 		return
 	}
@@ -185,8 +183,7 @@ func (s *Sparrow) getCheckMetrics(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		_, err = w.Write([]byte(http.StatusText(http.StatusInternalServerError)))
 		if err != nil {
-			log.Error("failed to write response", "error", err)
-			// TODO: anything else to do here?
+			log.Error("Failed to write response", "error", err)
 		}
 		return
 	}
@@ -201,8 +198,7 @@ func (s *Sparrow) getOpenapi(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		_, err = w.Write([]byte(http.StatusText(http.StatusInternalServerError)))
 		if err != nil {
-			log.Error("failed to write response", "error", err)
-			// TODO: anything else to do here?
+			log.Error("Failed to write response", "error", err)
 		}
 		return
 	}
@@ -225,8 +221,7 @@ func (s *Sparrow) getOpenapi(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		_, err = w.Write([]byte(http.StatusText(http.StatusInternalServerError)))
 		if err != nil {
-			log.Error("failed to write response", "error", err)
-			// TODO: anything else to do here?
+			log.Error("Failed to write response", "error", err)
 		}
 		return
 	}
@@ -245,8 +240,7 @@ func (s *Sparrow) handleChecks(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 		_, err := w.Write([]byte(http.StatusText(http.StatusNotFound)))
 		if err != nil {
-			log.Error("failed to write response", "error", err)
-			// TODO: anything else to do here?
+			log.Error("Failed to write response", "error", err)
 		}
 		return
 	}

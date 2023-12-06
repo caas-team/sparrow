@@ -1,4 +1,4 @@
-# `sparrow` aka Check Sparrow <!-- omit from toc -->
+# Sparrow - Infrastructure Monitoring<!-- omit from toc -->
 
 <p align="center">
     <a href="/../../commits/" title="Last Commit"><img src="https://img.shields.io/github/last-commit/caas-team/sparrow?style=flat"></a>
@@ -12,11 +12,13 @@
   - [Container Image](#container-image)
   - [Helm](#helm)
 - [Usage](#usage)
+  - [Container Image](#container-image-1)
 - [Configuration](#configuration)
   - [Startup](#startup)
     - [Loader](#loader)
   - [Runtime](#runtime)
   - [Check: Health](#check-health)
+  - [Check: Latency](#check-latency)
   - [API](#api)
 - [Code of Conduct](#code-of-conduct)
 - [Working Language](#working-language)
@@ -33,27 +35,74 @@ The `sparrow` performs several checks to monitor the health of the infrastructur
 
 1. Health check - `health`: The `sparrow` is able perform an http-based (HTTP/1.1) health check to provided endpoints. The `sparrow` will expose its own health check endpoint as well.
 
-2. Latency check - `rtt`: The `sparrow` is able to communicate with other `sparrow` instances to calculate the time a request takes to the target and back. The check is http (HTTP/1.1) based as well.
+2. Latency check - `latency`: The `sparrow` is able to communicate with other `sparrow` instances to calculate the time a request takes to the target and back. The check is http (HTTP/1.1) based as well.
 
 ## Installation
 
 The `sparrow` is provided as an small binary & a container image.
 
+Please see the [release notes](https://github.com/caas-team/sparrow/releases) for to get the latest version.
+
 ### Binary
 
-tbd
+The binary is available for several distributions. Currently the binary needs to be installed from a provided bundle or source.
+
+```sh
+curl https://github.com/caas-team/sparrow/releases/download/v${RELEASE_VERSION}/sparrow_${RELEASE_VERSION}_linux_amd64.tar.gz -Lo sparrow.tar.gz
+curl https://github.com/caas-team/sparrow/releases/download/v${RELEASE_VERSION}/sparrow_${RELEASE_VERSION}_checksums.txt -Lo checksums.txt
+```
+
+For example release `v0.0.1`:
+```sh
+curl https://github.com/caas-team/sparrow/releases/download/v0.0.1/sparrow_0.0.1_linux_amd64.tar.gz -Lo sparrow.tar.gz
+curl https://github.com/caas-team/sparrow/releases/download/v0.0.1/sparrow_0.0.1_checksums.txt -Lo checksums.txt
+```
+
+Extract the binary:
+```sh
+tar -xf sparrow.tar.gz
+```
 
 ### Container Image
 
-tbd
+The [sparrow container images](https://github.com/caas-team/sparrow/pkgs/container/sparrow) for dedicated [release](https://github.com/caas-team/sparrow/releases) can be found in the GitHub registry.
 
 ### Helm
 
-tbd
+Sparrow can be install via Helm Chart. The chart is provided in the GitHub registry:
+
+```sh
+helm -n sparrow upgrade -i sparrow oci://ghcr.io/caas-team/charts/sparrow --version 1.0.0 --create-namespace
+```
+
+The default settings are fine for a local running configuration. With the default Helm values the sparrow loader uses a runtime configuration that is provided in a ConfigMap. The ConfigMap can be set by defining the `runtimeConfig` section.
+
+To be able to load the configuration during the runtime dynamically, the sparrow loader needs to be set to type `http`.
+
+Use the following configuration values to use a runtime configuration by the `http` loader:
+
+```yaml
+startupConfig:
+  loaderType: http
+  loaderHttpUrl: https://url-to-runtime-config.de/api/config%2Eyaml
+
+runtimeConfig: {}
+```
+For all available value options see [Chart README](./chart/README.md).
+
+Additionally check out the sparrow [configuration](#configuration) variants.
 
 ## Usage
 
-Use `sparrow run` to execute the instance.
+Use `sparrow run` to execute the instance using the binary.
+
+### Container Image
+
+Run a `sparrow` container by using e.g. `docker run ghcr.io/caas-team/sparrow`.
+
+Pass the available configuration arguments to the container e.g. `docker run ghcr.io/caas-team/sparrow --help`.
+
+Start the instance using a mounted startup configuration file e.g. `docker run -v /config:/config  ghcr.io/caas-team/sparrow --config /config/config.yaml`.
 
 ## Configuration
 
@@ -117,10 +166,35 @@ checks:
     healthEndpoint: false
 ```
 
-The health check will set the target status `healthy` for status code 200, otherwise `unhealthy`.
+### Check: Latency
 
-The check is re-running after a fixed delay of one minute and will perform a health request for every target.
+Available configuration options:
 
+- `checks`
+  - `latency`
+    - `enabled` (boolean): Currently not used.
+    - `interval` (integer): Interval in seconds to perform the latency check.
+    - `timeout` (integer): Timeout in seconds for the latency check.
+    - `retry`
+      - `count` (integer): Number of retries for the latency check.
+      - `delay` (integer): Delay in seconds between retries for the latency check.
+    - `targets` (list of strings): List of targets to send latency probe. Needs to be a valid url. Can be another `sparrow` instance. Use latency endpoint, e.g. `https://sparrow-dns.telekom.de/checks/latency`. The remote `sparrow` instance needs the `latencyEndpoint` enabled.
+    - `latencyEndpoint` (boolean): Needs to be activated when the `sparrow` should expose its own latency endpoint. Mandatory if another `sparrow` instance wants perform a latency check.
+Example configuration:
+
+```yaml
+checks:
+  latency:
+    enabled: true
+    interval: 1
+    timeout: 3
+    retry:
+      count: 3
+      delay: 1
+    targets:
+      - https://example.com/
+      - https://google.com/
+```
 
 ### API
 

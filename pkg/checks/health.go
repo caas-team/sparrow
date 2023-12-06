@@ -131,7 +131,6 @@ func (h *Health) RegisterHandler(ctx context.Context, router *api.RoutingTree) {
 			_, err := w.Write([]byte("ok"))
 			if err != nil {
 				log.Error("Could not write response", "error", err.Error())
-				// TODO: Discuss what should happen
 			}
 		})
 	}

@@ -10,7 +10,9 @@
       "args": [
         "run",
         "--config",
-        ".vscode/config/local.config.yaml"
+        "config.yaml",
+        "--apiAddress",
+        ":9090"
       ]
     },
     {

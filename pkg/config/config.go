@@ -63,7 +63,7 @@ func NewConfig() *Config {
 	}
 }
 
-func (c *Config) SetApiListeningAddress(address string) {
+func (c *Config) SetApiAddress(address string) {
 	c.Api.ListeningAddress = address
 }
 

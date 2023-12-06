@@ -39,7 +39,7 @@ const (
 // NewCmdRun creates a new run command
 func NewCmdRun() *cobra.Command {
 	flagMapping := config.RunFlagsNameMapping{
-		ApiListeningAddress:  "apiListeningAddress",
+		ApiAddress:           "apiAddress",
 		LoaderType:           "loaderType",
 		LoaderInterval:       "loaderInterval",
 		LoaderHttpUrl:        "loaderHttpUrl",
@@ -57,8 +57,9 @@ func NewCmdRun() *cobra.Command {
 		Run:   run(&flagMapping),
 	}
 
-	cmd.PersistentFlags().String(flagMapping.ApiListeningAddress, ":8080", "api: The address the server is listening on")
-	cmd.PersistentFlags().StringP(flagMapping.LoaderType, "l", "http", "defines the loader type that will load the checks configuration during the runtime. The fallback is the fileLoader")
+	cmd.PersistentFlags().String(flagMapping.ApiAddress, ":8080", "api: The address the server is listening on")
+	cmd.PersistentFlags().StringP(flagMapping.LoaderType, "l", "http",
+		"defines the loader type that will load the checks configuration during the runtime. The fallback is the fileLoader")
 	cmd.PersistentFlags().Int(flagMapping.LoaderInterval, defaultLoaderInterval, "defines the interval the loader reloads the configuration in seconds")
 	cmd.PersistentFlags().String(flagMapping.LoaderHttpUrl, "", "http loader: The url where to get the remote configuration")
 	cmd.PersistentFlags().String(flagMapping.LoaderHttpToken, "", "http loader: Bearer token to authenticate the http endpoint")
@@ -67,7 +68,7 @@ func NewCmdRun() *cobra.Command {
 	cmd.PersistentFlags().Int(flagMapping.LoaderHttpRetryDelay, defaultHttpRetryDelay, "http loader: The initial delay between retries in seconds")
 	cmd.PersistentFlags().String(flagMapping.LoaderFilePath, "config.yaml", "file loader: The path to the file to read the runtime config from")
 
-	_ = viper.BindPFlag(flagMapping.ApiListeningAddress, cmd.PersistentFlags().Lookup(flagMapping.ApiListeningAddress))
+	_ = viper.BindPFlag(flagMapping.ApiAddress, cmd.PersistentFlags().Lookup(flagMapping.ApiAddress))
 	_ = viper.BindPFlag(flagMapping.LoaderType, cmd.PersistentFlags().Lookup(flagMapping.LoaderType))
 	_ = viper.BindPFlag(flagMapping.LoaderInterval, cmd.PersistentFlags().Lookup(flagMapping.LoaderInterval))
 	_ = viper.BindPFlag(flagMapping.LoaderHttpUrl, cmd.PersistentFlags().Lookup(flagMapping.LoaderHttpUrl))
@@ -88,7 +89,7 @@ func run(fm *config.RunFlagsNameMapping) func(cmd *cobra.Command, args []string)
 
 		cfg := config.NewConfig()
 
-		cfg.SetApiListeningAddress(viper.GetString(fm.ApiListeningAddress))
+		cfg.SetApiAddress(viper.GetString(fm.ApiAddress))
 
 		cfg.SetLoaderType(viper.GetString(fm.LoaderType))
 		cfg.SetLoaderInterval(viper.GetInt(fm.LoaderInterval))
