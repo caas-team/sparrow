@@ -41,8 +41,9 @@ func NewCmdGenDocs(rootCmd *cobra.Command) *cobra.Command {
 	return cmd
 }
 
-// run is the entry point to start the sparrow
+// runGenDocs generates the markdown files for the flag documentation
 func runGenDocs(rootCmd *cobra.Command, path *string) func(cmd *cobra.Command, args []string) {
+	rootCmd.DisableAutoGenTag = true
 	return func(cmd *cobra.Command, args []string) {
 		_ = doc.GenMarkdownTree(rootCmd, *path)
 	}
