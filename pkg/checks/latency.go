@@ -2,6 +2,7 @@ package checks
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"sync"
@@ -49,12 +50,15 @@ type LatencyResult struct {
 }
 
 func (l *Latency) Run(ctx context.Context) error {
-	log := logger.FromContext(ctx).WithGroup("Latency")
-	log.Info(l.cfg.Interval.String())
+	ctx, cancel := logger.NewContextWithLogger(ctx, "latency")
+	defer cancel()
+	log := logger.FromContext(ctx)
+	log.Info(fmt.Sprintf("Using latency check interval of %s", l.cfg.Interval.String()))
+
 	for {
 		select {
 		case <-ctx.Done():
-			log.Error("context canceled", "err", ctx.Err())
+			log.Error("Context canceled", "err", ctx.Err())
 			return ctx.Err()
 		case <-l.done:
 			return nil
@@ -160,7 +164,6 @@ func (l *Latency) check(ctx context.Context) map[string]LatencyResult {
 	}
 	wg.Wait()
 
-	log.Info("Successfully got latency to all targets")
 	return results
 }
 
