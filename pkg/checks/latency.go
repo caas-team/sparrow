@@ -141,6 +141,9 @@ func (l *Latency) check(ctx context.Context) map[string]LatencyResult {
 	var wg sync.WaitGroup
 	results := map[string]LatencyResult{}
 
+	l.mu.Lock()
+	l.client.Timeout = l.cfg.Timeout * time.Second
+	l.mu.Unlock()
 	for _, tar := range l.cfg.Targets {
 		target := tar
 		wg.Add(1)
@@ -150,10 +153,10 @@ func (l *Latency) check(ctx context.Context) map[string]LatencyResult {
 			lo.Debug("Starting retry routine to get latency", "target", target)
 
 			err := helper.Retry(func(ctx context.Context) error {
+				lo.Debug("Getting latency", "timing out in", l.client.Timeout.String())
+				res := getLatency(ctx, l.client, target)
 				mu.Lock()
 				defer mu.Unlock()
-				l.client.Timeout = l.cfg.Timeout
-				res := getLatency(ctx, l.client, target)
 				results[target] = res
 				return nil
 			}, l.cfg.Retry)(ctx)
