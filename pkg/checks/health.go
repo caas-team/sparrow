@@ -116,6 +116,11 @@ func (h *Health) SetConfig(_ context.Context, config any) error {
 	return nil
 }
 
+// SetClient sets the http client for the health check
+func (h *Health) SetClient(_ *http.Client) {
+	// TODO: implement with issue #31
+}
+
 // Schema provides the schema of the data that will be provided
 // by the heath check
 func (h *Health) Schema() (*openapi3.SchemaRef, error) {

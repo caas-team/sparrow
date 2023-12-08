@@ -2,13 +2,13 @@ package checks
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"sync"
 	"time"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/mitchellh/mapstructure"
-	"golang.org/x/sync/errgroup"
 
 	"github.com/caas-team/sparrow/internal/helper"
 	"github.com/caas-team/sparrow/internal/logger"
@@ -19,18 +19,20 @@ var _ Check = (*Latency)(nil)
 
 func NewLatencyCheck() Check {
 	return &Latency{
-		mu:   sync.Mutex{},
-		cfg:  LatencyConfig{},
-		c:    nil,
-		done: make(chan bool, 1),
+		mu:     sync.Mutex{},
+		cfg:    LatencyConfig{},
+		c:      nil,
+		done:   make(chan bool, 1),
+		client: &http.Client{},
 	}
 }
 
 type Latency struct {
-	cfg  LatencyConfig
-	mu   sync.Mutex
-	c    chan<- Result
-	done chan bool
+	cfg    LatencyConfig
+	mu     sync.Mutex
+	c      chan<- Result
+	done   chan bool
+	client *http.Client
 }
 
 type LatencyConfig struct {
@@ -57,11 +59,8 @@ func (l *Latency) Run(ctx context.Context) error {
 		case <-l.done:
 			return nil
 		case <-time.After(l.cfg.Interval):
-			results, err := l.check(ctx)
+			results := l.check(ctx)
 			errval := ""
-			if err != nil {
-				errval = err.Error()
-			}
 			checkResult := Result{
 				Data:      results,
 				Err:       errval,
@@ -103,6 +102,13 @@ func (l *Latency) SetConfig(_ context.Context, config any) error {
 	return nil
 }
 
+// SetClient sets the http client for the latency check
+func (l *Latency) SetClient(c *http.Client) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.client = c
+}
+
 func (l *Latency) Schema() (*openapi3.SchemaRef, error) {
 	return OpenapiFromPerfData(make(map[string]LatencyResult))
 }
@@ -119,59 +125,74 @@ func (l *Latency) Handler(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func (l *Latency) check(ctx context.Context) (map[string]LatencyResult, error) {
+func (l *Latency) check(ctx context.Context) map[string]LatencyResult {
 	log := logger.FromContext(ctx).WithGroup("check")
 	log.Debug("Checking latency")
+	if len(l.cfg.Targets) == 0 {
+		log.Debug("No targets defined")
+		return map[string]LatencyResult{}
+	}
 
-	var resultMutex sync.Mutex
+	var mu sync.Mutex
+	var wg sync.WaitGroup
 	results := map[string]LatencyResult{}
 
-	wg, ctx := errgroup.WithContext(ctx)
-	for _, e := range l.cfg.Targets {
-		wg.Go(func(ctx context.Context, e string) func() error {
-			return func() error {
-				cl := http.Client{
-					Timeout: l.cfg.Timeout * time.Second,
-				}
-				req, err := http.NewRequestWithContext(ctx, http.MethodGet, e, http.NoBody)
-				if err != nil {
-					log.Error("Error while creating request", "error", err)
-					return err
-				}
+	for _, tar := range l.cfg.Targets {
+		target := tar
+		wg.Add(1)
+		go func(target string) {
+			defer wg.Done()
+			lo := log.With("target", target)
+			lo.Debug("Starting retry routine to get latency", "target", target)
 
-				var result LatencyResult
-
-				req = req.WithContext(ctx)
-
-				helper.Retry(func(ctx context.Context) error {
-					start := time.Now()
-					response, err := cl.Do(req) //nolint:bodyclose // Tom has refactored this function
-					if err != nil {
-						errval := err.Error()
-						result.Error = &errval
-						log.Error("Error while checking latency", "error", err)
-					} else {
-						result.Code = response.StatusCode
-					}
-					end := time.Now()
-
-					result.Total = end.Sub(start).Milliseconds()
-
-					resultMutex.Lock()
-					defer resultMutex.Unlock()
-					results[e] = result
-
-					return err
-				}, l.cfg.Retry)(ctx) //nolint: errcheck //ignore return value, since we set it in the closure
+			err := helper.Retry(func(ctx context.Context) error {
+				mu.Lock()
+				defer mu.Unlock()
+				l.client.Timeout = l.cfg.Timeout
+				res := getLatency(ctx, l.client, target)
+				results[target] = res
 				return nil
+			}, l.cfg.Retry)(ctx)
+			if err != nil {
+				lo.Error("Error while checking latency", "error", err)
 			}
-		}(ctx, e))
+		}(target)
+	}
+	wg.Wait()
+
+	log.Info("Successfully got latency to all targets")
+	return results
+}
+
+// getLatency performs an HTTP get request and returns ok if request succeeds
+func getLatency(ctx context.Context, client *http.Client, url string) LatencyResult {
+	log := logger.FromContext(ctx).With("url", url)
+	var res LatencyResult
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
+	if err != nil {
+		log.Error("Error while creating request", "error", err)
+		errval := err.Error()
+		res.Error = &errval
+		return res
 	}
 
-	if err := wg.Wait(); err != nil {
+	start := time.Now()
+	resp, err := client.Do(req) //nolint:bodyclose // Closed in defer below
+	if err != nil {
 		log.Error("Error while checking latency", "error", err)
-		return nil, err
+		errval := err.Error()
+		res.Error = &errval
+		return res
 	}
 
-	return results, nil
+	res.Code = resp.StatusCode
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body)
+
+	end := time.Now()
+
+	res.Total = end.Sub(start).Milliseconds()
+	return res
 }

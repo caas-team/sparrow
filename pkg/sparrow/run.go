@@ -21,6 +21,7 @@ package sparrow
 import (
 	"context"
 	"fmt"
+	"net/http"
 
 	"github.com/caas-team/sparrow/internal/logger"
 	"github.com/caas-team/sparrow/pkg/api"
@@ -36,6 +37,7 @@ type Sparrow struct {
 	db db.DB
 	// the existing checks
 	checks map[string]checks.Check
+	client *http.Client
 
 	resultFanIn map[string]chan checks.Result
 	cResult     chan checks.ResultDTO
@@ -51,14 +53,15 @@ type Sparrow struct {
 // New creates a new sparrow from a given configfile
 func New(cfg *config.Config) *Sparrow {
 	sparrow := &Sparrow{
-		router:      chi.NewRouter(),
-		routingTree: api.NewRoutingTree(),
+		db:          db.NewInMemory(),
 		checks:      make(map[string]checks.Check),
-		cResult:     make(chan checks.ResultDTO, 1),
+		client:      &http.Client{},
 		resultFanIn: make(map[string]chan checks.Result),
+		cResult:     make(chan checks.ResultDTO, 1),
 		cfg:         cfg,
 		cCfgChecks:  make(chan map[string]any, 1),
-		db:          db.NewInMemory(),
+		routingTree: api.NewRoutingTree(),
+		router:      chi.NewRouter(),
 	}
 
 	sparrow.loader = config.NewLoader(cfg, sparrow.cCfgChecks)
@@ -125,6 +128,7 @@ func (s *Sparrow) ReconcileChecks(ctx context.Context) {
 		checkChan := make(chan checks.Result, 1)
 		s.resultFanIn[name] = checkChan
 
+		check.SetClient(s.client)
 		err := check.SetConfig(ctx, checkCfg)
 		if err != nil {
 			log.ErrorContext(ctx, "Failed to set config for check", "name", name, "error", err)
@@ -137,6 +141,7 @@ func (s *Sparrow) ReconcileChecks(ctx context.Context) {
 			continue
 		}
 		check.RegisterHandler(ctx, s.routingTree)
+
 		go func() {
 			err := check.Run(ctx)
 			if err != nil {
