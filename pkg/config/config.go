@@ -24,10 +24,21 @@ import (
 	"github.com/caas-team/sparrow/internal/helper"
 )
 
+// TargetConfig is the configuration for the target
+// reconciliation process
+type TargetConfig struct {
+	// the interval in seconds for the target reconciliation process
+	Interval time.Duration
+	// the amount of time in seconds a target can be
+	// unhealthy before it is removed from the global target list
+	UnhealthyThreshold time.Duration
+}
+
 type Config struct {
 	Checks map[string]any
 	Loader LoaderConfig
 	Api    ApiConfig
+	Target TargetConfig
 }
 
 // ApiConfig is the configuration for the data API
