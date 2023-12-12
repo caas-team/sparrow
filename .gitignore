@@ -29,3 +29,6 @@ gen
 
 # test configs for debug launch configuration
 .vscode/config
+
+# Temporary directory
+.tmp/*

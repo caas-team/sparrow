@@ -73,7 +73,7 @@ func (s *Sparrow) api(ctx context.Context) error {
 	// run http server in goroutine
 	go func(cErr chan error) {
 		defer close(cErr)
-		log.Info("serving api", "addr", s.cfg.Api.ListeningAddress)
+		log.Info("Serving Api", "addr", s.cfg.Api.ListeningAddress)
 		if err := server.ListenAndServe(); err != nil {
 			log.Error("Failed to serve api", "error", err)
 			cErr <- err

@@ -40,7 +40,7 @@ func TestLatency_Run(t *testing.T) {
 		want    Result
 	}{
 		{
-			name: "runs successfully a latency check",
+			name: "success with one target",
 			registeredEndpoints: []struct {
 				name    string
 				status  int
@@ -48,7 +48,7 @@ func TestLatency_Run(t *testing.T) {
 			}{
 				{
 					name:    successURL,
-					status:  200,
+					status:  http.StatusOK,
 					success: true,
 				},
 			},
@@ -57,6 +57,41 @@ func TestLatency_Run(t *testing.T) {
 			want: Result{
 				Data: map[string]LatencyResult{
 					successURL: {Code: http.StatusOK, Error: nil, Total: 0},
+				},
+				Timestamp: time.Time{},
+				Err:       "",
+			},
+		},
+		{
+			name: "success with multiple targets",
+			registeredEndpoints: []struct {
+				name    string
+				status  int
+				success bool
+			}{
+				{
+					name:    successURL,
+					status:  http.StatusOK,
+					success: true,
+				},
+				{
+					name:    failURL,
+					status:  http.StatusInternalServerError,
+					success: true,
+				},
+				{
+					name:    timeoutURL,
+					status:  0,
+					success: false,
+				},
+			},
+			targets: []string{successURL, failURL, timeoutURL},
+			ctx:     context.Background(),
+			want: Result{
+				Data: map[string]LatencyResult{
+					successURL: {Code: http.StatusOK, Error: nil, Total: 0},
+					failURL:    {Code: http.StatusInternalServerError, Error: nil, Total: 0},
+					timeoutURL: {Code: 0, Error: stringPointer(fmt.Sprintf("Get %q: context deadline exceeded", timeoutURL)), Total: 0},
 				},
 				Timestamp: time.Time{},
 				Err:       "",
