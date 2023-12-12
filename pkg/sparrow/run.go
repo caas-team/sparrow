@@ -29,28 +29,9 @@ import (
 	"github.com/caas-team/sparrow/pkg/checks"
 	"github.com/caas-team/sparrow/pkg/config"
 	"github.com/caas-team/sparrow/pkg/db"
+	targets "github.com/caas-team/sparrow/pkg/sparrow/targets"
 	"github.com/go-chi/chi/v5"
 )
-
-// globalTarget represents a globalTarget that can be checked
-type globalTarget struct {
-	url      string
-	lastSeen time.Time
-}
-
-// TargetManager handles the management of globalTargets for
-// a Sparrow instance
-type TargetManager interface {
-	Reconcile(ctx context.Context)
-	GetTargets()
-}
-
-// gitlabTargetManager implements TargetManager
-type gitlabTargetManager struct {
-	targets []globalTarget
-	client  *http.Client
-	cfg     *config.TargetConfig
-}
 
 type Sparrow struct {
 	db db.DB
@@ -64,7 +45,7 @@ type Sparrow struct {
 	cfg        *config.Config
 	loader     config.Loader
 	cCfgChecks chan map[string]any
-	targets    TargetManager
+	targets    targets.TargetManager
 
 	routingTree *api.RoutingTree
 	router      chi.Router
@@ -82,6 +63,7 @@ func New(cfg *config.Config) *Sparrow {
 		cCfgChecks:  make(chan map[string]any, 1),
 		routingTree: api.NewRoutingTree(),
 		router:      chi.NewRouter(),
+		targets:     targets.NewGitlabManager(targets.NewGitlabClient("targetsRepo", "gitlabToken"), 5*time.Minute, 15*time.Minute),
 	}
 
 	sparrow.loader = config.NewLoader(cfg, sparrow.cCfgChecks)
@@ -191,64 +173,6 @@ func (s *Sparrow) ReconcileChecks(ctx context.Context) {
 
 		delete(s.checks, existingCheckName)
 	}
-}
-
-// Reconcile reconciles the targets of the gitlabTargetManager.
-// The global gitlabTargetManager are parsed from a remote endpoint.
-//
-// The global gitlabTargetManager are evaluated for healthiness and
-// unhealthy gitlabTargetManager are removed.
-func (t *gitlabTargetManager) Reconcile(ctx context.Context) {
-	log := logger.FromContext(ctx).With("name", "ReconcileGlobalTargets")
-	log.Debug("Starting global gitlabTargetManager reconciler")
-
-	for {
-		// start a timer
-		timer := time.NewTimer(t.cfg.Interval)
-		defer timer.Stop()
-
-		select {
-		case <-ctx.Done():
-			if err := ctx.Err(); err != nil {
-				log.Error("Context canceled", "error", err)
-				return
-			}
-		case <-timer.C:
-			log.Debug("Getting global gitlabTargetManager")
-			targets, err := t.getTargets(ctx)
-			t.updateTargets(targets)
-			if err != nil {
-				log.Error("Failed to get global gitlabTargetManager", "error", err)
-				continue
-			}
-		}
-	}
-}
-
-// GetTargets returns the current targets of the gitlabTargetManager
-func (t *gitlabTargetManager) GetTargets() []globalTarget {
-	return t.targets
-}
-
-// getGlobalTargets gets the global gitlabTargetManager from the configured gitlab repository
-func (t *gitlabTargetManager) getTargets(ctx context.Context) ([]globalTarget, error) {
-	log := logger.FromContext(ctx).With("name", "getGlobalTargets")
-	log.Debug("Getting global gitlabTargetManager")
-	var res []globalTarget
-	return res, nil
-}
-
-// updateTargets sets the global gitlabTargetManager
-func (t *gitlabTargetManager) updateTargets(targets []globalTarget) {
-	var healthyTargets []globalTarget
-	for _, target := range targets {
-		if time.Now().Add(-t.cfg.UnhealthyThreshold).After(target.lastSeen) {
-			continue
-		}
-		healthyTargets = append(healthyTargets, target)
-	}
-
-	t.targets = healthyTargets
 }
 
 // This is a fan in for the checks.
