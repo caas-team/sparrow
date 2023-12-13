@@ -1,45 +1,22 @@
 package targets
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
-	"net/http"
-	"net/url"
 	"time"
+
+	"github.com/caas-team/sparrow/pkg/checks"
+	"github.com/caas-team/sparrow/pkg/sparrow/gitlab"
 
 	"github.com/caas-team/sparrow/internal/logger"
 )
 
-var (
-	_ Gitlab        = &gitlab{}
-	_ TargetManager = &gitlabTargetManager{}
-)
-
-// Gitlab handles interaction with a gitlab repository containing
-// the global targets for the Sparrow instance
-type Gitlab interface {
-	FetchFiles(ctx context.Context) ([]globalTarget, error)
-	PutFile(ctx context.Context, file GitlabFile) error
-	PostFile(ctx context.Context, file GitlabFile) error
-}
-
-// gitlab implements Gitlab
-type gitlab struct {
-	// the base URL of the gitlab instance
-	baseUrl string
-	// the ID of the project containing the global targets
-	projectID int
-	// the token used to authenticate with the gitlab instance
-	token  string
-	client *http.Client
-}
+var _ TargetManager = &gitlabTargetManager{}
 
 // gitlabTargetManager implements TargetManager
 type gitlabTargetManager struct {
-	targets []globalTarget
-	gitlab  Gitlab
+	targets []checks.GlobalTarget
+	gitlab  gitlab.Gitlab
 	// the DNS name used for self-registration
 	name string
 	// the interval for the target reconciliation process
@@ -54,25 +31,11 @@ type gitlabTargetManager struct {
 }
 
 // NewGitlabManager creates a new gitlabTargetManager
-func NewGitlabManager(g Gitlab, checkInterval, unhealthyThreshold time.Duration) TargetManager {
+func NewGitlabManager(g gitlab.Gitlab, checkInterval, unhealthyThreshold time.Duration) TargetManager {
 	return &gitlabTargetManager{
-		targets:            []globalTarget{},
 		gitlab:             g,
 		checkInterval:      checkInterval,
 		unhealthyThreshold: unhealthyThreshold,
-	}
-}
-
-// file represents a file in a gitlab repository
-type file struct {
-	Name string `json:"name"`
-}
-
-func NewGitlab(url, token string) Gitlab {
-	return &gitlab{
-		baseUrl: url,
-		token:   token,
-		client:  &http.Client{},
 	}
 }
 
@@ -81,11 +44,11 @@ func (t *gitlabTargetManager) updateRegistration(ctx context.Context) error {
 	log := logger.FromContext(ctx).With("name", t.name, "registered", t.registered)
 	log.Debug("Updating registration")
 
-	f := GitlabFile{
+	f := gitlab.File{
 		Branch:      "main",
 		AuthorEmail: fmt.Sprintf("%s@sparrow", t.name),
 		AuthorName:  t.name,
-		Content:     globalTarget{Url: fmt.Sprintf("https://%s", t.name), LastSeen: time.Now().UTC()},
+		Content:     checks.GlobalTarget{Url: fmt.Sprintf("https://%s", t.name), LastSeen: time.Now().UTC()},
 	}
 
 	if t.registered {
@@ -146,7 +109,7 @@ func (t *gitlabTargetManager) Reconcile(ctx context.Context) {
 }
 
 // GetTargets returns the current targets of the gitlabTargetManager
-func (t *gitlabTargetManager) GetTargets() []globalTarget {
+func (t *gitlabTargetManager) GetTargets() []checks.GlobalTarget {
 	return t.targets
 }
 
@@ -154,7 +117,7 @@ func (t *gitlabTargetManager) GetTargets() []globalTarget {
 // with the latest available healthy targets
 func (t *gitlabTargetManager) refreshTargets(ctx context.Context) error {
 	log := logger.FromContext(ctx).With("name", "updateGlobalTargets")
-	var healthyTargets []globalTarget
+	var healthyTargets []checks.GlobalTarget
 
 	targets, err := t.gitlab.FetchFiles(ctx)
 	if err != nil {
@@ -172,210 +135,5 @@ func (t *gitlabTargetManager) refreshTargets(ctx context.Context) error {
 
 	t.targets = healthyTargets
 	log.Debug("Updated global targets", "targets", len(t.targets))
-	return nil
-}
-
-// FetchFiles fetches the files from the global targets repository from the configured gitlab repository
-func (g *gitlab) FetchFiles(ctx context.Context) ([]globalTarget, error) {
-	log := logger.FromContext(ctx).With("name", "FetchFiles")
-	fl, err := g.fetchFileList(ctx)
-	if err != nil {
-		log.Error("Failed to fetch files", "error", err)
-		return nil, err
-	}
-
-	result, err := g.fetchFiles(ctx, fl)
-	if err != nil {
-		log.Error("Failed to fetch files", "error", err)
-		return nil, err
-	}
-	log.Info("Successfully fetched all target files", "files", len(result))
-	return result, nil
-}
-
-// fetchFiles fetches the files from the global targets repository from the configured gitlab repository
-func (g *gitlab) fetchFiles(ctx context.Context, fl []string) ([]globalTarget, error) {
-	var result []globalTarget
-	log := logger.FromContext(ctx).With("name", "fetchFiles")
-	log.Debug("Fetching global files")
-	for _, f := range fl {
-		// URL encode the name
-		n := url.PathEscape(f)
-		req, err := http.NewRequestWithContext(ctx,
-			http.MethodGet,
-			fmt.Sprintf("%s/api/v4/projects/%d/repository/files/%s/raw?ref=main", g.baseUrl, g.projectID, n),
-			http.NoBody,
-		)
-		if err != nil {
-			log.Error("Failed to create request", "error", err)
-			return nil, err
-		}
-		req.Header.Add("PRIVATE-TOKEN", g.token)
-		req.Header.Add("Content-Type", "application/json")
-
-		res, err := g.client.Do(req)
-		if err != nil {
-			log.Error("Failed to fetch file", "file", f, "error", err)
-			return nil, err
-		}
-		if res.StatusCode != http.StatusOK {
-			log.Error("Failed to fetch file", "status", res.Status)
-			return nil, fmt.Errorf("request failed, status is %s", res.Status)
-		}
-
-		defer res.Body.Close()
-		var gt globalTarget
-		err = json.NewDecoder(res.Body).Decode(&gt)
-		if err != nil {
-			log.Error("Failed to decode file after fetching", "file", f, "error", err)
-			return nil, err
-		}
-
-		log.Debug("Successfully fetched file", "file", f)
-		result = append(result, gt)
-	}
-	return result, nil
-}
-
-// fetchFileList fetches the files from the global targets repository from the configured gitlab repository
-func (g *gitlab) fetchFileList(ctx context.Context) ([]string, error) {
-	log := logger.FromContext(ctx).With("name", "fetchFileList")
-	log.Debug("Fetching global files")
-	type file struct {
-		Name string `json:"name"`
-	}
-
-	req, err := http.NewRequestWithContext(ctx,
-		http.MethodGet,
-		fmt.Sprintf("%s/api/v4/projects/%d/repository/tree?ref=main", g.baseUrl, g.projectID),
-		http.NoBody,
-	)
-	if err != nil {
-		log.Error("Failed to create request", "error", err)
-		return nil, err
-	}
-
-	req.Header.Add("PRIVATE-TOKEN", g.token)
-	req.Header.Add("Content-Type", "application/json")
-
-	res, err := g.client.Do(req)
-	if err != nil {
-		log.Error("Failed to fetch file list", "error", err)
-		return nil, err
-	}
-	if res.StatusCode != http.StatusOK {
-		log.Error("Failed to fetch file list", "status", res.Status)
-		return nil, fmt.Errorf("request failed, status is %s", res.Status)
-	}
-
-	defer res.Body.Close()
-	var fl []file
-	err = json.NewDecoder(res.Body).Decode(&fl)
-	if err != nil {
-		log.Error("Failed to decode file list", "error", err)
-		return nil, err
-	}
-
-	var result []string
-	for _, f := range fl {
-		result = append(result, f.Name)
-	}
-
-	log.Debug("Successfully fetched file list", "files", len(result))
-	return result, nil
-}
-
-type GitlabFile struct {
-	Branch        string       `json:"branch"`
-	AuthorEmail   string       `json:"author_email"`
-	AuthorName    string       `json:"author_name"`
-	Content       globalTarget `json:"content"`
-	CommitMessage string       `json:"commit_message"`
-	fileName      string
-}
-
-// Bytes returns the bytes of the GitlabFile
-func (g GitlabFile) Bytes() ([]byte, error) {
-	b, err := json.Marshal(g)
-	return b, err
-}
-
-// PutFile commits the current instance to the configured gitlab repository
-// as a global target for other sparrow instances to discover
-func (g *gitlab) PutFile(ctx context.Context, body GitlabFile) error {
-	log := logger.FromContext(ctx).With("name", "AddRegistration")
-	log.Debug("Registering sparrow instance to gitlab")
-
-	// chose method based on whether the registration has already happened
-	n := url.PathEscape(body.Content.Url)
-	b, err := body.Bytes()
-	if err != nil {
-		log.Error("Failed to create request", "error", err)
-		return err
-	}
-	req, err := http.NewRequestWithContext(ctx,
-		http.MethodGet,
-		fmt.Sprintf("%s/api/v4/projects/%d/repository/files/%s", g.baseUrl, g.projectID, n),
-		bytes.NewBuffer(b),
-	)
-	if err != nil {
-		log.Error("Failed to create request", "error", err)
-		return err
-	}
-
-	req.Header.Add("PRIVATE-TOKEN", g.token)
-	req.Header.Add("Content-Type", "application/json")
-
-	resp, err := g.client.Do(req)
-	if err != nil {
-		log.Error("Failed to push registration file", "error", err)
-		return err
-	}
-
-	if resp.StatusCode != http.StatusAccepted {
-		log.Error("Failed to push registration file", "status", resp.Status)
-		return fmt.Errorf("request failed, status is %s", resp.Status)
-	}
-
-	return nil
-}
-
-// PostFile commits the current instance to the configured gitlab repository
-// as a global target for other sparrow instances to discover
-func (g *gitlab) PostFile(ctx context.Context, body GitlabFile) error {
-	log := logger.FromContext(ctx).With("name", "AddRegistration")
-	log.Debug("Registering sparrow instance to gitlab")
-
-	// chose method based on whether the registration has already happened
-	n := url.PathEscape(body.Content.Url)
-	b, err := body.Bytes()
-	if err != nil {
-		log.Error("Failed to create request", "error", err)
-		return err
-	}
-	req, err := http.NewRequestWithContext(ctx,
-		http.MethodPost,
-		fmt.Sprintf("%s/api/v4/projects/%d/repository/files/%s", g.baseUrl, g.projectID, n),
-		bytes.NewBuffer(b),
-	)
-	if err != nil {
-		log.Error("Failed to create request", "error", err)
-		return err
-	}
-
-	req.Header.Add("PRIVATE-TOKEN", g.token)
-	req.Header.Add("Content-Type", "application/json")
-
-	resp, err := g.client.Do(req)
-	if err != nil {
-		log.Error("Failed to push registration file", "error", err)
-		return err
-	}
-
-	if resp.StatusCode != http.StatusCreated {
-		log.Error("Failed to push registration file", "status", resp.Status)
-		return fmt.Errorf("request failed, status is %s", resp.Status)
-	}
-
 	return nil
 }

@@ -24,12 +24,14 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/caas-team/sparrow/pkg/sparrow/gitlab"
+	targets "github.com/caas-team/sparrow/pkg/sparrow/targets"
+
 	"github.com/caas-team/sparrow/internal/logger"
 	"github.com/caas-team/sparrow/pkg/api"
 	"github.com/caas-team/sparrow/pkg/checks"
 	"github.com/caas-team/sparrow/pkg/config"
 	"github.com/caas-team/sparrow/pkg/db"
-	targets "github.com/caas-team/sparrow/pkg/sparrow/targets"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -63,7 +65,7 @@ func New(cfg *config.Config) *Sparrow {
 		cCfgChecks:  make(chan map[string]any, 1),
 		routingTree: api.NewRoutingTree(),
 		router:      chi.NewRouter(),
-		targets:     targets.NewGitlabManager(targets.NewGitlab("targetsRepo", "gitlabToken"), 5*time.Minute, 15*time.Minute),
+		targets:     targets.NewGitlabManager(gitlab.New("targetsRepo", "gitlabToken", 1), 5*time.Minute, 15*time.Minute),
 	}
 
 	sparrow.loader = config.NewLoader(cfg, sparrow.cCfgChecks)
@@ -186,4 +188,10 @@ func fanInResults(checkChan chan checks.Result, cResult chan checks.ResultDTO, n
 			Result: &i,
 		}
 	}
+}
+
+// GlobalTarget represents a GlobalTarget that can be checked
+type GlobalTarget struct {
+	Url      string    `json:"url"`
+	LastSeen time.Time `json:"lastSeen"`
 }
