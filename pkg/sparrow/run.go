@@ -63,7 +63,7 @@ func New(cfg *config.Config) *Sparrow {
 		cCfgChecks:  make(chan map[string]any, 1),
 		routingTree: api.NewRoutingTree(),
 		router:      chi.NewRouter(),
-		targets:     targets.NewGitlabManager(targets.NewGitlabClient("targetsRepo", "gitlabToken"), 5*time.Minute, 15*time.Minute),
+		targets:     targets.NewGitlabManager(targets.NewGitlab("targetsRepo", "gitlabToken"), 5*time.Minute, 15*time.Minute),
 	}
 
 	sparrow.loader = config.NewLoader(cfg, sparrow.cCfgChecks)
