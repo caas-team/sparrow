@@ -22,6 +22,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/caas-team/sparrow/pkg/sparrow/gitlab"
@@ -36,10 +37,11 @@ import (
 )
 
 const (
-	gitlabRegistrationProjectID    = 1
+	gitlabRegistrationProjectID    = 237078
 	globalTargetsCheckInterval     = 5 * time.Minute
 	registrationUnhealthyThreshold = 15 * time.Minute
 	registrationInterval           = 5 * time.Minute
+	gitlabBaseUrl                  = "https://gitlab.devops.telekom.de"
 )
 
 type Sparrow struct {
@@ -73,8 +75,8 @@ func New(cfg *config.Config) *Sparrow {
 		routingTree: api.NewRoutingTree(),
 		router:      chi.NewRouter(),
 		targets: targets.NewGitlabManager(
-			gitlab.New("targetsRepo", "gitlabToken", gitlabRegistrationProjectID),
-			"DNS-Name",
+			gitlab.New(gitlabBaseUrl, os.Getenv("GITLAB_TOKEN"), gitlabRegistrationProjectID),
+			"cool-sparrow.de",
 			globalTargetsCheckInterval,
 			registrationUnhealthyThreshold,
 			registrationInterval,
