@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 
@@ -31,9 +32,9 @@ type Client struct {
 	client *http.Client
 }
 
-func New(url, token string, pid int) Gitlab {
+func New(baseURL, token string, pid int) Gitlab {
 	return &Client{
-		baseUrl:   url,
+		baseUrl:   baseURL,
 		token:     token,
 		projectID: pid,
 		client:    &http.Client{},
@@ -49,60 +50,66 @@ func (g *Client) FetchFiles(ctx context.Context) ([]checks.GlobalTarget, error) 
 		return nil, err
 	}
 
-	result, err := g.fetchFiles(ctx, fl)
-	if err != nil {
-		log.Error("Failed to fetch files", "error", err)
-		return nil, err
+	var result []checks.GlobalTarget
+	for _, f := range fl {
+		gl, err := g.fetchFile(ctx, f)
+		if err != nil {
+			log.Error("Failed fetching files", f, "error", err)
+			return nil, err
+		}
+		result = append(result, gl)
 	}
 	log.Info("Successfully fetched all target files", "files", len(result))
 	return result, nil
 }
 
-// fetchFiles fetches the files from the global targets repository from the configured gitlab repository
-func (g *Client) fetchFiles(ctx context.Context, fl []string) ([]checks.GlobalTarget, error) {
-	var result []checks.GlobalTarget
-	log := logger.FromContext(ctx).With("name", "fetchFiles")
-	log.Debug("Fetching global files")
-	for _, f := range fl {
-		// URL encode the name
-		n := url.PathEscape(f)
-		req, err := http.NewRequestWithContext(ctx,
-			http.MethodGet,
-			fmt.Sprintf("%s/api/v4/projects/%d/repository/files/%s/raw?ref=main", g.baseUrl, g.projectID, n),
-			http.NoBody,
-		)
-		if err != nil {
-			log.Error("Failed to create request", "error", err)
-			return nil, err
-		}
-		req.Header.Add("PRIVATE-TOKEN", g.token)
-		req.Header.Add("Content-Type", "application/json")
-
-		res, err := g.client.Do(req)
-		if err != nil {
-			log.Error("Failed to fetch file", "file", f, "error", err)
-			return nil, err
-		}
-		if res.StatusCode != http.StatusOK {
-			log.Error("Failed to fetch file", "status", res.Status)
-			return nil, fmt.Errorf("request failed, status is %s", res.Status)
-		}
-
-		defer res.Body.Close()
-		var gt checks.GlobalTarget
-		err = json.NewDecoder(res.Body).Decode(&gt)
-		if err != nil {
-			log.Error("Failed to decode file after fetching", "file", f, "error", err)
-			return nil, err
-		}
-
-		log.Debug("Successfully fetched file", "file", f)
-		result = append(result, gt)
+// fetchFile fetches the file from the global targets repository from the configured gitlab repository
+func (g *Client) fetchFile(ctx context.Context, f string) (checks.GlobalTarget, error) {
+	log := logger.FromContext(ctx)
+	var res checks.GlobalTarget
+	// URL encode the name
+	n := url.PathEscape(f)
+	req, err := http.NewRequestWithContext(ctx,
+		http.MethodGet,
+		fmt.Sprintf("%s/api/v4/projects/%d/repository/files/%s/raw?ref=main", g.baseUrl, g.projectID, n),
+		http.NoBody,
+	)
+	if err != nil {
+		log.Error("Failed to create request", "error", err)
+		return res, err
 	}
-	return result, nil
+	req.Header.Add("PRIVATE-TOKEN", g.token)
+	req.Header.Add("Content-Type", "application/json")
+
+	resp, err := g.client.Do(req) //nolint:bodyclose // closed in defer
+	if err != nil {
+		log.Error("Failed to fetch file", "file", f, "error", err)
+		return res, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		log.Error("Failed to fetch file", "status", resp.Status)
+		return res, fmt.Errorf("request failed, status is %s", resp.Status)
+	}
+
+	defer func(Body io.ReadCloser) {
+		err = Body.Close()
+		if err != nil {
+			log.Error("Failed to close response body", "error", err)
+		}
+	}(resp.Body)
+
+	err = json.NewDecoder(resp.Body).Decode(&res)
+	if err != nil {
+		log.Error("Failed to decode file after fetching", "file", f, "error", err)
+		return res, err
+	}
+
+	log.Debug("Successfully fetched file", "file", f)
+	return res, nil
 }
 
-// fetchFileList fetches the files from the global targets repository from the configured gitlab repository
+// fetchFileList fetches the filenames from the global targets repository from the configured gitlab repository,
+// so they may be fetched individually
 func (g *Client) fetchFileList(ctx context.Context) ([]string, error) {
 	log := logger.FromContext(ctx).With("name", "fetchFileList")
 	log.Debug("Fetching global files")
@@ -152,7 +159,7 @@ func (g *Client) fetchFileList(ctx context.Context) ([]string, error) {
 
 // PutFile commits the current instance to the configured gitlab repository
 // as a global target for other sparrow instances to discover
-func (g *Client) PutFile(ctx context.Context, body File) error {
+func (g *Client) PutFile(ctx context.Context, body File) error { //nolint: dupl,gocritic // no need to refactor yet
 	log := logger.FromContext(ctx).With("name", "AddRegistration")
 	log.Debug("Registering sparrow instance to gitlab")
 
@@ -194,7 +201,7 @@ func (g *Client) PutFile(ctx context.Context, body File) error {
 
 // PostFile commits the current instance to the configured gitlab repository
 // as a global target for other sparrow instances to discover
-func (g *Client) PostFile(ctx context.Context, body File) error {
+func (g *Client) PostFile(ctx context.Context, body File) error { //nolint:dupl,gocritic // no need to refactor yet
 	log := logger.FromContext(ctx).With("name", "AddRegistration")
 	log.Debug("Registering sparrow instance to gitlab")
 
@@ -234,6 +241,7 @@ func (g *Client) PostFile(ctx context.Context, body File) error {
 	return nil
 }
 
+// File represents a File manipulation operation via the Gitlab API
 type File struct {
 	Branch        string              `json:"branch"`
 	AuthorEmail   string              `json:"author_email"`
@@ -244,7 +252,7 @@ type File struct {
 }
 
 // Bytes returns the bytes of the File
-func (g File) Bytes() ([]byte, error) {
+func (g *File) Bytes() ([]byte, error) {
 	b, err := json.Marshal(g)
 	return b, err
 }

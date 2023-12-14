@@ -35,6 +35,12 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
+const (
+	gitlabRegistrationProjectID    = 1
+	globalTargetsCheckInterval     = 5 * time.Minute
+	registrationUnhealthyThreshold = 15 * time.Minute
+)
+
 type Sparrow struct {
 	db db.DB
 	// the existing checks
@@ -65,7 +71,7 @@ func New(cfg *config.Config) *Sparrow {
 		cCfgChecks:  make(chan map[string]any, 1),
 		routingTree: api.NewRoutingTree(),
 		router:      chi.NewRouter(),
-		targets:     targets.NewGitlabManager(gitlab.New("targetsRepo", "gitlabToken", 1), 5*time.Minute, 15*time.Minute),
+		targets:     targets.NewGitlabManager(gitlab.New("targetsRepo", "gitlabToken", gitlabRegistrationProjectID), globalTargetsCheckInterval, registrationUnhealthyThreshold),
 	}
 
 	sparrow.loader = config.NewLoader(cfg, sparrow.cCfgChecks)

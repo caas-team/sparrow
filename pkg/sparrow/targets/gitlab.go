@@ -66,6 +66,7 @@ func (t *gitlabTargetManager) updateRegistration(ctx context.Context) error {
 	err := t.gitlab.PostFile(ctx, f)
 	if err != nil {
 		log.Error("Failed to register global gitlabTargetManager", "error", err)
+		return err
 	}
 
 	log.Debug("Successfully registered")
@@ -74,7 +75,7 @@ func (t *gitlabTargetManager) updateRegistration(ctx context.Context) error {
 }
 
 // Reconcile reconciles the targets of the gitlabTargetManager.
-// The global targets are parsed from a remote endpoint.
+// The global targets are parsed from a gitlab repository.
 //
 // The global targets are evaluated for healthiness and
 // unhealthy gitlabTargetManager are removed.

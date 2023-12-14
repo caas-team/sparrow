@@ -98,11 +98,15 @@ func Test_gitlab_fetchFileList(t *testing.T) {
 
 // The filelist and url are the same, so we HTTP responders can
 // be created without much hassle
-func Test_gitlab_fetchFiles(t *testing.T) {
+func Test_gitlab_FetchFiles(t *testing.T) {
+	type file struct {
+		Name string `json:"name"`
+	}
+
 	tests := []struct {
 		name     string
 		want     []checks.GlobalTarget
-		fileList []string
+		fileList []file
 		wantErr  bool
 		mockCode int
 	}{
@@ -120,8 +124,10 @@ func Test_gitlab_fetchFiles(t *testing.T) {
 					LastSeen: time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC),
 				},
 			},
-			fileList: []string{
-				"test",
+			fileList: []file{
+				{
+					Name: "test",
+				},
 			},
 			wantErr:  false,
 			mockCode: http.StatusOK,
@@ -138,9 +144,13 @@ func Test_gitlab_fetchFiles(t *testing.T) {
 					LastSeen: time.Date(2021, 2, 1, 0, 0, 0, 0, time.UTC),
 				},
 			},
-			fileList: []string{
-				"test",
-				"test2",
+			fileList: []file{
+				{
+					Name: "test",
+				},
+				{
+					Name: "test2",
+				},
 			},
 			wantErr:  false,
 			mockCode: http.StatusOK,
@@ -164,10 +174,16 @@ func Test_gitlab_fetchFiles(t *testing.T) {
 				if err != nil {
 					t.Fatalf("error creating mock response: %v", err)
 				}
-				httpmock.RegisterResponder("GET", fmt.Sprintf("http://test/api/v4/projects/1/repository/files/%s/raw?ref=main", tt.fileList[i]), resp)
+				httpmock.RegisterResponder("GET", fmt.Sprintf("http://test/api/v4/projects/1/repository/files/%s/raw?ref=main", tt.fileList[i].Name), resp)
 			}
 
-			got, err := g.fetchFiles(context.Background(), tt.fileList)
+			resp, err := httpmock.NewJsonResponder(tt.mockCode, tt.fileList)
+			if err != nil {
+				t.Fatalf("error creating mock response: %v", err)
+			}
+			httpmock.RegisterResponder("GET", "http://test/api/v4/projects/1/repository/tree?ref=main", resp)
+
+			got, err := g.FetchFiles(context.Background())
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("FetchFiles() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -179,6 +195,9 @@ func Test_gitlab_fetchFiles(t *testing.T) {
 }
 
 func Test_gitlab_fetchFiles_error_cases(t *testing.T) {
+	type file struct {
+		Name string `json:"name"`
+	}
 	type mockResponses struct {
 		response checks.GlobalTarget
 		err      bool
@@ -187,7 +206,7 @@ func Test_gitlab_fetchFiles_error_cases(t *testing.T) {
 	tests := []struct {
 		name          string
 		mockResponses []mockResponses
-		fileList      []string
+		fileList      []file
 	}{
 		{
 			name: "failure - direct API error",
@@ -196,8 +215,10 @@ func Test_gitlab_fetchFiles_error_cases(t *testing.T) {
 					err: true,
 				},
 			},
-			fileList: []string{
-				"test",
+			fileList: []file{
+				{
+					Name: "test",
+				},
 			},
 		},
 		{
@@ -215,9 +236,9 @@ func Test_gitlab_fetchFiles_error_cases(t *testing.T) {
 					err:      true,
 				},
 			},
-			fileList: []string{
-				"test",
-				"test2-will-fail",
+			fileList: []file{
+				{Name: "test"},
+				{Name: "test2-will-fail"},
 			},
 		},
 	}
@@ -236,17 +257,17 @@ func Test_gitlab_fetchFiles_error_cases(t *testing.T) {
 			for i, target := range tt.mockResponses {
 				if target.err {
 					errResp := httpmock.NewStringResponder(http.StatusInternalServerError, "")
-					httpmock.RegisterResponder("GET", fmt.Sprintf("http://test/api/v4/projects/1/repository/files/%s/raw?ref=main", tt.fileList[i]), errResp)
+					httpmock.RegisterResponder("GET", fmt.Sprintf("http://test/api/v4/projects/1/repository/files/%s/raw?ref=main", tt.fileList[i].Name), errResp)
 					continue
 				}
 				resp, err := httpmock.NewJsonResponder(http.StatusOK, target)
 				if err != nil {
 					t.Fatalf("error creating mock response: %v", err)
 				}
-				httpmock.RegisterResponder("GET", fmt.Sprintf("http://test/api/v4/projects/1/repository/files/%s/raw?ref=main", tt.fileList[i]), resp)
+				httpmock.RegisterResponder("GET", fmt.Sprintf("http://test/api/v4/projects/1/repository/files/%s/raw?ref=main", tt.fileList[i].Name), resp)
 			}
 
-			_, err := g.fetchFiles(context.Background(), tt.fileList)
+			_, err := g.FetchFiles(context.Background())
 			if err == nil {
 				t.Fatalf("Expected error but got none.")
 			}
@@ -254,7 +275,7 @@ func Test_gitlab_fetchFiles_error_cases(t *testing.T) {
 	}
 }
 
-func TestClient_PutFile(t *testing.T) {
+func TestClient_PutFile(t *testing.T) { //nolint:dupl // no need to refactor yet
 	now := time.Now()
 	tests := []struct {
 		name     string
@@ -328,7 +349,7 @@ func TestClient_PutFile(t *testing.T) {
 	}
 }
 
-func TestClient_PostFile(t *testing.T) {
+func TestClient_PostFile(t *testing.T) { //nolint:dupl // no need to refactor yet
 	now := time.Now()
 	tests := []struct {
 		name     string
