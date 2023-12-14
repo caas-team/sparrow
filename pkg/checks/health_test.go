@@ -275,3 +275,24 @@ func TestHealth_Check(t *testing.T) {
 		})
 	}
 }
+
+func TestHealth_Shutdown(t *testing.T) {
+	cDone := make(chan bool, 1)
+	c := Health{
+		done: cDone,
+	}
+	err := c.Shutdown(context.Background())
+	if err != nil {
+		t.Errorf("Shutdown() error = %v", err)
+	}
+
+	if !<-cDone {
+		t.Error("Shutdown() should be ok")
+	}
+
+	hc := NewHealthCheck()
+	err = hc.Shutdown(context.Background())
+	if err != nil {
+		t.Errorf("Shutdown() error = %v", err)
+	}
+}
