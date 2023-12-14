@@ -2,6 +2,7 @@ package targets
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -210,5 +211,162 @@ func Test_gitlabTargetManager_updateRegistration(t *testing.T) {
 				t.Fatalf("updateRegistration() error = %v, wantErr %v", err, wantErr)
 			}
 		})
+	}
+}
+
+// Test_gitlabTargetManager_Reconcile_success tests that the Reconcile method
+// will register the target if it is not registered yet and update the
+// registration if it is already registered
+func Test_gitlabTargetManager_Reconcile_success(t *testing.T) {
+	tests := []struct {
+		name          string
+		registered    bool
+		wantPostError bool
+		wantPutError  bool
+	}{
+		{
+			name: "success - first registration",
+		},
+		{
+			name:       "success - update registration",
+			registered: true,
+		},
+	}
+
+	glmock := gitlabmock.New(
+		[]checks.GlobalTarget{
+			{
+				Url:      "test",
+				LastSeen: time.Now(),
+			},
+		},
+	)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gtm := NewGitlabManager(
+				glmock,
+				"test",
+				time.Millisecond*100,
+				time.Hour*1,
+				time.Millisecond*150,
+			)
+			ctx := context.Background()
+			go func() {
+				gtm.Reconcile(ctx)
+			}()
+
+			time.Sleep(time.Millisecond * 300)
+			if gtm.GetTargets()[0].Url != "test" {
+				t.Fatalf("Reconcile() did not receive the correct target")
+			}
+			if !gtm.Registered() {
+				t.Fatalf("Reconcile() did not register")
+			}
+
+			err := gtm.Shutdown(ctx)
+			if err != nil {
+				t.Fatalf("Reconcile() failed to shutdown")
+			}
+		})
+	}
+}
+
+// Test_gitlabTargetManager_Reconcile_failure tests that the Reconcile method
+// will handle API failures gracefully
+func Test_gitlabTargetManager_Reconcile_failure(t *testing.T) {
+	tests := []struct {
+		name       string
+		registered bool
+		postErr    error
+		putError   error
+	}{
+		{
+			name:    "failure - failed to register",
+			postErr: errors.New("failed to register"),
+		},
+		{
+			name:       "failure - failed to update registration",
+			registered: true,
+			putError:   errors.New("failed to update registration"),
+		},
+	}
+
+	glmock := gitlabmock.New(
+		[]checks.GlobalTarget{
+			{
+				Url:      "test",
+				LastSeen: time.Now(),
+			},
+		},
+	)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gtm := NewGitlabManager(
+				glmock,
+				"test",
+				time.Millisecond*100,
+				time.Hour*1,
+				time.Millisecond*150,
+			)
+			glmock.SetPostFileErr(tt.postErr)
+			glmock.SetPutFileErr(tt.putError)
+
+			ctx := context.Background()
+			go func() {
+				gtm.Reconcile(ctx)
+			}()
+
+			time.Sleep(time.Millisecond * 300)
+
+			if tt.postErr != nil && gtm.Registered() {
+				t.Fatalf("Reconcile() should not have registered")
+			}
+
+			if tt.putError != nil && !gtm.Registered() {
+				t.Fatalf("Reconcile() should still be registered")
+			}
+
+			err := gtm.Shutdown(ctx)
+			if err != nil {
+				t.Fatalf("Reconcile() failed to shutdown")
+			}
+		})
+	}
+}
+
+// Test_gitlabTargetManager_Reconcile_Context_Canceled tests that the Reconcile
+// method will shutdown gracefully when the context is canceled.
+func Test_gitlabTargetManager_Reconcile_Context_Canceled(t *testing.T) {
+	glmock := gitlabmock.New(
+		[]checks.GlobalTarget{
+			{
+				Url:      "test",
+				LastSeen: time.Now(),
+			},
+		},
+	)
+
+	gtm := NewGitlabManager(
+		glmock,
+		"test",
+		time.Millisecond*100,
+		time.Hour*1,
+		time.Millisecond*150,
+	)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		gtm.Reconcile(ctx)
+	}()
+
+	time.Sleep(time.Millisecond * 250)
+	cancel()
+	time.Sleep(time.Millisecond * 100)
+
+	// instance shouldn't be registered anymore
+	if gtm.Registered() {
+		t.Fatalf("Reconcile() should not be registered")
 	}
 }

@@ -14,4 +14,7 @@ type TargetManager interface {
 	Reconcile(ctx context.Context)
 	// GetTargets returns the current global targets
 	GetTargets() []checks.GlobalTarget
+	// Shutdown shuts down the target manager
+	// and unregisters the instance as a global target
+	Shutdown(ctx context.Context) error
 }

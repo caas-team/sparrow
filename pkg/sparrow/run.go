@@ -39,6 +39,7 @@ const (
 	gitlabRegistrationProjectID    = 1
 	globalTargetsCheckInterval     = 5 * time.Minute
 	registrationUnhealthyThreshold = 15 * time.Minute
+	registrationInterval           = 5 * time.Minute
 )
 
 type Sparrow struct {
@@ -71,7 +72,13 @@ func New(cfg *config.Config) *Sparrow {
 		cCfgChecks:  make(chan map[string]any, 1),
 		routingTree: api.NewRoutingTree(),
 		router:      chi.NewRouter(),
-		targets:     targets.NewGitlabManager(gitlab.New("targetsRepo", "gitlabToken", gitlabRegistrationProjectID), globalTargetsCheckInterval, registrationUnhealthyThreshold),
+		targets: targets.NewGitlabManager(
+			gitlab.New("targetsRepo", "gitlabToken", gitlabRegistrationProjectID),
+			"DNS-Name",
+			globalTargetsCheckInterval,
+			registrationUnhealthyThreshold,
+			registrationInterval,
+		),
 	}
 
 	sparrow.loader = config.NewLoader(cfg, sparrow.cCfgChecks)

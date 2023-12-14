@@ -16,20 +16,20 @@ type MockClient struct {
 }
 
 func (m *MockClient) PutFile(ctx context.Context, _ gitlab.File) error { //nolint: gocritic // irrelevant
-	log := logger.FromContext(ctx).With("name", "MockPutFile")
-	log.Debug("MockPutFile called", "err", m.putFileErr)
+	log := logger.FromContext(ctx)
+	log.Info("MockPutFile called", "err", m.putFileErr)
 	return m.putFileErr
 }
 
 func (m *MockClient) PostFile(ctx context.Context, _ gitlab.File) error { //nolint: gocritic // irrelevant
-	log := logger.FromContext(ctx).With("name", "MockPostFile")
-	log.Debug("MockPostFile called", "err", m.postFileErr)
+	log := logger.FromContext(ctx)
+	log.Info("MockPostFile called", "err", m.postFileErr)
 	return m.postFileErr
 }
 
 func (m *MockClient) FetchFiles(ctx context.Context) ([]checks.GlobalTarget, error) {
-	log := logger.FromContext(ctx).With("name", "MockFetchFiles")
-	log.Debug("MockFetchFiles called", "targets", len(m.targets), "err", m.fetchFilesErr)
+	log := logger.FromContext(ctx)
+	log.Info("MockFetchFiles called", "targets", len(m.targets), "err", m.fetchFilesErr)
 	return m.targets, m.fetchFilesErr
 }
 
