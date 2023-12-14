@@ -287,12 +287,24 @@ func TestHealth_Shutdown(t *testing.T) {
 	}
 
 	if !<-cDone {
-		t.Error("Shutdown() should be ok")
+		t.Error("Channel should be done")
 	}
+
+	assert.Panics(t, func() {
+		cDone <- true
+	}, "Channel is closed, should panic")
 
 	hc := NewHealthCheck()
 	err = hc.Shutdown(context.Background())
 	if err != nil {
 		t.Errorf("Shutdown() error = %v", err)
 	}
+
+	if !<-hc.(*Health).done {
+		t.Error("Channel should be done")
+	}
+
+	assert.Panics(t, func() {
+		hc.(*Health).done <- true
+	}, "Channel is closed, should panic")
 }
