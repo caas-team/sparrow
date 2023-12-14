@@ -68,13 +68,10 @@ func (gl *HttpLoader) Run(ctx context.Context) {
 		log.Info("Successfully got remote runtime configuration")
 		gl.cCfgChecks <- runtimeCfg.Checks
 
-		timer := time.NewTimer(gl.cfg.Loader.Interval)
-		defer timer.Stop() //nolint:gocritic // TODO: check if this is right
-
 		select {
 		case <-ctx.Done():
 			return
-		case <-timer.C:
+		case <-time.After(gl.cfg.Loader.Interval):
 		}
 	}
 }
