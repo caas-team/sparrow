@@ -48,13 +48,10 @@ func Retry(effector Effector, rc RetryConfig) func(ctx context.Context) error {
 			delay := getExpBackoff(rc.Delay, r)
 			log.WarnContext(ctx, fmt.Sprintf("Effector call failed, retrying in %v", delay))
 
-			timer := time.NewTimer(delay)
-			defer timer.Stop() //nolint:gocritic //TODO: check if this is correct
-
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
-			case <-timer.C:
+			case <-time.After(delay):
 			}
 		}
 	}
