@@ -52,7 +52,7 @@ func NewGitlabManager(g gitlab.Gitlab, name string, checkInterval, unhealthyThre
 // The global targets are evaluated for healthiness and
 // unhealthy gitlabTargetManager are removed.
 func (t *gitlabTargetManager) Reconcile(ctx context.Context) {
-	log := logger.FromContext(ctx).With("name", "ReconcileGlobalTargets")
+	log := logger.FromContext(ctx)
 	log.Debug("Starting global gitlabTargetManager reconciler")
 
 	checkTimer := time.NewTimer(t.checkInterval)
@@ -103,18 +103,24 @@ func (t *gitlabTargetManager) GetTargets() []checks.GlobalTarget {
 // Shutdown shuts down the gitlabTargetManager and deletes the file containing
 // the sparrow's registration from Gitlab
 func (t *gitlabTargetManager) Shutdown(ctx context.Context) error {
-	log := logger.FromContext(ctx).With("name", "Shutdown")
-	log.Debug("Shutting down global gitlabTargetManager")
 	t.mu.Lock()
 	defer t.mu.Unlock()
+	log := logger.FromContext(ctx)
+	log.Info("Shutting down global gitlabTargetManager")
 	t.registered = false
-	t.done <- struct{}{}
+
+	select {
+	case t.done <- struct{}{}:
+		log.Debug("Stopping reconcile routine")
+	default:
+	}
+
 	return nil
 }
 
 // updateRegistration registers the current instance as a global target
 func (t *gitlabTargetManager) updateRegistration(ctx context.Context) error {
-	log := logger.FromContext(ctx).With("name", t.name, "registered", t.registered)
+	log := logger.FromContext(ctx)
 	log.Debug("Updating registration")
 
 	f := gitlab.File{
@@ -154,10 +160,10 @@ func (t *gitlabTargetManager) updateRegistration(ctx context.Context) error {
 // refreshTargets updates the targets of the gitlabTargetManager
 // with the latest available healthy targets
 func (t *gitlabTargetManager) refreshTargets(ctx context.Context) error {
-	log := logger.FromContext(ctx).With("name", "updateGlobalTargets")
+	log := logger.FromContext(ctx)
 	t.mu.Lock()
-	var healthyTargets []checks.GlobalTarget
 	defer t.mu.Unlock()
+	var healthyTargets []checks.GlobalTarget
 	targets, err := t.gitlab.FetchFiles(ctx)
 	if err != nil {
 		log.Error("Failed to update global targets", "error", err)
@@ -178,8 +184,9 @@ func (t *gitlabTargetManager) refreshTargets(ctx context.Context) error {
 	return nil
 }
 
+// Registered returns whether the instance is registered as a global target
 func (t *gitlabTargetManager) Registered() bool {
-	t.mu.RLock()
-	defer t.mu.RUnlock()
+	t.mu.Lock()
+	defer t.mu.Unlock()
 	return t.registered
 }

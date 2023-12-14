@@ -363,7 +363,7 @@ func Test_gitlabTargetManager_Reconcile_Context_Canceled(t *testing.T) {
 
 	time.Sleep(time.Millisecond * 250)
 	cancel()
-	time.Sleep(time.Millisecond * 100)
+	time.Sleep(time.Millisecond * 250)
 
 	// instance shouldn't be registered anymore
 	if gtm.Registered() {

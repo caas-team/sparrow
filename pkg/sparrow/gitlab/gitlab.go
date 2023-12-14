@@ -43,7 +43,7 @@ func New(baseURL, token string, pid int) Gitlab {
 
 // FetchFiles fetches the files from the global targets repository from the configured gitlab repository
 func (g *Client) FetchFiles(ctx context.Context) ([]checks.GlobalTarget, error) {
-	log := logger.FromContext(ctx).With("name", "FetchFiles")
+	log := logger.FromContext(ctx)
 	fl, err := g.fetchFileList(ctx)
 	if err != nil {
 		log.Error("Failed to fetch files", "error", err)
@@ -111,7 +111,7 @@ func (g *Client) fetchFile(ctx context.Context, f string) (checks.GlobalTarget, 
 // fetchFileList fetches the filenames from the global targets repository from the configured gitlab repository,
 // so they may be fetched individually
 func (g *Client) fetchFileList(ctx context.Context) ([]string, error) {
-	log := logger.FromContext(ctx).With("name", "fetchFileList")
+	log := logger.FromContext(ctx)
 	log.Debug("Fetching global files")
 	type file struct {
 		Name string `json:"name"`
@@ -160,7 +160,7 @@ func (g *Client) fetchFileList(ctx context.Context) ([]string, error) {
 // PutFile commits the current instance to the configured gitlab repository
 // as a global target for other sparrow instances to discover
 func (g *Client) PutFile(ctx context.Context, body File) error { //nolint: dupl,gocritic // no need to refactor yet
-	log := logger.FromContext(ctx).With("name", "AddRegistration")
+	log := logger.FromContext(ctx)
 	log.Debug("Registering sparrow instance to gitlab")
 
 	// chose method based on whether the registration has already happened
@@ -202,7 +202,7 @@ func (g *Client) PutFile(ctx context.Context, body File) error { //nolint: dupl,
 // PostFile commits the current instance to the configured gitlab repository
 // as a global target for other sparrow instances to discover
 func (g *Client) PostFile(ctx context.Context, body File) error { //nolint:dupl,gocritic // no need to refactor yet
-	log := logger.FromContext(ctx).With("name", "AddRegistration")
+	log := logger.FromContext(ctx)
 	log.Debug("Registering sparrow instance to gitlab")
 
 	// chose method based on whether the registration has already happened
