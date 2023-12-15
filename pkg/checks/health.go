@@ -73,7 +73,10 @@ type Target struct {
 func NewHealthCheck() Check {
 	return &Health{
 		route:   "health",
+		config:  HealthConfig{},
 		metrics: newHealthMetrics(),
+		c:       nil,
+		done:    make(chan bool, 1),
 	}
 }
 
@@ -113,8 +116,8 @@ func (h *Health) Startup(_ context.Context, cResult chan<- Result) error {
 
 // Shutdown is called once when the check is unregistered or sparrow shuts down
 func (h *Health) Shutdown(_ context.Context) error {
-	http.Handle(h.route, http.NotFoundHandler())
 	h.done <- true
+	close(h.done)
 
 	return nil
 }
