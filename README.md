@@ -170,19 +170,20 @@ checks:
 
 The `sparrow` is able to manage the targets for the checks and register the `sparrow` as target on a (remote) backend.
 This is done via a `TargetManager` interface, which can be configured on startup. The available configuration options
-are listed below:
+are listed below and can be set in a startup YAML configuration file (per default `tmconfig.yaml` in the current
+directory).
 
 | Type                                 | Description                                                                          | Default              |
 |--------------------------------------|--------------------------------------------------------------------------------------|----------------------|
-| `targetManager.type`                 | The kind of target manager to use.                                                   | `gitlab`             |
 | `targetManager.checkInterval`        | The interval in seconds to check for new targets.                                    | `300`                |
 | `targetManager.unhealthyThreshold`   | The threshold in seconds to mark a target as unhealthy and remove it from the state. | `600`                |
 | `targetManager.registrationInterval` | The interval in seconds to register the current sparrow at the targets backend.      | `300`                |
 | `targetManager.gitlab.token`         | The token to authenticate against the gitlab instance.                               | `""`                 |
-| `targetManager.gitlab.url`           | The base URL of the gitlab instance.                                                 | `https://gitlab.com` |
-| `targetManager.gitlab.projectID`     | The project ID of the gitlab project to use as a remote state backend.               | `""`                 |
+| `targetManager.gitlab.baseUrl`       | The base URL of the gitlab instance.                                                 | `https://gitlab.com` |
+| `targetManager.gitlab.projectId`     | The project ID of the gitlab project to use as a remote state backend.               | `""`                 |
 
-The Gitlab target manager uses a gitlab project as the remote state backend. The various `sparrow` instances will
+Currently, only one target manager exists: the Gitlab target manager. It uses a gitlab project as the remote state
+backend. The various `sparrow` instances will
 register themselves as targets in the project. The `sparrow` instances will also check the project for new targets and
 add them to the local state. The registration is done by committing a "state" file in the main branch of the repository,
 which is named after the DNS name of the `sparrow`. The state file contains the following information:

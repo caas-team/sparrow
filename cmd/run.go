@@ -48,6 +48,7 @@ func NewCmdRun() *cobra.Command {
 		LoaderHttpRetryCount: "loaderHttpRetryCount",
 		LoaderHttpRetryDelay: "loaderHttpRetryDelay",
 		LoaderFilePath:       "loaderFilePath",
+		TargetManagerConfig:  "tmconfig",
 	}
 
 	cmd := &cobra.Command{
@@ -67,6 +68,7 @@ func NewCmdRun() *cobra.Command {
 	cmd.PersistentFlags().Int(flagMapping.LoaderHttpRetryCount, defaultHttpRetryCount, "http loader: Amount of retries trying to load the configuration")
 	cmd.PersistentFlags().Int(flagMapping.LoaderHttpRetryDelay, defaultHttpRetryDelay, "http loader: The initial delay between retries in seconds")
 	cmd.PersistentFlags().String(flagMapping.LoaderFilePath, "config.yaml", "file loader: The path to the file to read the runtime config from")
+	cmd.PersistentFlags().String(flagMapping.TargetManagerConfig, "tmconfig.yaml", "target manager: The path to the file to read the target manager config from")
 
 	_ = viper.BindPFlag(flagMapping.ApiAddress, cmd.PersistentFlags().Lookup(flagMapping.ApiAddress))
 	_ = viper.BindPFlag(flagMapping.LoaderType, cmd.PersistentFlags().Lookup(flagMapping.LoaderType))
@@ -77,6 +79,7 @@ func NewCmdRun() *cobra.Command {
 	_ = viper.BindPFlag(flagMapping.LoaderHttpRetryCount, cmd.PersistentFlags().Lookup(flagMapping.LoaderHttpRetryCount))
 	_ = viper.BindPFlag(flagMapping.LoaderHttpRetryDelay, cmd.PersistentFlags().Lookup(flagMapping.LoaderHttpRetryDelay))
 	_ = viper.BindPFlag(flagMapping.LoaderFilePath, cmd.PersistentFlags().Lookup(flagMapping.LoaderFilePath))
+	_ = viper.BindPFlag(flagMapping.TargetManagerConfig, cmd.PersistentFlags().Lookup(flagMapping.TargetManagerConfig))
 
 	return cmd
 }
@@ -88,6 +91,7 @@ func run(fm *config.RunFlagsNameMapping) func(cmd *cobra.Command, args []string)
 		ctx := logger.IntoContext(context.Background(), log)
 
 		cfg := config.NewConfig()
+		cfg.SetTargetManagerConfig(config.NewTargetManagerConfig(viper.GetString(fm.TargetManagerConfig)))
 
 		cfg.SetApiAddress(viper.GetString(fm.ApiAddress))
 

@@ -5,6 +5,7 @@ go 1.21
 require (
 	github.com/getkin/kin-openapi v0.120.0
 	github.com/go-chi/chi/v5 v5.0.10
+	github.com/go-test/deep v1.0.8
 	github.com/jarcoal/httpmock v1.3.1
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/spf13/cobra v1.8.0

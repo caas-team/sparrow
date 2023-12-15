@@ -29,4 +29,6 @@ type RunFlagsNameMapping struct {
 	LoaderHttpRetryCount string
 	LoaderHttpRetryDelay string
 	LoaderFilePath       string
+
+	TargetManagerConfig string
 }

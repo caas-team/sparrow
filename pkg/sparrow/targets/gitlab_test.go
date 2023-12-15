@@ -22,6 +22,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -270,13 +271,7 @@ func Test_gitlabTargetManager_Reconcile_success(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gtm := NewGitlabManager(
-				glmock,
-				"test",
-				time.Millisecond*100,
-				time.Hour*1,
-				time.Millisecond*150,
-			)
+			gtm := mockGitlabTargetManager(glmock, "test")
 			ctx := context.Background()
 			go func() {
 				gtm.Reconcile(ctx)
@@ -329,13 +324,7 @@ func Test_gitlabTargetManager_Reconcile_failure(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			glmock := gitlabmock.New(tt.targets)
 
-			gtm := NewGitlabManager(
-				glmock,
-				"test",
-				time.Millisecond*100,
-				time.Hour*1,
-				time.Millisecond*150,
-			)
+			gtm := mockGitlabTargetManager(glmock, "test")
 			glmock.SetPostFileErr(tt.postErr)
 			glmock.SetPutFileErr(tt.putError)
 
@@ -376,13 +365,7 @@ func Test_gitlabTargetManager_Reconcile_Context_Canceled(t *testing.T) {
 		},
 	)
 
-	gtm := NewGitlabManager(
-		glmock,
-		"test",
-		time.Millisecond*100,
-		time.Hour*1,
-		time.Millisecond*150,
-	)
+	gtm := mockGitlabTargetManager(glmock, "test")
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
@@ -399,4 +382,18 @@ func Test_gitlabTargetManager_Reconcile_Context_Canceled(t *testing.T) {
 		t.Fatalf("Reconcile() should not be registered")
 	}
 	gtm.mu.Unlock()
+}
+
+func mockGitlabTargetManager(g *gitlabmock.MockClient, name string) *gitlabTargetManager {
+	return &gitlabTargetManager{
+		targets:              nil,
+		mu:                   sync.RWMutex{},
+		done:                 make(chan struct{}, 1),
+		gitlab:               g,
+		name:                 name,
+		checkInterval:        100 * time.Millisecond,
+		unhealthyThreshold:   1 * time.Second,
+		registrationInterval: 150 * time.Millisecond,
+		registered:           false,
+	}
 }

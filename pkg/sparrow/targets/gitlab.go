@@ -24,6 +24,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/caas-team/sparrow/pkg/config"
+
 	"github.com/caas-team/sparrow/pkg/checks"
 	"github.com/caas-team/sparrow/pkg/sparrow/gitlab"
 
@@ -52,13 +54,13 @@ type gitlabTargetManager struct {
 }
 
 // NewGitlabManager creates a new gitlabTargetManager
-func NewGitlabManager(g gitlab.Gitlab, name string, checkInterval, unhealthyThreshold, regInterval time.Duration) *gitlabTargetManager {
+func NewGitlabManager(name string, gtmConfig config.TargetManagerConfig) *gitlabTargetManager {
 	return &gitlabTargetManager{
-		gitlab:               g,
+		gitlab:               gitlab.New(gtmConfig.Gitlab.BaseURL, gtmConfig.Gitlab.Token, gtmConfig.Gitlab.ProjectID),
 		name:                 name,
-		checkInterval:        checkInterval,
-		registrationInterval: regInterval,
-		unhealthyThreshold:   unhealthyThreshold,
+		checkInterval:        gtmConfig.CheckInterval,
+		registrationInterval: gtmConfig.RegistrationInterval,
+		unhealthyThreshold:   gtmConfig.UnhealthyThreshold,
 		mu:                   sync.RWMutex{},
 		done:                 make(chan struct{}, 1),
 	}

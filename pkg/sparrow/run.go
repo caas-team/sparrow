@@ -22,10 +22,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"os"
-	"time"
 
-	"github.com/caas-team/sparrow/pkg/sparrow/gitlab"
 	targets "github.com/caas-team/sparrow/pkg/sparrow/targets"
 
 	"github.com/caas-team/sparrow/internal/logger"
@@ -34,14 +31,6 @@ import (
 	"github.com/caas-team/sparrow/pkg/config"
 	"github.com/caas-team/sparrow/pkg/db"
 	"github.com/go-chi/chi/v5"
-)
-
-const (
-	gitlabRegistrationProjectID    = 237078
-	globalTargetsCheckInterval     = 5 * time.Minute
-	registrationUnhealthyThreshold = 15 * time.Minute
-	registrationInterval           = 5 * time.Minute
-	gitlabBaseUrl                  = "https://gitlab.devops.telekom.de"
 )
 
 type Sparrow struct {
@@ -74,14 +63,11 @@ func New(cfg *config.Config) *Sparrow {
 		cCfgChecks:  make(chan map[string]any, 1),
 		routingTree: api.NewRoutingTree(),
 		router:      chi.NewRouter(),
-		targets: targets.NewGitlabManager(
-			gitlab.New(gitlabBaseUrl, os.Getenv("GITLAB_TOKEN"), gitlabRegistrationProjectID),
-			"cool-sparrow.de",
-			globalTargetsCheckInterval,
-			registrationUnhealthyThreshold,
-			registrationInterval,
-		),
 	}
+
+	// Set the target manager
+	gm := targets.NewGitlabManager("sparrow-with-cfg-file", cfg.TargetManager)
+	sparrow.targets = gm
 
 	sparrow.loader = config.NewLoader(cfg, sparrow.cCfgChecks)
 	sparrow.db = db.NewInMemory()
@@ -203,10 +189,4 @@ func fanInResults(checkChan chan checks.Result, cResult chan checks.ResultDTO, n
 			Result: &i,
 		}
 	}
-}
-
-// GlobalTarget represents a GlobalTarget that can be checked
-type GlobalTarget struct {
-	Url      string    `json:"url"`
-	LastSeen time.Time `json:"lastSeen"`
 }
