@@ -80,7 +80,9 @@ func TestHealth_SetConfig(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := &Health{}
+			h := &Health{
+				metrics: newHealthMetrics(),
+			}
 
 			if err := h.SetConfig(context.Background(), tt.inputConfig); (err != nil) != tt.wantErr {
 				t.Errorf("Health.SetConfig() error = %v, wantErr %v", err, tt.wantErr)
@@ -262,6 +264,7 @@ func TestHealth_Check(t *testing.T) {
 				config: HealthConfig{
 					Targets: tt.targets,
 				},
+				metrics: newHealthMetrics(),
 			}
 			got := h.check(tt.ctx)
 			assert.Equal(t, len(got.Targets), len(tt.want.Targets), "Amount of targets is not equal")

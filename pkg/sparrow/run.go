@@ -39,6 +39,8 @@ type Sparrow struct {
 	checks map[string]checks.Check
 	client *http.Client
 
+	metrics Metrics
+
 	resultFanIn map[string]chan checks.Result
 	cResult     chan checks.ResultDTO
 
@@ -56,6 +58,7 @@ func New(cfg *config.Config) *Sparrow {
 		db:          db.NewInMemory(),
 		checks:      make(map[string]checks.Check),
 		client:      &http.Client{},
+		metrics:     NewMetrics(),
 		resultFanIn: make(map[string]chan checks.Result),
 		cResult:     make(chan checks.ResultDTO, 1),
 		cfg:         cfg,
@@ -142,6 +145,9 @@ func (s *Sparrow) ReconcileChecks(ctx context.Context) {
 		}
 		check.RegisterHandler(ctx, s.routingTree)
 
+		// Register prometheus collectors of check in registry
+		s.metrics.GetRegistry().MustRegister(check.GetMetricCollectors()...)
+
 		go func() {
 			err := check.Run(ctx)
 			if err != nil {
@@ -158,6 +164,14 @@ func (s *Sparrow) ReconcileChecks(ctx context.Context) {
 
 		// Check has been removed from config; shutdown and remove
 		existingCheck.DeregisterHandler(ctx, s.routingTree)
+
+		// Remove prometheus collectors of check from registry
+		for _, metricsCollector := range existingCheck.GetMetricCollectors() {
+			if !s.metrics.GetRegistry().Unregister(metricsCollector) {
+				log.ErrorContext(ctx, "Could not remove collector from registry")
+			}
+		}
+
 		err := existingCheck.Shutdown(ctx)
 		if err != nil {
 			log.ErrorContext(ctx, "Failed to shutdown check", "error", err)

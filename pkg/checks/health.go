@@ -30,14 +30,21 @@ import (
 	"github.com/caas-team/sparrow/pkg/api"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/mitchellh/mapstructure"
+	"github.com/prometheus/client_golang/prometheus"
 )
+
+var stateMapping = map[int]string{
+	0: "unhealthy",
+	1: "healthy",
+}
 
 // Health is a check that measures the availability of an endpoint
 type Health struct {
-	route  string
-	config HealthConfig
-	c      chan<- Result
-	done   chan bool
+	route   string
+	config  HealthConfig
+	c       chan<- Result
+	done    chan bool
+	metrics healthMetrics
 }
 
 // HealthConfig contains the health check config
@@ -52,6 +59,11 @@ type healthData struct {
 	Targets []Target `json:"targets"`
 }
 
+// Defined metric collectors of health check
+type healthMetrics struct {
+	health *prometheus.GaugeVec
+}
+
 type Target struct {
 	Target string `json:"target"`
 	Status string `json:"status"`
@@ -60,7 +72,8 @@ type Target struct {
 // NewHealthCheck creates a new HealthCheck
 func NewHealthCheck() Check {
 	return &Health{
-		route: "health",
+		route:   "health",
+		metrics: newHealthMetrics(),
 	}
 }
 
@@ -146,6 +159,28 @@ func (h *Health) DeregisterHandler(_ context.Context, router *api.RoutingTree) {
 	router.Remove(http.MethodGet, h.route)
 }
 
+// NewHealthMetrics initializes metric collectors of the health check
+func newHealthMetrics() healthMetrics {
+	return healthMetrics{
+		health: prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Name: "sparrow_health_bytes",
+				Help: "Health of targets",
+			},
+			[]string{
+				"target",
+			},
+		),
+	}
+}
+
+// GetMetricCollectors returns all metric collectors of check
+func (h *Health) GetMetricCollectors() []prometheus.Collector {
+	return []prometheus.Collector{
+		h.metrics.health,
+	}
+}
+
 // check performs a health check using a retry function
 // to get the health status for all targets
 func (h *Health) check(ctx context.Context) healthData {
@@ -174,21 +209,22 @@ func (h *Health) check(ctx context.Context) healthData {
 
 		go func() {
 			defer wg.Done()
-
-			targetData := Target{
-				Target: target,
-				Status: "healthy",
-			}
+			state := 1
 
 			l.Debug("Starting retry routine to get health of target")
 			if err := getHealthRetry(ctx); err != nil {
-				targetData.Status = "unhealthy"
+				state = 0
 			}
 
-			l.Debug("Successfully got health status of target", "status", targetData.Status)
+			l.Debug("Successfully got health status of target", "status", stateMapping[state])
 			mu.Lock()
-			hd.Targets = append(hd.Targets, targetData)
+			hd.Targets = append(hd.Targets, Target{
+				Target: target,
+				Status: stateMapping[state],
+			})
 			mu.Unlock()
+
+			h.metrics.health.WithLabelValues(target).Set(float64(state))
 		}()
 	}
 

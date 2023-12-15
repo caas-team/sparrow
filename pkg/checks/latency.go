@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"sync"
 	"time"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/mitchellh/mapstructure"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/caas-team/sparrow/internal/helper"
 	"github.com/caas-team/sparrow/internal/logger"
@@ -20,20 +22,22 @@ var _ Check = (*Latency)(nil)
 
 func NewLatencyCheck() Check {
 	return &Latency{
-		mu:     sync.Mutex{},
-		cfg:    LatencyConfig{},
-		c:      nil,
-		done:   make(chan bool, 1),
-		client: &http.Client{},
+		mu:      sync.Mutex{},
+		cfg:     LatencyConfig{},
+		c:       nil,
+		done:    make(chan bool, 1),
+		client:  &http.Client{},
+		metrics: newLatencyMetrics(),
 	}
 }
 
 type Latency struct {
-	cfg    LatencyConfig
-	mu     sync.Mutex
-	c      chan<- Result
-	done   chan bool
-	client *http.Client
+	cfg     LatencyConfig
+	mu      sync.Mutex
+	c       chan<- Result
+	done    chan bool
+	client  *http.Client
+	metrics latencyMetrics
 }
 
 type LatencyConfig struct {
@@ -46,7 +50,14 @@ type LatencyConfig struct {
 type LatencyResult struct {
 	Code  int     `json:"code"`
 	Error *string `json:"error"`
-	Total int64   `json:"total"`
+	Total float64 `json:"total"`
+}
+
+// Defined metric collectors of latency check
+type latencyMetrics struct {
+	latencyDuration  *prometheus.GaugeVec
+	latencyCount     *prometheus.CounterVec
+	latencyHistogram *prometheus.HistogramVec
 }
 
 func (l *Latency) Run(ctx context.Context) error {
@@ -129,6 +140,49 @@ func (l *Latency) Handler(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+// NewLatencyMetrics initializes metric collectors of the latency check
+func newLatencyMetrics() latencyMetrics {
+	return latencyMetrics{
+		latencyDuration: prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Name: "sparrow_latency_duration_seconds",
+				Help: "Latency with status information of targets",
+			},
+			[]string{
+				"target",
+				"status",
+			},
+		),
+		latencyCount: prometheus.NewCounterVec(
+			prometheus.CounterOpts{
+				Name: "sparrow_latency_count",
+				Help: "Count of latency checks done",
+			},
+			[]string{
+				"target",
+			},
+		),
+		latencyHistogram: prometheus.NewHistogramVec(
+			prometheus.HistogramOpts{
+				Name: "sparrow_latency_duration",
+				Help: "Latency of targets in seconds",
+			},
+			[]string{
+				"target",
+			},
+		),
+	}
+}
+
+// GetMetricCollectors returns all metric collectors of check
+func (h *Latency) GetMetricCollectors() []prometheus.Collector {
+	return []prometheus.Collector{
+		h.metrics.latencyDuration,
+		h.metrics.latencyCount,
+		h.metrics.latencyHistogram,
+	}
+}
+
 func (l *Latency) check(ctx context.Context) map[string]LatencyResult {
 	log := logger.FromContext(ctx).WithGroup("check")
 	log.Debug("Checking latency")
@@ -158,6 +212,11 @@ func (l *Latency) check(ctx context.Context) map[string]LatencyResult {
 				mu.Lock()
 				defer mu.Unlock()
 				results[target] = res
+
+				l.metrics.latencyDuration.WithLabelValues(target, strconv.Itoa(res.Code)).Set(res.Total)
+				l.metrics.latencyHistogram.WithLabelValues(target).Observe(res.Total)
+				l.metrics.latencyCount.WithLabelValues(target).Inc()
+
 				return nil
 			}, l.cfg.Retry)(ctx)
 			if err != nil {
@@ -191,14 +250,13 @@ func getLatency(ctx context.Context, client *http.Client, url string) LatencyRes
 		res.Error = &errval
 		return res
 	}
+	end := time.Now()
 
 	res.Code = resp.StatusCode
 	defer func(Body io.ReadCloser) {
 		_ = Body.Close()
 	}(resp.Body)
 
-	end := time.Now()
-
-	res.Total = end.Sub(start).Milliseconds()
+	res.Total = end.Sub(start).Seconds()
 	return res
 }

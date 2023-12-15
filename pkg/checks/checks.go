@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/caas-team/sparrow/pkg/api"
 )
@@ -62,6 +63,8 @@ type Check interface {
 	RegisterHandler(ctx context.Context, router *api.RoutingTree)
 	// Allows the check to deregister a handler on sparrows http server at runtime
 	DeregisterHandler(ctx context.Context, router *api.RoutingTree)
+	// Allows the check to provide prometheus metric collectors
+	GetMetricCollectors() []prometheus.Collector
 }
 
 type Result struct {

@@ -29,6 +29,7 @@ import (
 	"github.com/caas-team/sparrow/internal/logger"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/go-chi/chi/v5"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"gopkg.in/yaml.v3"
 )
 
@@ -58,6 +59,12 @@ func (s *Sparrow) register(ctx context.Context) {
 	// Handles internal api
 	// handlers are (de)registered by the checks themselves
 	s.router.HandleFunc("/checks/*", s.handleChecks)
+
+	s.router.Handle("/metrics",
+		promhttp.HandlerFor(
+			s.metrics.GetRegistry(),
+			promhttp.HandlerOpts{Registry: s.metrics.GetRegistry()},
+		))
 }
 
 // Serves the data api.

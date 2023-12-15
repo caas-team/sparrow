@@ -42,12 +42,13 @@ import (
 func TestSparrow_register(t *testing.T) {
 	r := chi.NewRouter()
 	s := Sparrow{
-		router: r,
+		router:  r,
+		metrics: NewMetrics(),
 	}
 
 	s.register(context.Background())
 
-	expectedRoutes := []string{"/openapi.yaml", "/v1/metrics/{checkName}", "/checks/*"}
+	expectedRoutes := []string{"/openapi.yaml", "/v1/metrics/{checkName}", "/checks/*", "/metrics"}
 	routes := r.Routes()
 	for _, route := range expectedRoutes {
 		found := 0
@@ -67,8 +68,9 @@ func TestSparrow_register(t *testing.T) {
 
 func TestSparrow_api_shutdownWhenContextCanceled(t *testing.T) {
 	s := Sparrow{
-		cfg:    &config.Config{Api: config.ApiConfig{ListeningAddress: ":8080"}},
-		router: chi.NewRouter(),
+		cfg:     &config.Config{Api: config.ApiConfig{ListeningAddress: ":8080"}},
+		router:  chi.NewRouter(),
+		metrics: NewMetrics(),
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
