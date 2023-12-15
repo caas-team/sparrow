@@ -18,14 +18,16 @@
     - [Loader](#loader)
   - [Runtime](#runtime)
   - [Check: Health](#check-health)
+    - [Health Metrics](#health-metrics)
   - [Check: Latency](#check-latency)
-  - [API](#api)
+    - [Latency Metrics](#latency-metrics)
+- [API](#api)
+- [Metrics](#metrics)
 - [Code of Conduct](#code-of-conduct)
 - [Working Language](#working-language)
 - [Support and Feedback](#support-and-feedback)
 - [How to Contribute](#how-to-contribute)
 - [Licensing](#licensing)
-
 
 The `sparrow` is an infrastructure monitoring tool. The binary includes several checks (e.g. health check) that will be executed periodically.
 
@@ -53,12 +55,14 @@ curl https://github.com/caas-team/sparrow/releases/download/v${RELEASE_VERSION}/
 ```
 
 For example release `v0.0.1`:
+
 ```sh
 curl https://github.com/caas-team/sparrow/releases/download/v0.0.1/sparrow_0.0.1_linux_amd64.tar.gz -Lo sparrow.tar.gz
 curl https://github.com/caas-team/sparrow/releases/download/v0.0.1/sparrow_0.0.1_checksums.txt -Lo checksums.txt
 ```
 
 Extract the binary:
+
 ```sh
 tar -xf sparrow.tar.gz
 ```
@@ -88,6 +92,7 @@ startupConfig:
 
 runtimeConfig: {}
 ```
+
 For all available value options see [Chart README](./chart/README.md).
 
 Additionally check out the sparrow [configuration](#configuration) variants.
@@ -117,7 +122,7 @@ The `sparrow` is able to get the startup configuration from different sources as
 Priority of configuration (high to low):
 
 1. CLI flags
-2. Environment variables 
+2. Environment variables
 3. Defined configuration file
 4. Default configuration file
 
@@ -130,6 +135,7 @@ The loader can be selected by specifying the `loaderType` configuration paramete
 The default loader is an `http` loader that is able to get the runtime configuration from a remote endpoint.
 
 Available loader:
+
 - `http`: The default. Loads configuration from a remote endpoint. Token authentication is available. Additional configuration parameter have the prefix `loaderHttp`.
 - `file` (experimental): Loads configuration once from a local file. Additional configuration parameter have the prefix `loaderFile`. This is just for development purposes.
 
@@ -166,6 +172,13 @@ checks:
     healthEndpoint: false
 ```
 
+#### Health Metrics
+
+- `sparrow_health_bytes`
+  - Type:  Gauge
+  - Description: Health of targets
+  - Divided by `target`
+
 ### Check: Latency
 
 Available configuration options:
@@ -196,9 +209,35 @@ checks:
       - https://google.com/
 ```
 
-### API
+#### Latency Metrics
+
+- `sparrow_health_bytes`
+  - Type:  Gauge
+  - Description: Health of targets
+  - Divided by `target`
+
+- `sparrow_latency_duration_seconds`
+  - Type: Gauge
+  - Description: Latency with status information of targets
+  - Divided by `target` and `status`
+
+- `sparrow_latency_count`
+  - Type: Counter
+  - Description: Count of latency checks done
+  - Divided by `target`
+
+- `sparrow_latency_duration`
+  - Type: Histogram
+  - Description: Latency of targets in seconds
+  - Divided by `target`
+
+## API
 
 The `sparrow` exposes an API that does provide access to the check results. Each check will register its own endpoint at `/v1/metrics/{check-name}`. The API definition will be exposed at `/openapi`
+
+## Metrics
+
+The `sparrow` is providing a `/metrics` endpoint to expose application metrics. Besides metrics about runtime information the sparrow is also provided `Check` specific metrics. See the Checks section for more information.
 
 ## Code of Conduct
 
