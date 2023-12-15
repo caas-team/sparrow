@@ -190,7 +190,7 @@ which is named after the DNS name of the `sparrow`. The state file contains the 
 
 ```json
 {
-  "url": "https://<SPARROW_DNS_NAME",
+  "url": "https://<SPARROW_DNS_NAME>",
   "lastSeen": "2021-09-30T12:00:00Z"
 }
 ```
