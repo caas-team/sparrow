@@ -23,6 +23,4 @@ jobs:
       - name: Test
         run: |
           go mod download
-          go install github.com/matryer/moq@v0.3.3
-          go generate ./...
           go test --race --count=1 --coverprofile cover.out -v ./...
