@@ -53,7 +53,7 @@ func NewGitlabManager(g gitlab.Gitlab, name string, checkInterval, unhealthyThre
 // unhealthy gitlabTargetManager are removed.
 func (t *gitlabTargetManager) Reconcile(ctx context.Context) {
 	log := logger.FromContext(ctx)
-	log.Debug("Starting global gitlabTargetManager reconciler")
+	log.Info("Starting global gitlabTargetManager reconciler")
 
 	checkTimer := time.NewTimer(t.checkInterval)
 	registrationTimer := time.NewTimer(t.registrationInterval)
@@ -78,15 +78,13 @@ func (t *gitlabTargetManager) Reconcile(ctx context.Context) {
 		case <-checkTimer.C:
 			err := t.refreshTargets(ctx)
 			if err != nil {
-				log.Error("Failed to get global gitlabTargetManager", "error", err)
-				continue
+				log.Error("Failed to get global targets", "error", err)
 			}
 			checkTimer.Reset(t.checkInterval)
 		case <-registrationTimer.C:
 			err := t.updateRegistration(ctx)
 			if err != nil {
-				log.Error("Failed to register global gitlabTargetManager", "error", err)
-				continue
+				log.Error("Failed to register self as global target", "error", err)
 			}
 			registrationTimer.Reset(t.registrationInterval)
 		}
@@ -123,16 +121,17 @@ func (t *gitlabTargetManager) updateRegistration(ctx context.Context) error {
 	log := logger.FromContext(ctx)
 	log.Debug("Updating registration")
 
+	t.mu.Lock()
+	defer t.mu.Unlock()
 	f := gitlab.File{
 		Branch:      "main",
 		AuthorEmail: fmt.Sprintf("%s@sparrow", t.name),
 		AuthorName:  t.name,
 		Content:     checks.GlobalTarget{Url: fmt.Sprintf("https://%s", t.name), LastSeen: time.Now().UTC()},
 	}
+	f.SetFileName(fmt.Sprintf("%s.json", t.name))
 
 	if t.Registered() {
-		t.mu.Lock()
-		defer t.mu.Unlock()
 		f.CommitMessage = "Updated registration"
 		err := t.gitlab.PutFile(ctx, f)
 		if err != nil {
@@ -143,8 +142,6 @@ func (t *gitlabTargetManager) updateRegistration(ctx context.Context) error {
 		return nil
 	}
 
-	t.mu.Lock()
-	defer t.mu.Unlock()
 	f.CommitMessage = "Initial registration"
 	err := t.gitlab.PostFile(ctx, f)
 	if err != nil {
@@ -172,6 +169,10 @@ func (t *gitlabTargetManager) refreshTargets(ctx context.Context) error {
 
 	// filter unhealthy targets - this may be removed in the future
 	for _, target := range targets {
+		if !t.Registered() && target.Url == fmt.Sprintf("https://%s", t.name) {
+			log.Info("Found self as global target", "lastSeenMin", time.Since(target.LastSeen).Minutes())
+			t.registered = true
+		}
 		if time.Now().Add(-t.unhealthyThreshold).After(target.LastSeen) {
 			log.Debug("Skipping unhealthy target", "target", target)
 			continue
@@ -186,7 +187,5 @@ func (t *gitlabTargetManager) refreshTargets(ctx context.Context) error {
 
 // Registered returns whether the instance is registered as a global target
 func (t *gitlabTargetManager) Registered() bool {
-	t.mu.Lock()
-	defer t.mu.Unlock()
 	return t.registered
 }

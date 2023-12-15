@@ -3,6 +3,7 @@ package gitlab
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -54,7 +55,7 @@ func (g *Client) FetchFiles(ctx context.Context) ([]checks.GlobalTarget, error) 
 	for _, f := range fl {
 		gl, err := g.fetchFile(ctx, f)
 		if err != nil {
-			log.Error("Failed fetching files", f, "error", err)
+			log.Error("Failed fetching files", "error", err)
 			return nil, err
 		}
 		result = append(result, gl)
@@ -112,7 +113,7 @@ func (g *Client) fetchFile(ctx context.Context, f string) (checks.GlobalTarget, 
 // so they may be fetched individually
 func (g *Client) fetchFileList(ctx context.Context) ([]string, error) {
 	log := logger.FromContext(ctx)
-	log.Debug("Fetching global files")
+	log.Debug("Fetching file list from gitlab")
 	type file struct {
 		Name string `json:"name"`
 	}
@@ -183,13 +184,18 @@ func (g *Client) PutFile(ctx context.Context, body File) error { //nolint: dupl,
 	req.Header.Add("PRIVATE-TOKEN", g.token)
 	req.Header.Add("Content-Type", "application/json")
 
-	resp, err := g.client.Do(req)
+	resp, err := g.client.Do(req) //nolint:bodyclose // closed in defer
 	if err != nil {
 		log.Error("Failed to push registration file", "error", err)
 		return err
 	}
 
-	defer resp.Body.Close()
+	defer func(Body io.ReadCloser) {
+		err = Body.Close()
+		if err != nil {
+			log.Error("Failed to close response body", "error", err)
+		}
+	}(resp.Body)
 
 	if resp.StatusCode != http.StatusOK {
 		log.Error("Failed to push registration file", "status", resp.Status)
@@ -203,7 +209,7 @@ func (g *Client) PutFile(ctx context.Context, body File) error { //nolint: dupl,
 // as a global target for other sparrow instances to discover
 func (g *Client) PostFile(ctx context.Context, body File) error { //nolint:dupl,gocritic // no need to refactor yet
 	log := logger.FromContext(ctx)
-	log.Debug("Registering sparrow instance to gitlab")
+	log.Debug("Posting registration file to gitlab")
 
 	// chose method based on whether the registration has already happened
 	n := url.PathEscape(body.fileName)
@@ -225,16 +231,21 @@ func (g *Client) PostFile(ctx context.Context, body File) error { //nolint:dupl,
 	req.Header.Add("PRIVATE-TOKEN", g.token)
 	req.Header.Add("Content-Type", "application/json")
 
-	resp, err := g.client.Do(req)
+	resp, err := g.client.Do(req) //nolint:bodyclose // closed in defer
 	if err != nil {
-		log.Error("Failed to push registration file", "error", err)
+		log.Error("Failed to post file", "error", err)
 		return err
 	}
 
-	defer resp.Body.Close()
+	defer func(Body io.ReadCloser) {
+		err = Body.Close()
+		if err != nil {
+			log.Error("Failed to close response body", "error", err)
+		}
+	}(resp.Body)
 
 	if resp.StatusCode != http.StatusCreated {
-		log.Error("Failed to push registration file", "status", resp.Status)
+		log.Error("Failed to post file", "status", resp.Status)
 		return fmt.Errorf("request failed, status is %s", resp.Status)
 	}
 
@@ -251,8 +262,32 @@ type File struct {
 	fileName      string
 }
 
-// Bytes returns the bytes of the File
+// Bytes returns the File as a byte array. The Content
+// is base64 encoded for Gitlab API compatibility.
 func (g *File) Bytes() ([]byte, error) {
-	b, err := json.Marshal(g)
-	return b, err
+	content, err := json.Marshal(g.Content)
+	if err != nil {
+		return nil, err
+	}
+
+	// base64 encode the content
+	enc := base64.NewEncoder(base64.StdEncoding, bytes.NewBuffer(content))
+	_, err = enc.Write(content)
+	_ = enc.Close()
+
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(map[string]string{
+		"branch":         g.Branch,
+		"author_email":   g.AuthorEmail,
+		"author_name":    g.AuthorName,
+		"content":        string(content),
+		"commit_message": g.CommitMessage,
+	})
+}
+
+// SetFileName sets the filename of the File
+func (g *File) SetFileName(name string) {
+	g.fileName = name
 }

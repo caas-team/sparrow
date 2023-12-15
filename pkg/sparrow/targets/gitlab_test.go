@@ -16,10 +16,11 @@ func Test_gitlabTargetManager_refreshTargets(t *testing.T) {
 	tooOld := now.Add(-time.Hour * 2)
 
 	tests := []struct {
-		name            string
-		mockTargets     []checks.GlobalTarget
-		expectedHealthy []checks.GlobalTarget
-		wantErr         error
+		name                    string
+		mockTargets             []checks.GlobalTarget
+		expectedHealthy         []checks.GlobalTarget
+		expectedRegisteredAfter bool
+		wantErr                 error
 	}{
 		{
 			name:            "success with 0 targets",
@@ -30,44 +31,47 @@ func Test_gitlabTargetManager_refreshTargets(t *testing.T) {
 			name: "success with 1 healthy target",
 			mockTargets: []checks.GlobalTarget{
 				{
-					Url:      "test",
+					Url:      "https://test",
 					LastSeen: now,
 				},
 			},
 			expectedHealthy: []checks.GlobalTarget{
 				{
-					Url:      "test",
+					Url:      "https://test",
 					LastSeen: now,
 				},
 			},
+			expectedRegisteredAfter: true,
 		},
 		{
 			name: "success with 1 unhealthy target",
 			mockTargets: []checks.GlobalTarget{
 				{
-					Url:      "test",
+					Url:      "https://test",
 					LastSeen: tooOld,
 				},
 			},
+			expectedRegisteredAfter: true,
 		},
 		{
 			name: "success with 1 healthy and 1 unhealthy targets",
 			mockTargets: []checks.GlobalTarget{
 				{
-					Url:      "test",
+					Url:      "https://test",
 					LastSeen: now,
 				},
 				{
-					Url:      "test2",
+					Url:      "https://test2",
 					LastSeen: tooOld,
 				},
 			},
 			expectedHealthy: []checks.GlobalTarget{
 				{
-					Url:      "test",
+					Url:      "https://test",
 					LastSeen: now,
 				},
 			},
+			expectedRegisteredAfter: true,
 		},
 		{
 			name:            "failure getting targets",
@@ -91,6 +95,10 @@ func Test_gitlabTargetManager_refreshTargets(t *testing.T) {
 			if err := gtm.refreshTargets(context.Background()); (err != nil) != (tt.wantErr != nil) {
 				t.Fatalf("refreshTargets() error = %v, wantErr %v", err, tt.wantErr)
 			}
+
+			if gtm.Registered() != tt.expectedRegisteredAfter {
+				t.Fatalf("expected registered to be %v, got %v", tt.expectedRegisteredAfter, gtm.Registered())
+			}
 		})
 	}
 }
@@ -111,13 +119,13 @@ func Test_gitlabTargetManager_GetTargets(t *testing.T) {
 			name: "success with 1 target",
 			targets: []checks.GlobalTarget{
 				{
-					Url:      "test",
+					Url:      "https://test",
 					LastSeen: now,
 				},
 			},
 			want: []checks.GlobalTarget{
 				{
-					Url:      "test",
+					Url:      "https://test",
 					LastSeen: now,
 				},
 			},
@@ -126,21 +134,21 @@ func Test_gitlabTargetManager_GetTargets(t *testing.T) {
 			name: "success with 2 targets",
 			targets: []checks.GlobalTarget{
 				{
-					Url:      "test",
+					Url:      "https://test",
 					LastSeen: now,
 				},
 				{
-					Url:      "test2",
+					Url:      "https://test2",
 					LastSeen: now,
 				},
 			},
 			want: []checks.GlobalTarget{
 				{
-					Url:      "test",
+					Url:      "https://test",
 					LastSeen: now,
 				},
 				{
-					Url:      "test2",
+					Url:      "https://test2",
 					LastSeen: now,
 				},
 			},
@@ -236,7 +244,7 @@ func Test_gitlabTargetManager_Reconcile_success(t *testing.T) {
 	glmock := gitlabmock.New(
 		[]checks.GlobalTarget{
 			{
-				Url:      "test",
+				Url:      "https://test",
 				LastSeen: time.Now(),
 			},
 		},
@@ -257,7 +265,7 @@ func Test_gitlabTargetManager_Reconcile_success(t *testing.T) {
 			}()
 
 			time.Sleep(time.Millisecond * 300)
-			if gtm.GetTargets()[0].Url != "test" {
+			if gtm.GetTargets()[0].Url != "https://test" {
 				t.Fatalf("Reconcile() did not receive the correct target")
 			}
 			if !gtm.Registered() {
@@ -278,6 +286,7 @@ func Test_gitlabTargetManager_Reconcile_failure(t *testing.T) {
 	tests := []struct {
 		name       string
 		registered bool
+		targets    []checks.GlobalTarget
 		postErr    error
 		putError   error
 	}{
@@ -289,20 +298,19 @@ func Test_gitlabTargetManager_Reconcile_failure(t *testing.T) {
 			name:       "failure - failed to update registration",
 			registered: true,
 			putError:   errors.New("failed to update registration"),
+			targets: []checks.GlobalTarget{
+				{
+					Url:      "https://test",
+					LastSeen: time.Now(),
+				},
+			},
 		},
 	}
 
-	glmock := gitlabmock.New(
-		[]checks.GlobalTarget{
-			{
-				Url:      "test",
-				LastSeen: time.Now(),
-			},
-		},
-	)
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			glmock := gitlabmock.New(tt.targets)
+
 			gtm := NewGitlabManager(
 				glmock,
 				"test",
@@ -320,6 +328,7 @@ func Test_gitlabTargetManager_Reconcile_failure(t *testing.T) {
 
 			time.Sleep(time.Millisecond * 300)
 
+			gtm.mu.Lock()
 			if tt.postErr != nil && gtm.Registered() {
 				t.Fatalf("Reconcile() should not have registered")
 			}
@@ -327,6 +336,7 @@ func Test_gitlabTargetManager_Reconcile_failure(t *testing.T) {
 			if tt.putError != nil && !gtm.Registered() {
 				t.Fatalf("Reconcile() should still be registered")
 			}
+			gtm.mu.Unlock()
 
 			err := gtm.Shutdown(ctx)
 			if err != nil {
@@ -342,7 +352,7 @@ func Test_gitlabTargetManager_Reconcile_Context_Canceled(t *testing.T) {
 	glmock := gitlabmock.New(
 		[]checks.GlobalTarget{
 			{
-				Url:      "test",
+				Url:      "https://test",
 				LastSeen: time.Now(),
 			},
 		},
@@ -365,8 +375,10 @@ func Test_gitlabTargetManager_Reconcile_Context_Canceled(t *testing.T) {
 	cancel()
 	time.Sleep(time.Millisecond * 250)
 
+	gtm.mu.Lock()
 	// instance shouldn't be registered anymore
 	if gtm.Registered() {
 		t.Fatalf("Reconcile() should not be registered")
 	}
+	gtm.mu.Unlock()
 }

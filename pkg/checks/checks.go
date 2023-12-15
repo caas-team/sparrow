@@ -80,6 +80,7 @@ type GlobalTarget struct {
 	Url      string    `json:"url"`
 	LastSeen time.Time `json:"lastSeen"`
 }
+
 type ResultDTO struct {
 	Name   string
 	Result *Result
