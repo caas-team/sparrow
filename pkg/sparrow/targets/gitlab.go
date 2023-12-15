@@ -170,7 +170,7 @@ func (t *gitlabTargetManager) refreshTargets(ctx context.Context) error {
 	// filter unhealthy targets - this may be removed in the future
 	for _, target := range targets {
 		if !t.Registered() && target.Url == fmt.Sprintf("https://%s", t.name) {
-			log.Info("Found self as global target", "lastSeenMin", time.Since(target.LastSeen).Minutes())
+			log.Debug("Found self as global target", "lastSeenMin", time.Since(target.LastSeen).Minutes())
 			t.registered = true
 		}
 		if time.Now().Add(-t.unhealthyThreshold).After(target.LastSeen) {
