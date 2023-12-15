@@ -25,7 +25,7 @@ import (
 	"github.com/spf13/cobra/doc"
 )
 
-// NewCmdRun creates a new gen-docs command
+// NewCmdGenDocs creates a new gen-docs command
 func NewCmdGenDocs(rootCmd *cobra.Command) *cobra.Command {
 	var docPath string
 
