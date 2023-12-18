@@ -130,12 +130,12 @@ func (s *Sparrow) ReconcileChecks(ctx context.Context) {
 			continue
 		}
 
-		// Check has been removed form config
+		// Check has been removed from config
 		s.unregisterCheck(ctx, existingCheckName, existingCheck)
 	}
 }
 
-// RegisterCheck registers and executes a new check
+// registerCheck registers and executes a new check
 func (s *Sparrow) registerCheck(ctx context.Context, name string, checkCfg any) {
 	log := logger.FromContext(ctx).With("name", name)
 
