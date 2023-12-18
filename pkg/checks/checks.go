@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/caas-team/sparrow/pkg/api"
 )
@@ -56,12 +57,14 @@ type Check interface {
 	// the check with a specific HTTP client, which can be used for network requests
 	// during the check's execution
 	SetClient(c *http.Client)
-	// Should return an openapi3.SchemaRef of the result type returned by the check
+	// Schema returns an openapi3.SchemaRef of the result type returned by the check
 	Schema() (*openapi3.SchemaRef, error)
-	// Allows the check to register a handler on sparrows http server at runtime
+	// RegisterHandler Allows the check to register a handler on sparrows http server at runtime
 	RegisterHandler(ctx context.Context, router *api.RoutingTree)
-	// Allows the check to deregister a handler on sparrows http server at runtime
+	// DeregisterHandler allows the check to deregister a handler on sparrows http server at runtime
 	DeregisterHandler(ctx context.Context, router *api.RoutingTree)
+	// GetMetricCollectors allows the check to provide prometheus metric collectors
+	GetMetricCollectors() []prometheus.Collector
 }
 
 type Result struct {

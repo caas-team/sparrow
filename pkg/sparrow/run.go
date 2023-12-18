@@ -39,6 +39,8 @@ type Sparrow struct {
 	checks map[string]checks.Check
 	client *http.Client
 
+	metrics Metrics
+
 	resultFanIn map[string]chan checks.Result
 	cResult     chan checks.ResultDTO
 
@@ -56,6 +58,7 @@ func New(cfg *config.Config) *Sparrow {
 		db:          db.NewInMemory(),
 		checks:      make(map[string]checks.Check),
 		client:      &http.Client{},
+		metrics:     NewMetrics(),
 		resultFanIn: make(map[string]chan checks.Result),
 		cResult:     make(chan checks.ResultDTO, 1),
 		cfg:         cfg,
@@ -107,6 +110,7 @@ func (s *Sparrow) ReconcileChecks(ctx context.Context) {
 	for name, checkCfg := range s.cfg.Checks {
 		name := name
 		log := logger.FromContext(ctx).With("name", name)
+
 		if existingCheck, ok := s.checks[name]; ok {
 			// Check already registered, reset config
 			err := existingCheck.SetConfig(ctx, checkCfg)
@@ -115,61 +119,91 @@ func (s *Sparrow) ReconcileChecks(ctx context.Context) {
 			}
 			continue
 		}
+
 		// Check is a new Check and needs to be registered
-		getRegisteredCheck := checks.RegisteredChecks[name]
-		if getRegisteredCheck == nil {
-			log.WarnContext(ctx, "Check is not registered")
-			continue
-		}
-		check := getRegisteredCheck()
-		s.checks[name] = check
-
-		// Create a fan in a channel for the check
-		checkChan := make(chan checks.Result, 1)
-		s.resultFanIn[name] = checkChan
-
-		check.SetClient(s.client)
-		err := check.SetConfig(ctx, checkCfg)
-		if err != nil {
-			log.ErrorContext(ctx, "Failed to set config for check", "name", name, "error", err)
-		}
-		go fanInResults(checkChan, s.cResult, name)
-		err = check.Startup(ctx, checkChan)
-		if err != nil {
-			log.ErrorContext(ctx, "Failed to startup check", "name", name, "error", err)
-			close(checkChan)
-			continue
-		}
-		check.RegisterHandler(ctx, s.routingTree)
-
-		go func() {
-			err := check.Run(ctx)
-			if err != nil {
-				log.ErrorContext(ctx, "Failed to run check", "name", name, "error", err)
-			}
-		}()
+		s.registerCheck(ctx, name, checkCfg)
 	}
 
 	for existingCheckName, existingCheck := range s.checks {
-		log := logger.FromContext(ctx).With("checkName", existingCheckName)
 		if _, ok := s.cfg.Checks[existingCheckName]; ok {
+			// Check is known check
 			continue
 		}
 
-		// Check has been removed from config; shutdown and remove
-		existingCheck.DeregisterHandler(ctx, s.routingTree)
-		err := existingCheck.Shutdown(ctx)
-		if err != nil {
-			log.ErrorContext(ctx, "Failed to shutdown check", "error", err)
-		}
-		if c, ok := s.resultFanIn[existingCheckName]; ok {
-			// close fan in the channel if it exists
-			close(c)
-			delete(s.resultFanIn, existingCheckName)
-		}
-
-		delete(s.checks, existingCheckName)
+		// Check has been removed from config
+		s.unregisterCheck(ctx, existingCheckName, existingCheck)
 	}
+}
+
+// registerCheck registers and executes a new check
+func (s *Sparrow) registerCheck(ctx context.Context, name string, checkCfg any) {
+	log := logger.FromContext(ctx).With("name", name)
+
+	getRegisteredCheck := checks.RegisteredChecks[name]
+	if getRegisteredCheck == nil {
+		log.WarnContext(ctx, "Check is not registered")
+		return
+	}
+	check := getRegisteredCheck()
+	s.checks[name] = check
+
+	// Create a fan in a channel for the check
+	checkChan := make(chan checks.Result, 1)
+	s.resultFanIn[name] = checkChan
+
+	check.SetClient(s.client)
+	err := check.SetConfig(ctx, checkCfg)
+	if err != nil {
+		log.ErrorContext(ctx, "Failed to set config for check", "error", err)
+	}
+	go fanInResults(checkChan, s.cResult, name)
+	err = check.Startup(ctx, checkChan)
+	if err != nil {
+		log.ErrorContext(ctx, "Failed to startup check", "error", err)
+		close(checkChan)
+		return
+	}
+	check.RegisterHandler(ctx, s.routingTree)
+
+	// Add prometheus collectors of check to registry
+	for _, collector := range check.GetMetricCollectors() {
+		if err := s.metrics.GetRegistry().Register(collector); err != nil {
+			log.ErrorContext(ctx, "Could not add metrics collector to registry")
+		}
+	}
+
+	go func() {
+		err := check.Run(ctx)
+		if err != nil {
+			log.ErrorContext(ctx, "Failed to run check", "error", err)
+		}
+	}()
+}
+
+// UnregisterCheck removes the check from sparrow and performs a soft shutdown for the check
+func (s *Sparrow) unregisterCheck(ctx context.Context, name string, check checks.Check) {
+	log := logger.FromContext(ctx).With("name", name)
+	// Check has been removed from config; shutdown and remove
+	check.DeregisterHandler(ctx, s.routingTree)
+
+	// Remove prometheus collectors of check from registry
+	for _, metricsCollector := range check.GetMetricCollectors() {
+		if !s.metrics.GetRegistry().Unregister(metricsCollector) {
+			log.ErrorContext(ctx, "Could not remove metrics collector from registry")
+		}
+	}
+
+	err := check.Shutdown(ctx)
+	if err != nil {
+		log.ErrorContext(ctx, "Failed to shutdown check", "error", err)
+	}
+	if c, ok := s.resultFanIn[name]; ok {
+		// close fan in the channel if it exists
+		close(c)
+		delete(s.resultFanIn, name)
+	}
+
+	delete(s.checks, name)
 }
 
 // This is a fan in for the checks.

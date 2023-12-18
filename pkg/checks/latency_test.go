@@ -1,3 +1,21 @@
+// sparrow
+// (C) 2023, Deutsche Telekom IT GmbH
+//
+// Deutsche Telekom IT GmbH and all other contributors /
+// copyright owners license this file to you under the Apache
+// License, Version 2.0 (the "License"); you may not use this
+// file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 package checks
 
 import (
@@ -24,9 +42,9 @@ func stringPointer(s string) *string {
 	return &s
 }
 
-func TestLatency_Run(t *testing.T) {
+func TestLatency_Run(t *testing.T) { //nolint:gocyclo
 	httpmock.Activate()
-	t.Cleanup(httpmock.DeactivateAndReset)
+	defer httpmock.DeactivateAndReset()
 
 	tests := []struct {
 		name                string
@@ -116,11 +134,11 @@ func TestLatency_Run(t *testing.T) {
 				t.Fatalf("Latency.Startup() error = %v", err)
 			}
 
-			c.SetClient(&http.Client{Transport: httpmock.DefaultTransport})
-			err = c.SetConfig(tt.ctx, LatencyConfig{
-				Targets:  tt.targets,
-				Interval: time.Second * 120,
-				Timeout:  time.Second * 5,
+			c.SetClient(&http.Client{})
+			err = c.SetConfig(tt.ctx, map[string]any{
+				"targets":  tt.targets,
+				"interval": 1,
+				"timeout":  5,
 			})
 			if err != nil {
 				t.Fatalf("Latency.SetConfig() error = %v", err)
@@ -144,9 +162,31 @@ func TestLatency_Run(t *testing.T) {
 			result := <-results
 
 			assert.IsType(t, tt.want.Data, result.Data)
-			if !reflect.DeepEqual(result.Data, tt.want.Data) {
-				t.Errorf("Latency.Run() = %v, want %v", result.Data, tt.want.Data)
+
+			got := result.Data.(map[string]LatencyResult)
+			expected := result.Data.(map[string]LatencyResult)
+			if len(got) != len(expected) {
+				t.Errorf("Length of Latency.Run() result set (%v) does not match length of expected result set (%v)", len(got), len(expected))
 			}
+
+			for key, resultObj := range got {
+				if expected[key].Code != resultObj.Code {
+					t.Errorf("Result Code of %q = %v, want %v", key, resultObj.Code, expected[key].Code)
+				}
+				if expected[key].Error != resultObj.Error {
+					t.Errorf("Result Error of %q = %v, want %v", key, resultObj.Error, expected[key].Error)
+				}
+				if key != timeoutURL {
+					if resultObj.Total <= 0 || resultObj.Total >= 1 {
+						t.Errorf("Result Total time of %q = %v, want in between 0 and 1", key, resultObj.Total)
+					}
+				} else {
+					if resultObj.Total != 0 {
+						t.Errorf("Result Total time of %q = %v, want %v since an timeout occurred", key, resultObj.Total, 0)
+					}
+				}
+			}
+
 			if result.Err != tt.want.Err {
 				t.Errorf("Latency.Run() = %v, want %v", result.Err, tt.want.Err)
 			}
@@ -251,8 +291,9 @@ func TestLatency_check(t *testing.T) {
 			}
 
 			l := &Latency{
-				cfg:    LatencyConfig{Targets: tt.targets, Interval: time.Second * 120, Timeout: time.Second * 1},
-				client: &http.Client{Transport: httpmock.DefaultTransport},
+				cfg:     LatencyConfig{Targets: tt.targets, Interval: time.Second * 120, Timeout: time.Second * 1},
+				client:  &http.Client{Transport: httpmock.DefaultTransport},
+				metrics: newLatencyMetrics(),
 			}
 
 			got := l.check(tt.ctx)
