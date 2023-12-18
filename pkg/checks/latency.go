@@ -190,6 +190,7 @@ func (l *Latency) check(ctx context.Context) map[string]LatencyResult {
 		log.Debug("No targets defined")
 		return map[string]LatencyResult{}
 	}
+	log.Debug("Getting latency status for each target in separate routine", "amount", len(l.cfg.Targets))
 
 	var mu sync.Mutex
 	var wg sync.WaitGroup
@@ -198,34 +199,41 @@ func (l *Latency) check(ctx context.Context) map[string]LatencyResult {
 	l.mu.Lock()
 	l.client.Timeout = l.cfg.Timeout * time.Second
 	l.mu.Unlock()
-	for _, tar := range l.cfg.Targets {
-		target := tar
+	for _, t := range l.cfg.Targets {
+		target := t
 		wg.Add(1)
-		go func(target string) {
+		lo := log.With("target", target)
+
+		getLatencyRetry := helper.Retry(func(ctx context.Context) error {
+			res := getLatency(ctx, l.client, target)
+			mu.Lock()
+			defer mu.Unlock()
+			results[target] = res
+
+			return nil
+		}, l.cfg.Retry)
+
+		go func() {
 			defer wg.Done()
-			lo := log.With("target", target)
-			lo.Debug("Starting retry routine to get latency", "target", target)
 
-			err := helper.Retry(func(ctx context.Context) error {
-				lo.Debug("Getting latency", "timing out in", l.client.Timeout.String())
-				res := getLatency(ctx, l.client, target)
-				mu.Lock()
-				defer mu.Unlock()
-				results[target] = res
-
-				l.metrics.latencyDuration.WithLabelValues(target, strconv.Itoa(res.Code)).Set(res.Total)
-				l.metrics.latencyHistogram.WithLabelValues(target).Observe(res.Total)
-				l.metrics.latencyCount.WithLabelValues(target).Inc()
-
-				return nil
-			}, l.cfg.Retry)(ctx)
-			if err != nil {
+			lo.Debug("Starting retry routine to get latency status")
+			if err := getLatencyRetry(ctx); err != nil {
 				lo.Error("Error while checking latency", "error", err)
 			}
-		}(target)
+
+			lo.Debug("Successfully got latency status of target")
+			mu.Lock()
+			defer mu.Unlock()
+			l.metrics.latencyDuration.WithLabelValues(target, strconv.Itoa(results[target].Code)).Set(results[target].Total)
+			l.metrics.latencyHistogram.WithLabelValues(target).Observe(results[target].Total)
+			l.metrics.latencyCount.WithLabelValues(target).Inc()
+		}()
 	}
+
+	log.Debug("Waiting for all routines to finish")
 	wg.Wait()
 
+	log.Debug("Successfully got latency status from all targets")
 	return results
 }
 
