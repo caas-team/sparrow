@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/caas-team/sparrow/internal/logger"
@@ -58,6 +59,9 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 		RegisterHandlerFunc:   func(ctx context.Context, router *api.RoutingTree) {},
 		DeregisterHandlerFunc: func(ctx context.Context, router *api.RoutingTree) {},
 		SetClientFunc:         func(c *http.Client) {},
+		GetMetricCollectorsFunc: func() []prometheus.Collector {
+			return []prometheus.Collector{}
+		},
 	}
 
 	checks.RegisteredChecks = map[string]func() checks.Check{
@@ -148,6 +152,7 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 				cfg:         tt.fields.cfg,
 				cCfgChecks:  tt.fields.cCfgChecks,
 				db:          tt.fields.db,
+				metrics:     NewMetrics(),
 			}
 
 			// Send new config to channel

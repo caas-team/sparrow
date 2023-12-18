@@ -19,8 +19,11 @@
     - [Runtime](#runtime)
     - [TargetManager](#targetmanager)
     - [Check: Health](#check-health)
-    - [Check: Latency](#check-latency)
-    - [API](#api)
+    - [Health Metrics](#health-metrics)
+  - [Check: Latency](#check-latency)
+    - [Latency Metrics](#latency-metrics)
+- [API](#api)
+- [Metrics](#metrics)
 - [Code of Conduct](#code-of-conduct)
 - [Working Language](#working-language)
 - [Support and Feedback](#support-and-feedback)
@@ -35,7 +38,8 @@ executed periodically.
 The `sparrow` performs several checks to monitor the health of the infrastructure and network from its point of view.
 The following checks are available:
 
-1. Health check - `health`: The `sparrow` is able perform an http-based (HTTP/1.1) health check to provided endpoints.
+1. Health check - `health`: The `sparrow` is able to perform an HTTP-based (HTTP/1.1) health check to the provided
+   endpoints.
    The `sparrow` will expose its own health check endpoint as well.
 
 2. Latency check - `latency`: The `sparrow` is able to communicate with other `sparrow` instances to calculate the time
@@ -43,13 +47,13 @@ The following checks are available:
 
 ## Installation
 
-The `sparrow` is provided as an small binary & a container image.
+The `sparrow` is provided as a small binary & a container image.
 
 Please see the [release notes](https://github.com/caas-team/sparrow/releases) for to get the latest version.
 
 ### Binary
 
-The binary is available for several distributions. Currently the binary needs to be installed from a provided bundle or
+The binary is available for several distributions. Currently, the binary needs to be installed from a provided bundle or
 source.
 
 ```sh
@@ -77,13 +81,13 @@ dedicated [release](https://github.com/caas-team/sparrow/releases) can be found 
 
 ### Helm
 
-Sparrow can be install via Helm Chart. The chart is provided in the GitHub registry:
+Sparrow can be installed via Helm Chart. The chart is provided in the GitHub registry:
 
 ```sh
 helm -n sparrow upgrade -i sparrow oci://ghcr.io/caas-team/charts/sparrow --version 1.0.0 --create-namespace
 ```
 
-The default settings are fine for a local running configuration. With the default Helm values the sparrow loader uses a
+The default settings are fine for a local running configuration. With the default Helm values, the sparrow loader uses a
 runtime configuration that is provided in a ConfigMap. The ConfigMap can be set by defining the `runtimeConfig` section.
 
 To be able to load the configuration during the runtime dynamically, the sparrow loader needs to be set to type `http`.
@@ -119,11 +123,11 @@ e.g. `docker run -v /config:/config  ghcr.io/caas-team/sparrow --config /config/
 
 The configuration is divided into two parts. The startup configuration and the runtime configuration. The startup
 configuration is a technical configuration to configure the `sparrow` instance itself. The runtime configuration will be
-loaded by the `loader` from a remote endpoint. This configuration consist of the checks configuration.
+loaded by the `loader` from a remote endpoint. This configuration consists of the checks' configuration.
 
 ### Startup
 
-The available configuration options can found in the [CLI flag documentation](docs/sparrow.md).
+The available configuration options can be found in the [CLI flag documentation](docs/sparrow.md).
 
 The `sparrow` is able to get the startup configuration from different sources as follows.
 
@@ -145,14 +149,14 @@ The default loader is an `http` loader that is able to get the runtime configura
 Available loader:
 
 - `http`: The default. Loads configuration from a remote endpoint. Token authentication is available. Additional
-  configuration parameter have the prefix `loaderHttp`.
-- `file` (experimental): Loads configuration once from a local file. Additional configuration parameter have the
+  configuration parameters have the prefix `loaderHttp`.
+- `file` (experimental): Loads configuration once from a local file. Additional configuration parameters have the
   prefix `loaderFile`. This is just for development purposes.
 
 ### Runtime
 
 Besides the technical startup configuration the configuration for the `sparrow` checks is loaded dynamically from an
-http endpoint. The `loader` is able to load the configuration dynamically during the runtime. Checks can be enabled,
+HTTP endpoint. The `loader` is able to load the configuration dynamically during the runtime. Checks can be enabled,
 disabled and configured. The available loader confutation options for the startup configuration can be found
 in [here](sparrow_run.md)
 
@@ -204,7 +208,7 @@ Available configuration options:
   another `sparrow` instance. Use health endpoint, e.g. `https://sparrow-dns.telekom.de/checks/health`. The
   remote `sparrow` instance needs the `healthEndpoint` enabled.
 - `checks.health.healthEndpoint` (boolean): Needs to be activated when the `sparrow` should expose its own health
-  endpoint. Mandatory if another `sparrow` instance wants perform a health check.
+  endpoint. Mandatory if another `sparrow` instance wants to perform a health check.
 
 Example configuration:
 
@@ -216,6 +220,13 @@ checks:
       - "https://gitlab.devops.telekom.de"
     healthEndpoint: false
 ```
+
+#### Health Metrics
+
+- `sparrow_health_up`
+    - Type: Gauge
+    - Description: Health of targets
+    - Labelled with `target`
 
 ### Check: Latency
 
@@ -233,7 +244,7 @@ Available configuration options:
           another `sparrow` instance. Use latency endpoint, e.g. `https://sparrow-dns.telekom.de/checks/latency`. The
           remote `sparrow` instance needs the `latencyEndpoint` enabled.
         - `latencyEndpoint` (boolean): Needs to be activated when the `sparrow` should expose its own latency endpoint.
-          Mandatory if another `sparrow` instance wants perform a latency check.
+          Mandatory if another `sparrow` instance wants to perform a latency check.
           Example configuration:
 
 ```yaml
@@ -250,10 +261,32 @@ checks:
       - https://google.com/
 ```
 
-### API
+#### Latency Metrics
+
+- `sparrow_latency_duration_seconds`
+    - Type: Gauge
+    - Description: Latency with status information of targets
+    - Labelled with `target` and `status`
+
+- `sparrow_latency_count`
+    - Type: Counter
+    - Description: Count of latency checks done
+    - Labelled with `target`
+
+- `sparrow_latency_duration`
+    - Type: Histogram
+    - Description: Latency of targets in seconds
+    - Labelled with `target`
+
+## API
 
 The `sparrow` exposes an API that does provide access to the check results. Each check will register its own endpoint
 at `/v1/metrics/{check-name}`. The API definition will be exposed at `/openapi`
+
+## Metrics
+
+The `sparrow` is providing a `/metrics` endpoint to expose application metrics. Besides metrics about runtime
+information the sparrow is also provided `Check` specific metrics. See the Checks section for more information.
 
 ## Code of Conduct
 

@@ -30,14 +30,21 @@ import (
 	"github.com/caas-team/sparrow/pkg/api"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/mitchellh/mapstructure"
+	"github.com/prometheus/client_golang/prometheus"
 )
+
+var stateMapping = map[int]string{
+	0: "unhealthy",
+	1: "healthy",
+}
 
 // Health is a check that measures the availability of an endpoint
 type Health struct {
-	route  string
-	config HealthConfig
-	c      chan<- Result
-	done   chan bool
+	route   string
+	config  HealthConfig
+	c       chan<- Result
+	done    chan bool
+	metrics healthMetrics
 }
 
 // HealthConfig contains the health check config
@@ -52,6 +59,11 @@ type healthData struct {
 	Targets []Target `json:"targets"`
 }
 
+// Defined metric collectors of health check
+type healthMetrics struct {
+	health *prometheus.GaugeVec
+}
+
 type Target struct {
 	Target string `json:"target"`
 	Status string `json:"status"`
@@ -60,10 +72,11 @@ type Target struct {
 // NewHealthCheck creates a new HealthCheck
 func NewHealthCheck() Check {
 	return &Health{
-		route:  "health",
-		config: HealthConfig{},
-		c:      nil,
-		done:   make(chan bool, 1),
+		route:   "health",
+		config:  HealthConfig{},
+		metrics: newHealthMetrics(),
+		c:       nil,
+		done:    make(chan bool, 1),
 	}
 }
 
@@ -149,10 +162,33 @@ func (h *Health) DeregisterHandler(_ context.Context, router *api.RoutingTree) {
 	router.Remove(http.MethodGet, h.route)
 }
 
+// NewHealthMetrics initializes metric collectors of the health check
+func newHealthMetrics() healthMetrics {
+	return healthMetrics{
+		health: prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Name: "sparrow_health_up",
+				Help: "Health of targets",
+			},
+			[]string{
+				"target",
+			},
+		),
+	}
+}
+
+// GetMetricCollectors returns all metric collectors of check
+func (h *Health) GetMetricCollectors() []prometheus.Collector {
+	return []prometheus.Collector{
+		h.metrics.health,
+	}
+}
+
 // check performs a health check using a retry function
 // to get the health status for all targets
 func (h *Health) check(ctx context.Context) healthData {
-	log := logger.FromContext(ctx)
+	log := logger.FromContext(ctx).WithGroup("check")
+	log.Debug("Checking health")
 	if len(h.config.Targets) == 0 {
 		log.Debug("No targets defined")
 		return healthData{}
@@ -163,8 +199,8 @@ func (h *Health) check(ctx context.Context) healthData {
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 
-	for _, target := range h.config.Targets {
-		target := target
+	for _, t := range h.config.Targets {
+		target := t
 		wg.Add(1)
 		l := log.With("target", target)
 
@@ -177,28 +213,28 @@ func (h *Health) check(ctx context.Context) healthData {
 
 		go func() {
 			defer wg.Done()
+			state := 1
 
-			targetData := Target{
-				Target: target,
-				Status: "healthy",
-			}
-
-			l.Debug("Starting retry routine to get health of target")
+			l.Debug("Starting retry routine to get health status")
 			if err := getHealthRetry(ctx); err != nil {
-				targetData.Status = "unhealthy"
+				state = 0
 			}
 
-			l.Debug("Successfully got health status of target", "status", targetData.Status)
+			l.Debug("Successfully got health status of target", "status", stateMapping[state])
 			mu.Lock()
-			hd.Targets = append(hd.Targets, targetData)
-			mu.Unlock()
+			defer mu.Unlock()
+			hd.Targets = append(hd.Targets, Target{
+				Target: target,
+				Status: stateMapping[state],
+			})
+			h.metrics.health.WithLabelValues(target).Set(float64(state))
 		}()
 	}
 
 	log.Debug("Waiting for all routines to finish")
 	wg.Wait()
 
-	log.Info("Successfully got health status from all targets")
+	log.Debug("Successfully got health status from all targets")
 	return hd
 }
 

@@ -7,6 +7,7 @@ import (
 	"context"
 	"github.com/caas-team/sparrow/pkg/api"
 	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/prometheus/client_golang/prometheus"
 	"net/http"
 	"sync"
 )
@@ -23,6 +24,9 @@ var _ Check = &CheckMock{}
 //		mockedCheck := &CheckMock{
 //			DeregisterHandlerFunc: func(ctx context.Context, router *api.RoutingTree)  {
 //				panic("mock out the DeregisterHandler method")
+//			},
+//			GetMetricCollectorsFunc: func() []prometheus.Collector {
+//				panic("mock out the GetMetricCollectors method")
 //			},
 //			RegisterHandlerFunc: func(ctx context.Context, router *api.RoutingTree)  {
 //				panic("mock out the RegisterHandler method")
@@ -55,6 +59,9 @@ type CheckMock struct {
 	// DeregisterHandlerFunc mocks the DeregisterHandler method.
 	DeregisterHandlerFunc func(ctx context.Context, router *api.RoutingTree)
 
+	// GetMetricCollectorsFunc mocks the GetMetricCollectors method.
+	GetMetricCollectorsFunc func() []prometheus.Collector
+
 	// RegisterHandlerFunc mocks the RegisterHandler method.
 	RegisterHandlerFunc func(ctx context.Context, router *api.RoutingTree)
 
@@ -84,6 +91,9 @@ type CheckMock struct {
 			Ctx context.Context
 			// Router is the router argument value.
 			Router *api.RoutingTree
+		}
+		// GetMetricCollectors holds details about calls to the GetMetricCollectors method.
+		GetMetricCollectors []struct {
 		}
 		// RegisterHandler holds details about calls to the RegisterHandler method.
 		RegisterHandler []struct {
@@ -125,14 +135,15 @@ type CheckMock struct {
 			CResult chan<- Result
 		}
 	}
-	lockDeregisterHandler sync.RWMutex
-	lockRegisterHandler   sync.RWMutex
-	lockRun               sync.RWMutex
-	lockSchema            sync.RWMutex
-	lockSetClient         sync.RWMutex
-	lockSetConfig         sync.RWMutex
-	lockShutdown          sync.RWMutex
-	lockStartup           sync.RWMutex
+	lockDeregisterHandler   sync.RWMutex
+	lockGetMetricCollectors sync.RWMutex
+	lockRegisterHandler     sync.RWMutex
+	lockRun                 sync.RWMutex
+	lockSchema              sync.RWMutex
+	lockSetClient           sync.RWMutex
+	lockSetConfig           sync.RWMutex
+	lockShutdown            sync.RWMutex
+	lockStartup             sync.RWMutex
 }
 
 // DeregisterHandler calls DeregisterHandlerFunc.
@@ -168,6 +179,33 @@ func (mock *CheckMock) DeregisterHandlerCalls() []struct {
 	mock.lockDeregisterHandler.RLock()
 	calls = mock.calls.DeregisterHandler
 	mock.lockDeregisterHandler.RUnlock()
+	return calls
+}
+
+// GetMetricCollectors calls GetMetricCollectorsFunc.
+func (mock *CheckMock) GetMetricCollectors() []prometheus.Collector {
+	if mock.GetMetricCollectorsFunc == nil {
+		panic("CheckMock.GetMetricCollectorsFunc: method is nil but Check.GetMetricCollectors was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockGetMetricCollectors.Lock()
+	mock.calls.GetMetricCollectors = append(mock.calls.GetMetricCollectors, callInfo)
+	mock.lockGetMetricCollectors.Unlock()
+	return mock.GetMetricCollectorsFunc()
+}
+
+// GetMetricCollectorsCalls gets all the calls that were made to GetMetricCollectors.
+// Check the length with:
+//
+//	len(mockedCheck.GetMetricCollectorsCalls())
+func (mock *CheckMock) GetMetricCollectorsCalls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockGetMetricCollectors.RLock()
+	calls = mock.calls.GetMetricCollectors
+	mock.lockGetMetricCollectors.RUnlock()
 	return calls
 }
 
