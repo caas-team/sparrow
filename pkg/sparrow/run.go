@@ -70,7 +70,7 @@ func New(cfg *config.Config) *Sparrow {
 	}
 
 	// Set the target manager
-	gm := targets.NewGitlabManager("sparrow-with-cfg-file", cfg.TargetManager)
+	gm := targets.NewGitlabManager(cfg.Name, cfg.TargetManager)
 	sparrow.targets = gm
 
 	sparrow.loader = config.NewLoader(cfg, sparrow.cCfgChecks)
