@@ -1,6 +1,7 @@
 name: Test - SAST
 
 on:
+  push:
   pull_request:
 
 permissions:
