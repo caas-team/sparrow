@@ -26,6 +26,7 @@ import (
 //go:generate moq -out metrics_moq.go . Metrics
 type Metrics interface {
 	// GetRegistry returns the prometheus registry instance
+	// containing the registered prometheus collectors
 	GetRegistry() *prometheus.Registry
 }
 
