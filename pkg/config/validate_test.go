@@ -116,10 +116,38 @@ func TestConfig_Validate(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			c := &Config{
 				Checks: nil,
+				Name:   "cool-dns-name.org",
 				Loader: tt.fields.Loader,
 			}
 			if err := c.Validate(ctx, &RunFlagsNameMapping{}); (err != nil) != tt.wantErr {
 				t.Errorf("Config.Validate() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func Test_isDNSName(t *testing.T) {
+	tests := []struct {
+		name    string
+		dnsName string
+		want    bool
+	}{
+		{name: "dns name", dnsName: "sparrow.de", want: true},
+		{name: "dns name with subdomain", dnsName: "sparrow.test.de", want: true},
+		{name: "dns name with subdomain and tld and -", dnsName: "sub-sparrow.test.de", want: true},
+		{name: "empty name", dnsName: "", want: false},
+		{name: "dns name without tld", dnsName: "sparrow", want: false},
+		{name: "name with underscore", dnsName: "test_de", want: false},
+		{name: "name with space", dnsName: "test de", want: false},
+		{name: "name with special chars", dnsName: "test!de", want: false},
+		{name: "name with capitals", dnsName: "tEst.de", want: false},
+		{name: "name with empty tld", dnsName: "tEst.de.", want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isDNSName(tt.dnsName); got != tt.want {
+				t.Errorf("isDNSName() = %v, want %v", got, tt.want)
 			}
 		})
 	}
