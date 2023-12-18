@@ -269,7 +269,7 @@ func TestSparrow_updateCheckTargets(t *testing.T) {
 		{
 			name: "config with targets",
 			config: map[string]any{
-				"targets": []string{"https://gitlab.com"},
+				"targets": []any{"https://gitlab.com"},
 			},
 			globalTargets: gt,
 			expected: map[string]any{
@@ -279,7 +279,7 @@ func TestSparrow_updateCheckTargets(t *testing.T) {
 		{
 			name: "config has a target already present in global targets - no duplicates",
 			config: map[string]any{
-				"targets": []string{"https://localhost.de"},
+				"targets": []any{"https://localhost.de"},
 			},
 			globalTargets: gt,
 			expected: map[string]any{
@@ -289,7 +289,7 @@ func TestSparrow_updateCheckTargets(t *testing.T) {
 		{
 			name: "global targets contains self - do not add to config",
 			config: map[string]any{
-				"targets": []string{"https://localhost.de"},
+				"targets": []any{"https://localhost.de"},
 			},
 			globalTargets: append(gt, checks.GlobalTarget{
 				Url: "https://wonderhost.usa",

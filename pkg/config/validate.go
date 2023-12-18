@@ -37,7 +37,7 @@ func (c *Config) Validate(ctx context.Context, fm *RunFlagsNameMapping) error {
 
 	if !isDNSName(c.Name) {
 		ok = false
-		log.Error("The name of the sparrow must be DNS compliant", fm.Name, c.Name)
+		log.Error("The name of the sparrow must be DNS compliant", fm.SparrowName, c.Name)
 	}
 
 	switch c.Loader.Type { //nolint:gocritic

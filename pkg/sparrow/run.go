@@ -159,9 +159,14 @@ func (s *Sparrow) updateCheckTargets(cfg any) any {
 		return checkCfg
 	}
 
-	actual, ok := checkCfg["targets"].([]string)
+	actuali, ok := checkCfg["targets"].([]any)
 	if !ok {
 		return checkCfg
+	}
+
+	var actual []string
+	for _, v := range actuali {
+		actual = append(actual, v.(string))
 	}
 	var urls []string
 	gt := s.targets.GetTargets()
@@ -177,7 +182,7 @@ func (s *Sparrow) updateCheckTargets(cfg any) any {
 		urls = append(urls, t.Url)
 	}
 
-	checkCfg["targets"] = append(checkCfg["targets"].([]string), urls...)
+	checkCfg["targets"] = append(actual, urls...)
 	return checkCfg
 }
 
