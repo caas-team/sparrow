@@ -107,6 +107,7 @@ func run(fm *config.RunFlagsNameMapping) func(cmd *cobra.Command, args []string)
 		cfg.SetLoaderHttpRetryCount(viper.GetInt(fm.LoaderHttpRetryCount))
 		cfg.SetLoaderHttpRetryDelay(viper.GetInt(fm.LoaderHttpRetryDelay))
 		cfg.SetLoaderFilePath(viper.GetString(fm.LoaderFilePath))
+		cfg.SetName(viper.GetString(fm.Name))
 
 		if err := cfg.Validate(ctx, fm); err != nil {
 			log.Error("Error while validating the config", "error", err)
