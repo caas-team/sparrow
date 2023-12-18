@@ -307,7 +307,7 @@ func TestSparrow_updateCheckTargets(t *testing.T) {
 					Targets: tt.globalTargets,
 				},
 				cfg: &config.Config{
-					Name: "wonderhost.usa",
+					SparrowName: "wonderhost.usa",
 				},
 			}
 			got := s.updateCheckTargets(tt.config)

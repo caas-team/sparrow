@@ -70,7 +70,7 @@ func New(cfg *config.Config) *Sparrow {
 	}
 
 	// Set the target manager
-	gm := targets.NewGitlabManager(cfg.Name, cfg.TargetManager)
+	gm := targets.NewGitlabManager(cfg.SparrowName, cfg.TargetManager)
 	sparrow.targets = gm
 
 	sparrow.loader = config.NewLoader(cfg, sparrow.cCfgChecks)
@@ -176,7 +176,7 @@ func (s *Sparrow) updateCheckTargets(cfg any) any {
 		if slices.Contains(actual, t.Url) {
 			continue
 		}
-		if t.Url == fmt.Sprintf("https://%s", s.cfg.Name) {
+		if t.Url == fmt.Sprintf("https://%s", s.cfg.SparrowName) {
 			continue
 		}
 		urls = append(urls, t.Url)

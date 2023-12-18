@@ -97,7 +97,7 @@ func run(fm *config.RunFlagsNameMapping) func(cmd *cobra.Command, args []string)
 		cfg.SetTargetManagerConfig(config.NewTargetManagerConfig(viper.GetString(fm.TargetManagerConfig)))
 
 		cfg.SetApiAddress(viper.GetString(fm.ApiAddress))
-		cfg.SetName(viper.GetString(fm.SparrowName))
+		cfg.SetSparrowName(viper.GetString(fm.SparrowName))
 
 		cfg.SetLoaderType(viper.GetString(fm.LoaderType))
 		cfg.SetLoaderInterval(viper.GetInt(fm.LoaderInterval))
