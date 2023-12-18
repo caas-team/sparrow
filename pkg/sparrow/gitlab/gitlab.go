@@ -105,10 +105,6 @@ func (g *Client) fetchFile(ctx context.Context, f string) (checks.GlobalTarget, 
 		log.Error("Failed to fetch file", "file", f, "error", err)
 		return res, err
 	}
-	if resp.StatusCode != http.StatusOK {
-		log.Error("Failed to fetch file", "status", resp.Status)
-		return res, fmt.Errorf("request failed, status is %s", resp.Status)
-	}
 
 	defer func(Body io.ReadCloser) {
 		err = Body.Close()
@@ -116,6 +112,11 @@ func (g *Client) fetchFile(ctx context.Context, f string) (checks.GlobalTarget, 
 			log.Error("Failed to close response body", "error", err)
 		}
 	}(resp.Body)
+
+	if resp.StatusCode != http.StatusOK {
+		log.Error("Failed to fetch file", "status", resp.Status)
+		return res, fmt.Errorf("request failed, status is %s", resp.Status)
+	}
 
 	err = json.NewDecoder(resp.Body).Decode(&res)
 	if err != nil {
@@ -149,19 +150,26 @@ func (g *Client) fetchFileList(ctx context.Context) ([]string, error) {
 	req.Header.Add("PRIVATE-TOKEN", g.token)
 	req.Header.Add("Content-Type", "application/json")
 
-	res, err := g.client.Do(req)
+	resp, err := g.client.Do(req) //nolint:bodyclose // closed in defer
 	if err != nil {
 		log.Error("Failed to fetch file list", "error", err)
 		return nil, err
 	}
-	if res.StatusCode != http.StatusOK {
-		log.Error("Failed to fetch file list", "status", res.Status)
-		return nil, fmt.Errorf("request failed, status is %s", res.Status)
+
+	defer func(Body io.ReadCloser) {
+		err = Body.Close()
+		if err != nil {
+			log.Error("Failed to close response body", "error", err)
+		}
+	}(resp.Body)
+
+	if resp.StatusCode != http.StatusOK {
+		log.Error("Failed to fetch file list", "status", resp.Status)
+		return nil, fmt.Errorf("request failed, status is %s", resp.Status)
 	}
 
-	defer res.Body.Close()
 	var fl []file
-	err = json.NewDecoder(res.Body).Decode(&fl)
+	err = json.NewDecoder(resp.Body).Decode(&fl)
 	if err != nil {
 		log.Error("Failed to decode file list", "error", err)
 		return nil, err
