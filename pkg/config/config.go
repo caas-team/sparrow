@@ -77,7 +77,7 @@ type FileLoaderConfig struct {
 // from the passed file
 func NewTargetManagerConfig(path string) TargetManagerConfig {
 	var res TargetManagerConfig
-	f, err := os.ReadFile(path) //#nosec
+	f, err := os.ReadFile(path) // #nosec G304
 	if err != nil {
 		panic("failed to read config file " + err.Error())
 	}
