@@ -19,15 +19,32 @@
 package config
 
 import (
+	"os"
 	"time"
+
+	"gopkg.in/yaml.v3"
 
 	"github.com/caas-team/sparrow/internal/helper"
 )
 
+type GitlabTargetManagerConfig struct {
+	BaseURL   string `yaml:"baseUrl"`
+	Token     string `yaml:"token"`
+	ProjectID int    `yaml:"projectId"`
+}
+
+type TargetManagerConfig struct {
+	CheckInterval        time.Duration             `yaml:"checkInterval"`
+	RegistrationInterval time.Duration             `yaml:"registrationInterval"`
+	UnhealthyThreshold   time.Duration             `yaml:"unhealthyThreshold"`
+	Gitlab               GitlabTargetManagerConfig `yaml:"gitlab"`
+}
+
 type Config struct {
-	Checks map[string]any
-	Loader LoaderConfig
-	Api    ApiConfig
+	Checks        map[string]any
+	Loader        LoaderConfig
+	Api           ApiConfig
+	TargetManager TargetManagerConfig
 }
 
 // ApiConfig is the configuration for the data API
@@ -54,6 +71,23 @@ type HttpLoaderConfig struct {
 
 type FileLoaderConfig struct {
 	path string
+}
+
+// NewTargetManagerConfig creates a new TargetManagerConfig
+// from the passed file
+func NewTargetManagerConfig(path string) TargetManagerConfig {
+	var res TargetManagerConfig
+	f, err := os.ReadFile(path) //#nosec G304
+	if err != nil {
+		panic("failed to read config file " + err.Error())
+	}
+
+	err = yaml.Unmarshal(f, &res)
+	if err != nil {
+		panic("failed to parse config file: " + err.Error())
+	}
+
+	return res
 }
 
 // NewConfig creates a new Config
@@ -107,4 +141,9 @@ func (c *Config) SetLoaderHttpRetryCount(retryCount int) {
 // retryDelay in seconds
 func (c *Config) SetLoaderHttpRetryDelay(retryDelay int) {
 	c.Loader.http.retryCfg.Delay = time.Duration(retryDelay) * time.Second
+}
+
+// SetTargetManagerConfig sets the target manager config
+func (c *Config) SetTargetManagerConfig(config TargetManagerConfig) {
+	c.TargetManager = config
 }

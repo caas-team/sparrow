@@ -14,7 +14,7 @@ repos:
     hooks:
       - id: go-mod-tidy-repo
       - id: go-test-repo-mod
-        args: [ -race ]
+        args: [ -race, -count=1 ]
       - id: go-vet-repo-mod
       - id: go-fumpt-repo
         args: [ -l, -w ]

@@ -42,7 +42,7 @@ func NewHttpLoader(cfg *Config, cCfgChecks chan<- map[string]any) *HttpLoader {
 	}
 }
 
-// GetRuntimeConfig gets the runtime configuration
+// Run gets the runtime configuration
 // from the http remote endpoint.
 // The config is will be loaded periodically defined by the
 // loader interval configuration. A failed request will be retried defined

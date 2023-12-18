@@ -16,19 +16,23 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package config
+package targets
 
-type RunFlagsNameMapping struct {
-	ApiAddress string
+import (
+	"context"
 
-	LoaderType           string
-	LoaderInterval       string
-	LoaderHttpUrl        string
-	LoaderHttpToken      string
-	LoaderHttpTimeout    string
-	LoaderHttpRetryCount string
-	LoaderHttpRetryDelay string
-	LoaderFilePath       string
+	"github.com/caas-team/sparrow/pkg/checks"
+)
 
-	TargetManagerConfig string
+// TargetManager handles the management of globalTargets for
+// a Sparrow instance
+type TargetManager interface {
+	// Reconcile fetches the global targets from the configured
+	// endpoint and updates the local state
+	Reconcile(ctx context.Context)
+	// GetTargets returns the current global targets
+	GetTargets() []checks.GlobalTarget
+	// Shutdown shuts down the target manager
+	// and unregisters the instance as a global target
+	Shutdown(ctx context.Context) error
 }

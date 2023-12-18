@@ -23,6 +23,8 @@ import (
 	"fmt"
 	"net/http"
 
+	targets "github.com/caas-team/sparrow/pkg/sparrow/targets"
+
 	"github.com/caas-team/sparrow/internal/logger"
 	"github.com/caas-team/sparrow/pkg/api"
 	"github.com/caas-team/sparrow/pkg/checks"
@@ -32,8 +34,6 @@ import (
 )
 
 type Sparrow struct {
-	// TODO refactor this struct to be less convoluted
-	// split up responsibilities more clearly
 	db db.DB
 	// the existing checks
 	checks map[string]checks.Check
@@ -47,6 +47,7 @@ type Sparrow struct {
 	cfg        *config.Config
 	loader     config.Loader
 	cCfgChecks chan map[string]any
+	targets    targets.TargetManager
 
 	routingTree *api.RoutingTree
 	router      chi.Router
@@ -67,6 +68,10 @@ func New(cfg *config.Config) *Sparrow {
 		router:      chi.NewRouter(),
 	}
 
+	// Set the target manager
+	gm := targets.NewGitlabManager("sparrow-with-cfg-file", cfg.TargetManager)
+	sparrow.targets = gm
+
 	sparrow.loader = config.NewLoader(cfg, sparrow.cCfgChecks)
 	sparrow.db = db.NewInMemory()
 	return sparrow
@@ -77,8 +82,9 @@ func (s *Sparrow) Run(ctx context.Context) error {
 	ctx, cancel := logger.NewContextWithLogger(ctx, "sparrow")
 	defer cancel()
 
-	// Start the runtime configuration loader
 	go s.loader.Run(ctx)
+	go s.targets.Reconcile(ctx)
+	// Start the api
 	go func() {
 		err := s.api(ctx)
 		if err != nil {
