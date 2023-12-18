@@ -84,7 +84,7 @@ func (g *Client) FetchFiles(ctx context.Context) ([]checks.GlobalTarget, error) 
 
 // fetchFile fetches the file from the global targets repository from the configured gitlab repository
 func (g *Client) fetchFile(ctx context.Context, f string) (checks.GlobalTarget, error) {
-	log := logger.FromContext(ctx)
+	log := logger.FromContext(ctx).With("file", f)
 	var res checks.GlobalTarget
 	// URL encode the name
 	n := url.PathEscape(f)
@@ -102,7 +102,7 @@ func (g *Client) fetchFile(ctx context.Context, f string) (checks.GlobalTarget, 
 
 	resp, err := g.client.Do(req) //nolint:bodyclose // closed in defer
 	if err != nil {
-		log.Error("Failed to fetch file", "file", f, "error", err)
+		log.Error("Failed to fetch file", "error", err)
 		return res, err
 	}
 
@@ -120,11 +120,11 @@ func (g *Client) fetchFile(ctx context.Context, f string) (checks.GlobalTarget, 
 
 	err = json.NewDecoder(resp.Body).Decode(&res)
 	if err != nil {
-		log.Error("Failed to decode file after fetching", "file", f, "error", err)
+		log.Error("Failed to decode file after fetching", "error", err)
 		return res, err
 	}
 
-	log.Debug("Successfully fetched file", "file", f)
+	log.Debug("Successfully fetched file")
 	return res, nil
 }
 
