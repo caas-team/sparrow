@@ -8,19 +8,19 @@
 
 - [About this component](#about-this-component)
 - [Installation](#installation)
-    - [Binary](#binary)
-    - [Container Image](#container-image)
-    - [Helm](#helm)
+  - [Binary](#binary)
+  - [Container Image](#container-image)
+  - [Helm](#helm)
 - [Usage](#usage)
-    - [Container Image](#container-image-1)
+  - [Container Image](#container-image-1)
 - [Configuration](#configuration)
-    - [Startup](#startup)
-        - [Loader](#loader)
-    - [Runtime](#runtime)
-    - [Check: Health](#check-health)
-        - [Health Metrics](#health-metrics)
-    - [Check: Latency](#check-latency)
-        - [Latency Metrics](#latency-metrics)
+  - [Startup](#startup)
+    - [Loader](#loader)
+  - [Runtime](#runtime)
+  - [Check: Health](#check-health)
+    - [Health Metrics](#health-metrics)
+  - [Check: Latency](#check-latency)
+    - [Latency Metrics](#latency-metrics)
 - [API](#api)
 - [Metrics](#metrics)
 - [Code of Conduct](#code-of-conduct)
@@ -192,10 +192,10 @@ checks:
 
 #### Health Metrics
 
-- `sparrow_health_bytes`
-    - Type:  Gauge
+- `sparrow_health_up`
+    - Type: Gauge
     - Description: Health of targets
-    - Divided by `target`
+    - Labelled with `target`
 
 ### Check: Latency
 
@@ -232,25 +232,20 @@ checks:
 
 #### Latency Metrics
 
-- `sparrow_health_bytes`
-    - Type:  Gauge
-    - Description: Health of targets
-    - Divided by `target`
-
 - `sparrow_latency_duration_seconds`
     - Type: Gauge
     - Description: Latency with status information of targets
-    - Divided by `target` and `status`
+    - Labelled with `target` and `status`
 
 - `sparrow_latency_count`
     - Type: Counter
     - Description: Count of latency checks done
-    - Divided by `target`
+    - Labelled with `target`
 
 - `sparrow_latency_duration`
     - Type: Histogram
     - Description: Latency of targets in seconds
-    - Divided by `target`
+    - Labelled with `target`
 
 ## API
 
