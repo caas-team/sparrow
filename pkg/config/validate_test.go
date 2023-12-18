@@ -115,9 +115,9 @@ func TestConfig_Validate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c := &Config{
-				Checks: nil,
-				Name:   "cool-dns-name.org",
-				Loader: tt.fields.Loader,
+				Checks:      nil,
+				SparrowName: "cool-dns-name.org",
+				Loader:      tt.fields.Loader,
 			}
 			if err := c.Validate(ctx, &RunFlagsNameMapping{}); (err != nil) != tt.wantErr {
 				t.Errorf("Config.Validate() error = %v, wantErr %v", err, tt.wantErr)

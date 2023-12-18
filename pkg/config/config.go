@@ -41,8 +41,8 @@ type TargetManagerConfig struct {
 }
 
 type Config struct {
-	// Name is the DNS name of the sparrow
-	Name string
+	// SparrowName is the DNS name of the sparrow
+	SparrowName string
 	// Checks is a map of configurations for the checks
 	Checks        map[string]any
 	Loader        LoaderConfig
@@ -104,9 +104,9 @@ func (c *Config) SetApiAddress(address string) {
 	c.Api.ListeningAddress = address
 }
 
-// SetName sets the DNS name of the sparrow
-func (c *Config) SetName(name string) {
-	c.Name = name
+// SetSparrowName sets the DNS name of the sparrow
+func (c *Config) SetSparrowName(name string) {
+	c.SparrowName = name
 }
 
 // SetLoaderType sets the loader type

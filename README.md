@@ -112,7 +112,7 @@ Use `sparrow run` to execute the instance using the binary. A `name` (a valid DN
 the sparrow will not start:
     
 ```sh
-sparrow run --name sparrow.telekom.de
+sparrow run --sparrowName sparrow.telekom.de
 ```
 
 ### Container Image

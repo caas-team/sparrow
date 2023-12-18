@@ -19,8 +19,8 @@
 package config
 
 type RunFlagsNameMapping struct {
-	ApiAddress string
-	Name       string
+	ApiAddress  string
+	SparrowName string
 
 	LoaderType           string
 	LoaderInterval       string
