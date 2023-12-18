@@ -25,6 +25,8 @@ import (
 	"testing"
 	"time"
 
+	gitlabmock "github.com/caas-team/sparrow/pkg/sparrow/targets/test"
+
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
@@ -220,4 +222,81 @@ func TestSparrow_Run(t *testing.T) {
 
 	t.Log("Letting API run shortly")
 	time.Sleep(time.Millisecond * 150)
+}
+
+// TestSparrow_updateCheckTargets tests that the updateCheckTargets method
+// updates the check targets, if they exists in the config of the checks.
+func TestSparrow_updateCheckTargets(t *testing.T) {
+	now := time.Now()
+	targets := []checks.GlobalTarget{
+		{
+			Url:      "http://localhost:9090",
+			LastSeen: now,
+		},
+	}
+	tests := []struct {
+		name     string
+		config   any
+		targets  []checks.GlobalTarget
+		expected any
+	}{
+		{
+			name:     "no config",
+			config:   nil,
+			targets:  targets,
+			expected: nil,
+		},
+		{
+			name: "config with no targets",
+			config: map[string]any{
+				"targets": nil,
+			},
+			targets: targets,
+			expected: map[string]any{
+				"targets": nil,
+			},
+		},
+		{
+			name: "config with non-expected targets type",
+			config: map[string]any{
+				"targets": "not a slice",
+			},
+			targets: targets,
+			expected: map[string]any{
+				"targets": "not a slice",
+			},
+		},
+		{
+			name: "config with targets",
+			config: map[string]any{
+				"targets": []string{"http://localhost:8080"},
+			},
+			targets: targets,
+			expected: map[string]any{
+				"targets": []string{"http://localhost:8080", "http://localhost:9090"},
+			},
+		},
+		{
+			name: "config with target already present in global targets",
+			config: map[string]any{
+				"targets": []string{"http://localhost:9090"},
+			},
+			targets: targets,
+			expected: map[string]any{
+				"targets": []string{"http://localhost:9090"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &Sparrow{
+				targets: &gitlabmock.MockTargetManager{
+					Targets: tt.targets,
+				},
+			}
+			got := s.updateCheckTargets(tt.config)
+			assert.Equal(t, tt.expected, got)
+		})
+	}
 }
