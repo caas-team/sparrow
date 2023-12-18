@@ -166,7 +166,7 @@ func (s *Sparrow) updateCheckTargets(cfg any) any {
 	var urls []string
 	gt := s.targets.GetTargets()
 
-	// filter out targets that are already in the config and self
+	// filter out globalTargets that are already in the config and self
 	for _, t := range gt {
 		if slices.Contains(actual, t.Url) {
 			continue
