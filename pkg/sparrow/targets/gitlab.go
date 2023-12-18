@@ -93,7 +93,7 @@ func (t *gitlabTargetManager) Reconcile(ctx context.Context) {
 				}
 			}
 		case <-t.done:
-			log.Info("Ending Reconcile routine.")
+			log.Info("Ending Reconcile routine")
 			return
 		case <-checkTimer.C:
 			err := t.refreshTargets(ctx)
