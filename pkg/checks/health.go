@@ -167,7 +167,7 @@ func newHealthMetrics() healthMetrics {
 	return healthMetrics{
 		health: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
-				Name: "sparrow_health_bytes",
+				Name: "sparrow_health_up",
 				Help: "Health of targets",
 			},
 			[]string{
@@ -187,7 +187,8 @@ func (h *Health) GetMetricCollectors() []prometheus.Collector {
 // check performs a health check using a retry function
 // to get the health status for all targets
 func (h *Health) check(ctx context.Context) healthData {
-	log := logger.FromContext(ctx)
+	log := logger.FromContext(ctx).WithGroup("check")
+	log.Debug("Checking health")
 	if len(h.config.Targets) == 0 {
 		log.Debug("No targets defined")
 		return healthData{}
@@ -198,8 +199,8 @@ func (h *Health) check(ctx context.Context) healthData {
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 
-	for _, target := range h.config.Targets {
-		target := target
+	for _, t := range h.config.Targets {
+		target := t
 		wg.Add(1)
 		l := log.With("target", target)
 
@@ -214,19 +215,18 @@ func (h *Health) check(ctx context.Context) healthData {
 			defer wg.Done()
 			state := 1
 
-			l.Debug("Starting retry routine to get health of target")
+			l.Debug("Starting retry routine to get health status")
 			if err := getHealthRetry(ctx); err != nil {
 				state = 0
 			}
 
 			l.Debug("Successfully got health status of target", "status", stateMapping[state])
 			mu.Lock()
+			defer mu.Unlock()
 			hd.Targets = append(hd.Targets, Target{
 				Target: target,
 				Status: stateMapping[state],
 			})
-			mu.Unlock()
-
 			h.metrics.health.WithLabelValues(target).Set(float64(state))
 		}()
 	}
@@ -234,7 +234,7 @@ func (h *Health) check(ctx context.Context) healthData {
 	log.Debug("Waiting for all routines to finish")
 	wg.Wait()
 
-	log.Info("Successfully got health status from all targets")
+	log.Debug("Successfully got health status from all targets")
 	return hd
 }
 
