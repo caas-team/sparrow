@@ -40,6 +40,7 @@ const (
 func NewCmdRun() *cobra.Command {
 	flagMapping := config.RunFlagsNameMapping{
 		ApiAddress:           "apiAddress",
+		SparrowName:          "sparrowName",
 		LoaderType:           "loaderType",
 		LoaderInterval:       "loaderInterval",
 		LoaderHttpUrl:        "loaderHttpUrl",
@@ -59,6 +60,7 @@ func NewCmdRun() *cobra.Command {
 	}
 
 	cmd.PersistentFlags().String(flagMapping.ApiAddress, ":8080", "api: The address the server is listening on")
+	cmd.PersistentFlags().String(flagMapping.SparrowName, "sparrow", "The DNS name of the sparrow")
 	cmd.PersistentFlags().StringP(flagMapping.LoaderType, "l", "http",
 		"defines the loader type that will load the checks configuration during the runtime. The fallback is the fileLoader")
 	cmd.PersistentFlags().Int(flagMapping.LoaderInterval, defaultLoaderInterval, "defines the interval the loader reloads the configuration in seconds")
@@ -71,6 +73,7 @@ func NewCmdRun() *cobra.Command {
 	cmd.PersistentFlags().String(flagMapping.TargetManagerConfig, "tmconfig.yaml", "target manager: The path to the file to read the target manager config from")
 
 	_ = viper.BindPFlag(flagMapping.ApiAddress, cmd.PersistentFlags().Lookup(flagMapping.ApiAddress))
+	_ = viper.BindPFlag(flagMapping.SparrowName, cmd.PersistentFlags().Lookup(flagMapping.SparrowName))
 	_ = viper.BindPFlag(flagMapping.LoaderType, cmd.PersistentFlags().Lookup(flagMapping.LoaderType))
 	_ = viper.BindPFlag(flagMapping.LoaderInterval, cmd.PersistentFlags().Lookup(flagMapping.LoaderInterval))
 	_ = viper.BindPFlag(flagMapping.LoaderHttpUrl, cmd.PersistentFlags().Lookup(flagMapping.LoaderHttpUrl))
@@ -94,6 +97,7 @@ func run(fm *config.RunFlagsNameMapping) func(cmd *cobra.Command, args []string)
 		cfg.SetTargetManagerConfig(config.NewTargetManagerConfig(viper.GetString(fm.TargetManagerConfig)))
 
 		cfg.SetApiAddress(viper.GetString(fm.ApiAddress))
+		cfg.SetSparrowName(viper.GetString(fm.SparrowName))
 
 		cfg.SetLoaderType(viper.GetString(fm.LoaderType))
 		cfg.SetLoaderInterval(viper.GetInt(fm.LoaderInterval))

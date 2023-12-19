@@ -22,6 +22,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"regexp"
 
 	"github.com/caas-team/sparrow/internal/logger"
 )
@@ -33,6 +34,12 @@ func (c *Config) Validate(ctx context.Context, fm *RunFlagsNameMapping) error {
 	log := logger.FromContext(ctx)
 
 	ok := true
+
+	if !isDNSName(c.SparrowName) {
+		ok = false
+		log.Error("The name of the sparrow must be DNS compliant", fm.SparrowName, c.SparrowName)
+	}
+
 	switch c.Loader.Type { //nolint:gocritic
 	case "http":
 		if _, err := url.ParseRequestURI(c.Loader.http.url); err != nil {
@@ -51,4 +58,10 @@ func (c *Config) Validate(ctx context.Context, fm *RunFlagsNameMapping) error {
 		return fmt.Errorf("validation of configuration failed")
 	}
 	return nil
+}
+
+// isDNSName checks if the given string is a valid DNS name
+func isDNSName(s string) bool {
+	re := regexp.MustCompile(`^([a-z0-9]([a-z0-9\-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$`)
+	return re.MatchString(s)
 }
