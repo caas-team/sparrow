@@ -108,7 +108,7 @@ Additionally check out the sparrow [configuration](#configuration) variants.
 
 ## Usage
 
-Use `sparrow run` to execute the instance using the binary. A `name` (a valid DNS name) is required to be passed, else
+Use `sparrow run` to execute the instance using the binary. A `sparrowName` (a valid DNS name) is required to be passed, else
 the sparrow will not start:
     
 ```sh
