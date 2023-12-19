@@ -267,6 +267,36 @@ func TestSparrow_updateCheckTargets(t *testing.T) {
 			},
 		},
 		{
+			name: "config with empty targets",
+			config: map[string]any{
+				"targets": []any{},
+			},
+			globalTargets: gt,
+			expected: map[string]any{
+				"targets": []any{},
+			},
+		},
+		{
+			name: "config with non string target slice",
+			config: map[string]any{
+				"targets": []any{1, 2, 3},
+			},
+			globalTargets: gt,
+			expected: map[string]any{
+				"targets": []any{1, 2, 3},
+			},
+		},
+		{
+			name: "config with mixed target slice",
+			config: map[string]any{
+				"targets": []any{"https://gitlab.com", 1, 3},
+			},
+			globalTargets: gt,
+			expected: map[string]any{
+				"targets": []any{"https://gitlab.com", 1, 3},
+			},
+		},
+		{
 			name: "config with targets",
 			config: map[string]any{
 				"targets": []any{"https://gitlab.com"},

@@ -151,6 +151,7 @@ func (s *Sparrow) updateCheckTargets(cfg any) any {
 		return nil
 	}
 
+	// check if map with targets
 	checkCfg, ok := cfg.(map[string]any)
 	if !ok {
 		return checkCfg
@@ -159,13 +160,21 @@ func (s *Sparrow) updateCheckTargets(cfg any) any {
 		return checkCfg
 	}
 
+	// Check if targets is a slice
 	actuali, ok := checkCfg["targets"].([]any)
 	if !ok {
 		return checkCfg
 	}
+	if len(actuali) == 0 {
+		return checkCfg
+	}
 
+	// convert to string slice
 	var actual []string
 	for _, v := range actuali {
+		if _, ok := v.(string); !ok {
+			return checkCfg
+		}
 		actual = append(actual, v.(string))
 	}
 	var urls []string
