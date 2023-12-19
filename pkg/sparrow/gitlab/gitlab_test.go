@@ -440,3 +440,50 @@ func TestClient_PostFile(t *testing.T) { //nolint:dupl // no need to refactor ye
 		})
 	}
 }
+
+func TestClient_DeleteFile(t *testing.T) {
+	tests := []struct {
+		name     string
+		fileName string
+		mockCode int
+		wantErr  bool
+	}{
+		{
+			name:     "success",
+			fileName: "test.de.json",
+			mockCode: http.StatusNoContent,
+		},
+		{
+			name:     "failure - API error",
+			fileName: "test.de.json",
+			mockCode: http.StatusInternalServerError,
+			wantErr:  true,
+		},
+		{
+			name:     "failure - empty file",
+			wantErr:  true,
+			fileName: "",
+		},
+	}
+
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	projID := 1
+	g := &Client{
+		baseUrl:   "http://test",
+		projectID: projID,
+		token:     "test",
+		client:    http.DefaultClient,
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resp := httpmock.NewStringResponder(tt.mockCode, "")
+			httpmock.RegisterResponder("DELETE", fmt.Sprintf("http://test/api/v4/projects/%d/repository/files/%s", projID, tt.fileName), resp)
+
+			if err := g.DeleteFile(context.Background(), tt.fileName); (err != nil) != tt.wantErr {
+				t.Fatalf("DeleteFile() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
