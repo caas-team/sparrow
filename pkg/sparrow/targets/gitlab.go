@@ -88,7 +88,7 @@ func (t *gitlabTargetManager) Reconcile(ctx context.Context) {
 				log.Error("Context canceled", "error", err)
 				err = t.Shutdown(ctx)
 				if err != nil {
-					log.Error("Failed to shutdown gracefully", "error", err)
+					log.Error("Failed to shutdown gracefully, stopping routine", "error", err)
 					return
 				}
 			}
@@ -124,12 +124,20 @@ func (t *gitlabTargetManager) Shutdown(ctx context.Context) error {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	log := logger.FromContext(ctx)
-	log.Info("Shutting down global gitlabTargetManager")
-	t.registered = false
+	log.Debug("Shut down signal received")
+
+	if t.Registered() {
+		err := t.gitlab.DeleteFile(ctx, fmt.Sprintf("%s.json", t.name))
+		if err != nil {
+			log.Error("Failed to shutdown gracefully", "error", err)
+			return err
+		}
+		t.registered = false
+	}
 
 	select {
 	case t.done <- struct{}{}:
-		log.Debug("Stopping reconcile routine")
+		log.Info("Stopping reconcile routine")
 	default:
 	}
 

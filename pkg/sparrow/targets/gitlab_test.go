@@ -377,14 +377,111 @@ func Test_gitlabTargetManager_Reconcile_Context_Canceled(t *testing.T) {
 	time.Sleep(time.Millisecond * 250)
 
 	gtm.mu.Lock()
-	// instance shouldn't be registered anymore
 	if gtm.Registered() {
 		t.Fatalf("Reconcile() should not be registered")
 	}
 	gtm.mu.Unlock()
 }
 
-func mockGitlabTargetManager(g *gitlabmock.MockClient, name string) *gitlabTargetManager {
+// Test_gitlabTargetManager_Reconcile_Context_Done tests that the Reconcile
+// method will shut down gracefully when the context is done.
+func Test_gitlabTargetManager_Reconcile_Context_Done(t *testing.T) {
+	glmock := gitlabmock.New(
+		[]checks.GlobalTarget{
+			{
+				Url:      "https://test",
+				LastSeen: time.Now(),
+			},
+		},
+	)
+
+	gtm := mockGitlabTargetManager(glmock, "test")
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*10)
+	defer cancel()
+	go func() {
+		gtm.Reconcile(ctx)
+	}()
+
+	time.Sleep(time.Millisecond * 15)
+
+	gtm.mu.Lock()
+	if gtm.Registered() {
+		t.Fatalf("Reconcile() should not be registered")
+	}
+	gtm.mu.Unlock()
+}
+
+// Test_gitlabTargetManager_Reconcile_Shutdown tests that the Reconcile
+// method will shut down gracefully when the Shutdown method is called.
+func Test_gitlabTargetManager_Reconcile_Shutdown(t *testing.T) {
+	glmock := gitlabmock.New(
+		[]checks.GlobalTarget{
+			{
+				Url:      "https://test",
+				LastSeen: time.Now(),
+			},
+		},
+	)
+
+	gtm := mockGitlabTargetManager(glmock, "test")
+
+	ctx := context.Background()
+	go func() {
+		gtm.Reconcile(ctx)
+	}()
+
+	time.Sleep(time.Millisecond * 250)
+
+	err := gtm.Shutdown(ctx)
+	if err != nil {
+		t.Fatalf("Reconcile() failed to shutdown")
+	}
+
+	gtm.mu.Lock()
+	if gtm.Registered() {
+		t.Fatalf("Reconcile() should not be registered")
+	}
+	gtm.mu.Unlock()
+}
+
+// Test_gitlabTargetManager_Reconcile_Shutdown_Fail_Unregister tests that the Reconcile
+// method will fail the graceful shutdown when the Shutdown method is called
+// and the unregistering fails.
+func Test_gitlabTargetManager_Reconcile_Shutdown_Fail_Unregister(t *testing.T) {
+	glmock := gitlabmock.New(
+		[]checks.GlobalTarget{
+			{
+				Url:      "https://test",
+				LastSeen: time.Now(),
+			},
+		},
+	)
+
+	gtm := mockGitlabTargetManager(glmock, "test")
+	glmock.SetDeleteFileErr(errors.New("gitlab API error"))
+
+	ctx := context.Background()
+	go func() {
+		gtm.Reconcile(ctx)
+	}()
+
+	time.Sleep(time.Millisecond * 250)
+
+	err := gtm.Shutdown(ctx)
+	if err == nil {
+		t.Fatalf("Reconcile() should have failed to shutdown")
+	}
+
+	gtm.mu.Lock()
+	// instance should still be registered because the unregister failed
+	if !gtm.Registered() {
+		t.Fatalf("Reconcile() should still be registered")
+	}
+	gtm.mu.Unlock()
+}
+
+func mockGitlabTargetManager(g *gitlabmock.MockClient, name string) *gitlabTargetManager { //nolint: unparam // irrelevant
 	return &gitlabTargetManager{
 		targets:              nil,
 		mu:                   sync.RWMutex{},

@@ -73,6 +73,11 @@ func (m *MockClient) SetPostFileErr(err error) {
 	m.postFileErr = err
 }
 
+// SetDeleteFileErr sets the error returned by DeleteFile
+func (m *MockClient) SetDeleteFileErr(err error) {
+	m.deleteFileErr = err
+}
+
 // New creates a new MockClient to mock Gitlab interaction
 func New(targets []checks.GlobalTarget) *MockClient {
 	return &MockClient{
