@@ -22,6 +22,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"slices"
 
 	targets "github.com/caas-team/sparrow/pkg/sparrow/targets"
 
@@ -117,9 +118,10 @@ func (s *Sparrow) ReconcileChecks(ctx context.Context) {
 		name := name
 		log := logger.FromContext(ctx).With("name", name)
 
+		c := s.updateCheckTargets(checkCfg)
 		if existingCheck, ok := s.checks[name]; ok {
 			// Check already registered, reset config
-			err := existingCheck.SetConfig(ctx, checkCfg)
+			err := existingCheck.SetConfig(ctx, c)
 			if err != nil {
 				log.ErrorContext(ctx, "Failed to reset config for check, check will run with last applies config", "error", err)
 			}
@@ -127,7 +129,7 @@ func (s *Sparrow) ReconcileChecks(ctx context.Context) {
 		}
 
 		// Check is a new Check and needs to be registered
-		s.registerCheck(ctx, name, checkCfg)
+		s.registerCheck(ctx, name, c)
 	}
 
 	for existingCheckName, existingCheck := range s.checks {
@@ -139,6 +141,58 @@ func (s *Sparrow) ReconcileChecks(ctx context.Context) {
 		// Check has been removed from config
 		s.unregisterCheck(ctx, existingCheckName, existingCheck)
 	}
+}
+
+// updateCheckTargets updates the targets of a check with the
+// global targets. The targets are merged per default, if found in the
+// passed config.
+func (s *Sparrow) updateCheckTargets(cfg any) any {
+	if cfg == nil {
+		return nil
+	}
+
+	// check if map with targets
+	checkCfg, ok := cfg.(map[string]any)
+	if !ok {
+		return checkCfg
+	}
+	if _, ok = checkCfg["targets"]; !ok {
+		return checkCfg
+	}
+
+	// Check if targets is a slice
+	actuali, ok := checkCfg["targets"].([]any)
+	if !ok {
+		return checkCfg
+	}
+	if len(actuali) == 0 {
+		return checkCfg
+	}
+
+	// convert to string slice
+	var actual []string
+	for _, v := range actuali {
+		if _, ok := v.(string); !ok {
+			return checkCfg
+		}
+		actual = append(actual, v.(string))
+	}
+	var urls []string
+	gt := s.targets.GetTargets()
+
+	// filter out globalTargets that are already in the config and self
+	for _, t := range gt {
+		if slices.Contains(actual, t.Url) {
+			continue
+		}
+		if t.Url == fmt.Sprintf("https://%s", s.cfg.SparrowName) {
+			continue
+		}
+		urls = append(urls, t.Url)
+	}
+
+	checkCfg["targets"] = append(actual, urls...)
+	return checkCfg
 }
 
 // registerCheck registers and executes a new check

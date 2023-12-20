@@ -25,6 +25,8 @@ import (
 	"testing"
 	"time"
 
+	gitlabmock "github.com/caas-team/sparrow/pkg/sparrow/targets/test"
+
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
@@ -220,4 +222,126 @@ func TestSparrow_Run(t *testing.T) {
 
 	t.Log("Letting API run shortly")
 	time.Sleep(time.Millisecond * 150)
+}
+
+// TestSparrow_updateCheckTargets tests that the updateCheckTargets method
+// updates the check targets, if they exists in the config of the checks.
+func TestSparrow_updateCheckTargets(t *testing.T) {
+	now := time.Now()
+	gt := []checks.GlobalTarget{
+		{
+			Url:      "https://localhost.de",
+			LastSeen: now,
+		},
+	}
+	tests := []struct {
+		name          string
+		config        any
+		globalTargets []checks.GlobalTarget
+		expected      any
+	}{
+		{
+			name:          "no config",
+			config:        nil,
+			globalTargets: gt,
+			expected:      nil,
+		},
+		{
+			name: "config with no targets",
+			config: map[string]any{
+				"targets": nil,
+			},
+			globalTargets: gt,
+			expected: map[string]any{
+				"targets": nil,
+			},
+		},
+		{
+			name: "config with non-expected targets type",
+			config: map[string]any{
+				"targets": "not a slice",
+			},
+			globalTargets: gt,
+			expected: map[string]any{
+				"targets": "not a slice",
+			},
+		},
+		{
+			name: "config with empty targets",
+			config: map[string]any{
+				"targets": []any{},
+			},
+			globalTargets: gt,
+			expected: map[string]any{
+				"targets": []any{},
+			},
+		},
+		{
+			name: "config with non string target slice",
+			config: map[string]any{
+				"targets": []any{1, 2, 3},
+			},
+			globalTargets: gt,
+			expected: map[string]any{
+				"targets": []any{1, 2, 3},
+			},
+		},
+		{
+			name: "config with mixed target slice",
+			config: map[string]any{
+				"targets": []any{"https://gitlab.com", 1, 3},
+			},
+			globalTargets: gt,
+			expected: map[string]any{
+				"targets": []any{"https://gitlab.com", 1, 3},
+			},
+		},
+		{
+			name: "config with targets",
+			config: map[string]any{
+				"targets": []any{"https://gitlab.com"},
+			},
+			globalTargets: gt,
+			expected: map[string]any{
+				"targets": []string{"https://gitlab.com", "https://localhost.de"},
+			},
+		},
+		{
+			name: "config has a target already present in global targets - no duplicates",
+			config: map[string]any{
+				"targets": []any{"https://localhost.de"},
+			},
+			globalTargets: gt,
+			expected: map[string]any{
+				"targets": []string{"https://localhost.de"},
+			},
+		},
+		{
+			name: "global targets contains self - do not add to config",
+			config: map[string]any{
+				"targets": []any{"https://localhost.de"},
+			},
+			globalTargets: append(gt, checks.GlobalTarget{
+				Url: "https://wonderhost.usa",
+			}),
+			expected: map[string]any{
+				"targets": []string{"https://localhost.de"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &Sparrow{
+				targets: &gitlabmock.MockTargetManager{
+					Targets: tt.globalTargets,
+				},
+				cfg: &config.Config{
+					SparrowName: "wonderhost.usa",
+				},
+			}
+			got := s.updateCheckTargets(tt.config)
+			assert.Equal(t, tt.expected, got)
+		})
+	}
 }
