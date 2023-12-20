@@ -41,8 +41,8 @@ type Gitlab interface {
 	PutFile(ctx context.Context, file File) error
 	// PostFile creates the file in the repository
 	PostFile(ctx context.Context, file File) error
-	// DeleteFile deletes the file matching the filename
-	DeleteFile(ctx context.Context, filename string) error
+	// DeleteFile deletes the file from the repository
+	DeleteFile(ctx context.Context, file File) error
 }
 
 // Client implements Gitlab
@@ -58,19 +58,25 @@ type Client struct {
 
 // DeleteFile deletes the file matching the filename from the configured
 // gitlab repository
-func (g *Client) DeleteFile(ctx context.Context, filename string) error {
-	log := logger.FromContext(ctx).With("file", filename)
+func (g *Client) DeleteFile(ctx context.Context, file File) error { //nolint:gocritic // no performance concerns yet
+	log := logger.FromContext(ctx).With("file", file)
 
-	if filename == "" {
+	if file.fileName == "" {
 		return fmt.Errorf("filename is empty")
 	}
 
 	log.Debug("Deleting file from gitlab")
-	n := url.PathEscape(filename)
+	n := url.PathEscape(file.fileName)
+	b, err := file.Bytes()
+	if err != nil {
+		log.Error("Failed to create request", "error", err)
+		return err
+	}
+
 	req, err := http.NewRequestWithContext(ctx,
 		http.MethodDelete,
 		fmt.Sprintf("%s/api/v4/projects/%d/repository/files/%s", g.baseUrl, g.projectID, n),
-		http.NoBody,
+		bytes.NewBuffer(b),
 	)
 	if err != nil {
 		log.Error("Failed to create request", "error", err)

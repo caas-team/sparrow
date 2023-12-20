@@ -481,7 +481,14 @@ func TestClient_DeleteFile(t *testing.T) {
 			resp := httpmock.NewStringResponder(tt.mockCode, "")
 			httpmock.RegisterResponder("DELETE", fmt.Sprintf("http://test/api/v4/projects/%d/repository/files/%s", projID, tt.fileName), resp)
 
-			if err := g.DeleteFile(context.Background(), tt.fileName); (err != nil) != tt.wantErr {
+			f := File{
+				fileName:      tt.fileName,
+				CommitMessage: "Deleted registration file",
+				AuthorName:    "sparrow-test",
+				AuthorEmail:   "sparrow-test@sparrow",
+				Branch:        "main",
+			}
+			if err := g.DeleteFile(context.Background(), f); (err != nil) != tt.wantErr {
 				t.Fatalf("DeleteFile() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})

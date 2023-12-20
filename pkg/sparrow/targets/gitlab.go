@@ -34,6 +34,8 @@ import (
 
 var _ TargetManager = &gitlabTargetManager{}
 
+const shutdownTimeout = 30 * time.Second
+
 // gitlabTargetManager implements TargetManager
 type gitlabTargetManager struct {
 	targets []checks.GlobalTarget
@@ -86,7 +88,9 @@ func (t *gitlabTargetManager) Reconcile(ctx context.Context) {
 		case <-ctx.Done():
 			if err := ctx.Err(); err != nil {
 				log.Error("Context canceled", "error", err)
-				err = t.Shutdown(ctx)
+				ctxS, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+				defer cancel() //nolint: gocritic // how else can we defer a cancel?
+				err = t.Shutdown(ctxS)
 				if err != nil {
 					log.Error("Failed to shutdown gracefully, stopping routine", "error", err)
 					return
@@ -127,7 +131,14 @@ func (t *gitlabTargetManager) Shutdown(ctx context.Context) error {
 	log.Debug("Shut down signal received")
 
 	if t.Registered() {
-		err := t.gitlab.DeleteFile(ctx, fmt.Sprintf("%s.json", t.name))
+		f := gitlab.File{
+			Branch:        "main",
+			AuthorEmail:   fmt.Sprintf("%s@sparrow", t.name),
+			AuthorName:    t.name,
+			CommitMessage: "Unregistering global target",
+		}
+		f.SetFileName(fmt.Sprintf("%s.json", t.name))
+		err := t.gitlab.DeleteFile(ctx, f)
 		if err != nil {
 			log.Error("Failed to shutdown gracefully", "error", err)
 			return err

@@ -20,9 +20,11 @@ package sparrow
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"slices"
+	"time"
 
 	targets "github.com/caas-team/sparrow/pkg/sparrow/targets"
 
@@ -33,6 +35,8 @@ import (
 	"github.com/caas-team/sparrow/pkg/db"
 	"github.com/go-chi/chi/v5"
 )
+
+const shutdownTimeout = time.Second * 90
 
 type Sparrow struct {
 	db db.DB
@@ -81,6 +85,7 @@ func New(cfg *config.Config) *Sparrow {
 // Run starts the sparrow
 func (s *Sparrow) Run(ctx context.Context) error {
 	ctx, cancel := logger.NewContextWithLogger(ctx, "sparrow")
+	log := logger.FromContext(ctx)
 	defer cancel()
 
 	go s.loader.Run(ctx)
@@ -89,7 +94,7 @@ func (s *Sparrow) Run(ctx context.Context) error {
 	go func() {
 		err := s.api(ctx)
 		if err != nil {
-			panic(fmt.Sprintf("Failed to start api: %v", err))
+			log.Error("Error running api server", "error", err)
 		}
 	}()
 
@@ -97,6 +102,12 @@ func (s *Sparrow) Run(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			if err := ctx.Err(); err != nil {
+				ctx, cancel = context.WithTimeout(context.Background(), shutdownTimeout)
+				defer cancel() //nolint: gocritic // how else can we defer a cancel?
+				errS := s.targets.Shutdown(ctx)
+				if errS != nil {
+					return fmt.Errorf("failed to shutdown targets: %w", errors.Join(err, errS))
+				}
 				return err
 			}
 			return nil

@@ -52,9 +52,9 @@ func (m *MockClient) FetchFiles(ctx context.Context) ([]checks.GlobalTarget, err
 	return m.targets, m.fetchFilesErr
 }
 
-func (m *MockClient) DeleteFile(ctx context.Context, fn string) error {
+func (m *MockClient) DeleteFile(ctx context.Context, file gitlab.File) error { //nolint: gocritic // irrelevant
 	log := logger.FromContext(ctx)
-	log.Info("MockDeleteFile called", "filename", fn, "err", m.deleteFileErr)
+	log.Info("MockDeleteFile called", "filename", file, "err", m.deleteFileErr)
 	return m.deleteFileErr
 }
 

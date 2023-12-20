@@ -40,7 +40,6 @@ type encoder interface {
 const (
 	urlParamCheckName = "checkName"
 	readHeaderTimeout = time.Second * 5
-	shutdownTimeout   = time.Second * 5
 )
 
 var (
