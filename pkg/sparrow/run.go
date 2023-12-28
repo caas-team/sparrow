@@ -101,16 +101,7 @@ func (s *Sparrow) Run(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			if err := ctx.Err(); err != nil {
-				ctx, cancel = context.WithTimeout(context.Background(), shutdownTimeout)
-				defer cancel() //nolint: gocritic // how else can we defer a cancel?
-				errS := s.targets.Shutdown(ctx)
-				if errS != nil {
-					return fmt.Errorf("failed to shutdown targets: %w", errors.Join(err, errS))
-				}
-				return err
-			}
-			return nil
+			return s.shutdown(ctx)
 		case result := <-s.cResult:
 			go s.db.Save(result)
 		case configChecks := <-s.cCfgChecks:
@@ -288,4 +279,18 @@ func fanInResults(checkChan chan checks.Result, cResult chan checks.ResultDTO, n
 			Result: &i,
 		}
 	}
+}
+
+// shutdown shuts down the sparrow and all managed components gracefully.
+// It returns an error if one is present in the context or if any of the
+// components fail to shut down.
+func (s *Sparrow) shutdown(ctx context.Context) error {
+	errC := ctx.Err()
+	ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+	defer cancel()
+	errS := s.targets.Shutdown(ctx)
+	if errS != nil {
+		return fmt.Errorf("failed to shutdown sparrow: %w", errors.Join(errC, errS))
+	}
+	return errC
 }
