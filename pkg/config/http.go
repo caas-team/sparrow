@@ -90,12 +90,17 @@ func (hl *HttpLoader) GetRuntimeConfig(ctx context.Context) (*RuntimeConfig, err
 		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", hl.cfg.Loader.http.token))
 	}
 
-	res, err := client.Do(req)
+	res, err := client.Do(req) //nolint:bodyclose
 	if err != nil {
 		log.Error("Http get request failed", "error", err.Error())
 		return nil, err
 	}
-	defer res.Body.Close()
+	defer func(Body io.ReadCloser) {
+		err = Body.Close()
+		if err != nil {
+			log.Error("Failed to close response body", "error", err.Error())
+		}
+	}(res.Body)
 
 	if res.StatusCode != http.StatusOK {
 		log.Error("Http get request failed", "status", res.Status)

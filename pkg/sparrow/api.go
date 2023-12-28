@@ -44,7 +44,6 @@ const (
 
 var (
 	ErrServeApi            = errors.New("failed to serve api")
-	ErrApiContext          = errors.New("api context canceled")
 	ErrCreateOpenapiSchema = errors.New("failed to get schema for check")
 )
 
