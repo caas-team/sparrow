@@ -274,7 +274,11 @@ func Test_gitlabTargetManager_Reconcile_success(t *testing.T) {
 			gtm := mockGitlabTargetManager(glmock, "test")
 			ctx := context.Background()
 			go func() {
-				gtm.Reconcile(ctx)
+				err := gtm.Reconcile(ctx)
+				if err != nil {
+					t.Error("Reconcile() should not have returned an error")
+					return
+				}
 			}()
 
 			time.Sleep(time.Millisecond * 300)
@@ -330,7 +334,11 @@ func Test_gitlabTargetManager_Reconcile_failure(t *testing.T) {
 
 			ctx := context.Background()
 			go func() {
-				gtm.Reconcile(ctx)
+				err := gtm.Reconcile(ctx)
+				if err != nil {
+					t.Error("Reconcile() should not have returned an error")
+					return
+				}
 			}()
 
 			time.Sleep(time.Millisecond * 300)
@@ -368,8 +376,13 @@ func Test_gitlabTargetManager_Reconcile_Context_Canceled(t *testing.T) {
 	gtm := mockGitlabTargetManager(glmock, "test")
 
 	ctx, cancel := context.WithCancel(context.Background())
+
 	go func() {
-		gtm.Reconcile(ctx)
+		err := gtm.Reconcile(ctx)
+		if err == nil {
+			t.Error("Reconcile() should have returned an error")
+			return
+		}
 	}()
 
 	time.Sleep(time.Millisecond * 250)
@@ -377,8 +390,8 @@ func Test_gitlabTargetManager_Reconcile_Context_Canceled(t *testing.T) {
 	time.Sleep(time.Millisecond * 250)
 
 	gtm.mu.Lock()
-	if gtm.Registered() {
-		t.Fatalf("Reconcile() should not be registered")
+	if !gtm.Registered() {
+		t.Fatalf("Reconcile() should still be registered")
 	}
 	gtm.mu.Unlock()
 }
@@ -400,7 +413,11 @@ func Test_gitlabTargetManager_Reconcile_Context_Done(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*10)
 	defer cancel()
 	go func() {
-		gtm.Reconcile(ctx)
+		err := gtm.Reconcile(ctx)
+		if err == nil {
+			t.Error("Reconcile() should have returned an error")
+			return
+		}
 	}()
 
 	time.Sleep(time.Millisecond * 15)
@@ -428,7 +445,11 @@ func Test_gitlabTargetManager_Reconcile_Shutdown(t *testing.T) {
 
 	ctx := context.Background()
 	go func() {
-		gtm.Reconcile(ctx)
+		err := gtm.Reconcile(ctx)
+		if err != nil {
+			t.Error("Reconcile() should not have returned an error")
+			return
+		}
 	}()
 
 	time.Sleep(time.Millisecond * 250)
@@ -463,7 +484,11 @@ func Test_gitlabTargetManager_Reconcile_Shutdown_Fail_Unregister(t *testing.T) {
 
 	ctx := context.Background()
 	go func() {
-		gtm.Reconcile(ctx)
+		err := gtm.Reconcile(ctx)
+		if err != nil {
+			t.Error("Reconcile() should not have returned an error")
+			return
+		}
 	}()
 
 	time.Sleep(time.Millisecond * 250)

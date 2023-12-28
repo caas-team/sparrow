@@ -71,6 +71,7 @@ func TestSparrow_api_shutdownWhenContextCanceled(t *testing.T) {
 		cfg:     &config.Config{Api: config.ApiConfig{ListeningAddress: ":8080"}},
 		router:  chi.NewRouter(),
 		metrics: NewMetrics(),
+		server:  &http.Server{}, //nolint:gosec
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()

@@ -70,17 +70,15 @@ func (s *Sparrow) register(ctx context.Context) {
 //
 // Blocks until context is done
 func (s *Sparrow) api(ctx context.Context) error {
-	log := logger.FromContext(ctx).WithGroup("api")
+	log := logger.FromContext(ctx)
 	cErr := make(chan error, 1)
 	s.register(ctx)
-
-	server := http.Server{Addr: s.cfg.Api.ListeningAddress, Handler: s.router, ReadHeaderTimeout: readHeaderTimeout}
 
 	// run http server in goroutine
 	go func(cErr chan error) {
 		defer close(cErr)
 		log.Info("Serving Api", "addr", s.cfg.Api.ListeningAddress)
-		if err := server.ListenAndServe(); err != nil {
+		if err := s.server.ListenAndServe(); err != nil {
 			log.Error("Failed to serve api", "error", err)
 			cErr <- err
 		}
@@ -88,26 +86,31 @@ func (s *Sparrow) api(ctx context.Context) error {
 
 	select {
 	case <-ctx.Done():
-		if ctx.Err() != nil {
-			shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
-			defer cancel()
-			err := server.Shutdown(shutdownCtx)
-			if err != nil {
-				log.Error("Failed to shutdown api server", "error", err)
-			}
-			log.Error("Api context canceled", "error", ctx.Err())
-			return fmt.Errorf("%w: %w", ErrApiContext, ctx.Err())
-		}
+		return fmt.Errorf("cannot : %w", ctx.Err())
 	case err := <-cErr:
 		if errors.Is(err, http.ErrServerClosed) || err == nil {
 			log.Info("Api server closed")
 			return nil
 		}
 		log.Error("failed to serve api", "error", err)
-		return fmt.Errorf("%w: %w", ErrServeApi, err)
+		return fmt.Errorf("error serving api: %w", errors.Join(ErrServeApi, err))
 	}
+}
 
-	return nil
+// Shutdown gracefully shuts down the api server
+// Returns an error if an error is present in the context
+// or if the server cannot be shut down
+func (s *Sparrow) shutdownAPI(ctx context.Context) error {
+	errC := ctx.Err()
+	log := logger.FromContext(ctx).WithGroup("api")
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+	defer cancel()
+	err := s.server.Shutdown(shutdownCtx)
+	if err != nil {
+		log.Error("Failed to shutdown api server", "error", err)
+		return fmt.Errorf("failed shutting down API: %w", errors.Join(errC, err))
+	}
+	return errC
 }
 
 var oapiBoilerplate = openapi3.T{

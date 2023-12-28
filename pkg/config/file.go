@@ -20,6 +20,7 @@ package config
 
 import (
 	"context"
+	"fmt"
 	"os"
 
 	"gopkg.in/yaml.v3"
@@ -41,22 +42,23 @@ func NewFileLoader(cfg *Config, cCfgChecks chan<- map[string]any) *FileLoader {
 	}
 }
 
-func (f *FileLoader) Run(ctx context.Context) {
+func (f *FileLoader) Run(ctx context.Context) error {
 	log := logger.FromContext(ctx).WithGroup("FileLoader")
 	log.Info("Reading config from file", "file", f.path)
 	// TODO refactor this to use fs.FS
 	b, err := os.ReadFile(f.path)
 	if err != nil {
 		log.Error("Failed to read config file", "path", f.path, "error", err)
-		panic("failed to read config file " + err.Error())
+		return fmt.Errorf("failed to read config file: %w", err)
 	}
 
 	var cfg RuntimeConfig
 
 	if err := yaml.Unmarshal(b, &cfg); err != nil {
 		log.Error("Failed to parse config file", "error", err)
-		panic("failed to parse config file: " + err.Error())
+		return fmt.Errorf("failed to parse config file: %w", err)
 	}
 
 	f.c <- cfg.Checks
+	return nil
 }
