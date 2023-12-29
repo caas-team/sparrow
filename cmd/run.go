@@ -119,7 +119,6 @@ func run(fm *config.RunFlagsNameMapping) func(cmd *cobra.Command, args []string)
 		if err := s.Run(ctx); err != nil {
 			log.Error("Error while running sparrow", "error", err)
 			// by this time all shutdown routines should have been called
-			// so we can exit here
 			os.Exit(1)
 		}
 	}

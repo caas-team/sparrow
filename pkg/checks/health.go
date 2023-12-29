@@ -187,7 +187,7 @@ func (h *Health) GetMetricCollectors() []prometheus.Collector {
 // check performs a health check using a retry function
 // to get the health status for all targets
 func (h *Health) check(ctx context.Context) healthData {
-	log := logger.FromContext(ctx).WithGroup("check")
+	log := logger.FromContext(ctx)
 	log.Debug("Checking health")
 	if len(h.config.Targets) == 0 {
 		log.Debug("No targets defined")

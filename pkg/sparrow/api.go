@@ -101,7 +101,7 @@ func (s *Sparrow) api(ctx context.Context) error {
 // or if the server cannot be shut down
 func (s *Sparrow) shutdownAPI(ctx context.Context) error {
 	errC := ctx.Err()
-	log := logger.FromContext(ctx).WithGroup("api")
+	log := logger.FromContext(ctx)
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 	defer cancel()
 	err := s.server.Shutdown(shutdownCtx)

@@ -76,7 +76,7 @@ func NewGitlabManager(name string, gtmConfig config.TargetManagerConfig) *gitlab
 // The global targets are evaluated for healthiness and
 // unhealthy gitlabTargetManager are removed.
 func (t *gitlabTargetManager) Reconcile(ctx context.Context) error {
-	log := logger.FromContext(ctx).WithGroup("gitlabTargetManager")
+	log := logger.FromContext(ctx)
 	log.Info("Starting global gitlabTargetManager reconciler")
 
 	checkTimer := time.NewTimer(t.checkInterval)

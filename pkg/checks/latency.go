@@ -106,7 +106,7 @@ func (l *Latency) Run(ctx context.Context) error {
 }
 
 func (l *Latency) Startup(ctx context.Context, cResult chan<- Result) error {
-	log := logger.FromContext(ctx).WithGroup("latency")
+	log := logger.FromContext(ctx)
 	log.Debug("Starting latency check")
 
 	l.c = cResult
@@ -202,7 +202,7 @@ func (h *Latency) GetMetricCollectors() []prometheus.Collector {
 }
 
 func (l *Latency) check(ctx context.Context) map[string]LatencyResult {
-	log := logger.FromContext(ctx).WithGroup("check")
+	log := logger.FromContext(ctx)
 	log.Debug("Checking latency")
 	if len(l.cfg.Targets) == 0 {
 		log.Debug("No targets defined")
