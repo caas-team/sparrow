@@ -20,9 +20,11 @@ package sparrow
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"slices"
+	"time"
 
 	targets "github.com/caas-team/sparrow/pkg/sparrow/targets"
 
@@ -33,6 +35,8 @@ import (
 	"github.com/caas-team/sparrow/pkg/db"
 	"github.com/go-chi/chi/v5"
 )
+
+const shutdownTimeout = time.Second * 90
 
 type Sparrow struct {
 	db db.DB
@@ -81,6 +85,7 @@ func New(cfg *config.Config) *Sparrow {
 // Run starts the sparrow
 func (s *Sparrow) Run(ctx context.Context) error {
 	ctx, cancel := logger.NewContextWithLogger(ctx, "sparrow")
+	log := logger.FromContext(ctx)
 	defer cancel()
 
 	go s.loader.Run(ctx)
@@ -89,17 +94,14 @@ func (s *Sparrow) Run(ctx context.Context) error {
 	go func() {
 		err := s.api(ctx)
 		if err != nil {
-			panic(fmt.Sprintf("Failed to start api: %v", err))
+			log.Error("Error running api server", "error", err)
 		}
 	}()
 
 	for {
 		select {
 		case <-ctx.Done():
-			if err := ctx.Err(); err != nil {
-				return err
-			}
-			return nil
+			return s.shutdown(ctx)
 		case result := <-s.cResult:
 			go s.db.Save(result)
 		case configChecks := <-s.cCfgChecks:
@@ -277,4 +279,18 @@ func fanInResults(checkChan chan checks.Result, cResult chan checks.ResultDTO, n
 			Result: &i,
 		}
 	}
+}
+
+// shutdown shuts down the sparrow and all managed components gracefully.
+// It returns an error if one is present in the context or if any of the
+// components fail to shut down.
+func (s *Sparrow) shutdown(ctx context.Context) error {
+	errC := ctx.Err()
+	ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+	defer cancel()
+	errS := s.targets.Shutdown(ctx)
+	if errS != nil {
+		return fmt.Errorf("failed to shutdown sparrow: %w", errors.Join(errC, errS))
+	}
+	return errC
 }

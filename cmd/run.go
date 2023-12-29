@@ -20,6 +20,7 @@ package cmd
 
 import (
 	"context"
+	"os"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -116,7 +117,10 @@ func run(fm *config.RunFlagsNameMapping) func(cmd *cobra.Command, args []string)
 		s := sparrow.New(cfg)
 		log.Info("Running sparrow")
 		if err := s.Run(ctx); err != nil {
-			panic(err)
+			log.Error("Error while running sparrow", "error", err)
+			// by this time all shutdown routines should have been called
+			// so we can exit here
+			os.Exit(1)
 		}
 	}
 }

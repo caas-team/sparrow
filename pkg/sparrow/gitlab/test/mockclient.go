@@ -31,6 +31,7 @@ type MockClient struct {
 	fetchFilesErr error
 	putFileErr    error
 	postFileErr   error
+	deleteFileErr error
 }
 
 func (m *MockClient) PutFile(ctx context.Context, _ gitlab.File) error { //nolint: gocritic // irrelevant
@@ -51,6 +52,12 @@ func (m *MockClient) FetchFiles(ctx context.Context) ([]checks.GlobalTarget, err
 	return m.targets, m.fetchFilesErr
 }
 
+func (m *MockClient) DeleteFile(ctx context.Context, file gitlab.File) error { //nolint: gocritic // irrelevant
+	log := logger.FromContext(ctx)
+	log.Info("MockDeleteFile called", "filename", file, "err", m.deleteFileErr)
+	return m.deleteFileErr
+}
+
 // SetFetchFilesErr sets the error returned by FetchFiles
 func (m *MockClient) SetFetchFilesErr(err error) {
 	m.fetchFilesErr = err
@@ -64,6 +71,11 @@ func (m *MockClient) SetPutFileErr(err error) {
 // SetPostFileErr sets the error returned by PostFile
 func (m *MockClient) SetPostFileErr(err error) {
 	m.postFileErr = err
+}
+
+// SetDeleteFileErr sets the error returned by DeleteFile
+func (m *MockClient) SetDeleteFileErr(err error) {
+	m.deleteFileErr = err
 }
 
 // New creates a new MockClient to mock Gitlab interaction
