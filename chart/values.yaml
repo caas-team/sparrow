@@ -111,6 +111,7 @@ extraArgs:
 #   loaderHttpUrl:
 #   loaderInterval:
 #   loaderType: http | file
+#   tmconfig: /startupconfig/tmconfig.yaml
 
 # -- runtime configuration of the Sparrow
 # see: https://github.com/caas-team/sparrow#runtime

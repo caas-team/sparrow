@@ -17,11 +17,11 @@
     - [Startup](#startup)
         - [Loader](#loader)
     - [Runtime](#runtime)
-    - [TargetManager](#targetmanager)
+    - [TargetManager](#target-manager)
     - [Check: Health](#check-health)
     - [Health Metrics](#health-metrics)
-  - [Check: Latency](#check-latency)
-    - [Latency Metrics](#latency-metrics)
+    - [Check: Latency](#check-latency)
+        - [Latency Metrics](#latency-metrics)
 - [API](#api)
 - [Metrics](#metrics)
 - [Code of Conduct](#code-of-conduct)
@@ -108,9 +108,10 @@ Additionally check out the sparrow [configuration](#configuration) variants.
 
 ## Usage
 
-Use `sparrow run` to execute the instance using the binary. A `sparrowName` (a valid DNS name) is required to be passed, else
+Use `sparrow run` to execute the instance using the binary. A `sparrowName` (a valid DNS name) is required to be passed,
+else
 the sparrow will not start:
-    
+
 ```sh
 sparrow run --sparrowName sparrow.telekom.de
 ```
@@ -182,14 +183,14 @@ This is done via a `TargetManager` interface, which can be configured on startup
 are listed below and can be set in a startup YAML configuration file (per default `tmconfig.yaml` in the current
 directory).
 
-| Type                                 | Description                                                                          | Default              |
-|--------------------------------------|--------------------------------------------------------------------------------------|----------------------|
-| `targetManager.checkInterval`        | The interval in seconds to check for new targets.                                    | `300`                |
-| `targetManager.unhealthyThreshold`   | The threshold in seconds to mark a target as unhealthy and remove it from the state. | `600`                |
-| `targetManager.registrationInterval` | The interval in seconds to register the current sparrow at the targets backend.      | `300`                |
-| `targetManager.gitlab.token`         | The token to authenticate against the gitlab instance.                               | `""`                 |
-| `targetManager.gitlab.baseUrl`       | The base URL of the gitlab instance.                                                 | `https://gitlab.com` |
-| `targetManager.gitlab.projectId`     | The project ID of the gitlab project to use as a remote state backend.               | `""`                 |
+| Type                                 | Description                                                               | Default              |
+|--------------------------------------|---------------------------------------------------------------------------|----------------------|
+| `targetManager.checkInterval`        | The interval to check for new targets.                                    | `300s`               |
+| `targetManager.unhealthyThreshold`   | The threshold to mark a target as unhealthy and remove it from the state. | `600s`               |
+| `targetManager.registrationInterval` | The interval to register the current sparrow at the targets backend.      | `300s`               |
+| `targetManager.gitlab.token`         | The token to authenticate against the gitlab instance.                    | `""`                 |
+| `targetManager.gitlab.baseUrl`       | The base URL of the gitlab instance.                                      | `https://gitlab.com` |
+| `targetManager.gitlab.projectId`     | The project ID of the gitlab project to use as a remote state backend.    | `""`                 |
 
 Currently, only one target manager exists: the Gitlab target manager. It uses a gitlab project as the remote state
 backend. The various `sparrow` instances will
