@@ -36,6 +36,8 @@ spec:
           {{- if .Values.startupConfig}}
           - --config
           - /startupconfig/.sparrow.yaml
+          - --tmconfig 
+          - /startupconfig/tmconfig.yaml
           {{- else if .Values.extraArgs }}
           {{- range $key, $value := .Values.extraArgs }}
           - --{{ $key }}
