@@ -8,17 +8,17 @@
 
 - [About this component](#about-this-component)
 - [Installation](#installation)
-    - [Binary](#binary)
-    - [Container Image](#container-image)
-    - [Helm](#helm)
+  - [Binary](#binary)
+  - [Container Image](#container-image)
+  - [Helm](#helm)
 - [Usage](#usage)
-    - [Container Image](#container-image-1)
+  - [Image](#image)
 - [Configuration](#configuration)
-    - [Startup](#startup)
-        - [Loader](#loader)
-    - [Runtime](#runtime)
-    - [TargetManager](#targetmanager)
-    - [Check: Health](#check-health)
+  - [Startup](#startup)
+    - [Loader](#loader)
+  - [Runtime](#runtime)
+  - [Target Manager](#target-manager)
+  - [Check: Health](#check-health)
     - [Health Metrics](#health-metrics)
   - [Check: Latency](#check-latency)
     - [Latency Metrics](#latency-metrics)
@@ -110,12 +110,12 @@ Additionally check out the sparrow [configuration](#configuration) variants.
 
 Use `sparrow run` to execute the instance using the binary. A `sparrowName` (a valid DNS name) is required to be passed, else
 the sparrow will not start:
-    
+
 ```sh
 sparrow run --sparrowName sparrow.telekom.de
 ```
 
-### Container Image
+### Image
 
 Run a `sparrow` container by using e.g. `docker run ghcr.io/caas-team/sparrow`.
 
@@ -160,10 +160,9 @@ Available loader:
 
 ### Runtime
 
-Besides the technical startup configuration the configuration for the `sparrow` checks is loaded dynamically from an
-HTTP endpoint. The `loader` is able to load the configuration dynamically during the runtime. Checks can be enabled,
-disabled and configured. The available loader confutation options for the startup configuration can be found
-in [here](sparrow_run.md)
+In addition to the technical startup configuration, the `sparrow` checks' configuration can be dynamically loaded from an HTTP endpoint during runtime. The `loader` is capable of dynamically loading and configuring checks. You can enable, disable, and configure checks as needed.
+
+For detailed information on available loader configuration options, please refer to [this documentation](docs/sparrow_run.md).
 
 Example format of a runtime configuration:
 
@@ -183,10 +182,10 @@ are listed below and can be set in a startup YAML configuration file (per defaul
 directory).
 
 | Type                                 | Description                                                                          | Default              |
-|--------------------------------------|--------------------------------------------------------------------------------------|----------------------|
-| `targetManager.checkInterval`        | The interval in seconds to check for new targets.                                    | `300`                |
-| `targetManager.unhealthyThreshold`   | The threshold in seconds to mark a target as unhealthy and remove it from the state. | `600`                |
-| `targetManager.registrationInterval` | The interval in seconds to register the current sparrow at the targets backend.      | `300`                |
+| ------------------------------------ | ------------------------------------------------------------------------------------ | -------------------- |
+| `targetManager.checkInterval`        | The interval in seconds to check for new targets.                                    | `300s`               |
+| `targetManager.unhealthyThreshold`   | The threshold in seconds to mark a target as unhealthy and remove it from the state. | `600s`               |
+| `targetManager.registrationInterval` | The interval in seconds to register the current sparrow at the targets backend.      | `300s`               |
 | `targetManager.gitlab.token`         | The token to authenticate against the gitlab instance.                               | `""`                 |
 | `targetManager.gitlab.baseUrl`       | The base URL of the gitlab instance.                                                 | `https://gitlab.com` |
 | `targetManager.gitlab.projectId`     | The project ID of the gitlab project to use as a remote state backend.               | `""`                 |
@@ -229,28 +228,28 @@ checks:
 #### Health Metrics
 
 - `sparrow_health_up`
-    - Type: Gauge
-    - Description: Health of targets
-    - Labelled with `target`
+  - Type: Gauge
+  - Description: Health of targets
+  - Labelled with `target`
 
 ### Check: Latency
 
 Available configuration options:
 
 - `checks`
-    - `latency`
-        - `enabled` (boolean): Currently not used.
-        - `interval` (integer): Interval in seconds to perform the latency check.
-        - `timeout` (integer): Timeout in seconds for the latency check.
-        - `retry`
-            - `count` (integer): Number of retries for the latency check.
-            - `delay` (integer): Delay in seconds between retries for the latency check.
-        - `targets` (list of strings): List of targets to send latency probe. Needs to be a valid url. Can be
-          another `sparrow` instance. Use latency endpoint, e.g. `https://sparrow-dns.telekom.de/checks/latency`. The
-          remote `sparrow` instance needs the `latencyEndpoint` enabled.
-        - `latencyEndpoint` (boolean): Needs to be activated when the `sparrow` should expose its own latency endpoint.
-          Mandatory if another `sparrow` instance wants to perform a latency check.
-          Example configuration:
+  - `latency`
+    - `enabled` (boolean): Currently not used.
+    - `interval` (integer): Interval in seconds to perform the latency check.
+    - `timeout` (integer): Timeout in seconds for the latency check.
+    - `retry`
+      - `count` (integer): Number of retries for the latency check.
+      - `delay` (integer): Delay in seconds between retries for the latency check.
+    - `targets` (list of strings): List of targets to send latency probe. Needs to be a valid url. Can be
+      another `sparrow` instance. Use latency endpoint, e.g. `https://sparrow-dns.telekom.de/checks/latency`. The
+      remote `sparrow` instance needs the `latencyEndpoint` enabled.
+    - `latencyEndpoint` (boolean): Needs to be activated when the `sparrow` should expose its own latency endpoint.
+      Mandatory if another `sparrow` instance wants to perform a latency check.
+      Example configuration:
 
 ```yaml
 checks:
@@ -269,19 +268,19 @@ checks:
 #### Latency Metrics
 
 - `sparrow_latency_duration_seconds`
-    - Type: Gauge
-    - Description: Latency with status information of targets
-    - Labelled with `target` and `status`
+  - Type: Gauge
+  - Description: Latency with status information of targets
+  - Labelled with `target` and `status`
 
 - `sparrow_latency_count`
-    - Type: Counter
-    - Description: Count of latency checks done
-    - Labelled with `target`
+  - Type: Counter
+  - Description: Count of latency checks done
+  - Labelled with `target`
 
 - `sparrow_latency_duration`
-    - Type: Histogram
-    - Description: Latency of targets in seconds
-    - Labelled with `target`
+  - Type: Histogram
+  - Description: Latency of targets in seconds
+  - Labelled with `target`
 
 ## API
 
@@ -313,7 +312,7 @@ The application itself and all end-user facing content will be made available in
 The following channels are available for discussions, feedback, and support requests:
 
 | Type       | Channel                                                                                                                                                |
-|------------|--------------------------------------------------------------------------------------------------------------------------------------------------------|
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Issues** | <a href="/../../issues/new/choose" title="General Discussion"><img src="https://img.shields.io/github/issues/caas-team/sparrow?style=flat-square"></a> |
 
 ## How to Contribute
