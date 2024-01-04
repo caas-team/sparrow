@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"github.com/caas-team/sparrow/internal/helper"
+	"github.com/caas-team/sparrow/internal/httpclient"
 	"github.com/caas-team/sparrow/internal/logger"
 	"gopkg.in/yaml.v3"
 )
@@ -80,7 +81,7 @@ func (gl *HttpLoader) Run(ctx context.Context) {
 func (gl *HttpLoader) GetRuntimeConfig(ctx context.Context) (*RuntimeConfig, error) {
 	log := logger.FromContext(ctx).With("url", gl.cfg.Loader.http.url)
 
-	client := http.DefaultClient
+	client := *httpclient.FromContext(ctx)
 	client.Timeout = gl.cfg.Loader.http.timeout
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, gl.cfg.Loader.http.url, http.NoBody)
