@@ -36,10 +36,12 @@ spec:
           {{- if .Values.startupConfig}}
             - --config
             - /startupconfig/.sparrow.yaml
-          {{- else if .Values.targetManagerConfig}}
+          {{- end }}
+          {{- if .Values.targetManagerConfig}}
             - --tmconfig
             - /startupconfig/tmconfig.yaml
-          {{- else if .Values.extraArgs }}
+          {{- end }}
+          {{- if .Values.extraArgs }}
           {{- range $key, $value := .Values.extraArgs }}
             - --{{ $key }}
             - {{ $value }}
