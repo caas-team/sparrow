@@ -160,10 +160,9 @@ Available loader:
 
 ### Runtime
 
-Besides the technical startup configuration the configuration for the `sparrow` checks is loaded dynamically from an
-HTTP endpoint. The `loader` is able to load the configuration dynamically during the runtime. Checks can be enabled,
-disabled and configured. The available loader confutation options for the startup configuration can be found
-in [here](sparrow_run.md)
+In addition to the technical startup configuration, the `sparrow` checks' configuration can be dynamically loaded from an HTTP endpoint during runtime. The `loader` is capable of dynamically loading and configuring checks. You can enable, disable, and configure checks as needed.
+
+For detailed information on available loader configuration options, please refer to [this documentation](docs/sparrow_run.md).
 
 Example format of a runtime configuration:
 
@@ -183,7 +182,7 @@ are listed below and can be set in a startup YAML configuration file (per defaul
 directory).
 
 | Type                                 | Description                                                                          | Default              |
-|--------------------------------------|--------------------------------------------------------------------------------------|----------------------|
+| ------------------------------------ | ------------------------------------------------------------------------------------ | -------------------- |
 | `targetManager.checkInterval`        | The interval in seconds to check for new targets.                                    | `300s`               |
 | `targetManager.unhealthyThreshold`   | The threshold in seconds to mark a target as unhealthy and remove it from the state. | `600s`               |
 | `targetManager.registrationInterval` | The interval in seconds to register the current sparrow at the targets backend.      | `300s`               |
@@ -313,7 +312,7 @@ The application itself and all end-user facing content will be made available in
 The following channels are available for discussions, feedback, and support requests:
 
 | Type       | Channel                                                                                                                                                |
-|------------|--------------------------------------------------------------------------------------------------------------------------------------------------------|
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Issues** | <a href="/../../issues/new/choose" title="General Discussion"><img src="https://img.shields.io/github/issues/caas-team/sparrow?style=flat-square"></a> |
 
 ## How to Contribute
