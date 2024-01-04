@@ -48,7 +48,7 @@ func TestSparrow_register(t *testing.T) {
 
 	s.register(context.Background())
 
-	expectedRoutes := []string{"/openapi.yaml", "/v1/metrics/{checkName}", "/checks/*", "/metrics"}
+	expectedRoutes := []string{"/openapi.yaml", "/v1/metrics/{checkName}", "/checks/*", "/metrics", "/"}
 	routes := r.Routes()
 	for _, route := range expectedRoutes {
 		found := 0
@@ -289,5 +289,30 @@ func TestSparrow_getOpenapi(t *testing.T) {
 				t.Errorf("Sparrow.getOpenapi() = %v, want %v", tt.args.response.Code, http.StatusOK)
 			}
 		})
+	}
+}
+
+func Test_okHandler(t *testing.T) {
+	ctx := context.Background()
+
+	req, err := http.NewRequestWithContext(ctx, "GET", "/okHandler", http.NoBody)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+	handler := okHandler(ctx)
+
+	handler.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("Handler returned wrong status code: got %v want %v",
+			status, http.StatusOK)
+	}
+
+	expected := "ok"
+	if rr.Body.String() != expected {
+		t.Errorf("Handler returned unexpected body: got %v want %v",
+			rr.Body.String(), expected)
 	}
 }
