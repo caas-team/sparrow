@@ -61,7 +61,7 @@ func NewCmdRun() *cobra.Command {
 	}
 
 	cmd.PersistentFlags().String(flagMapping.ApiAddress, ":8080", "api: The address the server is listening on")
-	cmd.PersistentFlags().String(flagMapping.SparrowName, "sparrow", "The DNS name of the sparrow")
+	cmd.PersistentFlags().String(flagMapping.SparrowName, "", "The DNS name of the sparrow")
 	cmd.PersistentFlags().StringP(flagMapping.LoaderType, "l", "http",
 		"defines the loader type that will load the checks configuration during the runtime. The fallback is the fileLoader")
 	cmd.PersistentFlags().Int(flagMapping.LoaderInterval, defaultLoaderInterval, "defines the interval the loader reloads the configuration in seconds")

@@ -111,6 +111,7 @@ extraArgs:
 #   loaderHttpUrl:
 #   loaderInterval:
 #   loaderType: http | file
+#   sparrowName: the-sparrow.com
 
 # -- target manager configuration of the Sparrow (part of the startup)
 # targetManagerConfig:
