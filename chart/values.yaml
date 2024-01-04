@@ -101,7 +101,7 @@ extraArgs:
 
 # -- startup configuration of the Sparrow
 # see: https://github.com/caas-team/sparrow/blob/main/docs/sparrow_run.md
-# startupConfig:
+startupConfig: {}
 #   apiAddress:
 #   loaderFilePath: /runconfig/checks.yaml
 #   loaderHttpRetryCount:
@@ -113,18 +113,9 @@ extraArgs:
 #   loaderType: http | file
 #   sparrowName: the-sparrow.com
 
-# -- target manager configuration of the Sparrow (part of the startup)
-# targetManagerConfig:
-#   checkInterval: 300s
-#   unhealthyThreshold: 600s
-#   registrationInterval: 300s
-#   gitlab:
-#     token: ""
-#     baseUrl: https://gitlab.com
-#     projectId: ""
 
 # -- target manager configuration of the Sparrow (part of the startup)
-# targetManagerConfig:
+targetManagerConfig: {}
 #   checkInterval: 300s
 #   unhealthyThreshold: 600s
 #   registrationInterval: 300s
