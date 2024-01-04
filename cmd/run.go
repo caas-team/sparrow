@@ -71,7 +71,7 @@ func NewCmdRun() *cobra.Command {
 	cmd.PersistentFlags().Int(flagMapping.LoaderHttpRetryCount, defaultHttpRetryCount, "http loader: Amount of retries trying to load the configuration")
 	cmd.PersistentFlags().Int(flagMapping.LoaderHttpRetryDelay, defaultHttpRetryDelay, "http loader: The initial delay between retries in seconds")
 	cmd.PersistentFlags().String(flagMapping.LoaderFilePath, "config.yaml", "file loader: The path to the file to read the runtime config from")
-	cmd.PersistentFlags().String(flagMapping.TargetManagerConfig, "tmconfig.yaml", "target manager: The path to the file to read the target manager config from")
+	cmd.PersistentFlags().String(flagMapping.TargetManagerConfig, "", "target manager: The path to the file to read the target manager config from")
 
 	_ = viper.BindPFlag(flagMapping.ApiAddress, cmd.PersistentFlags().Lookup(flagMapping.ApiAddress))
 	_ = viper.BindPFlag(flagMapping.SparrowName, cmd.PersistentFlags().Lookup(flagMapping.SparrowName))
