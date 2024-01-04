@@ -74,8 +74,10 @@ func New(cfg *config.Config) *Sparrow {
 	}
 
 	// Set the target manager
-	gm := targets.NewGitlabManager(cfg.SparrowName, cfg.TargetManager)
-	sparrow.targets = gm
+	if cfg.HasTargetManager() {
+		gm := targets.NewGitlabManager(cfg.SparrowName, cfg.TargetManager)
+		sparrow.targets = gm
+	}
 
 	sparrow.loader = config.NewLoader(cfg, sparrow.cCfgChecks)
 	sparrow.db = db.NewInMemory()
@@ -89,7 +91,11 @@ func (s *Sparrow) Run(ctx context.Context) error {
 	defer cancel()
 
 	go s.loader.Run(ctx)
-	go s.targets.Reconcile(ctx)
+
+	if s.targets != nil {
+		go s.targets.Reconcile(ctx)
+	}
+
 	// Start the api
 	go func() {
 		err := s.api(ctx)
@@ -180,6 +186,10 @@ func (s *Sparrow) updateCheckTargets(cfg any) any {
 		actual = append(actual, v.(string))
 	}
 	var urls []string
+
+	if s.targets == nil {
+		return checkCfg
+	}
 	gt := s.targets.GetTargets()
 
 	// filter out globalTargets that are already in the config and self

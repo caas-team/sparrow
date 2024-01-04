@@ -79,6 +79,10 @@ type FileLoaderConfig struct {
 // NewTargetManagerConfig creates a new TargetManagerConfig
 // from the passed file
 func NewTargetManagerConfig(path string) TargetManagerConfig {
+	if path == "" {
+		return TargetManagerConfig{}
+	}
+
 	var res TargetManagerConfig
 	f, err := os.ReadFile(path) //#nosec G304
 	if err != nil {
@@ -154,4 +158,9 @@ func (c *Config) SetLoaderHttpRetryDelay(retryDelay int) {
 // SetTargetManagerConfig sets the target manager config
 func (c *Config) SetTargetManagerConfig(config TargetManagerConfig) {
 	c.TargetManager = config
+}
+
+// HasTargetManager returns true if the config has a target manager
+func (c *Config) HasTargetManager() bool {
+	return c.TargetManager != TargetManagerConfig{}
 }
