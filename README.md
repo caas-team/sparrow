@@ -171,7 +171,7 @@ apiVersion: 0.0.1
 kind: Config
 checks:
   health:
-    enabled: true
+    targets: []
 ```
 
 ### Target Manager
@@ -207,22 +207,16 @@ which is named after the DNS name of the `sparrow`. The state file contains the 
 
 Available configuration options:
 
-- `checks.health.enabled` (boolean): Currently not used.
 - `checks.health.targets` (list of strings): List of targets to send health probe. Needs to be a valid url. Can be
-  another `sparrow` instance. Use health endpoint, e.g. `https://sparrow-dns.telekom.de/checks/health`. The
-  remote `sparrow` instance needs the `healthEndpoint` enabled.
-- `checks.health.healthEndpoint` (boolean): Needs to be activated when the `sparrow` should expose its own health
-  endpoint. Mandatory if another `sparrow` instance wants to perform a health check.
+  another `sparrow` instance. Automatically used when target manager is activated otherwise use the health endpoint of the remote sparrow, e.g. `https://sparrow-dns.telekom.de/checks/health`.
 
 Example configuration:
 
 ```YAML
 checks:
   health:
-    enabled: true
     targets:
       - "https://gitlab.devops.telekom.de"
-    healthEndpoint: false
 ```
 
 #### Health Metrics
@@ -238,15 +232,14 @@ Available configuration options:
 
 - `checks`
   - `latency`
-    - `enabled` (boolean): Currently not used.
     - `interval` (integer): Interval in seconds to perform the latency check.
     - `timeout` (integer): Timeout in seconds for the latency check.
     - `retry`
       - `count` (integer): Number of retries for the latency check.
       - `delay` (integer): Delay in seconds between retries for the latency check.
     - `targets` (list of strings): List of targets to send latency probe. Needs to be a valid url. Can be
-      another `sparrow` instance. Use latency endpoint, e.g. `https://sparrow-dns.telekom.de/checks/latency`. The
-      remote `sparrow` instance needs the `latencyEndpoint` enabled.
+      another `sparrow` instance. Automatically used when the target manager is enabled otherwise
+      use latency endpoint, e.g. `https://sparrow-dns.telekom.de/checks/latency`.
     - `latencyEndpoint` (boolean): Needs to be activated when the `sparrow` should expose its own latency endpoint.
       Mandatory if another `sparrow` instance wants to perform a latency check.
       Example configuration:
@@ -254,7 +247,6 @@ Available configuration options:
 ```yaml
 checks:
   latency:
-    enabled: true
     interval: 1
     timeout: 3
     retry:
