@@ -12,16 +12,13 @@ data:
     checks:
       {{- if .Values.runtimeConfig.health}}
       health:
-        enabled: {{ .Values.runtimeConfig.health.enabled }}
         targets:
         {{- with .Values.runtimeConfig.health.targets }}
           {{- toYaml . | nindent 10 }}
         {{- end }}
-        healthEndpoint: {{ .Values.runtimeConfig.health.healthEndpoint  }}
       {{- end }}
       {{- if .Values.runtimeConfig.latency }}
       latency:
-        enabled: true
         interval: {{ .Values.runtimeConfig.latency.interval | default 1 }}
         timeout: {{ .Values.runtimeConfig.latency.timeout | default 3 }}
         retry:

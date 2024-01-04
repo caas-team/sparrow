@@ -128,13 +128,10 @@ targetManagerConfig: {}
 # see: https://github.com/caas-team/sparrow#runtime
 runtimeConfig:
   health:
-    enabled: true
     targets:
       - "https://www.example.com/"
       - "https://www.google.com/"
-    healthEndpoint: false
   latency:
-    enabled: true
     interval: 1
     timeout: 3
     retry:
