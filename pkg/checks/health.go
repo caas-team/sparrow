@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"github.com/caas-team/sparrow/internal/helper"
+	"github.com/caas-team/sparrow/internal/httpclient"
 	"github.com/caas-team/sparrow/internal/logger"
 	"github.com/caas-team/sparrow/pkg/api"
 	"github.com/getkin/kin-openapi/openapi3"
@@ -130,11 +131,6 @@ func (h *Health) SetConfig(_ context.Context, config any) error {
 	return nil
 }
 
-// SetClient sets the http client for the health check
-func (h *Health) SetClient(_ *http.Client) {
-	// TODO: implement with issue #31
-}
-
 // Schema provides the schema of the data that will be provided
 // by the heath check
 func (h *Health) Schema() (*openapi3.SchemaRef, error) {
@@ -237,10 +233,7 @@ func (h *Health) check(ctx context.Context) healthData {
 // returns ok if status code is 200
 func getHealth(ctx context.Context, url string) error {
 	log := logger.FromContext(ctx).With("url", url)
-
-	client := &http.Client{
-		Timeout: time.Second * 5,
-	}
+	c := httpclient.FromContext(ctx)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 	if err != nil {
@@ -248,7 +241,7 @@ func getHealth(ctx context.Context, url string) error {
 		return err
 	}
 
-	res, err := client.Do(req)
+	res, err := c.Do(req)
 	if err != nil {
 		log.Error("Http get request failed", "error", err.Error())
 		return err

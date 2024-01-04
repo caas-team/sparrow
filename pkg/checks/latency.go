@@ -32,6 +32,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/caas-team/sparrow/internal/helper"
+	"github.com/caas-team/sparrow/internal/httpclient"
 	"github.com/caas-team/sparrow/internal/logger"
 	"github.com/caas-team/sparrow/pkg/api"
 )
@@ -44,7 +45,6 @@ func NewLatencyCheck() Check {
 		cfg:     LatencyConfig{},
 		c:       nil,
 		done:    make(chan bool, 1),
-		client:  &http.Client{},
 		metrics: newLatencyMetrics(),
 	}
 }
@@ -54,7 +54,6 @@ type Latency struct {
 	mu      sync.Mutex
 	c       chan<- Result
 	done    chan bool
-	client  *http.Client
 	metrics latencyMetrics
 }
 
@@ -135,13 +134,6 @@ func (l *Latency) SetConfig(_ context.Context, config any) error {
 	return nil
 }
 
-// SetClient sets the http client for the latency check
-func (l *Latency) SetClient(c *http.Client) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	l.client = c
-}
-
 func (l *Latency) Schema() (*openapi3.SchemaRef, error) {
 	return OpenapiFromPerfData(make(map[string]LatencyResult))
 }
@@ -214,16 +206,26 @@ func (l *Latency) check(ctx context.Context) map[string]LatencyResult {
 	var wg sync.WaitGroup
 	results := map[string]LatencyResult{}
 
-	l.mu.Lock()
-	l.client.Timeout = l.cfg.Timeout * time.Second
-	l.mu.Unlock()
+	// Extracting a copy of the http.Client from the context at the start of the function allows us
+	// to safely modify its Timeout property for the latency check without affecting other operations.
+	// This is crucial because different checks might require different timeout settings based on
+	// their nature and the targets they're accessing.
+	// By making a copy, we ensure that these modifications are isolated to each specific check,
+	// preventing race conditions and ensuring that each part of the application can specify
+	// its own requirements.
+	// If a check doesn't need to adjust client properties, it could directly retrieve and use
+	// the client from the context just before the request to minimize modifications
+	// and use the default configuration.
+	c := *httpclient.FromContext(ctx)
+	c.Timeout = l.cfg.Timeout * time.Second
+
 	for _, t := range l.cfg.Targets {
 		target := t
 		wg.Add(1)
 		lo := log.With("target", target)
 
 		getLatencyRetry := helper.Retry(func(ctx context.Context) error {
-			res := getLatency(ctx, l.client, target)
+			res := getLatency(ctx, &c, target)
 			mu.Lock()
 			defer mu.Unlock()
 			results[target] = res
@@ -256,7 +258,7 @@ func (l *Latency) check(ctx context.Context) map[string]LatencyResult {
 }
 
 // getLatency performs an HTTP get request and returns ok if request succeeds
-func getLatency(ctx context.Context, client *http.Client, url string) LatencyResult {
+func getLatency(ctx context.Context, c *http.Client, url string) LatencyResult {
 	log := logger.FromContext(ctx).With("url", url)
 	var res LatencyResult
 
@@ -269,7 +271,7 @@ func getLatency(ctx context.Context, client *http.Client, url string) LatencyRes
 	}
 
 	start := time.Now()
-	resp, err := client.Do(req) //nolint:bodyclose // Closed in defer below
+	resp, err := c.Do(req) //nolint:bodyclose // Closed in defer below
 	if err != nil {
 		log.Error("Error while checking latency", "error", err)
 		errval := err.Error()
