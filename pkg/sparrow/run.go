@@ -96,7 +96,7 @@ func New(cfg *config.Config) *Sparrow {
 
 // Run starts the sparrow
 func (s *Sparrow) Run(ctx context.Context) error {
-	ctx, cancel := logger.NewContextWithLogger(ctx, "sparrow")
+	ctx, cancel := logger.NewContextWithLogger(ctx)
 	defer cancel()
 
 	go func() {

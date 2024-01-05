@@ -48,7 +48,7 @@ func NewHttpLoader(cfg *Config, cCfgChecks chan<- map[string]any) *HttpLoader {
 // loader interval configuration. A failed request will be retried defined
 // by the retry configuration
 func (hl *HttpLoader) Run(ctx context.Context) error {
-	ctx, cancel := logger.NewContextWithLogger(ctx, "httpLoader")
+	ctx, cancel := logger.NewContextWithLogger(ctx)
 	defer cancel()
 	log := logger.FromContext(ctx)
 	var runtimeCfg *RuntimeConfig

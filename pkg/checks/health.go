@@ -80,7 +80,7 @@ func NewHealthCheck() Check {
 
 // Run starts the health check
 func (h *Health) Run(ctx context.Context) error {
-	ctx, cancel := logger.NewContextWithLogger(ctx, "health")
+	ctx, cancel := logger.NewContextWithLogger(ctx)
 	defer cancel()
 	log := logger.FromContext(ctx)
 

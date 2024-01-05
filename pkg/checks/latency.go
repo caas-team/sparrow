@@ -79,7 +79,7 @@ type latencyMetrics struct {
 }
 
 func (l *Latency) Run(ctx context.Context) error {
-	ctx, cancel := logger.NewContextWithLogger(ctx, "latency")
+	ctx, cancel := logger.NewContextWithLogger(ctx)
 	defer cancel()
 	log := logger.FromContext(ctx)
 	log.Info(fmt.Sprintf("Using latency check interval of %s", l.cfg.Interval.String()))

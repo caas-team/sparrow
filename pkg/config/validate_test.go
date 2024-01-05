@@ -28,7 +28,7 @@ import (
 )
 
 func TestConfig_Validate(t *testing.T) {
-	ctx, cancel := logger.NewContextWithLogger(context.Background(), "validation-test")
+	ctx, cancel := logger.NewContextWithLogger(context.Background())
 	defer cancel()
 
 	type fields struct {

@@ -91,7 +91,7 @@ func (t *gitlabTargetManager) Reconcile(ctx context.Context) error {
 			log.Error("Context canceled", "err", ctx.Err())
 			return ctx.Err()
 		case <-t.done:
-			log.Info("Ending Reconcile routine")
+			log.Info("Gitlab target reconciliation ended")
 			return nil
 		case <-checkTimer.C:
 			err := t.refreshTargets(ctx)
@@ -146,7 +146,7 @@ func (t *gitlabTargetManager) Shutdown(ctx context.Context) error {
 
 	select {
 	case t.done <- struct{}{}:
-		log.Info("Stopping reconcile routine")
+		log.Debug("Stopping gitlab reconciliation routine")
 	default:
 	}
 

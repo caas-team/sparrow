@@ -43,7 +43,7 @@ func NewFileLoader(cfg *Config, cCfgChecks chan<- map[string]any) *FileLoader {
 }
 
 func (f *FileLoader) Run(ctx context.Context) error {
-	log := logger.FromContext(ctx).WithGroup("FileLoader")
+	log := logger.FromContext(ctx)
 	log.Info("Reading config from file", "file", f.path)
 	// TODO refactor this to use fs.FS
 	b, err := os.ReadFile(f.path)
