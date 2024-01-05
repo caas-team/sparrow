@@ -84,7 +84,6 @@ func New(cfg *config.Config) *Sparrow {
 
 	sparrow.server = &http.Server{Addr: cfg.Api.ListeningAddress, Handler: sparrow.router, ReadHeaderTimeout: readHeaderTimeout}
 
-	// Set the target manager
 	if cfg.HasTargetManager() {
 		gm := targets.NewGitlabManager(cfg.SparrowName, cfg.TargetManager)
 		sparrow.targets = gm
@@ -119,8 +118,6 @@ func (s *Sparrow) Run(ctx context.Context) error {
 		case result := <-s.cResult:
 			go s.db.Save(result)
 		case configChecks := <-s.cCfgChecks:
-			// Config got updated
-			// Set checks
 			s.cfg.Checks = configChecks
 			s.ReconcileChecks(ctx)
 		case <-s.cDone:
@@ -309,11 +306,16 @@ func (s *Sparrow) shutdown(ctx context.Context) {
 	log := logger.FromContext(ctx)
 	ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 	defer cancel()
-	errS := s.targets.Shutdown(ctx)
+
+	var errS error
+	if s.cfg.HasTargetManager() {
+		errS = s.targets.Shutdown(ctx)
+	}
 	errA := s.shutdownAPI(ctx)
 	if errS != nil || errA != nil {
 		log.Error("Failed to shutdown gracefully", "contextError", errC, "apiError", errA, "targetError", errS)
 	}
+
 	s.cDone <- struct{}{}
 }
 

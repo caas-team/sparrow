@@ -90,14 +90,14 @@ func (s *Sparrow) api(ctx context.Context) error {
 
 	select {
 	case <-ctx.Done():
-		return fmt.Errorf("cannot : %w", ctx.Err())
+		return fmt.Errorf("failed serving API: %w", ctx.Err())
 	case err := <-cErr:
 		if errors.Is(err, http.ErrServerClosed) || err == nil {
 			log.Info("Api server closed")
 			return nil
 		}
-		log.Error("failed to serve api", "error", err)
-		return fmt.Errorf("error serving api: %w", errors.Join(ErrServeApi, err))
+		log.Error("failed serving API", "error", err)
+		return fmt.Errorf("failed serving API: %w", err)
 	}
 }
 
