@@ -28,7 +28,6 @@ import (
 
 	targets "github.com/caas-team/sparrow/pkg/sparrow/targets"
 
-	"github.com/caas-team/sparrow/internal/httpclient"
 	"github.com/caas-team/sparrow/internal/logger"
 	"github.com/caas-team/sparrow/pkg/api"
 	"github.com/caas-team/sparrow/pkg/checks"
@@ -37,7 +36,10 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-const shutdownTimeout = time.Second * 90
+const (
+	shutdownTimeout = 90 * time.Second
+	requestTimeout  = 30 * time.Second
+)
 
 type Sparrow struct {
 	db db.DB
@@ -60,6 +62,10 @@ type Sparrow struct {
 
 // New creates a new sparrow from a given configfile
 func New(cfg *config.Config) *Sparrow {
+	http.DefaultClient = &http.Client{
+		Transport: http.DefaultTransport,
+		Timeout:   requestTimeout,
+	}
 	sparrow := &Sparrow{
 		db:          db.NewInMemory(),
 		checks:      make(map[string]checks.Check),
@@ -86,7 +92,6 @@ func New(cfg *config.Config) *Sparrow {
 // Run starts the sparrow
 func (s *Sparrow) Run(ctx context.Context) error {
 	ctx, cancel := logger.NewContextWithLogger(ctx, "sparrow")
-	ctx = httpclient.IntoContext(ctx, &http.Client{})
 	log := logger.FromContext(ctx)
 	defer cancel()
 	go s.loader.Run(ctx)
