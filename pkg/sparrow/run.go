@@ -28,6 +28,7 @@ import (
 
 	targets "github.com/caas-team/sparrow/pkg/sparrow/targets"
 
+	"github.com/caas-team/sparrow/internal/httpclient"
 	"github.com/caas-team/sparrow/internal/logger"
 	"github.com/caas-team/sparrow/pkg/api"
 	"github.com/caas-team/sparrow/pkg/checks"
@@ -42,7 +43,6 @@ type Sparrow struct {
 	db db.DB
 	// the existing checks
 	checks map[string]checks.Check
-	client *http.Client
 
 	metrics Metrics
 
@@ -63,7 +63,6 @@ func New(cfg *config.Config) *Sparrow {
 	sparrow := &Sparrow{
 		db:          db.NewInMemory(),
 		checks:      make(map[string]checks.Check),
-		client:      &http.Client{},
 		metrics:     NewMetrics(),
 		resultFanIn: make(map[string]chan checks.Result),
 		cResult:     make(chan checks.ResultDTO, 1),
@@ -87,9 +86,9 @@ func New(cfg *config.Config) *Sparrow {
 // Run starts the sparrow
 func (s *Sparrow) Run(ctx context.Context) error {
 	ctx, cancel := logger.NewContextWithLogger(ctx, "sparrow")
+	ctx = httpclient.IntoContext(ctx, &http.Client{})
 	log := logger.FromContext(ctx)
 	defer cancel()
-
 	go s.loader.Run(ctx)
 
 	if s.targets != nil {
@@ -223,7 +222,6 @@ func (s *Sparrow) registerCheck(ctx context.Context, name string, checkCfg any) 
 	checkChan := make(chan checks.Result, 1)
 	s.resultFanIn[name] = checkChan
 
-	check.SetClient(s.client)
 	err := check.SetConfig(ctx, checkCfg)
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to set config for check", "error", err)

@@ -20,7 +20,6 @@ package sparrow
 
 import (
 	"context"
-	"net/http"
 	"reflect"
 	"testing"
 	"time"
@@ -60,7 +59,6 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 		},
 		RegisterHandlerFunc:   func(ctx context.Context, router *api.RoutingTree) {},
 		DeregisterHandlerFunc: func(ctx context.Context, router *api.RoutingTree) {},
-		SetClientFunc:         func(c *http.Client) {},
 		GetMetricCollectorsFunc: func() []prometheus.Collector {
 			return []prometheus.Collector{}
 		},
