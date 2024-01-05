@@ -39,7 +39,7 @@ import (
 )
 
 func TestSparrow_ReconcileChecks(t *testing.T) {
-	ctx, cancel := logger.NewContextWithLogger(context.Background(), "sparrow-test")
+	ctx, cancel := logger.NewContextWithLogger(context.Background())
 	defer cancel()
 
 	mockCheck := checks.CheckMock{

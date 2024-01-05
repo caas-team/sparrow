@@ -64,7 +64,13 @@ func TestFileLoader_Run(t *testing.T) {
 				path: tt.fields.path,
 				c:    tt.fields.c,
 			}
-			go f.Run(*tt.args.ctx)
+			go func() {
+				err := f.Run(*tt.args.ctx)
+				if err != nil {
+					t.Errorf("Expected no error, got %v", err)
+					return
+				}
+			}()
 			(*tt.args.cancel)()
 
 			config := <-tt.fields.c
