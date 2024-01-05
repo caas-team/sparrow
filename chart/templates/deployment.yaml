@@ -30,16 +30,21 @@ spec:
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
-        {{- if or .Values.extraArgs .Values.startupConfig}}
+        {{- if or .Values.extraArgs .Values.startupConfig .Values.targetManagerConfig}}
         - args:
         {{- end }}
           {{- if .Values.startupConfig}}
-          - --config
-          - /startupconfig/.sparrow.yaml
-          {{- else if .Values.extraArgs }}
+            - --config
+            - /startupconfig/.sparrow.yaml
+          {{- end }}
+          {{- if .Values.targetManagerConfig}}
+            - --tmconfig
+            - /startupconfig/tmconfig.yaml
+          {{- end }}
+          {{- if .Values.extraArgs }}
           {{- range $key, $value := .Values.extraArgs }}
-          - --{{ $key }}
-          - {{ $value }}
+            - --{{ $key }}
+            - {{ $value }}
           {{- end }}
           {{- end }}
           {{- if .Values.env }}

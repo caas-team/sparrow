@@ -49,9 +49,7 @@ type Health struct {
 
 // HealthConfig contains the health check config
 type HealthConfig struct {
-	Enabled        bool     `json:"enabled,omitempty"`
-	Targets        []string `json:"targets,omitempty"`
-	HealthEndpoint bool     `json:"healthEndpoint,omitempty"`
+	Targets []string `json:"targets,omitempty"`
 }
 
 // Data that will be stored in the database
@@ -144,17 +142,14 @@ func (h *Health) Schema() (*openapi3.SchemaRef, error) {
 }
 
 // RegisterHandler dynamically registers a server handler
-// if it is enabled by the config
 func (h *Health) RegisterHandler(ctx context.Context, router *api.RoutingTree) {
 	log := logger.FromContext(ctx)
-	if h.config.HealthEndpoint {
-		router.Add(http.MethodGet, h.route, func(w http.ResponseWriter, _ *http.Request) {
-			_, err := w.Write([]byte("ok"))
-			if err != nil {
-				log.Error("Could not write response", "error", err.Error())
-			}
-		})
-	}
+	router.Add(http.MethodGet, h.route, func(w http.ResponseWriter, _ *http.Request) {
+		_, err := w.Write([]byte("ok"))
+		if err != nil {
+			log.Error("Could not write response", "error", err.Error())
+		}
+	})
 }
 
 // DeregisterHandler dynamically deletes the server handler

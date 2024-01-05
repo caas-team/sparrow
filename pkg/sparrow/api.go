@@ -58,6 +58,11 @@ func (s *Sparrow) register(ctx context.Context) {
 	// handlers are (de)registered by the checks themselves
 	s.router.HandleFunc("/checks/*", s.handleChecks)
 
+	// Handles requests with simple http ok
+	// Required for global targets in checks
+	s.router.Handle("/", okHandler(ctx))
+
+	// Handles prometheus metrics
 	s.router.Handle("/metrics",
 		promhttp.HandlerFor(
 			s.metrics.GetRegistry(),
@@ -110,6 +115,19 @@ func (s *Sparrow) shutdownAPI(ctx context.Context) error {
 		return fmt.Errorf("failed shutting down API: %w", errors.Join(errC, err))
 	}
 	return errC
+}
+
+// okHandler returns a handler that will serve status ok
+func okHandler(ctx context.Context) http.Handler {
+	log := logger.FromContext(ctx)
+
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, err := w.Write([]byte("ok"))
+		if err != nil {
+			log.Error("Could not write response", "error", err.Error())
+		}
+	})
 }
 
 var oapiBoilerplate = openapi3.T{

@@ -61,7 +61,7 @@ func NewCmdRun() *cobra.Command {
 	}
 
 	cmd.PersistentFlags().String(flagMapping.ApiAddress, ":8080", "api: The address the server is listening on")
-	cmd.PersistentFlags().String(flagMapping.SparrowName, "sparrow", "The DNS name of the sparrow")
+	cmd.PersistentFlags().String(flagMapping.SparrowName, "", "The DNS name of the sparrow")
 	cmd.PersistentFlags().StringP(flagMapping.LoaderType, "l", "http",
 		"defines the loader type that will load the checks configuration during the runtime. The fallback is the fileLoader")
 	cmd.PersistentFlags().Int(flagMapping.LoaderInterval, defaultLoaderInterval, "defines the interval the loader reloads the configuration in seconds")
@@ -71,7 +71,7 @@ func NewCmdRun() *cobra.Command {
 	cmd.PersistentFlags().Int(flagMapping.LoaderHttpRetryCount, defaultHttpRetryCount, "http loader: Amount of retries trying to load the configuration")
 	cmd.PersistentFlags().Int(flagMapping.LoaderHttpRetryDelay, defaultHttpRetryDelay, "http loader: The initial delay between retries in seconds")
 	cmd.PersistentFlags().String(flagMapping.LoaderFilePath, "config.yaml", "file loader: The path to the file to read the runtime config from")
-	cmd.PersistentFlags().String(flagMapping.TargetManagerConfig, "tmconfig.yaml", "target manager: The path to the file to read the target manager config from")
+	cmd.PersistentFlags().String(flagMapping.TargetManagerConfig, "", "target manager: The path to the file to read the target manager config from")
 
 	_ = viper.BindPFlag(flagMapping.ApiAddress, cmd.PersistentFlags().Lookup(flagMapping.ApiAddress))
 	_ = viper.BindPFlag(flagMapping.SparrowName, cmd.PersistentFlags().Lookup(flagMapping.SparrowName))

@@ -40,42 +40,32 @@ func TestHealth_SetConfig(t *testing.T) {
 		{
 			name: "simple config",
 			inputConfig: map[string]any{
-				"enabled": true,
 				"targets": []any{
 					"test",
 				},
-				"healthEndpoint": true,
 			},
 			expectedConfig: HealthConfig{
-				Enabled: true,
 				Targets: []string{
 					"test",
 				},
-				HealthEndpoint: true,
 			},
 			wantErr: false,
 		},
 		{
-			name: "missing config field",
-			inputConfig: map[string]any{
-				"healthEndpoint": true,
-			},
+			name:        "missing config field",
+			inputConfig: map[string]any{},
 			expectedConfig: HealthConfig{
-				Enabled:        false,
-				Targets:        nil,
-				HealthEndpoint: true,
+				Targets: nil,
 			},
 			wantErr: false,
 		},
 		{
 			name: "wrong type",
 			inputConfig: map[string]any{
-				"enabled":        "not bool",
-				"target":         "not a slice",
-				"healthEndpoint": true,
+				"target": struct{ name string }{name: "bla"},
 			},
 			expectedConfig: HealthConfig{},
-			wantErr:        true,
+			wantErr:        false,
 		},
 	}
 	for _, tt := range tests {
