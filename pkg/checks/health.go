@@ -21,6 +21,7 @@ package checks
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"sync"
 	"time"
@@ -33,28 +34,51 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-var stateMapping = map[int]string{
-	0: "unhealthy",
-	1: "healthy",
-}
+var (
+	_            Check = (*Health)(nil)
+	stateMapping       = map[int]string{
+		0: "unhealthy",
+		1: "healthy",
+	}
+)
 
 // Health is a check that measures the availability of an endpoint
 type Health struct {
+	CheckBase
 	route   string
 	config  HealthConfig
-	c       chan<- Result
-	done    chan bool
 	metrics healthMetrics
 }
 
-// HealthConfig contains the health check config
-type HealthConfig struct {
-	Targets []string `json:"targets,omitempty"`
+// NewHealthCheck creates a new instance of the health check
+func NewHealthCheck() Check {
+	return &Health{
+		CheckBase: CheckBase{
+			mu:      sync.Mutex{},
+			cResult: nil,
+			done:    make(chan bool, 1),
+			client:  &http.Client{},
+		},
+		route: "health",
+		config: HealthConfig{
+			Retry: DefaultRetry,
+		},
+		metrics: newHealthMetrics(),
+	}
 }
 
-// Data that will be stored in the database
-type healthData struct {
-	Targets []Target `json:"targets"`
+// HealthConfig defines the configuration parameters for a health check
+type HealthConfig struct {
+	Targets  []string
+	Interval time.Duration
+	Timeout  time.Duration
+	Retry    helper.RetryConfig
+}
+
+// HealthResult represents the result of a single health check for a specific target
+type HealthResult struct {
+	Target string `json:"target"`
+	Status string `json:"status"`
 }
 
 // Defined metric collectors of health check
@@ -62,53 +86,42 @@ type healthMetrics struct {
 	health *prometheus.GaugeVec
 }
 
-type Target struct {
-	Target string `json:"target"`
-	Status string `json:"status"`
-}
-
-// NewHealthCheck creates a new HealthCheck
-func NewHealthCheck() Check {
-	return &Health{
-		route:   "health",
-		config:  HealthConfig{},
-		metrics: newHealthMetrics(),
-		c:       nil,
-		done:    make(chan bool, 1),
-	}
-}
-
 // Run starts the health check
 func (h *Health) Run(ctx context.Context) error {
 	ctx, cancel := logger.NewContextWithLogger(ctx, "health")
 	defer cancel()
 	log := logger.FromContext(ctx)
+	log.Info(fmt.Sprintf("Using latency check interval of %s", h.config.Interval.String()))
 
 	for {
-		delay := time.Second * 15
-		log.Info("Next health check will run after delay", "delay", delay.String())
 		select {
 		case <-ctx.Done():
-			log.Debug("Context closed. Stopping health check")
+			log.Error("Context canceled", "err", ctx.Err())
 			return ctx.Err()
 		case <-h.done:
 			log.Debug("Soft shut down")
 			return nil
-		case <-time.After(delay):
-			log.Info("Start health check run")
-			hd := h.check(ctx)
+		case <-time.After(h.config.Interval):
+			res := h.check(ctx)
+			errval := ""
+			r := Result{
+				Data:      res,
+				Err:       errval,
+				Timestamp: time.Now(),
+			}
 
-			log.Debug("Saving health check data to database")
-			h.c <- Result{Timestamp: time.Now(), Data: hd}
-
-			log.Info("Successfully finished health check run")
+			h.cResult <- r
+			log.Debug("Successfully finished health check run")
 		}
 	}
 }
 
 // Startup is called once when the health check is registered
-func (h *Health) Startup(_ context.Context, cResult chan<- Result) error {
-	h.c = cResult
+func (h *Health) Startup(ctx context.Context, cResult chan<- Result) error {
+	log := logger.FromContext(ctx).WithGroup("latency")
+	log.Debug("Starting latency check")
+
+	h.cResult = cResult
 	return nil
 }
 
@@ -122,23 +135,30 @@ func (h *Health) Shutdown(_ context.Context) error {
 
 // SetConfig sets the configuration for the health check
 func (h *Health) SetConfig(_ context.Context, config any) error {
-	var checkCfg HealthConfig
-	if err := mapstructure.Decode(config, &checkCfg); err != nil {
+	var c HealthConfig
+	if err := mapstructure.Decode(config, &c); err != nil {
 		return ErrInvalidConfig
 	}
-	h.config = checkCfg
+	c.Interval *= time.Second
+	c.Retry.Delay *= time.Second
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.config = c
+
 	return nil
 }
 
 // SetClient sets the http client for the health check
-func (h *Health) SetClient(_ *http.Client) {
-	// TODO: implement with issue #31
+func (h *Health) SetClient(c *http.Client) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.client = c
 }
 
 // Schema provides the schema of the data that will be provided
-// by the heath check
+// by the health check
 func (h *Health) Schema() (*openapi3.SchemaRef, error) {
-	return OpenapiFromPerfData[healthData](healthData{})
+	return OpenapiFromPerfData[[]HealthResult]([]HealthResult{})
 }
 
 // RegisterHandler dynamically registers a server handler
@@ -147,7 +167,7 @@ func (h *Health) RegisterHandler(ctx context.Context, router *api.RoutingTree) {
 	router.Add(http.MethodGet, h.route, func(w http.ResponseWriter, _ *http.Request) {
 		_, err := w.Write([]byte("ok"))
 		if err != nil {
-			log.Error("Could not write response", "error", err.Error())
+			log.Error("Could not write response", "error", err)
 		}
 	})
 }
@@ -181,30 +201,30 @@ func (h *Health) GetMetricCollectors() []prometheus.Collector {
 
 // check performs a health check using a retry function
 // to get the health status for all targets
-func (h *Health) check(ctx context.Context) healthData {
+func (h *Health) check(ctx context.Context) []HealthResult {
 	log := logger.FromContext(ctx).WithGroup("check")
 	log.Debug("Checking health")
 	if len(h.config.Targets) == 0 {
 		log.Debug("No targets defined")
-		return healthData{}
+		return []HealthResult{}
 	}
 	log.Debug("Getting health status for each target in separate routine", "amount", len(h.config.Targets))
 
-	var hd healthData
 	var wg sync.WaitGroup
 	var mu sync.Mutex
+	results := []HealthResult{}
 
+	h.mu.Lock()
+	h.client.Timeout = h.config.Timeout * time.Second
+	h.mu.Unlock()
 	for _, t := range h.config.Targets {
 		target := t
 		wg.Add(1)
 		l := log.With("target", target)
 
 		getHealthRetry := helper.Retry(func(ctx context.Context) error {
-			return getHealth(ctx, target)
-		}, helper.RetryConfig{
-			Count: 3,
-			Delay: time.Second,
-		})
+			return getHealth(ctx, h.client, target)
+		}, h.config.Retry)
 
 		go func() {
 			defer wg.Done()
@@ -213,12 +233,13 @@ func (h *Health) check(ctx context.Context) healthData {
 			l.Debug("Starting retry routine to get health status")
 			if err := getHealthRetry(ctx); err != nil {
 				state = 0
+				l.Warn("Error while checking health", "error", err)
 			}
 
 			l.Debug("Successfully got health status of target", "status", stateMapping[state])
 			mu.Lock()
 			defer mu.Unlock()
-			hd.Targets = append(hd.Targets, Target{
+			results = append(results, HealthResult{
 				Target: target,
 				Status: stateMapping[state],
 			})
@@ -230,17 +251,12 @@ func (h *Health) check(ctx context.Context) healthData {
 	wg.Wait()
 
 	log.Debug("Successfully got health status from all targets")
-	return hd
+	return results
 }
 
-// getHealth performs a http get request
-// returns ok if status code is 200
-func getHealth(ctx context.Context, url string) error {
+// getHealth performs an HTTP get request and returns ok if status code is 200
+func getHealth(ctx context.Context, client *http.Client, url string) error {
 	log := logger.FromContext(ctx).With("url", url)
-
-	client := &http.Client{
-		Timeout: time.Second * 5,
-	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 	if err != nil {
@@ -248,16 +264,18 @@ func getHealth(ctx context.Context, url string) error {
 		return err
 	}
 
-	res, err := client.Do(req)
+	resp, err := client.Do(req) //nolint:bodyclose // Closed in defer below
 	if err != nil {
 		log.Error("Http get request failed", "error", err.Error())
 		return err
 	}
-	defer res.Body.Close()
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body)
 
-	if res.StatusCode != http.StatusOK {
-		log.Error("Http get request failed", "status", res.Status)
-		return fmt.Errorf("request failed, status is %s", res.Status)
+	if resp.StatusCode != http.StatusOK {
+		log.Error("Http get request failed", "status", resp.Status)
+		return fmt.Errorf("request failed, status is %s", resp.Status)
 	}
 
 	return nil
