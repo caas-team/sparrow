@@ -38,26 +38,30 @@ import (
 
 var _ Check = (*Latency)(nil)
 
+// Latency is a check that measures the latency to an endpoint
+type Latency struct {
+	CheckBase
+	config  LatencyConfig
+	metrics latencyMetrics
+}
+
+// NewLatencyCheck creates a new instance of the latency check
 func NewLatencyCheck() Check {
 	return &Latency{
-		mu:      sync.Mutex{},
-		cfg:     LatencyConfig{},
-		c:       nil,
-		done:    make(chan bool, 1),
-		client:  &http.Client{},
+		CheckBase: CheckBase{
+			mu:      sync.Mutex{},
+			cResult: nil,
+			done:    make(chan bool, 1),
+			client:  &http.Client{},
+		},
+		config: LatencyConfig{
+			Retry: DefaultRetry,
+		},
 		metrics: newLatencyMetrics(),
 	}
 }
 
-type Latency struct {
-	cfg     LatencyConfig
-	mu      sync.Mutex
-	c       chan<- Result
-	done    chan bool
-	client  *http.Client
-	metrics latencyMetrics
-}
-
+// LatencyConfig defines the configuration parameters for a latency check
 type LatencyConfig struct {
 	Targets  []string
 	Interval time.Duration
@@ -65,6 +69,7 @@ type LatencyConfig struct {
 	Retry    helper.RetryConfig
 }
 
+// LatencyResult represents the result of a single latency check for a specific target
 type LatencyResult struct {
 	Code  int     `json:"code"`
 	Error *string `json:"error"`
@@ -78,11 +83,12 @@ type latencyMetrics struct {
 	latencyHistogram *prometheus.HistogramVec
 }
 
+// Run starts the latency check
 func (l *Latency) Run(ctx context.Context) error {
 	ctx, cancel := logger.NewContextWithLogger(ctx, "latency")
 	defer cancel()
 	log := logger.FromContext(ctx)
-	log.Info(fmt.Sprintf("Using latency check interval of %s", l.cfg.Interval.String()))
+	log.Info(fmt.Sprintf("Using latency check interval of %s", l.config.Interval.String()))
 
 	for {
 		select {
@@ -91,16 +97,17 @@ func (l *Latency) Run(ctx context.Context) error {
 			return ctx.Err()
 		case <-l.done:
 			return nil
-		case <-time.After(l.cfg.Interval):
-			results := l.check(ctx)
+		case <-time.After(l.config.Interval):
+			res := l.check(ctx)
 			errval := ""
-			checkResult := Result{
-				Data:      results,
+			r := Result{
+				Data:      res,
 				Err:       errval,
 				Timestamp: time.Now(),
 			}
 
-			l.c <- checkResult
+			l.cResult <- r
+			log.Debug("Successfully finished latency check run")
 		}
 	}
 }
@@ -109,7 +116,7 @@ func (l *Latency) Startup(ctx context.Context, cResult chan<- Result) error {
 	log := logger.FromContext(ctx).WithGroup("latency")
 	log.Debug("Starting latency check")
 
-	l.c = cResult
+	l.cResult = cResult
 	return nil
 }
 
@@ -122,15 +129,14 @@ func (l *Latency) Shutdown(_ context.Context) error {
 
 func (l *Latency) SetConfig(_ context.Context, config any) error {
 	var c LatencyConfig
-	err := mapstructure.Decode(config, &c)
-	if err != nil {
+	if err := mapstructure.Decode(config, &c); err != nil {
 		return ErrInvalidConfig
 	}
-	c.Interval = time.Second * c.Interval
-	c.Retry.Delay = time.Second * c.Retry.Delay
+	c.Interval *= time.Second
+	c.Retry.Delay *= time.Second
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	l.cfg = c
+	l.config = c
 
 	return nil
 }
@@ -142,18 +148,23 @@ func (l *Latency) SetClient(c *http.Client) {
 	l.client = c
 }
 
+// Schema provides the schema of the data that will be provided
+// by the latency check
 func (l *Latency) Schema() (*openapi3.SchemaRef, error) {
 	return OpenapiFromPerfData(make(map[string]LatencyResult))
 }
 
+// RegisterHandler registers a server handler
 func (l *Latency) RegisterHandler(_ context.Context, router *api.RoutingTree) {
 	router.Add(http.MethodGet, "v1alpha1/latency", l.Handler)
 }
 
+// DeregisterHandler deletes the server handler
 func (l *Latency) DeregisterHandler(_ context.Context, router *api.RoutingTree) {
 	router.Remove(http.MethodGet, "v1alpha1/latency")
 }
 
+// Handler defines the server handler for the latency check
 func (l *Latency) Handler(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
@@ -201,23 +212,25 @@ func (h *Latency) GetMetricCollectors() []prometheus.Collector {
 	}
 }
 
+// check performs a latency check using a retry function
+// to get the latency to all targets
 func (l *Latency) check(ctx context.Context) map[string]LatencyResult {
 	log := logger.FromContext(ctx).WithGroup("check")
 	log.Debug("Checking latency")
-	if len(l.cfg.Targets) == 0 {
+	if len(l.config.Targets) == 0 {
 		log.Debug("No targets defined")
 		return map[string]LatencyResult{}
 	}
-	log.Debug("Getting latency status for each target in separate routine", "amount", len(l.cfg.Targets))
+	log.Debug("Getting latency status for each target in separate routine", "amount", len(l.config.Targets))
 
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 	results := map[string]LatencyResult{}
 
 	l.mu.Lock()
-	l.client.Timeout = l.cfg.Timeout * time.Second
+	l.client.Timeout = l.config.Timeout * time.Second
 	l.mu.Unlock()
-	for _, t := range l.cfg.Targets {
+	for _, t := range l.config.Targets {
 		target := t
 		wg.Add(1)
 		lo := log.With("target", target)
@@ -229,7 +242,7 @@ func (l *Latency) check(ctx context.Context) map[string]LatencyResult {
 			results[target] = res
 
 			return nil
-		}, l.cfg.Retry)
+		}, l.config.Retry)
 
 		go func() {
 			defer wg.Done()
