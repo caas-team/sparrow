@@ -119,7 +119,7 @@ func TestConfig_Validate(t *testing.T) {
 				SparrowName: "cool-dns-name.org",
 				Loader:      tt.fields.Loader,
 			}
-			if err := c.Validate(ctx, &RunFlagsNameMapping{}); (err != nil) != tt.wantErr {
+			if err := c.Validate(ctx); (err != nil) != tt.wantErr {
 				t.Errorf("Config.Validate() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
