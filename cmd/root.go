@@ -21,6 +21,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -75,6 +76,9 @@ func initConfig(cfgFile string) {
 		viper.SetConfigName(".sparrow")
 	}
 
+	viper.SetEnvPrefix("sparrow")
+	dotreplacer := strings.NewReplacer(".", "_")
+	viper.EnvKeyReplacer(dotreplacer)
 	viper.AutomaticEnv()
 
 	if err := viper.ReadInConfig(); err == nil {
