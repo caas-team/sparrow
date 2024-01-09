@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -19,6 +20,8 @@ func Test_NewTargetManagerConfig_Gitlab(t *testing.T) {
 			Token:     "gitlab-token",
 		},
 	}
+	fmt.Println(got)
+	fmt.Println(want)
 
 	if diff := deep.Equal(got, want); diff != nil {
 		t.Error(diff)

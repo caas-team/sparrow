@@ -28,52 +28,52 @@ import (
 )
 
 type GitlabTargetManagerConfig struct {
-	BaseURL   string `mapstructure:"baseUrl"`
-	Token     string `mapstructure:"token"`
-	ProjectID int    `mapstructure:"projectId"`
+	BaseURL   string `yaml:"baseUrl" mapstructure:"baseUrl"`
+	Token     string `yaml:"token" mapstructure:"token"`
+	ProjectID int    `yaml:"projectId" mapstructure:"projectId"`
 }
 
 type TargetManagerConfig struct {
-	CheckInterval        time.Duration             `mapstructure:"checkInterval"`
-	RegistrationInterval time.Duration             `mapstructure:"registrationInterval"`
-	UnhealthyThreshold   time.Duration             `mapstructure:"unhealthyThreshold"`
-	Gitlab               GitlabTargetManagerConfig `mapstructure:"gitlab"`
+	CheckInterval        time.Duration             `yaml:"checkInterval" mapstructure:"checkInterval"`
+	RegistrationInterval time.Duration             `yaml:"registrationInterval" mapstructure:"registrationInterval"`
+	UnhealthyThreshold   time.Duration             `yaml:"unhealthyThreshold" mapstructure:"unhealthyThreshold"`
+	Gitlab               GitlabTargetManagerConfig `yaml:"gitlab" mapstructure:"gitlab"`
 }
 
 type Config struct {
 	// SparrowName is the DNS name of the sparrow
-	SparrowName string `mapstructure:"name"`
+	SparrowName string `yaml:"name" mapstructure:"name"`
 	// Checks is a map of configurations for the checks
-	Checks        map[string]any      `mapstructure:"checks"`
-	Loader        LoaderConfig        `mapstructure:"loader"`
-	Api           ApiConfig           `mapstructure:"api"`
-	TargetManager TargetManagerConfig `mapstructure:"targetmanager"`
+	Checks        map[string]any      `yaml:"checks" mapstructure:"checks"`
+	Loader        LoaderConfig        `yaml:"loader" mapstructure:"loader"`
+	Api           ApiConfig           `yaml:"api" mapstructure:"api"`
+	TargetManager TargetManagerConfig `yaml:"targetmanager" mapstructure:"targetmanager"`
 }
 
 // ApiConfig is the configuration for the data API
 type ApiConfig struct {
-	ListeningAddress string `mapstructure:"address"`
+	ListeningAddress string `yaml:"address" mapstructure:"address"`
 }
 
 // LoaderConfig is the configuration for loader
 type LoaderConfig struct {
-	Type     string           `mapstructure:"type"`
-	Interval time.Duration    `mapstructure:"interval"`
-	Http     HttpLoaderConfig `mapstructure:"http"`
-	File     FileLoaderConfig `mapstructure:"file"`
+	Type     string           `yaml:"type" mapstructure:"type"`
+	Interval time.Duration    `yaml:"interval" mapstructure:"interval"`
+	Http     HttpLoaderConfig `yaml:"http" mapstructure:"http"`
+	File     FileLoaderConfig `yaml:"file" mapstructure:"file"`
 }
 
 // HttpLoaderConfig is the configuration
 // for the specific http loader
 type HttpLoaderConfig struct {
-	Url      string             `mapstructure:"url"`
-	Token    string             `mapstructure:"token"`
-	Timeout  time.Duration      `mapstructure:"timeout"`
-	RetryCfg helper.RetryConfig `mapstructure:"retry"`
+	Url      string             `yaml:"url" mapstructure:"url"`
+	Token    string             `yaml:"token" mapstructure:"token"`
+	Timeout  time.Duration      `yaml:"timeout" mapstructure:"timeout"`
+	RetryCfg helper.RetryConfig `yaml:"retry" mapstructure:"retry"`
 }
 
 type FileLoaderConfig struct {
-	Path string `mapstructure:"path"`
+	Path string `yaml:"path" mapstructure:"path"`
 }
 
 // NewTargetManagerConfig creates a new TargetManagerConfig
