@@ -42,11 +42,11 @@ func (c *Config) Validate(ctx context.Context) error {
 
 	switch c.Loader.Type { //nolint:gocritic
 	case "http":
-		if _, err := url.ParseRequestURI(c.Loader.http.url); err != nil {
+		if _, err := url.ParseRequestURI(c.Loader.Http.Url); err != nil {
 			ok = false
 			log.ErrorContext(ctx, "The loader http url is not a valid url")
 		}
-		if c.Loader.http.retryCfg.Count < 0 || c.Loader.http.retryCfg.Count >= 5 {
+		if c.Loader.Http.RetryCfg.Count < 0 || c.Loader.Http.RetryCfg.Count >= 5 {
 			ok = false
 			log.Error("The amount of loader http retries should be above 0 and below 6")
 		}

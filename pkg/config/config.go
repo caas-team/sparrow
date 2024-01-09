@@ -28,52 +28,52 @@ import (
 )
 
 type GitlabTargetManagerConfig struct {
-	BaseURL   string `yaml:"baseUrl"`
-	Token     string `yaml:"token"`
-	ProjectID int    `yaml:"projectId"`
+	BaseURL   string `mapstructure:"baseUrl"`
+	Token     string `mapstructure:"token"`
+	ProjectID int    `mapstructure:"projectId"`
 }
 
 type TargetManagerConfig struct {
-	CheckInterval        time.Duration             `yaml:"checkInterval"`
-	RegistrationInterval time.Duration             `yaml:"registrationInterval"`
-	UnhealthyThreshold   time.Duration             `yaml:"unhealthyThreshold"`
-	Gitlab               GitlabTargetManagerConfig `yaml:"gitlab"`
+	CheckInterval        time.Duration             `mapstructure:"checkInterval"`
+	RegistrationInterval time.Duration             `mapstructure:"registrationInterval"`
+	UnhealthyThreshold   time.Duration             `mapstructure:"unhealthyThreshold"`
+	Gitlab               GitlabTargetManagerConfig `mapstructure:"gitlab"`
 }
 
 type Config struct {
 	// SparrowName is the DNS name of the sparrow
-	SparrowName string
+	SparrowName string `mapstructure:"name"`
 	// Checks is a map of configurations for the checks
-	Checks        map[string]any
-	Loader        LoaderConfig
-	Api           ApiConfig
-	TargetManager TargetManagerConfig
+	Checks        map[string]any      `mapstructure:"checks"`
+	Loader        LoaderConfig        `mapstructure:"loader"`
+	Api           ApiConfig           `mapstructure:"api"`
+	TargetManager TargetManagerConfig `mapstructure:"targetmanager"`
 }
 
 // ApiConfig is the configuration for the data API
 type ApiConfig struct {
-	ListeningAddress string
+	ListeningAddress string `mapstructure:"address"`
 }
 
 // LoaderConfig is the configuration for loader
 type LoaderConfig struct {
-	Type     string
-	Interval time.Duration
-	http     HttpLoaderConfig
-	file     FileLoaderConfig
+	Type     string           `mapstructure:"type"`
+	Interval time.Duration    `mapstructure:"interval"`
+	Http     HttpLoaderConfig `mapstructure:"http"`
+	File     FileLoaderConfig `mapstructure:"file"`
 }
 
 // HttpLoaderConfig is the configuration
 // for the specific http loader
 type HttpLoaderConfig struct {
-	url      string
-	token    string
-	timeout  time.Duration
-	retryCfg helper.RetryConfig
+	Url      string             `mapstructure:"url"`
+	Token    string             `mapstructure:"token"`
+	Timeout  time.Duration      `mapstructure:"timeout"`
+	RetryCfg helper.RetryConfig `mapstructure:"retry"`
 }
 
 type FileLoaderConfig struct {
-	path string
+	Path string `mapstructure:"path"`
 }
 
 // NewTargetManagerConfig creates a new TargetManagerConfig
@@ -119,7 +119,7 @@ func (c *Config) SetLoaderType(loaderType string) {
 }
 
 func (c *Config) SetLoaderFilePath(loaderFilePath string) {
-	c.Loader.file.path = loaderFilePath
+	c.Loader.File.Path = loaderFilePath
 }
 
 // SetLoaderInterval sets the loader interval
@@ -130,29 +130,29 @@ func (c *Config) SetLoaderInterval(loaderInterval int) {
 
 // SetLoaderHttpUrl sets the loader http url
 func (c *Config) SetLoaderHttpUrl(url string) {
-	c.Loader.http.url = url
+	c.Loader.Http.Url = url
 }
 
 // SetLoaderHttpToken sets the loader http token
 func (c *Config) SetLoaderHttpToken(token string) {
-	c.Loader.http.token = token
+	c.Loader.Http.Token = token
 }
 
 // SetLoaderHttpTimeout sets the loader http timeout
 // timeout in seconds
 func (c *Config) SetLoaderHttpTimeout(timeout int) {
-	c.Loader.http.timeout = time.Duration(timeout) * time.Second
+	c.Loader.Http.Timeout = time.Duration(timeout) * time.Second
 }
 
 // SetLoaderHttpRetryCount sets the loader http retry count
 func (c *Config) SetLoaderHttpRetryCount(retryCount int) {
-	c.Loader.http.retryCfg.Count = retryCount
+	c.Loader.Http.RetryCfg.Count = retryCount
 }
 
 // SetLoaderHttpRetryDelay sets the loader http retry delay
 // retryDelay in seconds
 func (c *Config) SetLoaderHttpRetryDelay(retryDelay int) {
-	c.Loader.http.retryCfg.Delay = time.Duration(retryDelay) * time.Second
+	c.Loader.Http.RetryCfg.Delay = time.Duration(retryDelay) * time.Second
 }
 
 // SetTargetManagerConfig sets the target manager config

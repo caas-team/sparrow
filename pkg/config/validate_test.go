@@ -44,10 +44,10 @@ func TestConfig_Validate(t *testing.T) {
 			fields: fields{
 				Loader: LoaderConfig{
 					Type: "http",
-					http: HttpLoaderConfig{
-						url:     "https://test.de/config",
-						timeout: time.Second,
-						retryCfg: helper.RetryConfig{
+					Http: HttpLoaderConfig{
+						Url:     "https://test.de/config",
+						Timeout: time.Second,
+						RetryCfg: helper.RetryConfig{
 							Count: 1,
 							Delay: time.Second,
 						},
@@ -62,10 +62,10 @@ func TestConfig_Validate(t *testing.T) {
 			fields: fields{
 				Loader: LoaderConfig{
 					Type: "http",
-					http: HttpLoaderConfig{
-						url:     "",
-						timeout: time.Second,
-						retryCfg: helper.RetryConfig{
+					Http: HttpLoaderConfig{
+						Url:     "",
+						Timeout: time.Second,
+						RetryCfg: helper.RetryConfig{
 							Count: 1,
 							Delay: time.Second,
 						},
@@ -80,10 +80,10 @@ func TestConfig_Validate(t *testing.T) {
 			fields: fields{
 				Loader: LoaderConfig{
 					Type: "http",
-					http: HttpLoaderConfig{
-						url:     "this is not a valid url",
-						timeout: time.Second,
-						retryCfg: helper.RetryConfig{
+					Http: HttpLoaderConfig{
+						Url:     "this is not a valid url",
+						Timeout: time.Second,
+						RetryCfg: helper.RetryConfig{
 							Count: 1,
 							Delay: time.Second,
 						},
@@ -98,10 +98,10 @@ func TestConfig_Validate(t *testing.T) {
 			fields: fields{
 				Loader: LoaderConfig{
 					Type: "http",
-					http: HttpLoaderConfig{
-						url:     "test.de",
-						timeout: time.Minute,
-						retryCfg: helper.RetryConfig{
+					Http: HttpLoaderConfig{
+						Url:     "test.de",
+						Timeout: time.Minute,
+						RetryCfg: helper.RetryConfig{
 							Count: 100000,
 							Delay: time.Second,
 						},
