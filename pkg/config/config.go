@@ -104,62 +104,6 @@ func NewConfig() *Config {
 	}
 }
 
-func (c *Config) SetApiAddress(address string) {
-	c.Api.ListeningAddress = address
-}
-
-// SetSparrowName sets the DNS name of the sparrow
-func (c *Config) SetSparrowName(name string) {
-	c.SparrowName = name
-}
-
-// SetLoaderType sets the loader type
-func (c *Config) SetLoaderType(loaderType string) {
-	c.Loader.Type = loaderType
-}
-
-func (c *Config) SetLoaderFilePath(loaderFilePath string) {
-	c.Loader.File.Path = loaderFilePath
-}
-
-// SetLoaderInterval sets the loader interval
-// loaderInterval in seconds
-func (c *Config) SetLoaderInterval(loaderInterval int) {
-	c.Loader.Interval = time.Duration(loaderInterval) * time.Second
-}
-
-// SetLoaderHttpUrl sets the loader http url
-func (c *Config) SetLoaderHttpUrl(url string) {
-	c.Loader.Http.Url = url
-}
-
-// SetLoaderHttpToken sets the loader http token
-func (c *Config) SetLoaderHttpToken(token string) {
-	c.Loader.Http.Token = token
-}
-
-// SetLoaderHttpTimeout sets the loader http timeout
-// timeout in seconds
-func (c *Config) SetLoaderHttpTimeout(timeout int) {
-	c.Loader.Http.Timeout = time.Duration(timeout) * time.Second
-}
-
-// SetLoaderHttpRetryCount sets the loader http retry count
-func (c *Config) SetLoaderHttpRetryCount(retryCount int) {
-	c.Loader.Http.RetryCfg.Count = retryCount
-}
-
-// SetLoaderHttpRetryDelay sets the loader http retry delay
-// retryDelay in seconds
-func (c *Config) SetLoaderHttpRetryDelay(retryDelay int) {
-	c.Loader.Http.RetryCfg.Delay = time.Duration(retryDelay) * time.Second
-}
-
-// SetTargetManagerConfig sets the target manager config
-func (c *Config) SetTargetManagerConfig(config TargetManagerConfig) {
-	c.TargetManager = config
-}
-
 // HasTargetManager returns true if the config has a target manager
 func (c *Config) HasTargetManager() bool {
 	return c.TargetManager != TargetManagerConfig{}
