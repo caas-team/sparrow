@@ -41,8 +41,8 @@ func (f *Flag) String() *StringFlag {
 }
 
 func (f *IntFlag) Bind(cmd *cobra.Command, value int, usage string) {
-	viper.BindPFlag(f.f.Config, cmd.Flags().Lookup(f.f.CLI))
 	cmd.PersistentFlags().Int(f.f.CLI, value, usage)
+	viper.BindPFlag(f.f.Config, cmd.PersistentFlags().Lookup(f.f.CLI))
 }
 
 func (f *Flag) Int() *IntFlag {
@@ -52,8 +52,8 @@ func (f *Flag) Int() *IntFlag {
 }
 
 func (f *StringPFlag) Bind(cmd *cobra.Command, value, usage string) {
-	viper.BindPFlag(f.f.Config, cmd.Flags().Lookup(f.f.CLI))
 	cmd.PersistentFlags().StringP(f.f.CLI, f.sh, value, usage)
+	viper.BindPFlag(f.f.Config, cmd.PersistentFlags().Lookup(f.f.CLI))
 }
 
 func (f *Flag) StringP(shorthand string) *StringPFlag {

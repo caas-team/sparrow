@@ -24,7 +24,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"gopkg.in/yaml.v3"
 
 	"github.com/caas-team/sparrow/internal/logger"
 	"github.com/caas-team/sparrow/pkg/config"
@@ -49,7 +48,7 @@ func NewCmdRun() *cobra.Command {
 	}
 
 	NewFlag("api.address", "apiAddress").String().Bind(cmd, ":8080", "api: The address the server is listening on")
-	NewFlag("sparrow.name", "sparrowName").String().Bind(cmd, "", "The DNS name of the sparrow")
+	NewFlag("name", "sparrowName").String().Bind(cmd, "", "The DNS name of the sparrow")
 	NewFlag("loader.type", "loaderType").StringP("l").Bind(cmd, "http", "Defines the loader type that will load the checks configuration during the runtime. The fallback is the fileLoader")
 	NewFlag("loader.interval", "loaderInterval").Int().Bind(cmd, defaultLoaderInterval, "defines the interval the loader reloads the configuration in seconds")
 	NewFlag("loader.http.url", "loaderHttpUrl").String().Bind(cmd, "", "http loader: The url where to get the remote configuration")
@@ -75,18 +74,6 @@ func run() func(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return fmt.Errorf("failed to parse config: %w", err)
 		}
-
-		c := make(map[string]any)
-		err = viper.Unmarshal(&c)
-		if err != nil {
-			return fmt.Errorf("failed to parse config: %w", err)
-		}
-
-		b, err := yaml.Marshal(cfg)
-		if err != nil {
-			return err
-		}
-		fmt.Println(string(b))
 
 		if err := cfg.Validate(ctx); err != nil {
 			return fmt.Errorf("error while validating the config: %w", err)
