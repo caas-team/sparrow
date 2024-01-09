@@ -16,7 +16,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package checks
+package latency
 
 import (
 	"context"
@@ -34,28 +34,31 @@ import (
 	"github.com/caas-team/sparrow/internal/helper"
 	"github.com/caas-team/sparrow/internal/logger"
 	"github.com/caas-team/sparrow/pkg/api"
+	"github.com/caas-team/sparrow/pkg/checks"
+	"github.com/caas-team/sparrow/pkg/checks/config"
+	"github.com/caas-team/sparrow/pkg/checks/errors"
 )
 
-var _ Check = (*Latency)(nil)
+var _ checks.Check = (*Latency)(nil)
 
 // Latency is a check that measures the latency to an endpoint
 type Latency struct {
-	CheckBase
+	config.CheckBase
 	config  LatencyConfig
 	metrics latencyMetrics
 }
 
 // NewLatencyCheck creates a new instance of the latency check
-func NewLatencyCheck() Check {
+func NewLatencyCheck() checks.Check {
 	return &Latency{
-		CheckBase: CheckBase{
-			mu:      sync.Mutex{},
-			cResult: nil,
-			done:    make(chan bool, 1),
-			client:  &http.Client{},
+		CheckBase: config.CheckBase{
+			Mu:      sync.Mutex{},
+			CResult: nil,
+			Done:    make(chan bool, 1),
+			Client:  &http.Client{},
 		},
 		config: LatencyConfig{
-			Retry: DefaultRetry,
+			Retry: config.DefaultRetry,
 		},
 		metrics: newLatencyMetrics(),
 	}
@@ -95,34 +98,34 @@ func (l *Latency) Run(ctx context.Context) error {
 		case <-ctx.Done():
 			log.Error("Context canceled", "err", ctx.Err())
 			return ctx.Err()
-		case <-l.done:
+		case <-l.Done:
 			return nil
 		case <-time.After(l.config.Interval):
 			res := l.check(ctx)
 			errval := ""
-			r := Result{
+			r := config.Result{
 				Data:      res,
 				Err:       errval,
 				Timestamp: time.Now(),
 			}
 
-			l.cResult <- r
+			l.CResult <- r
 			log.Debug("Successfully finished latency check run")
 		}
 	}
 }
 
-func (l *Latency) Startup(ctx context.Context, cResult chan<- Result) error {
+func (l *Latency) Startup(ctx context.Context, cResult chan<- config.Result) error {
 	log := logger.FromContext(ctx).WithGroup("latency")
 	log.Debug("Starting latency check")
 
-	l.cResult = cResult
+	l.CResult = cResult
 	return nil
 }
 
 func (l *Latency) Shutdown(_ context.Context) error {
-	l.done <- true
-	close(l.done)
+	l.Done <- true
+	close(l.Done)
 
 	return nil
 }
@@ -130,12 +133,12 @@ func (l *Latency) Shutdown(_ context.Context) error {
 func (l *Latency) SetConfig(_ context.Context, config any) error {
 	var c LatencyConfig
 	if err := mapstructure.Decode(config, &c); err != nil {
-		return ErrInvalidConfig
+		return errors.ErrInvalidConfig
 	}
 	c.Interval *= time.Second
 	c.Retry.Delay *= time.Second
-	l.mu.Lock()
-	defer l.mu.Unlock()
+	l.Mu.Lock()
+	defer l.Mu.Unlock()
 	l.config = c
 
 	return nil
@@ -143,15 +146,15 @@ func (l *Latency) SetConfig(_ context.Context, config any) error {
 
 // SetClient sets the http client for the latency check
 func (l *Latency) SetClient(c *http.Client) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	l.client = c
+	l.Mu.Lock()
+	defer l.Mu.Unlock()
+	l.Client = c
 }
 
 // Schema provides the schema of the data that will be provided
 // by the latency check
 func (l *Latency) Schema() (*openapi3.SchemaRef, error) {
-	return OpenapiFromPerfData(make(map[string]LatencyResult))
+	return checks.OpenapiFromPerfData(make(map[string]LatencyResult))
 }
 
 // RegisterHandler registers a server handler
@@ -227,16 +230,16 @@ func (l *Latency) check(ctx context.Context) map[string]LatencyResult {
 	var wg sync.WaitGroup
 	results := map[string]LatencyResult{}
 
-	l.mu.Lock()
-	l.client.Timeout = l.config.Timeout * time.Second
-	l.mu.Unlock()
+	l.Mu.Lock()
+	l.Client.Timeout = l.config.Timeout * time.Second
+	l.Mu.Unlock()
 	for _, t := range l.config.Targets {
 		target := t
 		wg.Add(1)
 		lo := log.With("target", target)
 
 		getLatencyRetry := helper.Retry(func(ctx context.Context) error {
-			res := getLatency(ctx, l.client, target)
+			res := getLatency(ctx, l.Client, target)
 			mu.Lock()
 			defer mu.Unlock()
 			results[target] = res

@@ -26,7 +26,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/caas-team/sparrow/pkg/checks"
+	"github.com/caas-team/sparrow/pkg/checks/config"
 	gitlabmock "github.com/caas-team/sparrow/pkg/sparrow/gitlab/test"
 )
 
@@ -36,25 +36,25 @@ func Test_gitlabTargetManager_refreshTargets(t *testing.T) {
 
 	tests := []struct {
 		name                    string
-		mockTargets             []checks.GlobalTarget
-		expectedHealthy         []checks.GlobalTarget
+		mockTargets             []config.GlobalTarget
+		expectedHealthy         []config.GlobalTarget
 		expectedRegisteredAfter bool
 		wantErr                 error
 	}{
 		{
 			name:            "success with 0 targets",
-			mockTargets:     []checks.GlobalTarget{},
-			expectedHealthy: []checks.GlobalTarget{},
+			mockTargets:     []config.GlobalTarget{},
+			expectedHealthy: []config.GlobalTarget{},
 		},
 		{
 			name: "success with 1 healthy target",
-			mockTargets: []checks.GlobalTarget{
+			mockTargets: []config.GlobalTarget{
 				{
 					Url:      "https://test",
 					LastSeen: now,
 				},
 			},
-			expectedHealthy: []checks.GlobalTarget{
+			expectedHealthy: []config.GlobalTarget{
 				{
 					Url:      "https://test",
 					LastSeen: now,
@@ -64,7 +64,7 @@ func Test_gitlabTargetManager_refreshTargets(t *testing.T) {
 		},
 		{
 			name: "success with 1 unhealthy target",
-			mockTargets: []checks.GlobalTarget{
+			mockTargets: []config.GlobalTarget{
 				{
 					Url:      "https://test",
 					LastSeen: tooOld,
@@ -74,7 +74,7 @@ func Test_gitlabTargetManager_refreshTargets(t *testing.T) {
 		},
 		{
 			name: "success with 1 healthy and 1 unhealthy targets",
-			mockTargets: []checks.GlobalTarget{
+			mockTargets: []config.GlobalTarget{
 				{
 					Url:      "https://test",
 					LastSeen: now,
@@ -84,7 +84,7 @@ func Test_gitlabTargetManager_refreshTargets(t *testing.T) {
 					LastSeen: tooOld,
 				},
 			},
-			expectedHealthy: []checks.GlobalTarget{
+			expectedHealthy: []config.GlobalTarget{
 				{
 					Url:      "https://test",
 					LastSeen: now,
@@ -126,8 +126,8 @@ func Test_gitlabTargetManager_GetTargets(t *testing.T) {
 	now := time.Now()
 	tests := []struct {
 		name    string
-		targets []checks.GlobalTarget
-		want    []checks.GlobalTarget
+		targets []config.GlobalTarget
+		want    []config.GlobalTarget
 	}{
 		{
 			name:    "success with 0 targets",
@@ -136,13 +136,13 @@ func Test_gitlabTargetManager_GetTargets(t *testing.T) {
 		},
 		{
 			name: "success with 1 target",
-			targets: []checks.GlobalTarget{
+			targets: []config.GlobalTarget{
 				{
 					Url:      "https://test",
 					LastSeen: now,
 				},
 			},
-			want: []checks.GlobalTarget{
+			want: []config.GlobalTarget{
 				{
 					Url:      "https://test",
 					LastSeen: now,
@@ -151,7 +151,7 @@ func Test_gitlabTargetManager_GetTargets(t *testing.T) {
 		},
 		{
 			name: "success with 2 targets",
-			targets: []checks.GlobalTarget{
+			targets: []config.GlobalTarget{
 				{
 					Url:      "https://test",
 					LastSeen: now,
@@ -161,7 +161,7 @@ func Test_gitlabTargetManager_GetTargets(t *testing.T) {
 					LastSeen: now,
 				},
 			},
-			want: []checks.GlobalTarget{
+			want: []config.GlobalTarget{
 				{
 					Url:      "https://test",
 					LastSeen: now,
@@ -261,7 +261,7 @@ func Test_gitlabTargetManager_Reconcile_success(t *testing.T) {
 	}
 
 	glmock := gitlabmock.New(
-		[]checks.GlobalTarget{
+		[]config.GlobalTarget{
 			{
 				Url:      "https://test",
 				LastSeen: time.Now(),
@@ -299,7 +299,7 @@ func Test_gitlabTargetManager_Reconcile_failure(t *testing.T) {
 	tests := []struct {
 		name       string
 		registered bool
-		targets    []checks.GlobalTarget
+		targets    []config.GlobalTarget
 		postErr    error
 		putError   error
 	}{
@@ -311,7 +311,7 @@ func Test_gitlabTargetManager_Reconcile_failure(t *testing.T) {
 			name:       "failure - failed to update registration",
 			registered: true,
 			putError:   errors.New("failed to update registration"),
-			targets: []checks.GlobalTarget{
+			targets: []config.GlobalTarget{
 				{
 					Url:      "https://test",
 					LastSeen: time.Now(),
@@ -357,7 +357,7 @@ func Test_gitlabTargetManager_Reconcile_failure(t *testing.T) {
 // method will shutdown gracefully when the context is canceled.
 func Test_gitlabTargetManager_Reconcile_Context_Canceled(t *testing.T) {
 	glmock := gitlabmock.New(
-		[]checks.GlobalTarget{
+		[]config.GlobalTarget{
 			{
 				Url:      "https://test",
 				LastSeen: time.Now(),
@@ -387,7 +387,7 @@ func Test_gitlabTargetManager_Reconcile_Context_Canceled(t *testing.T) {
 // method will shut down gracefully when the context is done.
 func Test_gitlabTargetManager_Reconcile_Context_Done(t *testing.T) {
 	glmock := gitlabmock.New(
-		[]checks.GlobalTarget{
+		[]config.GlobalTarget{
 			{
 				Url:      "https://test",
 				LastSeen: time.Now(),
@@ -416,7 +416,7 @@ func Test_gitlabTargetManager_Reconcile_Context_Done(t *testing.T) {
 // method will shut down gracefully when the Shutdown method is called.
 func Test_gitlabTargetManager_Reconcile_Shutdown(t *testing.T) {
 	glmock := gitlabmock.New(
-		[]checks.GlobalTarget{
+		[]config.GlobalTarget{
 			{
 				Url:      "https://test",
 				LastSeen: time.Now(),
@@ -450,7 +450,7 @@ func Test_gitlabTargetManager_Reconcile_Shutdown(t *testing.T) {
 // and the unregistering fails.
 func Test_gitlabTargetManager_Reconcile_Shutdown_Fail_Unregister(t *testing.T) {
 	glmock := gitlabmock.New(
-		[]checks.GlobalTarget{
+		[]config.GlobalTarget{
 			{
 				Url:      "https://test",
 				LastSeen: time.Now(),

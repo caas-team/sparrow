@@ -16,7 +16,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package checks
+package latency
 
 import (
 	"context"
@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"github.com/caas-team/sparrow/pkg/api"
+	"github.com/caas-team/sparrow/pkg/checks/config"
 	"github.com/jarcoal/httpmock"
 	"github.com/stretchr/testify/assert"
 )
@@ -55,7 +56,7 @@ func TestLatency_Run(t *testing.T) { //nolint:gocyclo
 		}
 		targets []string
 		ctx     context.Context
-		want    Result
+		want    config.Result
 	}{
 		{
 			name: "success with one target",
@@ -72,7 +73,7 @@ func TestLatency_Run(t *testing.T) { //nolint:gocyclo
 			},
 			targets: []string{successURL},
 			ctx:     context.Background(),
-			want: Result{
+			want: config.Result{
 				Data: map[string]LatencyResult{
 					successURL: {Code: http.StatusOK, Error: nil, Total: 0},
 				},
@@ -105,7 +106,7 @@ func TestLatency_Run(t *testing.T) { //nolint:gocyclo
 			},
 			targets: []string{successURL, failURL, timeoutURL},
 			ctx:     context.Background(),
-			want: Result{
+			want: config.Result{
 				Data: map[string]LatencyResult{
 					successURL: {Code: http.StatusOK, Error: nil, Total: 0},
 					failURL:    {Code: http.StatusInternalServerError, Error: nil, Total: 0},
@@ -128,7 +129,7 @@ func TestLatency_Run(t *testing.T) { //nolint:gocyclo
 			}
 
 			c := NewLatencyCheck()
-			results := make(chan Result, 1)
+			results := make(chan config.Result, 1)
 			err := c.Startup(tt.ctx, results)
 			if err != nil {
 				t.Fatalf("Latency.Startup() error = %v", err)
@@ -291,8 +292,8 @@ func TestLatency_check(t *testing.T) {
 			}
 
 			l := &Latency{
-				CheckBase: CheckBase{
-					client: &http.Client{},
+				CheckBase: config.CheckBase{
+					Client: &http.Client{},
 				},
 				config:  LatencyConfig{Targets: tt.targets, Interval: time.Second * 120, Timeout: time.Second * 1},
 				metrics: newLatencyMetrics(),
@@ -327,7 +328,7 @@ func TestLatency_check(t *testing.T) {
 func TestLatency_Startup(t *testing.T) {
 	c := Latency{}
 
-	if err := c.Startup(context.Background(), make(chan<- Result, 1)); err != nil {
+	if err := c.Startup(context.Background(), make(chan<- config.Result, 1)); err != nil {
 		t.Errorf("Startup() error = %v", err)
 	}
 }
@@ -335,8 +336,8 @@ func TestLatency_Startup(t *testing.T) {
 func TestLatency_Shutdown(t *testing.T) {
 	cDone := make(chan bool, 1)
 	c := Latency{
-		CheckBase: CheckBase{
-			done: cDone,
+		CheckBase: config.CheckBase{
+			Done: cDone,
 		},
 	}
 	err := c.Shutdown(context.Background())

@@ -6,6 +6,7 @@ package checks
 import (
 	"context"
 	"github.com/caas-team/sparrow/pkg/api"
+	"github.com/caas-team/sparrow/pkg/checks/config"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/prometheus/client_golang/prometheus"
 	"net/http"
@@ -46,7 +47,7 @@ var _ Check = &CheckMock{}
 //			ShutdownFunc: func(ctx context.Context) error {
 //				panic("mock out the Shutdown method")
 //			},
-//			StartupFunc: func(ctx context.Context, cResult chan<- Result) error {
+//			StartupFunc: func(ctx context.Context, cResult chan<- config.Result) error {
 //				panic("mock out the Startup method")
 //			},
 //		}
@@ -81,7 +82,7 @@ type CheckMock struct {
 	ShutdownFunc func(ctx context.Context) error
 
 	// StartupFunc mocks the Startup method.
-	StartupFunc func(ctx context.Context, cResult chan<- Result) error
+	StartupFunc func(ctx context.Context, cResult chan<- config.Result) error
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -132,7 +133,7 @@ type CheckMock struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 			// CResult is the cResult argument value.
-			CResult chan<- Result
+			CResult chan<- config.Result
 		}
 	}
 	lockDeregisterHandler   sync.RWMutex
@@ -405,13 +406,13 @@ func (mock *CheckMock) ShutdownCalls() []struct {
 }
 
 // Startup calls StartupFunc.
-func (mock *CheckMock) Startup(ctx context.Context, cResult chan<- Result) error {
+func (mock *CheckMock) Startup(ctx context.Context, cResult chan<- config.Result) error {
 	if mock.StartupFunc == nil {
 		panic("CheckMock.StartupFunc: method is nil but Check.Startup was just called")
 	}
 	callInfo := struct {
 		Ctx     context.Context
-		CResult chan<- Result
+		CResult chan<- config.Result
 	}{
 		Ctx:     ctx,
 		CResult: cResult,
@@ -428,11 +429,11 @@ func (mock *CheckMock) Startup(ctx context.Context, cResult chan<- Result) error
 //	len(mockedCheck.StartupCalls())
 func (mock *CheckMock) StartupCalls() []struct {
 	Ctx     context.Context
-	CResult chan<- Result
+	CResult chan<- config.Result
 } {
 	var calls []struct {
 		Ctx     context.Context
-		CResult chan<- Result
+		CResult chan<- config.Result
 	}
 	mock.lockStartup.RLock()
 	calls = mock.calls.Startup

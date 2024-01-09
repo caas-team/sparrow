@@ -19,6 +19,7 @@
 package checks
 
 import (
+	"github.com/caas-team/sparrow/pkg/checks/config"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/getkin/kin-openapi/openapi3gen"
 )
@@ -26,7 +27,7 @@ import (
 // Takes in check perfdata and returns an openapi3.SchemaRef of a result wrapping the perfData
 // this is a workaround, since the openapi3gen.NewSchemaRefForValue function does not work with any types
 func OpenapiFromPerfData[T any](data T) (*openapi3.SchemaRef, error) {
-	checkSchema, err := openapi3gen.NewSchemaRefForValue(Result{}, openapi3.Schemas{})
+	checkSchema, err := openapi3gen.NewSchemaRefForValue(config.Result{}, openapi3.Schemas{})
 	if err != nil {
 		return nil, err
 	}

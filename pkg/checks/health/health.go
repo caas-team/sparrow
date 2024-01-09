@@ -16,7 +16,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package checks
+package health
 
 import (
 	"context"
@@ -29,14 +29,17 @@ import (
 	"github.com/caas-team/sparrow/internal/helper"
 	"github.com/caas-team/sparrow/internal/logger"
 	"github.com/caas-team/sparrow/pkg/api"
+	"github.com/caas-team/sparrow/pkg/checks"
+	"github.com/caas-team/sparrow/pkg/checks/config"
+	"github.com/caas-team/sparrow/pkg/checks/errors"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/mitchellh/mapstructure"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
 var (
-	_            Check = (*Health)(nil)
-	stateMapping       = map[int]string{
+	_            checks.Check = (*Health)(nil)
+	stateMapping              = map[int]string{
 		0: "unhealthy",
 		1: "healthy",
 	}
@@ -44,24 +47,24 @@ var (
 
 // Health is a check that measures the availability of an endpoint
 type Health struct {
-	CheckBase
+	config.CheckBase
 	route   string
 	config  HealthConfig
 	metrics healthMetrics
 }
 
 // NewHealthCheck creates a new instance of the health check
-func NewHealthCheck() Check {
+func NewHealthCheck() checks.Check {
 	return &Health{
-		CheckBase: CheckBase{
-			mu:      sync.Mutex{},
-			cResult: nil,
-			done:    make(chan bool, 1),
-			client:  &http.Client{},
+		CheckBase: config.CheckBase{
+			Mu:      sync.Mutex{},
+			CResult: nil,
+			Done:    make(chan bool, 1),
+			Client:  &http.Client{},
 		},
 		route: "health",
 		config: HealthConfig{
-			Retry: DefaultRetry,
+			Retry: config.DefaultRetry,
 		},
 		metrics: newHealthMetrics(),
 	}
@@ -98,37 +101,37 @@ func (h *Health) Run(ctx context.Context) error {
 		case <-ctx.Done():
 			log.Error("Context canceled", "err", ctx.Err())
 			return ctx.Err()
-		case <-h.done:
+		case <-h.Done:
 			log.Debug("Soft shut down")
 			return nil
 		case <-time.After(h.config.Interval):
 			res := h.check(ctx)
 			errval := ""
-			r := Result{
+			r := config.Result{
 				Data:      res,
 				Err:       errval,
 				Timestamp: time.Now(),
 			}
 
-			h.cResult <- r
+			h.CResult <- r
 			log.Debug("Successfully finished health check run")
 		}
 	}
 }
 
 // Startup is called once when the health check is registered
-func (h *Health) Startup(ctx context.Context, cResult chan<- Result) error {
+func (h *Health) Startup(ctx context.Context, cResult chan<- config.Result) error {
 	log := logger.FromContext(ctx).WithGroup("latency")
 	log.Debug("Starting latency check")
 
-	h.cResult = cResult
+	h.CResult = cResult
 	return nil
 }
 
 // Shutdown is called once when the check is unregistered or sparrow shuts down
 func (h *Health) Shutdown(_ context.Context) error {
-	h.done <- true
-	close(h.done)
+	h.Done <- true
+	close(h.Done)
 
 	return nil
 }
@@ -137,12 +140,12 @@ func (h *Health) Shutdown(_ context.Context) error {
 func (h *Health) SetConfig(_ context.Context, config any) error {
 	var c HealthConfig
 	if err := mapstructure.Decode(config, &c); err != nil {
-		return ErrInvalidConfig
+		return errors.ErrInvalidConfig
 	}
 	c.Interval *= time.Second
 	c.Retry.Delay *= time.Second
-	h.mu.Lock()
-	defer h.mu.Unlock()
+	h.Mu.Lock()
+	defer h.Mu.Unlock()
 	h.config = c
 
 	return nil
@@ -150,15 +153,15 @@ func (h *Health) SetConfig(_ context.Context, config any) error {
 
 // SetClient sets the http client for the health check
 func (h *Health) SetClient(c *http.Client) {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	h.client = c
+	h.Mu.Lock()
+	defer h.Mu.Unlock()
+	h.Client = c
 }
 
 // Schema provides the schema of the data that will be provided
 // by the health check
 func (h *Health) Schema() (*openapi3.SchemaRef, error) {
-	return OpenapiFromPerfData[[]HealthResult]([]HealthResult{})
+	return checks.OpenapiFromPerfData[[]HealthResult]([]HealthResult{})
 }
 
 // RegisterHandler dynamically registers a server handler
@@ -214,16 +217,16 @@ func (h *Health) check(ctx context.Context) []HealthResult {
 	var mu sync.Mutex
 	results := []HealthResult{}
 
-	h.mu.Lock()
-	h.client.Timeout = h.config.Timeout * time.Second
-	h.mu.Unlock()
+	h.Mu.Lock()
+	h.Client.Timeout = h.config.Timeout * time.Second
+	h.Mu.Unlock()
 	for _, t := range h.config.Targets {
 		target := t
 		wg.Add(1)
 		l := log.With("target", target)
 
 		getHealthRetry := helper.Retry(func(ctx context.Context) error {
-			return getHealth(ctx, h.client, target)
+			return getHealth(ctx, h.Client, target)
 		}, h.config.Retry)
 
 		go func() {

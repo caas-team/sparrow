@@ -4,12 +4,12 @@ import (
 	"context"
 
 	"github.com/caas-team/sparrow/internal/logger"
-	"github.com/caas-team/sparrow/pkg/checks"
+	"github.com/caas-team/sparrow/pkg/checks/config"
 )
 
 // MockTargetManager is a mock implementation of the TargetManager interface
 type MockTargetManager struct {
-	Targets []checks.GlobalTarget
+	Targets []config.GlobalTarget
 }
 
 func (m *MockTargetManager) Reconcile(ctx context.Context) {
@@ -23,7 +23,7 @@ func (m *MockTargetManager) Shutdown(ctx context.Context) error {
 	return nil
 }
 
-func (m *MockTargetManager) GetTargets() []checks.GlobalTarget {
+func (m *MockTargetManager) GetTargets() []config.GlobalTarget {
 	log := logger.FromContext(context.Background())
 	log.Info("MockGetTargets called, returning", "targets", len(m.Targets))
 	return m.Targets

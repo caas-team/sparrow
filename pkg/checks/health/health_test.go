@@ -16,7 +16,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package checks
+package health
 
 import (
 	"context"
@@ -24,12 +24,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/caas-team/sparrow/pkg/checks/config"
 	"github.com/jarcoal/httpmock"
 	"github.com/stretchr/testify/assert"
 )
-
-// Ensure that Health implements the Check interface
-var _ Check = (*Health)(nil)
 
 func TestHealth_SetConfig(t *testing.T) {
 	tests := []struct {
@@ -253,13 +251,13 @@ func TestHealth_Check(t *testing.T) {
 			}
 
 			h := &Health{
-				CheckBase: CheckBase{
-					client: &http.Client{},
+				CheckBase: config.CheckBase{
+					Client: &http.Client{},
 				},
 				config: HealthConfig{
 					Targets: tt.targets,
 					Timeout: 30,
-					Retry:   DefaultRetry,
+					Retry:   config.DefaultRetry,
 				},
 				metrics: newHealthMetrics(),
 			}
@@ -279,8 +277,8 @@ func TestHealth_Check(t *testing.T) {
 func TestHealth_Shutdown(t *testing.T) {
 	cDone := make(chan bool, 1)
 	c := Health{
-		CheckBase: CheckBase{
-			done: cDone,
+		CheckBase: config.CheckBase{
+			Done: cDone,
 		},
 	}
 	err := c.Shutdown(context.Background())
@@ -302,11 +300,11 @@ func TestHealth_Shutdown(t *testing.T) {
 		t.Errorf("Shutdown() error = %v", err)
 	}
 
-	if !<-hc.(*Health).done {
+	if !<-hc.(*Health).Done {
 		t.Error("Channel should be done")
 	}
 
 	assert.Panics(t, func() {
-		hc.(*Health).done <- true
+		hc.(*Health).Done <- true
 	}, "Channel is closed, should panic")
 }
