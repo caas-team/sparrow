@@ -32,6 +32,7 @@ import (
 func main() {
 	execute()
 }
+
 func execute() {
 	rootCmd := &cobra.Command{
 		Use:   "gen-docs",
