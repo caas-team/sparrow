@@ -54,7 +54,7 @@ func NewCmdGenDocs() *cobra.Command {
 		Use:   "gen-docs",
 		Short: "Generate markdown documentation",
 		Long:  `Generate the markdown documentation of available CLI flags`,
-		Run:   runGenDocs(&docPath),
+		RunE:  runGenDocs(&docPath),
 	}
 
 	cmd.PersistentFlags().StringVar(&docPath, "path", "docs", "directory path where the markdown files will be created")
@@ -63,10 +63,13 @@ func NewCmdGenDocs() *cobra.Command {
 }
 
 // runGenDocs generates the markdown files for the flag documentation
-func runGenDocs(path *string) func(cmd *cobra.Command, args []string) {
+func runGenDocs(path *string) func(cmd *cobra.Command, args []string) error {
 	irgendwascmd := sparrowcmd.BuildCmd("")
 	irgendwascmd.DisableAutoGenTag = true
-	return func(cmd *cobra.Command, args []string) {
-		_ = doc.GenMarkdownTree(irgendwascmd, *path)
+	return func(cmd *cobra.Command, args []string) error {
+		if err := doc.GenMarkdownTree(irgendwascmd, *path); err != nil {
+			return fmt.Errorf("Failed to generate docs: %w", err)
+		}
+		return nil
 	}
 }
