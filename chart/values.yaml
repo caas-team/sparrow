@@ -102,16 +102,22 @@ extraArgs:
 # -- startup configuration of the Sparrow
 # see: https://github.com/caas-team/sparrow/blob/main/docs/sparrow_run.md
 startupConfig: {}
-#   apiAddress:
-#   loaderFilePath: /runconfig/checks.yaml
-#   loaderHttpRetryCount:
-#   loaderHttpRetryDelay:
-#   loaderHttpTimeout:
-#   loaderHttpToken:
-#   loaderHttpUrl:
-#   loaderInterval:
-#   loaderType: http | file
-#   sparrowName: the-sparrow.com
+  # api:
+  #   address:
+  # loader:
+  #   type: http | file
+  #   interval:
+  #   http:
+  #     url:
+  #     token:
+  #     timeout:
+  #     retryCount:
+  #     retryDelay:
+  #   file:
+  #     path: /runconfig/checks.yaml
+  # sparrow:
+  #   name: the-sparrow.com
+
 
 
 # -- target manager configuration of the Sparrow (part of the startup)

@@ -19,6 +19,7 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 	"sync"
 )
@@ -56,6 +57,7 @@ func (r *RoutingTree) Get(method, path string) (http.HandlerFunc, bool) {
 	}
 	handler, ok := r.tree[method][path]
 	return handler, ok
+		
 }
 
 func NewRoutingTree() *RoutingTree {
