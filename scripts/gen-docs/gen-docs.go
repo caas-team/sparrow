@@ -16,14 +16,34 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package cmd
+package main
 
-//go:generate go run ../main.go gen-docs --path ../docs
+//go:generate go run gen-docs.go gen-docs --path ../../docs
 
 import (
+	"fmt"
+	"os"
+
+	sparrowcmd "github.com/caas-team/sparrow/cmd"
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 )
+
+func main() {
+	execute()
+}
+func execute() {
+	rootCmd := &cobra.Command{
+		Use:   "gen-docs",
+		Short: "Generates docs for sparrow",
+	}
+	rootCmd.AddCommand(NewCmdGenDocs(rootCmd))
+
+	if err := rootCmd.Execute(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+}
 
 // NewCmdGenDocs creates a new gen-docs command
 func NewCmdGenDocs(rootCmd *cobra.Command) *cobra.Command {
@@ -45,6 +65,6 @@ func NewCmdGenDocs(rootCmd *cobra.Command) *cobra.Command {
 func runGenDocs(rootCmd *cobra.Command, path *string) func(cmd *cobra.Command, args []string) {
 	rootCmd.DisableAutoGenTag = true
 	return func(cmd *cobra.Command, args []string) {
-		_ = doc.GenMarkdownTree(rootCmd, *path)
+		_ = doc.GenMarkdownTree(sparrowcmd.BuildCmd(""), *path)
 	}
 }
