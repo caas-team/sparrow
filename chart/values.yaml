@@ -115,8 +115,7 @@ startupConfig: {}
   #     retryDelay:
   #   file:
   #     path: /runconfig/checks.yaml
-  # sparrow:
-  #   name: the-sparrow.com
+  # name: the-sparrow.com
 
 
 
