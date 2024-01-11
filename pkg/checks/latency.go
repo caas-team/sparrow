@@ -59,10 +59,10 @@ type Latency struct {
 }
 
 type LatencyConfig struct {
-	Targets  []string
-	Interval time.Duration
-	Timeout  time.Duration
-	Retry    helper.RetryConfig
+	Targets  []string           `json:"targets" yaml:"targets"`
+	Interval time.Duration      `json:"interval" yaml:"interval"`
+	Timeout  time.Duration      `json:"timeout" yaml:"timeout"`
+	Retry    helper.RetryConfig `json:"retry" yaml:"retry"`
 }
 
 type LatencyResult struct {

@@ -69,19 +69,19 @@ type Check interface {
 
 type Result struct {
 	// data contains performance metrics about the check run
-	Data any `json:"data"`
+	Data any `json:"data" yaml:"data"`
 	// Timestamp is the UTC time the check was run
-	Timestamp time.Time `json:"timestamp"`
+	Timestamp time.Time `json:"timestamp" yaml:"timestamp"`
 	// Err should be nil if the check ran successfully indicating the check is "healthy"
 	// if the check failed, this should be an error message that will be logged and returned to an API user
-	Err string `json:"error"`
+	Err string `json:"error" yaml:"error"`
 }
 
 // GlobalTarget includes the basic information regarding
 // other Sparrow instances, which this Sparrow can communicate with.
 type GlobalTarget struct {
-	Url      string    `json:"url"`
-	LastSeen time.Time `json:"lastSeen"`
+	Url      string    `json:"url" yaml:"url"`
+	LastSeen time.Time `json:"lastSeen" yaml:"lastSeen"`
 }
 
 type ResultDTO struct {
