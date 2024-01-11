@@ -102,28 +102,29 @@ extraArgs:
 # -- startup configuration of the Sparrow
 # see: https://github.com/caas-team/sparrow/blob/main/docs/sparrow_run.md
 startupConfig: { }
-  # name: the-sparrow.com
-  # api:
-  #   address:
-  # loader:
-  #   type: http | file
-  #   interval:
-  #   http:
-  #     url:
-  #     token:
-  #     timeout:
-  #     retryCount:
-  #     retryDelay:
-  #   file:
-  #     path: /runconfig/checks.yaml
-  # targetManager:
-  #   checkInterval: 300s
-  #   unhealthyThreshold: 600s
-  #   registrationInterval: 300s
-  #   gitlab:
-  #     token: ""
-  #     baseUrl: https://gitlab.com
-  #   projectId: ""
+# name: the-sparrow.com
+# api:
+#   address:
+# loader:
+#   type: http | file
+#   interval:
+#   http:
+#     url:
+#     token:
+#     timeout:
+#     retryCount:
+#     retryDelay:
+#   file:
+#     path: /runconfig/checks.yaml
+# targetManager:
+#   checkInterval: 300s
+#   unhealthyThreshold: 600s
+#   registrationInterval: 300s
+#   gitlab:
+#     token: ""
+#     baseUrl: https://gitlab.com
+#     projectId: ""
+
 
 
 # -- runtime configuration of the Sparrow
