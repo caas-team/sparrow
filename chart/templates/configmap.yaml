@@ -12,6 +12,11 @@ data:
     checks:
       {{- if .Values.runtimeConfig.health}}
       health:
+        interval: {{ .Values.runtimeConfig.health.interval | default 1 }}
+        timeout: {{ .Values.runtimeConfig.health.interval | default 3 }}
+        retry:
+          count: {{ .Values.runtimeConfig.health.retry.count | default 3 }}
+          delay: {{ .Values.runtimeConfig.health.retry.delay | default 1 }}
         targets:
         {{- with .Values.runtimeConfig.health.targets }}
           {{- toYaml . | nindent 10 }}

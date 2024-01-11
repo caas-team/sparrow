@@ -113,7 +113,6 @@ startupConfig: {}
 #   loaderType: http | file
 #   sparrowName: the-sparrow.com
 
-
 # -- target manager configuration of the Sparrow (part of the startup)
 targetManagerConfig: {}
 #   checkInterval: 300s
@@ -128,6 +127,11 @@ targetManagerConfig: {}
 # see: https://github.com/caas-team/sparrow#runtime
 runtimeConfig:
   health:
+    interval: 20
+    timeout: 10
+    retry:
+      count: 3
+      delay: 1
     targets:
       - "https://www.example.com/"
       - "https://www.google.com/"
