@@ -49,6 +49,17 @@ func Test_gitlab_fetchFileList(t *testing.T) {
 			mockBody: []file{},
 		},
 		{
+			name:     "success - 0 targets with 1 file",
+			want:     nil,
+			wantErr:  false,
+			mockCode: http.StatusOK,
+			mockBody: []file{
+				{
+					Name: "README.md",
+				},
+			},
+		},
+		{
 			name: "success - 1 target",
 			want: []string{
 				"test.json",
