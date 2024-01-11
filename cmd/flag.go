@@ -23,8 +23,6 @@ type StringPFlag struct {
 	sh string
 }
 
-type BindFN func(cmd *cobra.Command, value, usage string)
-
 func (f *StringFlag) Bind(cmd *cobra.Command, value, usage string) {
 	cmd.PersistentFlags().String(f.f.Cli, value, usage)
 	if err := viper.BindPFlag(f.f.Config, cmd.PersistentFlags().Lookup(f.f.Cli)); err != nil {
