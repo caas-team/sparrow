@@ -19,10 +19,7 @@
 package config
 
 import (
-	"os"
 	"time"
-
-	"gopkg.in/yaml.v3"
 
 	"github.com/caas-team/sparrow/internal/helper"
 )
@@ -47,7 +44,7 @@ type Config struct {
 	Checks        map[string]any      `yaml:"checks" mapstructure:"checks"`
 	Loader        LoaderConfig        `yaml:"loader" mapstructure:"loader"`
 	Api           ApiConfig           `yaml:"api" mapstructure:"api"`
-	TargetManager TargetManagerConfig `yaml:"targetmanager" mapstructure:"targetmanager"`
+	TargetManager TargetManagerConfig `yaml:"targetManager" mapstructure:"targetManager"`
 }
 
 // ApiConfig is the configuration for the data API
@@ -74,27 +71,6 @@ type HttpLoaderConfig struct {
 
 type FileLoaderConfig struct {
 	Path string `yaml:"path" mapstructure:"path"`
-}
-
-// NewTargetManagerConfig creates a new TargetManagerConfig
-// from the passed file
-func NewTargetManagerConfig(path string) TargetManagerConfig {
-	if path == "" {
-		return TargetManagerConfig{}
-	}
-
-	var res TargetManagerConfig
-	f, err := os.ReadFile(path) //#nosec G304
-	if err != nil {
-		panic("failed to read config file " + err.Error())
-	}
-
-	err = yaml.Unmarshal(f, &res)
-	if err != nil {
-		panic("failed to parse config file: " + err.Error())
-	}
-
-	return res
 }
 
 // NewConfig creates a new Config

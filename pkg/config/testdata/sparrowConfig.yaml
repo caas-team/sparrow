@@ -1,0 +1,9 @@
+name: the-sparrow.com
+targetManager:
+    checkInterval: 300s
+    registrationInterval: 600s
+    unhealthyThreshold: 900s
+    gitlab:
+        token: gitlab-token
+        baseUrl: https://gitlab.devops.telekom.de
+        projectId: 666

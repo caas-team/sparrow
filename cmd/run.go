@@ -56,7 +56,6 @@ func NewCmdRun() *cobra.Command {
 	NewFlag("loader.http.retry.count", "loaderHttpRetryCount").Int().Bind(cmd, defaultHttpRetryCount, "http loader: Amount of retries trying to load the configuration")
 	NewFlag("loader.http.retry.delay", "loaderHttpRetryDelay").Int().Bind(cmd, defaultHttpRetryDelay, "http loader: The initial delay between retries in seconds")
 	NewFlag("loader.file.path", "loaderFilePath").String().Bind(cmd, "config.yaml", "file loader: The path to the file to read the runtime config from")
-	NewFlag("targetmanager.config", "tm-config").String().Bind(cmd, "", "target manager: The path to the file to read the target manager config from")
 
 	return cmd
 }
