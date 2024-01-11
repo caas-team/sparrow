@@ -28,8 +28,8 @@ import (
 )
 
 type RetryConfig struct {
-	Count int           `json:"count" yaml:"count"`
-	Delay time.Duration `json:"delay" yaml:"delay"`
+	Count int           `yaml:"count"`
+	Delay time.Duration `yaml:"delay"`
 }
 
 // Effector will be the function that is called by the Retry function
