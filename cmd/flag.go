@@ -23,6 +23,7 @@ type StringPFlag struct {
 	sh string
 }
 
+// Bind registers the flag with the command and binds it to the config
 func (f *StringFlag) Bind(cmd *cobra.Command, value, usage string) {
 	cmd.PersistentFlags().String(f.f.Cli, value, usage)
 	if err := viper.BindPFlag(f.f.Config, cmd.PersistentFlags().Lookup(f.f.Cli)); err != nil {
@@ -36,6 +37,7 @@ func (f *Flag) String() *StringFlag {
 	}
 }
 
+// Bind registers the flag with the command and binds it to the config
 func (f *IntFlag) Bind(cmd *cobra.Command, value int, usage string) {
 	cmd.PersistentFlags().Int(f.f.Cli, value, usage)
 	if err := viper.BindPFlag(f.f.Config, cmd.PersistentFlags().Lookup(f.f.Cli)); err != nil {
@@ -49,6 +51,7 @@ func (f *Flag) Int() *IntFlag {
 	}
 }
 
+// Bind registers the flag with the command and binds it to the config
 func (f *StringPFlag) Bind(cmd *cobra.Command, value, usage string) {
 	cmd.PersistentFlags().StringP(f.f.Cli, f.sh, value, usage)
 	if err := viper.BindPFlag(f.f.Config, cmd.PersistentFlags().Lookup(f.f.Cli)); err != nil {
@@ -63,6 +66,12 @@ func (f *Flag) StringP(shorthand string) *StringPFlag {
 	}
 }
 
+// NewFlag returns a flag builder
+// It serves as a wrapper around cobra and viper, that allows creating and binding typed cli flags to config values
+//
+// Example:
+//
+//	NewFlag("config", "c").String().Bind(cmd, "config.yaml", "config file")
 func NewFlag(config, cli string) *Flag {
 	return &Flag{
 		Config: config,
