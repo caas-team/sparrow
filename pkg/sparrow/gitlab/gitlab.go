@@ -28,7 +28,6 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/caas-team/sparrow/internal/httpclient"
 	"github.com/caas-team/sparrow/internal/logger"
 	"github.com/caas-team/sparrow/pkg/checks"
 )
@@ -61,7 +60,6 @@ type Client struct {
 // gitlab repository
 func (g *Client) DeleteFile(ctx context.Context, file File) error { //nolint:gocritic // no performance concerns yet
 	log := logger.FromContext(ctx).With("file", file)
-	client := httpclient.FromContext(ctx)
 
 	if file.fileName == "" {
 		return fmt.Errorf("filename is empty")
@@ -88,7 +86,7 @@ func (g *Client) DeleteFile(ctx context.Context, file File) error { //nolint:goc
 	req.Header.Add("PRIVATE-TOKEN", g.token)
 	req.Header.Add("Content-Type", "application/json")
 
-	resp, err := client.Do(req) //nolint:bodyclose // closed in defer
+	resp, err := g.client.Do(req) //nolint:bodyclose // closed in defer
 	if err != nil {
 		log.Error("Failed to delete file", "error", err)
 		return err
@@ -153,8 +151,6 @@ func (g *Client) FetchFiles(ctx context.Context) ([]checks.GlobalTarget, error) 
 // fetchFile fetches the file from the global targets repository from the configured gitlab repository
 func (g *Client) fetchFile(ctx context.Context, f string) (checks.GlobalTarget, error) {
 	log := logger.FromContext(ctx).With("file", f)
-	client := httpclient.FromContext(ctx)
-
 	var res checks.GlobalTarget
 	// URL encode the name
 	n := url.PathEscape(f)
@@ -170,7 +166,7 @@ func (g *Client) fetchFile(ctx context.Context, f string) (checks.GlobalTarget, 
 	req.Header.Add("PRIVATE-TOKEN", g.token)
 	req.Header.Add("Content-Type", "application/json")
 
-	resp, err := client.Do(req) //nolint:bodyclose // closed in defer
+	resp, err := g.client.Do(req) //nolint:bodyclose // closed in defer
 	if err != nil {
 		log.Error("Failed to fetch file", "error", err)
 		return res, err
@@ -202,8 +198,6 @@ func (g *Client) fetchFile(ctx context.Context, f string) (checks.GlobalTarget, 
 // so they may be fetched individually
 func (g *Client) fetchFileList(ctx context.Context) ([]string, error) {
 	log := logger.FromContext(ctx)
-	client := httpclient.FromContext(ctx)
-
 	log.Debug("Fetching file list from gitlab")
 	type file struct {
 		Name string `json:"name"`
@@ -222,7 +216,7 @@ func (g *Client) fetchFileList(ctx context.Context) ([]string, error) {
 	req.Header.Add("PRIVATE-TOKEN", g.token)
 	req.Header.Add("Content-Type", "application/json")
 
-	resp, err := client.Do(req) //nolint:bodyclose // closed in defer
+	resp, err := g.client.Do(req) //nolint:bodyclose // closed in defer
 	if err != nil {
 		log.Error("Failed to fetch file list", "error", err)
 		return nil, err
@@ -260,8 +254,6 @@ func (g *Client) fetchFileList(ctx context.Context) ([]string, error) {
 // as a global target for other sparrow instances to discover
 func (g *Client) PutFile(ctx context.Context, body File) error { //nolint: dupl,gocritic // no need to refactor yet
 	log := logger.FromContext(ctx)
-	client := httpclient.FromContext(ctx)
-
 	log.Debug("Registering sparrow instance to gitlab")
 
 	// chose method based on whether the registration has already happened
@@ -284,7 +276,7 @@ func (g *Client) PutFile(ctx context.Context, body File) error { //nolint: dupl,
 	req.Header.Add("PRIVATE-TOKEN", g.token)
 	req.Header.Add("Content-Type", "application/json")
 
-	resp, err := client.Do(req) //nolint:bodyclose // closed in defer
+	resp, err := g.client.Do(req) //nolint:bodyclose // closed in defer
 	if err != nil {
 		log.Error("Failed to push registration file", "error", err)
 		return err
@@ -309,8 +301,6 @@ func (g *Client) PutFile(ctx context.Context, body File) error { //nolint: dupl,
 // as a global target for other sparrow instances to discover
 func (g *Client) PostFile(ctx context.Context, body File) error { //nolint:dupl,gocritic // no need to refactor yet
 	log := logger.FromContext(ctx)
-	client := httpclient.FromContext(ctx)
-
 	log.Debug("Posting registration file to gitlab")
 
 	// chose method based on whether the registration has already happened
@@ -333,7 +323,7 @@ func (g *Client) PostFile(ctx context.Context, body File) error { //nolint:dupl,
 	req.Header.Add("PRIVATE-TOKEN", g.token)
 	req.Header.Add("Content-Type", "application/json")
 
-	resp, err := client.Do(req) //nolint:bodyclose // closed in defer
+	resp, err := g.client.Do(req) //nolint:bodyclose // closed in defer
 	if err != nil {
 		log.Error("Failed to post file", "error", err)
 		return err

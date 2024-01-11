@@ -26,7 +26,6 @@ import (
 	"time"
 
 	"github.com/caas-team/sparrow/internal/helper"
-	"github.com/caas-team/sparrow/internal/httpclient"
 	"github.com/caas-team/sparrow/internal/logger"
 	"github.com/caas-team/sparrow/pkg/api"
 	"github.com/getkin/kin-openapi/openapi3"
@@ -233,7 +232,10 @@ func (h *Health) check(ctx context.Context) healthData {
 // returns ok if status code is 200
 func getHealth(ctx context.Context, url string) error {
 	log := logger.FromContext(ctx).With("url", url)
-	c := httpclient.FromContext(ctx)
+
+	client := &http.Client{
+		Timeout: time.Second * 5,
+	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 	if err != nil {
@@ -241,7 +243,7 @@ func getHealth(ctx context.Context, url string) error {
 		return err
 	}
 
-	res, err := c.Do(req)
+	res, err := client.Do(req)
 	if err != nil {
 		log.Error("Http get request failed", "error", err.Error())
 		return err

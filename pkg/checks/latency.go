@@ -32,7 +32,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/caas-team/sparrow/internal/helper"
-	"github.com/caas-team/sparrow/internal/httpclient"
 	"github.com/caas-team/sparrow/internal/logger"
 	"github.com/caas-team/sparrow/pkg/api"
 )
@@ -206,26 +205,16 @@ func (l *Latency) check(ctx context.Context) map[string]LatencyResult {
 	var wg sync.WaitGroup
 	results := map[string]LatencyResult{}
 
-	// Extracting a copy of the http.Client from the context at the start of the function allows us
-	// to safely modify its Timeout property for the latency check without affecting other operations.
-	// This is crucial because different checks might require different timeout settings based on
-	// their nature and the targets they're accessing.
-	// By making a copy, we ensure that these modifications are isolated to each specific check,
-	// preventing race conditions and ensuring that each part of the application can specify
-	// its own requirements.
-	// If a check doesn't need to adjust client properties, it could directly retrieve and use
-	// the client from the context just before the request to minimize modifications
-	// and use the default configuration.
-	c := *httpclient.FromContext(ctx)
-	c.Timeout = l.cfg.Timeout * time.Second
-
+	client := &http.Client{
+		Timeout: l.cfg.Timeout * time.Second,
+	}
 	for _, t := range l.cfg.Targets {
 		target := t
 		wg.Add(1)
 		lo := log.With("target", target)
 
 		getLatencyRetry := helper.Retry(func(ctx context.Context) error {
-			res := getLatency(ctx, &c, target)
+			res := getLatency(ctx, client, target)
 			mu.Lock()
 			defer mu.Unlock()
 			results[target] = res
