@@ -135,7 +135,7 @@ func (g *Client) FetchFiles(ctx context.Context) ([]checks.GlobalTarget, error) 
 		log.Error("Failed to fetch files", "error", err)
 		return nil, err
 	}
-	// TODO: pop all non json files from fl
+
 	var result []checks.GlobalTarget
 	for _, f := range fl {
 		gl, err := g.fetchFile(ctx, f)
