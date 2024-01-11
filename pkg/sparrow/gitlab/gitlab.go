@@ -27,6 +27,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/caas-team/sparrow/internal/logger"
 	"github.com/caas-team/sparrow/pkg/checks"
@@ -134,7 +135,7 @@ func (g *Client) FetchFiles(ctx context.Context) ([]checks.GlobalTarget, error) 
 		log.Error("Failed to fetch files", "error", err)
 		return nil, err
 	}
-
+	// TODO: pop all non json files from fl
 	var result []checks.GlobalTarget
 	for _, f := range fl {
 		gl, err := g.fetchFile(ctx, f)
@@ -243,7 +244,9 @@ func (g *Client) fetchFileList(ctx context.Context) ([]string, error) {
 
 	var result []string
 	for _, f := range fl {
-		result = append(result, f.Name)
+		if strings.HasSuffix(f.Name, ".json") {
+			result = append(result, f.Name)
+		}
 	}
 
 	log.Debug("Successfully fetched file list", "files", len(result))
