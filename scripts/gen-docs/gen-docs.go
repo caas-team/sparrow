@@ -64,10 +64,10 @@ func NewCmdGenDocs() *cobra.Command {
 
 // runGenDocs generates the markdown files for the flag documentation
 func runGenDocs(path *string) func(cmd *cobra.Command, args []string) error {
-	irgendwascmd := sparrowcmd.BuildCmd("")
-	irgendwascmd.DisableAutoGenTag = true
+	c := sparrowcmd.BuildCmd("")
+	c.DisableAutoGenTag = true
 	return func(cmd *cobra.Command, args []string) error {
-		if err := doc.GenMarkdownTree(irgendwascmd, *path); err != nil {
+		if err := doc.GenMarkdownTree(c, *path); err != nil {
 			return fmt.Errorf("Failed to generate docs: %w", err)
 		}
 		return nil
