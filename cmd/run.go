@@ -39,7 +39,6 @@ const (
 
 // NewCmdRun creates a new run command
 func NewCmdRun() *cobra.Command {
-
 	cmd := &cobra.Command{
 		Use:   "run",
 		Short: "Run sparrow",
@@ -75,14 +74,14 @@ func run() func(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("failed to parse config: %w", err)
 		}
 
-		if err := cfg.Validate(ctx); err != nil {
+		if err = cfg.Validate(ctx); err != nil {
 			return fmt.Errorf("error while validating the config: %w", err)
 		}
 
 		s := sparrow.New(cfg)
 		log.Info("Running sparrow")
-		if err := s.Run(ctx); err != nil {
-			err := fmt.Errorf("error while running sparrow: %w", err)
+		if err = s.Run(ctx); err != nil {
+			err = fmt.Errorf("error while running sparrow: %w", err)
 			// by this time all shutdown routines should have been called
 			// so we can exit here
 			return err
