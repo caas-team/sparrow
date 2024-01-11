@@ -41,7 +41,7 @@ func NewHttpLoader(cfg *Config, cCfgChecks chan<- map[string]any) *HttpLoader {
 		cfg:        cfg,
 		cCfgChecks: cCfgChecks,
 		client: &http.Client{
-			Timeout: cfg.Loader.http.timeout * time.Second,
+			Timeout: cfg.Loader.http.timeout,
 		},
 	}
 }
