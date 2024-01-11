@@ -143,6 +143,79 @@ Priority of configuration (high to low):
 3. Defined configuration file
 4. Default configuration file
 
+Every value in the config file can be set through environment variables. 
+
+You can set a token for the http loader:
+
+```bash
+export SPARROW_LOADER_HTTP_TOKEN="Bearer xxxxxx"
+```
+
+Or for any other config attribute:
+```bash
+export SPARROW_ANY_OTHER_OPTION="Some value"
+```
+
+Just write out the path to the attribute, delimited by `_`.
+
+
+Example configuration:
+```yaml
+# DNS sparrow is exposed on 
+name: sparrow.example.com
+# Selects and configures a loader for continuosly fetching the configuration at runtime
+loader:
+    # defines which loader to use. Options: "file | http" 
+    type: http  
+    # the interval in which sparrow tries to fetch a new configuration
+    interval: 30s
+    # config specific to the http loader
+    http: 
+        # The url where the config is located
+        url: https://myconfig.example.com/config.yaml
+        # This token is passed in the Authorization header, when refreshing the config
+        token: Bearer xxxxxxx
+        # A timeout for the config refresh
+        timeout: 30s
+        retry:
+            # How long to wait in between retries
+            delay: 10s
+            # How many times to retry
+            count: 3
+
+    # config specific to the file loader
+    # The file loader is not intended for production use and does 
+    # not refresh the config after reading it the first time
+    file: 
+        # where to read the runtime config from
+        path: ./config.yaml
+
+# Configures the api
+api:
+    # Which address to expose sparrows rest api on
+    address: :8080 
+
+# Configures the targetmanager
+targetmanager:
+    # time between checking for new targets
+    checkInterval: 1m
+    # how often the instance should register itself as a global target
+    registrationInterval: 1m
+    # the amount of time a target can be
+    # unhealthy before it is removed from the global target list
+    unhealthyThreshold: 3m
+    # Configuration options for the gitlab target manager
+    gitlab:
+        # The url of your gitlab host
+        baseUrl: https://gitlab.com
+        # Your gitlab api token 
+        # you can also set this value through the 
+        # SPARROW_TARGETMANAGER_GITLAB_TOKEN environment variable
+        token: "glpat-xxxxxxxx"
+        # the id of your gitlab project. This is where sparrow will register itself
+        # and grab the list of other sparrows from
+        projectId: 18923
+```
 #### Loader
 
 The loader component of the `sparrow` will load the [Runtime](#runtime) configuration dynamically.
@@ -232,11 +305,11 @@ Available configuration options:
 
 - `checks`
   - `latency`
-    - `interval` (integer): Interval in seconds to perform the latency check.
-    - `timeout` (integer): Timeout in seconds for the latency check.
+    - `interval` (duration): Interval to perform the latency check.
+    - `timeout` (duration): Timeout for the latency check.
     - `retry`
       - `count` (integer): Number of retries for the latency check.
-      - `delay` (integer): Delay in seconds between retries for the latency check.
+      - `delay` (furation): Delay between retries for the latency check.
     - `targets` (list of strings): List of targets to send latency probe. Needs to be a valid url. Can be
       another `sparrow` instance. Automatically used when the target manager is enabled otherwise
       use latency endpoint, e.g. `https://sparrow-dns.telekom.de/checks/latency`.
@@ -247,11 +320,11 @@ Available configuration options:
 ```yaml
 checks:
   latency:
-    interval: 1
-    timeout: 3
+    interval: 1s
+    timeout: 3s
     retry:
       count: 3
-      delay: 1
+      delay: 1s
     targets:
       - https://example.com/
       - https://google.com/
