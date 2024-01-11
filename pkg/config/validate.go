@@ -48,7 +48,7 @@ func (c *Config) Validate(ctx context.Context) error {
 		}
 		if c.Loader.Http.RetryCfg.Count < 0 || c.Loader.Http.RetryCfg.Count >= 5 {
 			ok = false
-			log.Error("The amount of loader http retries should be above 0 and below 6")
+			log.Error("The amount of loader http retries should be above 0 and below 6", "retryCount", c.Loader.Http.RetryCfg.Count)
 		}
 	}
 
