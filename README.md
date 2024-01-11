@@ -174,7 +174,7 @@ loader:
         # The url where the config is located
         url: https://myconfig.example.com/config.yaml
         # This token is passed in the Authorization header, when refreshing the config
-        token: Bearer xxxxxxx
+        token: xxxxxxx
         # A timeout for the config refresh
         timeout: 30s
         retry:
@@ -309,7 +309,7 @@ Available configuration options:
     - `timeout` (duration): Timeout for the latency check.
     - `retry`
       - `count` (integer): Number of retries for the latency check.
-      - `delay` (furation): Delay between retries for the latency check.
+      - `delay` (duration): Delay between retries for the latency check.
     - `targets` (list of strings): List of targets to send latency probe. Needs to be a valid url. Can be
       another `sparrow` instance. Automatically used when the target manager is enabled otherwise
       use latency endpoint, e.g. `https://sparrow-dns.telekom.de/checks/latency`.
