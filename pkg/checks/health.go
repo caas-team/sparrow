@@ -75,12 +75,6 @@ type HealthConfig struct {
 	Retry    helper.RetryConfig
 }
 
-// HealthResult represents the result of a single health check for a specific target
-type HealthResult struct {
-	Target string `json:"target"`
-	Status string `json:"status"`
-}
-
 // Defined metric collectors of health check
 type healthMetrics struct {
 	health *prometheus.GaugeVec
@@ -91,7 +85,7 @@ func (h *Health) Run(ctx context.Context) error {
 	ctx, cancel := logger.NewContextWithLogger(ctx, "health")
 	defer cancel()
 	log := logger.FromContext(ctx)
-	log.Info(fmt.Sprintf("Using latency check interval of %s", h.config.Interval.String()))
+	log.Info(fmt.Sprintf("Using health check interval of %s", h.config.Interval.String()))
 
 	for {
 		select {
@@ -158,7 +152,7 @@ func (h *Health) SetClient(c *http.Client) {
 // Schema provides the schema of the data that will be provided
 // by the health check
 func (h *Health) Schema() (*openapi3.SchemaRef, error) {
-	return OpenapiFromPerfData[[]HealthResult]([]HealthResult{})
+	return OpenapiFromPerfData[map[string]string](map[string]string{})
 }
 
 // RegisterHandler dynamically registers a server handler
@@ -201,18 +195,18 @@ func (h *Health) GetMetricCollectors() []prometheus.Collector {
 
 // check performs a health check using a retry function
 // to get the health status for all targets
-func (h *Health) check(ctx context.Context) []HealthResult {
+func (h *Health) check(ctx context.Context) map[string]string {
 	log := logger.FromContext(ctx).WithGroup("check")
 	log.Debug("Checking health")
 	if len(h.config.Targets) == 0 {
 		log.Debug("No targets defined")
-		return []HealthResult{}
+		return map[string]string{}
 	}
 	log.Debug("Getting health status for each target in separate routine", "amount", len(h.config.Targets))
 
 	var wg sync.WaitGroup
 	var mu sync.Mutex
-	results := []HealthResult{}
+	results := map[string]string{}
 
 	h.mu.Lock()
 	h.client.Timeout = h.config.Timeout * time.Second
@@ -239,10 +233,8 @@ func (h *Health) check(ctx context.Context) []HealthResult {
 			l.Debug("Successfully got health status of target", "status", stateMapping[state])
 			mu.Lock()
 			defer mu.Unlock()
-			results = append(results, HealthResult{
-				Target: target,
-				Status: stateMapping[state],
-			})
+			results[target] = stateMapping[state]
+
 			h.metrics.health.WithLabelValues(target).Set(float64(state))
 		}()
 	}

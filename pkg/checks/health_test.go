@@ -162,14 +162,14 @@ func TestHealth_Check(t *testing.T) {
 		registeredEndpoints map[string]int
 		targets             []string
 		ctx                 context.Context
-		want                []HealthResult
+		want                map[string]string
 	}{
 		{
 			name:                "no target",
 			registeredEndpoints: nil,
 			targets:             []string{},
 			ctx:                 context.Background(),
-			want:                []HealthResult{},
+			want:                map[string]string{},
 		},
 		{
 			name: "one target healthy",
@@ -180,11 +180,8 @@ func TestHealth_Check(t *testing.T) {
 				"https://api.test.com",
 			},
 			ctx: context.Background(),
-			want: []HealthResult{
-				{
-					Target: "https://api.test.com",
-					Status: "healthy",
-				},
+			want: map[string]string{
+				"https://api.test.com": "healthy",
 			},
 		},
 		{
@@ -196,11 +193,8 @@ func TestHealth_Check(t *testing.T) {
 				"https://api.test.com",
 			},
 			ctx: context.Background(),
-			want: []HealthResult{
-				{
-					Target: "https://api.test.com",
-					Status: "unhealthy",
-				},
+			want: map[string]string{
+				"https://api.test.com": "unhealthy",
 			},
 		},
 		{
@@ -220,27 +214,12 @@ func TestHealth_Check(t *testing.T) {
 				"https://api5.test.com",
 			},
 			ctx: context.Background(),
-			want: []HealthResult{
-				{
-					Target: "https://api1.test.com",
-					Status: "healthy",
-				},
-				{
-					Target: "https://api2.test.com",
-					Status: "unhealthy",
-				},
-				{
-					Target: "https://api3.test.com",
-					Status: "healthy",
-				},
-				{
-					Target: "https://api4.test.com",
-					Status: "unhealthy",
-				},
-				{
-					Target: "https://api5.test.com",
-					Status: "healthy",
-				},
+			want: map[string]string{
+				"https://api1.test.com": "healthy",
+				"https://api2.test.com": "unhealthy",
+				"https://api3.test.com": "healthy",
+				"https://api4.test.com": "unhealthy",
+				"https://api5.test.com": "healthy",
 			},
 		},
 	}
@@ -265,12 +244,12 @@ func TestHealth_Check(t *testing.T) {
 			}
 			got := h.check(tt.ctx)
 			assert.Equal(t, len(got), len(tt.want), "Amount of targets is not equal")
-			for _, target := range tt.want {
+			for target, status := range tt.want {
 				helperStatus := "unhealthy"
-				if tt.registeredEndpoints[target.Target] == 200 {
+				if tt.registeredEndpoints[target] == 200 {
 					helperStatus = "healthy"
 				}
-				assert.Equal(t, helperStatus, target.Status, "Target does not map with expected target")
+				assert.Equal(t, helperStatus, status, "Target does not map with expected target")
 			}
 		})
 	}
