@@ -7,7 +7,7 @@ import (
 
 type Flag struct {
 	Config string
-	CLI    string
+	Cli    string
 }
 
 type StringFlag struct {
@@ -26,8 +26,8 @@ type StringPFlag struct {
 type BindFN func(cmd *cobra.Command, value, usage string)
 
 func (f *StringFlag) Bind(cmd *cobra.Command, value, usage string) {
-	cmd.PersistentFlags().String(f.f.CLI, value, usage)
-	if err := viper.BindPFlag(f.f.Config, cmd.PersistentFlags().Lookup(f.f.CLI)); err != nil {
+	cmd.PersistentFlags().String(f.f.Cli, value, usage)
+	if err := viper.BindPFlag(f.f.Config, cmd.PersistentFlags().Lookup(f.f.Cli)); err != nil {
 		panic(err)
 	}
 }
@@ -39,8 +39,8 @@ func (f *Flag) String() *StringFlag {
 }
 
 func (f *IntFlag) Bind(cmd *cobra.Command, value int, usage string) {
-	cmd.PersistentFlags().Int(f.f.CLI, value, usage)
-	if err := viper.BindPFlag(f.f.Config, cmd.PersistentFlags().Lookup(f.f.CLI)); err != nil {
+	cmd.PersistentFlags().Int(f.f.Cli, value, usage)
+	if err := viper.BindPFlag(f.f.Config, cmd.PersistentFlags().Lookup(f.f.Cli)); err != nil {
 		panic(err)
 	}
 }
@@ -52,8 +52,8 @@ func (f *Flag) Int() *IntFlag {
 }
 
 func (f *StringPFlag) Bind(cmd *cobra.Command, value, usage string) {
-	cmd.PersistentFlags().StringP(f.f.CLI, f.sh, value, usage)
-	if err := viper.BindPFlag(f.f.Config, cmd.PersistentFlags().Lookup(f.f.CLI)); err != nil {
+	cmd.PersistentFlags().StringP(f.f.Cli, f.sh, value, usage)
+	if err := viper.BindPFlag(f.f.Config, cmd.PersistentFlags().Lookup(f.f.Cli)); err != nil {
 		panic(err)
 	}
 }
@@ -68,6 +68,6 @@ func (f *Flag) StringP(shorthand string) *StringPFlag {
 func NewFlag(config, cli string) *Flag {
 	return &Flag{
 		Config: config,
-		CLI:    cli,
+		Cli:    cli,
 	}
 }
