@@ -145,7 +145,7 @@ func TestHttpLoader_GetRuntimeConfig(t *testing.T) {
 				cfg:        tt.cfg,
 				cCfgChecks: make(chan<- map[string]any, 1),
 				client: &http.Client{
-					Timeout: tt.cfg.Loader.http.timeout,
+					Timeout: tt.cfg.Loader.Http.Timeout,
 				},
 			}
 			gl.cfg.Loader.Http.Url = endpoint

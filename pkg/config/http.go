@@ -41,7 +41,7 @@ func NewHttpLoader(cfg *Config, cCfgChecks chan<- map[string]any) *HttpLoader {
 		cfg:        cfg,
 		cCfgChecks: cCfgChecks,
 		client: &http.Client{
-			Timeout: cfg.Loader.http.timeout,
+			Timeout: cfg.Loader.Http.Timeout,
 		},
 	}
 }
@@ -84,9 +84,8 @@ func (gl *HttpLoader) Run(ctx context.Context) {
 func (gl *HttpLoader) GetRuntimeConfig(ctx context.Context) (*RuntimeConfig, error) {
 	log := logger.FromContext(ctx).With("url", gl.cfg.Loader.Http.Url)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, gl.cfg.Loader.http.url, http.NoBody)
-
-  if err != nil {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, gl.cfg.Loader.Http.Url, http.NoBody)
+	if err != nil {
 		log.Error("Could not create http GET request", "error", err.Error())
 		return nil, err
 	}
