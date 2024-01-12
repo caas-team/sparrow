@@ -49,7 +49,7 @@ type Health struct {
 
 // HealthConfig contains the health check config
 type HealthConfig struct {
-	Targets []string `json:"targets,omitempty"`
+	Targets []string `json:"targets,omitempty" yaml:"targets,omitempty"`
 }
 
 // Data that will be stored in the database

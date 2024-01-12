@@ -20,7 +20,8 @@ package cmd
 
 import (
 	"context"
-	"os"
+	"fmt"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -31,96 +32,61 @@ import (
 )
 
 const (
-	defaultLoaderHttpTimeout = 30
-	defaultLoaderInterval    = 300
+	defaultLoaderHttpTimeout = 30 * time.Second
+	defaultLoaderInterval    = 300 * time.Second
 	defaultHttpRetryCount    = 3
-	defaultHttpRetryDelay    = 1
+	defaultHttpRetryDelay    = 1 * time.Second
 )
 
 // NewCmdRun creates a new run command
 func NewCmdRun() *cobra.Command {
-	flagMapping := config.RunFlagsNameMapping{
-		ApiAddress:           "apiAddress",
-		SparrowName:          "sparrowName",
-		LoaderType:           "loaderType",
-		LoaderInterval:       "loaderInterval",
-		LoaderHttpUrl:        "loaderHttpUrl",
-		LoaderHttpToken:      "loaderHttpToken",
-		LoaderHttpTimeout:    "loaderHttpTimeout",
-		LoaderHttpRetryCount: "loaderHttpRetryCount",
-		LoaderHttpRetryDelay: "loaderHttpRetryDelay",
-		LoaderFilePath:       "loaderFilePath",
-		TargetManagerConfig:  "tmconfig",
-	}
-
 	cmd := &cobra.Command{
 		Use:   "run",
 		Short: "Run sparrow",
 		Long:  `Sparrow will be started with the provided configuration`,
-		Run:   run(&flagMapping),
+		RunE:  run(),
 	}
 
-	cmd.PersistentFlags().String(flagMapping.ApiAddress, ":8080", "api: The address the server is listening on")
-	cmd.PersistentFlags().String(flagMapping.SparrowName, "", "The DNS name of the sparrow")
-	cmd.PersistentFlags().StringP(flagMapping.LoaderType, "l", "http",
-		"defines the loader type that will load the checks configuration during the runtime. The fallback is the fileLoader")
-	cmd.PersistentFlags().Int(flagMapping.LoaderInterval, defaultLoaderInterval, "defines the interval the loader reloads the configuration in seconds")
-	cmd.PersistentFlags().String(flagMapping.LoaderHttpUrl, "", "http loader: The url where to get the remote configuration")
-	cmd.PersistentFlags().String(flagMapping.LoaderHttpToken, "", "http loader: Bearer token to authenticate the http endpoint")
-	cmd.PersistentFlags().Int(flagMapping.LoaderHttpTimeout, defaultLoaderHttpTimeout, "http loader: The timeout for the http request in seconds")
-	cmd.PersistentFlags().Int(flagMapping.LoaderHttpRetryCount, defaultHttpRetryCount, "http loader: Amount of retries trying to load the configuration")
-	cmd.PersistentFlags().Int(flagMapping.LoaderHttpRetryDelay, defaultHttpRetryDelay, "http loader: The initial delay between retries in seconds")
-	cmd.PersistentFlags().String(flagMapping.LoaderFilePath, "config.yaml", "file loader: The path to the file to read the runtime config from")
-	cmd.PersistentFlags().String(flagMapping.TargetManagerConfig, "", "target manager: The path to the file to read the target manager config from")
-
-	_ = viper.BindPFlag(flagMapping.ApiAddress, cmd.PersistentFlags().Lookup(flagMapping.ApiAddress))
-	_ = viper.BindPFlag(flagMapping.SparrowName, cmd.PersistentFlags().Lookup(flagMapping.SparrowName))
-	_ = viper.BindPFlag(flagMapping.LoaderType, cmd.PersistentFlags().Lookup(flagMapping.LoaderType))
-	_ = viper.BindPFlag(flagMapping.LoaderInterval, cmd.PersistentFlags().Lookup(flagMapping.LoaderInterval))
-	_ = viper.BindPFlag(flagMapping.LoaderHttpUrl, cmd.PersistentFlags().Lookup(flagMapping.LoaderHttpUrl))
-	_ = viper.BindPFlag(flagMapping.LoaderHttpToken, cmd.PersistentFlags().Lookup(flagMapping.LoaderHttpToken))
-	_ = viper.BindPFlag(flagMapping.LoaderHttpTimeout, cmd.PersistentFlags().Lookup(flagMapping.LoaderHttpTimeout))
-	_ = viper.BindPFlag(flagMapping.LoaderHttpRetryCount, cmd.PersistentFlags().Lookup(flagMapping.LoaderHttpRetryCount))
-	_ = viper.BindPFlag(flagMapping.LoaderHttpRetryDelay, cmd.PersistentFlags().Lookup(flagMapping.LoaderHttpRetryDelay))
-	_ = viper.BindPFlag(flagMapping.LoaderFilePath, cmd.PersistentFlags().Lookup(flagMapping.LoaderFilePath))
-	_ = viper.BindPFlag(flagMapping.TargetManagerConfig, cmd.PersistentFlags().Lookup(flagMapping.TargetManagerConfig))
+	NewFlag("api.address", "apiAddress").String().Bind(cmd, ":8080", "api: The address the server is listening on")
+	NewFlag("name", "sparrowName").String().Bind(cmd, "", "The DNS name of the sparrow")
+	NewFlag("loader.type", "loaderType").StringP("l").Bind(cmd, "http", "Defines the loader type that will load the checks configuration during the runtime. The fallback is the fileLoader")
+	NewFlag("loader.interval", "loaderInterval").Duration().Bind(cmd, defaultLoaderInterval, "defines the interval the loader reloads the configuration in seconds")
+	NewFlag("loader.http.url", "loaderHttpUrl").String().Bind(cmd, "", "http loader: The url where to get the remote configuration")
+	NewFlag("loader.http.token", "loaderHttpToken").String().Bind(cmd, "", "http loader: Bearer token to authenticate the http endpoint")
+	NewFlag("loader.http.timeout", "loaderHttpTimeout").Duration().Bind(cmd, defaultLoaderHttpTimeout, "http loader: The timeout for the http request in seconds")
+	NewFlag("loader.http.retry.count", "loaderHttpRetryCount").Int().Bind(cmd, defaultHttpRetryCount, "http loader: Amount of retries trying to load the configuration")
+	NewFlag("loader.http.retry.delay", "loaderHttpRetryDelay").Duration().Bind(cmd, defaultHttpRetryDelay, "http loader: The initial delay between retries in seconds")
+	NewFlag("loader.file.path", "loaderFilePath").String().Bind(cmd, "config.yaml", "file loader: The path to the file to read the runtime config from")
 
 	return cmd
 }
 
 // run is the entry point to start the sparrow
-func run(fm *config.RunFlagsNameMapping) func(cmd *cobra.Command, args []string) {
-	return func(cmd *cobra.Command, args []string) {
+func run() func(cmd *cobra.Command, args []string) error {
+	return func(cmd *cobra.Command, args []string) error {
 		log := logger.NewLogger()
 		ctx := logger.IntoContext(context.Background(), log)
 
 		cfg := config.NewConfig()
-		cfg.SetTargetManagerConfig(config.NewTargetManagerConfig(viper.GetString(fm.TargetManagerConfig)))
 
-		cfg.SetApiAddress(viper.GetString(fm.ApiAddress))
-		cfg.SetSparrowName(viper.GetString(fm.SparrowName))
+		err := viper.Unmarshal(cfg)
+		if err != nil {
+			return fmt.Errorf("failed to parse config: %w", err)
+		}
 
-		cfg.SetLoaderType(viper.GetString(fm.LoaderType))
-		cfg.SetLoaderInterval(viper.GetInt(fm.LoaderInterval))
-		cfg.SetLoaderHttpUrl(viper.GetString(fm.LoaderHttpUrl))
-		cfg.SetLoaderHttpToken(viper.GetString(fm.LoaderHttpToken))
-		cfg.SetLoaderHttpTimeout(viper.GetInt(fm.LoaderHttpTimeout))
-		cfg.SetLoaderHttpRetryCount(viper.GetInt(fm.LoaderHttpRetryCount))
-		cfg.SetLoaderHttpRetryDelay(viper.GetInt(fm.LoaderHttpRetryDelay))
-		cfg.SetLoaderFilePath(viper.GetString(fm.LoaderFilePath))
-
-		if err := cfg.Validate(ctx, fm); err != nil {
-			log.Error("Error while validating the config", "error", err)
-			panic(err)
+		if err = cfg.Validate(ctx); err != nil {
+			return fmt.Errorf("error while validating the config: %w", err)
 		}
 
 		s := sparrow.New(cfg)
 		log.Info("Running sparrow")
-		if err := s.Run(ctx); err != nil {
-			log.Error("Error while running sparrow", "error", err)
+		if err = s.Run(ctx); err != nil {
+			err = fmt.Errorf("error while running sparrow: %w", err)
 			// by this time all shutdown routines should have been called
 			// so we can exit here
-			os.Exit(1)
+			return err
 		}
+
+		return nil
 	}
 }

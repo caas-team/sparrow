@@ -57,10 +57,10 @@ type Latency struct {
 }
 
 type LatencyConfig struct {
-	Targets  []string
-	Interval time.Duration
-	Timeout  time.Duration
-	Retry    helper.RetryConfig
+	Targets  []string           `json:"targets" yaml:"targets"`
+	Interval time.Duration      `json:"interval" yaml:"interval"`
+	Timeout  time.Duration      `json:"timeout" yaml:"timeout"`
+	Retry    helper.RetryConfig `json:"retry" yaml:"retry"`
 }
 
 type LatencyResult struct {
@@ -184,11 +184,11 @@ func newLatencyMetrics() latencyMetrics {
 }
 
 // GetMetricCollectors returns all metric collectors of check
-func (h *Latency) GetMetricCollectors() []prometheus.Collector {
+func (l *Latency) GetMetricCollectors() []prometheus.Collector {
 	return []prometheus.Collector{
-		h.metrics.latencyDuration,
-		h.metrics.latencyCount,
-		h.metrics.latencyHistogram,
+		l.metrics.latencyDuration,
+		l.metrics.latencyCount,
+		l.metrics.latencyHistogram,
 	}
 }
 
