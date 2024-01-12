@@ -232,9 +232,6 @@ func TestHealth_Check(t *testing.T) {
 			}
 
 			h := &Health{
-				CheckBase: CheckBase{
-					client: &http.Client{},
-				},
 				config: HealthConfig{
 					Targets: tt.targets,
 					Timeout: 30,

@@ -25,7 +25,7 @@ import (
 )
 
 func TestNewFileLoader(t *testing.T) {
-	l := NewFileLoader(&Config{Loader: LoaderConfig{file: FileLoaderConfig{path: "config.yaml"}}}, make(chan<- map[string]any, 1))
+	l := NewFileLoader(&Config{Loader: LoaderConfig{File: FileLoaderConfig{Path: "config.yaml"}}}, make(chan<- map[string]any, 1))
 
 	if l.path != "config.yaml" {
 		t.Errorf("Expected path to be config.yaml, got %s", l.path)

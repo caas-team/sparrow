@@ -134,7 +134,6 @@ func TestLatency_Run(t *testing.T) { //nolint:gocyclo
 				t.Fatalf("Latency.Startup() error = %v", err)
 			}
 
-			c.SetClient(&http.Client{})
 			err = c.SetConfig(tt.ctx, map[string]any{
 				"targets":  tt.targets,
 				"interval": 1,
@@ -291,9 +290,6 @@ func TestLatency_check(t *testing.T) {
 			}
 
 			l := &Latency{
-				CheckBase: CheckBase{
-					client: &http.Client{},
-				},
 				config:  LatencyConfig{Targets: tt.targets, Interval: time.Second * 120, Timeout: time.Second * 1},
 				metrics: newLatencyMetrics(),
 			}

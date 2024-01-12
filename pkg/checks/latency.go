@@ -52,7 +52,6 @@ func NewLatencyCheck() Check {
 			mu:      sync.Mutex{},
 			cResult: nil,
 			done:    make(chan bool, 1),
-			client:  &http.Client{},
 		},
 		config: LatencyConfig{
 			Retry: DefaultRetry,
@@ -63,10 +62,10 @@ func NewLatencyCheck() Check {
 
 // LatencyConfig defines the configuration parameters for a latency check
 type LatencyConfig struct {
-	Targets  []string
-	Interval time.Duration
-	Timeout  time.Duration
-	Retry    helper.RetryConfig
+	Targets  []string           `json:"targets" yaml:"targets"`
+	Interval time.Duration      `json:"interval" yaml:"interval"`
+	Timeout  time.Duration      `json:"timeout" yaml:"timeout"`
+	Retry    helper.RetryConfig `json:"retry" yaml:"retry"`
 }
 
 // LatencyResult represents the result of a single latency check for a specific target
@@ -141,13 +140,6 @@ func (l *Latency) SetConfig(_ context.Context, config any) error {
 	return nil
 }
 
-// SetClient sets the http client for the latency check
-func (l *Latency) SetClient(c *http.Client) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	l.client = c
-}
-
 // Schema provides the schema of the data that will be provided
 // by the latency check
 func (l *Latency) Schema() (*openapi3.SchemaRef, error) {
@@ -204,11 +196,11 @@ func newLatencyMetrics() latencyMetrics {
 }
 
 // GetMetricCollectors returns all metric collectors of check
-func (h *Latency) GetMetricCollectors() []prometheus.Collector {
+func (l *Latency) GetMetricCollectors() []prometheus.Collector {
 	return []prometheus.Collector{
-		h.metrics.latencyDuration,
-		h.metrics.latencyCount,
-		h.metrics.latencyHistogram,
+		l.metrics.latencyDuration,
+		l.metrics.latencyCount,
+		l.metrics.latencyHistogram,
 	}
 }
 
@@ -227,16 +219,16 @@ func (l *Latency) check(ctx context.Context) map[string]LatencyResult {
 	var wg sync.WaitGroup
 	results := map[string]LatencyResult{}
 
-	l.mu.Lock()
-	l.client.Timeout = l.config.Timeout * time.Second
-	l.mu.Unlock()
+	client := &http.Client{
+		Timeout: l.config.Timeout * time.Second,
+	}
 	for _, t := range l.config.Targets {
 		target := t
 		wg.Add(1)
 		lo := log.With("target", target)
 
 		getLatencyRetry := helper.Retry(func(ctx context.Context) error {
-			res := getLatency(ctx, l.client, target)
+			res := getLatency(ctx, client, target)
 			mu.Lock()
 			defer mu.Unlock()
 			results[target] = res
@@ -269,7 +261,7 @@ func (l *Latency) check(ctx context.Context) map[string]LatencyResult {
 }
 
 // getLatency performs an HTTP get request and returns ok if request succeeds
-func getLatency(ctx context.Context, client *http.Client, url string) LatencyResult {
+func getLatency(ctx context.Context, c *http.Client, url string) LatencyResult {
 	log := logger.FromContext(ctx).With("url", url)
 	var res LatencyResult
 
@@ -282,7 +274,7 @@ func getLatency(ctx context.Context, client *http.Client, url string) LatencyRes
 	}
 
 	start := time.Now()
-	resp, err := client.Do(req) //nolint:bodyclose // Closed in defer below
+	resp, err := c.Do(req) //nolint:bodyclose // Closed in defer below
 	if err != nil {
 		log.Error("Error while checking latency", "error", err)
 		errval := err.Error()

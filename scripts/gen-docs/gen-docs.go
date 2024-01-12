@@ -16,24 +16,45 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package cmd
+package main
 
-//go:generate go run ../main.go gen-docs --path ../docs
+//go:generate go run gen-docs.go gen-docs --path ../../docs
 
 import (
+	"fmt"
+	"os"
+
+	sparrowcmd "github.com/caas-team/sparrow/cmd"
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 )
 
+func main() {
+	execute()
+}
+
+func execute() {
+	rootCmd := &cobra.Command{
+		Use:   "gen-docs",
+		Short: "Generates docs for sparrow",
+	}
+	rootCmd.AddCommand(NewCmdGenDocs())
+
+	if err := rootCmd.Execute(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+}
+
 // NewCmdGenDocs creates a new gen-docs command
-func NewCmdGenDocs(rootCmd *cobra.Command) *cobra.Command {
+func NewCmdGenDocs() *cobra.Command {
 	var docPath string
 
 	cmd := &cobra.Command{
 		Use:   "gen-docs",
 		Short: "Generate markdown documentation",
 		Long:  `Generate the markdown documentation of available CLI flags`,
-		Run:   runGenDocs(rootCmd, &docPath),
+		RunE:  runGenDocs(&docPath),
 	}
 
 	cmd.PersistentFlags().StringVar(&docPath, "path", "docs", "directory path where the markdown files will be created")
@@ -42,9 +63,13 @@ func NewCmdGenDocs(rootCmd *cobra.Command) *cobra.Command {
 }
 
 // runGenDocs generates the markdown files for the flag documentation
-func runGenDocs(rootCmd *cobra.Command, path *string) func(cmd *cobra.Command, args []string) {
-	rootCmd.DisableAutoGenTag = true
-	return func(cmd *cobra.Command, args []string) {
-		_ = doc.GenMarkdownTree(rootCmd, *path)
+func runGenDocs(path *string) func(cmd *cobra.Command, args []string) error {
+	c := sparrowcmd.BuildCmd("")
+	c.DisableAutoGenTag = true
+	return func(cmd *cobra.Command, args []string) error {
+		if err := doc.GenMarkdownTree(c, *path); err != nil {
+			return fmt.Errorf("Failed to generate docs: %w", err)
+		}
+		return nil
 	}
 }

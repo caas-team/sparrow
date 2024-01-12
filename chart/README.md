@@ -57,6 +57,5 @@ A Helm chart to install Sparrow
 | serviceAccount.create | bool | `true` | Specifies whether a service account should be created |
 | serviceAccount.name | string | `""` | The name of the service account to use. If not set and create is true, a name is generated using the fullname template |
 | startupConfig | object | `{}` | startup configuration of the Sparrow see: https://github.com/caas-team/sparrow/blob/main/docs/sparrow_run.md |
-| targetManagerConfig | object | `{}` | target manager configuration of the Sparrow (part of the startup) |
 | tolerations | list | `[]` |  |
 

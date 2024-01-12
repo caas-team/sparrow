@@ -50,10 +50,9 @@ service:
 ingress:
   enabled: false
   className: ""
-  annotations:
-    {}
-    # kubernetes.io/ingress.class: nginx
-    # kubernetes.io/tls-acme: "true"
+  annotations: {}
+  # kubernetes.io/ingress.class: nginx
+  # kubernetes.io/tls-acme: "true"
   hosts:
     - host: chart-example.local
       paths:
@@ -64,11 +63,10 @@ ingress:
   #    hosts:
   #      - chart-example.local
 
-env:
-  {}
-  # HTTP_PROXY:
-  # HTTPS_PROXY:
-  # NO_PROXY:
+env: {}
+# HTTP_PROXY:
+# HTTPS_PROXY:
+# NO_PROXY:
 
 # -- define a network policy that will
 # open egress traffic to a proxy
@@ -102,19 +100,21 @@ extraArgs:
 # -- startup configuration of the Sparrow
 # see: https://github.com/caas-team/sparrow/blob/main/docs/sparrow_run.md
 startupConfig: {}
-#   apiAddress:
-#   loaderFilePath: /runconfig/checks.yaml
-#   loaderHttpRetryCount:
-#   loaderHttpRetryDelay:
-#   loaderHttpTimeout:
-#   loaderHttpToken:
-#   loaderHttpUrl:
-#   loaderInterval:
-#   loaderType: http | file
-#   sparrowName: the-sparrow.com
-
-# -- target manager configuration of the Sparrow (part of the startup)
-targetManagerConfig: {}
+# name: the-sparrow.com
+# api:
+#   address:
+# loader:
+#   type: http | file
+#   interval:
+#   http:
+#     url:
+#     token:
+#     timeout:
+#     retryCount:
+#     retryDelay:
+#   file:
+#     path: /runconfig/checks.yaml
+# targetManager:
 #   checkInterval: 300s
 #   unhealthyThreshold: 600s
 #   registrationInterval: 300s

@@ -57,7 +57,6 @@ func NewHealthCheck() Check {
 			mu:      sync.Mutex{},
 			cResult: nil,
 			done:    make(chan bool, 1),
-			client:  &http.Client{},
 		},
 		route: "health",
 		config: HealthConfig{
@@ -69,10 +68,10 @@ func NewHealthCheck() Check {
 
 // HealthConfig defines the configuration parameters for a health check
 type HealthConfig struct {
-	Targets  []string
-	Interval time.Duration
-	Timeout  time.Duration
-	Retry    helper.RetryConfig
+	Targets  []string           `json:"targets,omitempty" yaml:"targets,omitempty"`
+	Interval time.Duration      `json:"interval" yaml:"interval"`
+	Timeout  time.Duration      `json:"timeout" yaml:"timeout"`
+	Retry    helper.RetryConfig `json:"retry" yaml:"retry"`
 }
 
 // Defined metric collectors of health check
@@ -142,13 +141,6 @@ func (h *Health) SetConfig(_ context.Context, config any) error {
 	return nil
 }
 
-// SetClient sets the http client for the health check
-func (h *Health) SetClient(c *http.Client) {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	h.client = c
-}
-
 // Schema provides the schema of the data that will be provided
 // by the health check
 func (h *Health) Schema() (*openapi3.SchemaRef, error) {
@@ -208,16 +200,16 @@ func (h *Health) check(ctx context.Context) map[string]string {
 	var mu sync.Mutex
 	results := map[string]string{}
 
-	h.mu.Lock()
-	h.client.Timeout = h.config.Timeout * time.Second
-	h.mu.Unlock()
+	client := &http.Client{
+		Timeout: h.config.Timeout * time.Second,
+	}
 	for _, t := range h.config.Targets {
 		target := t
 		wg.Add(1)
 		l := log.With("target", target)
 
 		getHealthRetry := helper.Retry(func(ctx context.Context) error {
-			return getHealth(ctx, h.client, target)
+			return getHealth(ctx, client, target)
 		}, h.config.Retry)
 
 		go func() {
