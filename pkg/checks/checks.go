@@ -20,7 +20,6 @@ package checks
 
 import (
 	"context"
-	"net/http"
 	"time"
 
 	"github.com/getkin/kin-openapi/openapi3"
@@ -53,10 +52,6 @@ type Check interface {
 	// This is also called while the check is running, if the remote config is updated
 	// This should return an error if the config is invalid
 	SetConfig(ctx context.Context, config any) error
-	// SetClient sets an HTTP client for the check. This method is used to configure
-	// the check with a specific HTTP client, which can be used for network requests
-	// during the check's execution
-	SetClient(c *http.Client)
 	// Schema returns an openapi3.SchemaRef of the result type returned by the check
 	Schema() (*openapi3.SchemaRef, error)
 	// RegisterHandler Allows the check to register a handler on sparrows http server at runtime

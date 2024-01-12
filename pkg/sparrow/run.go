@@ -41,7 +41,6 @@ type Sparrow struct {
 	db db.DB
 	// the existing checks
 	checks map[string]checks.Check
-	client *http.Client
 	server *http.Server
 
 	metrics Metrics
@@ -70,7 +69,6 @@ func New(cfg *config.Config) *Sparrow {
 	sparrow := &Sparrow{
 		db:          db.NewInMemory(),
 		checks:      make(map[string]checks.Check),
-		client:      &http.Client{},
 		metrics:     NewMetrics(),
 		resultFanIn: make(map[string]chan checks.Result),
 		cResult:     make(chan checks.ResultDTO, 1),
@@ -230,7 +228,6 @@ func (s *Sparrow) registerCheck(ctx context.Context, name string, checkCfg any) 
 	checkChan := make(chan checks.Result, 1)
 	s.resultFanIn[name] = checkChan
 
-	check.SetClient(s.client)
 	err := check.SetConfig(ctx, checkCfg)
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to set config for check", "error", err)

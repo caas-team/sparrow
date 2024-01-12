@@ -21,6 +21,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -53,7 +54,7 @@ func Execute(version string) {
 	cmd := BuildCmd(version)
 
 	if err := cmd.Execute(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		_, _ = fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
@@ -73,12 +74,15 @@ func initConfig(cfgFile string) {
 		home, err := os.UserHomeDir()
 		cobra.CheckErr(err)
 
-		// Search config in home directory with name ".sparrow" (without extension)
+		// Search config in home directory with name ".sparrow" (without an extension)
 		viper.AddConfigPath(home)
 		viper.SetConfigType("yaml")
 		viper.SetConfigName(".sparrow")
 	}
 
+	viper.SetEnvPrefix("sparrow")
+	dotreplacer := strings.NewReplacer(".", "_")
+	viper.EnvKeyReplacer(dotreplacer)
 	viper.AutomaticEnv()
 
 	if err := viper.ReadInConfig(); err == nil {

@@ -37,7 +37,7 @@ type FileLoader struct {
 
 func NewFileLoader(cfg *Config, cCfgChecks chan<- map[string]any) *FileLoader {
 	return &FileLoader{
-		path: cfg.Loader.file.path,
+		path: cfg.Loader.File.Path,
 		c:    cCfgChecks,
 	}
 }

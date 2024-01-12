@@ -28,7 +28,7 @@ import (
 )
 
 // Validate validates the config
-func (c *Config) Validate(ctx context.Context, fm *RunFlagsNameMapping) error {
+func (c *Config) Validate(ctx context.Context) error {
 	ctx, cancel := logger.NewContextWithLogger(ctx)
 	defer cancel()
 	log := logger.FromContext(ctx)
@@ -37,20 +37,18 @@ func (c *Config) Validate(ctx context.Context, fm *RunFlagsNameMapping) error {
 
 	if !isDNSName(c.SparrowName) {
 		ok = false
-		log.Error("The name of the sparrow must be DNS compliant", fm.SparrowName, c.SparrowName)
+		log.Error("The name of the sparrow must be DNS compliant")
 	}
 
 	switch c.Loader.Type { //nolint:gocritic
 	case "http":
-		if _, err := url.ParseRequestURI(c.Loader.http.url); err != nil {
+		if _, err := url.ParseRequestURI(c.Loader.Http.Url); err != nil {
 			ok = false
-			log.ErrorContext(ctx, "The loader http url is not a valid url",
-				fm.LoaderHttpUrl, c.Loader.http.url)
+			log.ErrorContext(ctx, "The loader http url is not a valid url")
 		}
-		if c.Loader.http.retryCfg.Count < 0 || c.Loader.http.retryCfg.Count >= 5 {
+		if c.Loader.Http.RetryCfg.Count < 0 || c.Loader.Http.RetryCfg.Count >= 5 {
 			ok = false
-			log.Error("The amount of loader http retries should be above 0 and below 6",
-				fm.LoaderHttpRetryCount, c.Loader.http.retryCfg.Count)
+			log.Error("The amount of loader http retries should be above 0 and below 6", "retryCount", c.Loader.Http.RetryCfg.Count)
 		}
 	}
 

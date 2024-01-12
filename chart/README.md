@@ -56,7 +56,11 @@ A Helm chart to install Sparrow
 | serviceAccount.automount | bool | `true` | Automatically mount a ServiceAccount's API credentials? |
 | serviceAccount.create | bool | `true` | Specifies whether a service account should be created |
 | serviceAccount.name | string | `""` | The name of the service account to use. If not set and create is true, a name is generated using the fullname template |
+| serviceMonitor | object | `{"enabled":false,"interval":"30s","labels":{},"scrapeTimeout":"5s"}` | Configure a service monitor for prometheus-operator |
+| serviceMonitor.enabled | bool | `false` | Enable the serviceMonitor |
+| serviceMonitor.interval | string | `"30s"` | Sets the scrape interval |
+| serviceMonitor.labels | object | `{}` | Additional label added to the service Monitor |
+| serviceMonitor.scrapeTimeout | string | `"5s"` | Sets the scrape timeout |
 | startupConfig | object | `{}` | startup configuration of the Sparrow see: https://github.com/caas-team/sparrow/blob/main/docs/sparrow_run.md |
-| targetManagerConfig | object | `{}` | target manager configuration of the Sparrow (part of the startup) |
 | tolerations | list | `[]` |  |
 

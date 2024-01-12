@@ -49,7 +49,7 @@ type Health struct {
 
 // HealthConfig contains the health check config
 type HealthConfig struct {
-	Targets []string `json:"targets,omitempty"`
+	Targets []string `json:"targets,omitempty" yaml:"targets,omitempty"`
 }
 
 // Data that will be stored in the database
@@ -128,11 +128,6 @@ func (h *Health) SetConfig(_ context.Context, config any) error {
 	}
 	h.config = checkCfg
 	return nil
-}
-
-// SetClient sets the http client for the health check
-func (h *Health) SetClient(_ *http.Client) {
-	// TODO: implement with issue #31
 }
 
 // Schema provides the schema of the data that will be provided
