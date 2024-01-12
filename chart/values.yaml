@@ -144,13 +144,13 @@ runtimeConfig:
       - https://example.com/
       - https://google.com/
 
-# Configure a service monitor for prometheus-operator
+# -- Configure a service monitor for prometheus-operator
 serviceMonitor:
-  # Enable the serviceMonitor
+  # -- Enable the serviceMonitor
   enabled: false
-  # Sets the scrape interval
+  # -- Sets the scrape interval
   interval: 30s
-  # Sets the scrape timeout
+  # -- Sets the scrape timeout
   scrapeTimeout: 5s
-  # Additional label added to the service Monitor
+  # -- Additional label added to the service Monitor
   labels: {}
