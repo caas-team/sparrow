@@ -30,7 +30,6 @@ import (
 	"github.com/caas-team/sparrow/internal/logger"
 	"github.com/caas-team/sparrow/pkg/api"
 	"github.com/getkin/kin-openapi/openapi3"
-	"github.com/mitchellh/mapstructure"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -68,15 +67,15 @@ func NewHealthCheck() Check {
 
 // HealthConfig defines the configuration parameters for a health check
 type HealthConfig struct {
-	Targets  []string           `json:"targets,omitempty" yaml:"targets,omitempty"`
-	Interval time.Duration      `json:"interval" yaml:"interval"`
-	Timeout  time.Duration      `json:"timeout" yaml:"timeout"`
-	Retry    helper.RetryConfig `json:"retry" yaml:"retry"`
+	Targets  []string           `json:"targets,omitempty" yaml:"targets,omitempty" mapstructure:"targets"`
+	Interval time.Duration      `json:"interval" yaml:"interval" mapstructure:"interval"`
+	Timeout  time.Duration      `json:"timeout" yaml:"timeout" mapstructure:"timeout"`
+	Retry    helper.RetryConfig `json:"retry" yaml:"retry" mapstructure:"retry"`
 }
 
 // Defined metric collectors of health check
 type healthMetrics struct {
-	health *prometheus.GaugeVec
+	*prometheus.GaugeVec
 }
 
 // Run starts the health check
@@ -127,13 +126,15 @@ func (h *Health) Shutdown(_ context.Context) error {
 }
 
 // SetConfig sets the configuration for the health check
-func (h *Health) SetConfig(_ context.Context, config any) error {
-	var c HealthConfig
-	if err := mapstructure.Decode(config, &c); err != nil {
+func (h *Health) SetConfig(ctx context.Context, config any) error {
+	log := logger.FromContext(ctx)
+
+	c, err := helper.Decode[HealthConfig](config)
+	if err != nil {
+		log.Error("Failed to decode health config", "error", err)
 		return ErrInvalidConfig
 	}
-	c.Interval *= time.Second
-	c.Retry.Delay *= time.Second
+
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.config = c
@@ -166,7 +167,7 @@ func (h *Health) DeregisterHandler(_ context.Context, router *api.RoutingTree) {
 // NewHealthMetrics initializes metric collectors of the health check
 func newHealthMetrics() healthMetrics {
 	return healthMetrics{
-		health: prometheus.NewGaugeVec(
+		GaugeVec: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
 				Name: "sparrow_health_up",
 				Help: "Health of targets",
@@ -181,7 +182,7 @@ func newHealthMetrics() healthMetrics {
 // GetMetricCollectors returns all metric collectors of check
 func (h *Health) GetMetricCollectors() []prometheus.Collector {
 	return []prometheus.Collector{
-		h.metrics.health,
+		h.metrics,
 	}
 }
 
@@ -201,7 +202,7 @@ func (h *Health) check(ctx context.Context) map[string]string {
 	results := map[string]string{}
 
 	client := &http.Client{
-		Timeout: h.config.Timeout * time.Second,
+		Timeout: h.config.Timeout,
 	}
 	for _, t := range h.config.Targets {
 		target := t
@@ -227,7 +228,7 @@ func (h *Health) check(ctx context.Context) map[string]string {
 			defer mu.Unlock()
 			results[target] = stateMapping[state]
 
-			h.metrics.health.WithLabelValues(target).Set(float64(state))
+			h.metrics.WithLabelValues(target).Set(float64(state))
 		}()
 	}
 

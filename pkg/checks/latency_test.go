@@ -136,8 +136,8 @@ func TestLatency_Run(t *testing.T) { //nolint:gocyclo
 
 			err = c.SetConfig(tt.ctx, map[string]any{
 				"targets":  tt.targets,
-				"interval": 1,
-				"timeout":  5,
+				"interval": "1s",
+				"timeout":  "5s",
 			})
 			if err != nil {
 				t.Fatalf("Latency.SetConfig() error = %v", err)

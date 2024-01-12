@@ -44,13 +44,13 @@ func TestHealth_SetConfig(t *testing.T) {
 				"targets": []any{
 					"test",
 				},
-				"interval": 10,
-				"timeout":  30,
+				"interval": "10s",
+				"timeout":  "30s",
 			},
 			expectedConfig: HealthConfig{
 				Targets:  []string{"test"},
 				Interval: 10 * time.Second,
-				Timeout:  30,
+				Timeout:  30 * time.Second,
 			},
 			wantErr: false,
 		},
