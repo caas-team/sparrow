@@ -21,6 +21,7 @@ package checks
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"sync"
 	"time"
@@ -243,12 +244,17 @@ func getHealth(ctx context.Context, url string) error {
 		return err
 	}
 
-	res, err := client.Do(req)
+	res, err := client.Do(req) //nolint:bodyclose
 	if err != nil {
 		log.Error("Http get request failed", "error", err.Error())
 		return err
 	}
-	defer res.Body.Close()
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			log.Error("Failed to close response body", "error", err.Error())
+		}
+	}(res.Body)
 
 	if res.StatusCode != http.StatusOK {
 		log.Error("Http get request failed", "status", res.Status)

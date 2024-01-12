@@ -206,7 +206,7 @@ func TestSparrow_Run(t *testing.T) {
 		},
 	}
 
-	c.Loader.File.Path = ("../config/testdata/config.yaml")
+	c.Loader.File.Path = "../config/testdata/config.yaml"
 
 	// start sparrow
 	s := New(c)

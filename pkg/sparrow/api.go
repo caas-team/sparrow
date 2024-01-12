@@ -42,10 +42,7 @@ const (
 	readHeaderTimeout = time.Second * 5
 )
 
-var (
-	ErrServeApi            = errors.New("failed to serve api")
-	ErrCreateOpenapiSchema = errors.New("failed to get schema for check")
-)
+var ErrCreateOpenapiSchema = errors.New("failed to get schema for check")
 
 func (s *Sparrow) register(ctx context.Context) {
 	s.router.Use(logger.Middleware(ctx))
@@ -101,7 +98,7 @@ func (s *Sparrow) api(ctx context.Context) error {
 	}
 }
 
-// Shutdown gracefully shuts down the api server
+// shutdownAPI gracefully shuts down the api server
 // Returns an error if an error is present in the context
 // or if the server cannot be shut down
 func (s *Sparrow) shutdownAPI(ctx context.Context) error {

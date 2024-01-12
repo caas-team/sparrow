@@ -79,19 +79,19 @@ func (hl *HttpLoader) Run(ctx context.Context) error {
 }
 
 // GetRuntimeConfig gets the remote runtime configuration
-func (gl *HttpLoader) GetRuntimeConfig(ctx context.Context) (*RuntimeConfig, error) {
-	log := logger.FromContext(ctx).With("url", gl.cfg.Loader.Http.Url)
+func (hl *HttpLoader) GetRuntimeConfig(ctx context.Context) (*RuntimeConfig, error) {
+	log := logger.FromContext(ctx).With("url", hl.cfg.Loader.Http.Url)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, gl.cfg.Loader.Http.Url, http.NoBody)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, hl.cfg.Loader.Http.Url, http.NoBody)
 	if err != nil {
 		log.Error("Could not create http GET request", "error", err.Error())
 		return nil, err
 	}
-	if gl.cfg.Loader.Http.Token != "" {
-		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", gl.cfg.Loader.Http.Token))
+	if hl.cfg.Loader.Http.Token != "" {
+		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", hl.cfg.Loader.Http.Token))
 	}
 
-	res, err := gl.client.Do(req) //nolint:bodyclose
+	res, err := hl.client.Do(req) //nolint:bodyclose
 	if err != nil {
 		log.Error("Http get request failed", "error", err.Error())
 		return nil, err

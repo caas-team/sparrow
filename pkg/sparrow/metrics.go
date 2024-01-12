@@ -34,7 +34,7 @@ type PrometheusMetrics struct {
 	registry *prometheus.Registry
 }
 
-// InitMetrics initializes the metrics and returns the PrometheusMetrics
+// NewMetrics initializes the metrics and returns the PrometheusMetrics
 func NewMetrics() Metrics {
 	registry := prometheus.NewRegistry()
 

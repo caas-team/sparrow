@@ -65,7 +65,7 @@ func TestRetry(t *testing.T) {
 					if effectorFuncCallCounter > 1 {
 						return nil
 					}
-					return fmt.Errorf("Ups sth wrong")
+					return fmt.Errorf("ups sth wrong")
 				},
 				rc: RetryConfig{
 					Count: 2,
@@ -81,7 +81,7 @@ func TestRetry(t *testing.T) {
 			args: args{
 				effector: func(ctx context.Context) error {
 					effectorFuncCallCounter++
-					return fmt.Errorf("Ups sth wrong")
+					return fmt.Errorf("ups sth wrong")
 				},
 				rc: RetryConfig{
 					Count: 2,
@@ -98,7 +98,7 @@ func TestRetry(t *testing.T) {
 				effector: func(ctx context.Context) error {
 					effectorFuncCallCounter++
 					cancel()
-					return errors.New("Ups")
+					return errors.New("ups")
 				},
 				rc: RetryConfig{
 					Count: 2,
