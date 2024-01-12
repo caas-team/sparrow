@@ -21,6 +21,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -31,10 +32,10 @@ import (
 )
 
 const (
-	defaultLoaderHttpTimeout = 30
-	defaultLoaderInterval    = 300
+	defaultLoaderHttpTimeout = 30 * time.Second
+	defaultLoaderInterval    = 300 * time.Second
 	defaultHttpRetryCount    = 3
-	defaultHttpRetryDelay    = 1
+	defaultHttpRetryDelay    = 1 * time.Second
 )
 
 // NewCmdRun creates a new run command
@@ -49,12 +50,12 @@ func NewCmdRun() *cobra.Command {
 	NewFlag("api.address", "apiAddress").String().Bind(cmd, ":8080", "api: The address the server is listening on")
 	NewFlag("name", "sparrowName").String().Bind(cmd, "", "The DNS name of the sparrow")
 	NewFlag("loader.type", "loaderType").StringP("l").Bind(cmd, "http", "Defines the loader type that will load the checks configuration during the runtime. The fallback is the fileLoader")
-	NewFlag("loader.interval", "loaderInterval").Int().Bind(cmd, defaultLoaderInterval, "defines the interval the loader reloads the configuration in seconds")
+	NewFlag("loader.interval", "loaderInterval").Duration().Bind(cmd, defaultLoaderInterval, "defines the interval the loader reloads the configuration in seconds")
 	NewFlag("loader.http.url", "loaderHttpUrl").String().Bind(cmd, "", "http loader: The url where to get the remote configuration")
 	NewFlag("loader.http.token", "loaderHttpToken").String().Bind(cmd, "", "http loader: Bearer token to authenticate the http endpoint")
-	NewFlag("loader.http.timeout", "loaderHttpTimeout").Int().Bind(cmd, defaultLoaderHttpTimeout, "http loader: The timeout for the http request in seconds")
+	NewFlag("loader.http.timeout", "loaderHttpTimeout").Duration().Bind(cmd, defaultLoaderHttpTimeout, "http loader: The timeout for the http request in seconds")
 	NewFlag("loader.http.retry.count", "loaderHttpRetryCount").Int().Bind(cmd, defaultHttpRetryCount, "http loader: Amount of retries trying to load the configuration")
-	NewFlag("loader.http.retry.delay", "loaderHttpRetryDelay").Int().Bind(cmd, defaultHttpRetryDelay, "http loader: The initial delay between retries in seconds")
+	NewFlag("loader.http.retry.delay", "loaderHttpRetryDelay").Duration().Bind(cmd, defaultHttpRetryDelay, "http loader: The initial delay between retries in seconds")
 	NewFlag("loader.file.path", "loaderFilePath").String().Bind(cmd, "config.yaml", "file loader: The path to the file to read the runtime config from")
 
 	return cmd

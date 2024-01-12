@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"time"
+
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -15,6 +17,10 @@ type StringFlag struct {
 }
 
 type IntFlag struct {
+	f *Flag
+}
+
+type DurationFlag struct {
 	f *Flag
 }
 
@@ -33,6 +39,19 @@ func (f *StringFlag) Bind(cmd *cobra.Command, value, usage string) {
 
 func (f *Flag) String() *StringFlag {
 	return &StringFlag{
+		f: f,
+	}
+}
+
+func (f *DurationFlag) Bind(cmd *cobra.Command, value time.Duration, usage string) {
+	cmd.PersistentFlags().Duration(f.f.Cli, value, usage)
+	if err := viper.BindPFlag(f.f.Config, cmd.PersistentFlags().Lookup(f.f.Cli)); err != nil {
+		panic(err)
+	}
+}
+
+func (f *Flag) Duration() *DurationFlag {
+	return &DurationFlag{
 		f: f,
 	}
 }
