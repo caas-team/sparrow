@@ -4,8 +4,7 @@
 name: End2End Testing
 on:
   push:
-    paths:
-    - 'chart/**'
+  pull_request:
 
 jobs:
   end2end:

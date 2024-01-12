@@ -51,14 +51,18 @@ func NewCmdRoot(version string) *cobra.Command {
 // Execute adds all child commands to the root command
 // and executes the cmd tree
 func Execute(version string) {
-	cmd := NewCmdRoot(version)
-	cmd.AddCommand(NewCmdRun())
-	cmd.AddCommand(NewCmdGenDocs(cmd))
+	cmd := BuildCmd(version)
 
 	if err := cmd.Execute(); err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+}
+
+func BuildCmd(version string) *cobra.Command {
+	cmd := NewCmdRoot(version)
+	cmd.AddCommand(NewCmdRun())
+	return cmd
 }
 
 func initConfig(cfgFile string) {
