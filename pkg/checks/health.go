@@ -227,7 +227,7 @@ func (h *Health) check(ctx context.Context) map[string]string {
 			l.Debug("Starting retry routine to get health status")
 			if err := getHealthRetry(ctx); err != nil {
 				state = 0
-				l.Warn("Error while checking health", "error", err)
+				l.Warn(fmt.Sprintf("Health check failed after %d retries", h.config.Retry.Count), "error", err)
 			}
 
 			l.Debug("Successfully got health status of target", "status", stateMapping[state])
@@ -252,13 +252,13 @@ func getHealth(ctx context.Context, client *http.Client, url string) error {
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 	if err != nil {
-		log.Error("Could not create http GET request", "error", err.Error())
+		log.Error("Error while creating request", "error", err)
 		return err
 	}
 
 	resp, err := client.Do(req) //nolint:bodyclose // Closed in defer below
 	if err != nil {
-		log.Error("Http get request failed", "error", err.Error())
+		log.Error("Error while requesting health", "error", err)
 		return err
 	}
 	defer func(Body io.ReadCloser) {
@@ -266,7 +266,7 @@ func getHealth(ctx context.Context, client *http.Client, url string) error {
 	}(resp.Body)
 
 	if resp.StatusCode != http.StatusOK {
-		log.Error("Http get request failed", "status", resp.Status)
+		log.Warn("Health request was not ok (HTTP Status 200)", "status", resp.Status)
 		return fmt.Errorf("request failed, status is %s", resp.Status)
 	}
 
