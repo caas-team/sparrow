@@ -1,0 +1,18 @@
+{{- if .Values.serviceMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ .Release.Name }}-service-monitor
+  labels:
+    app.kubernetes.io/name: {{ include "sparrow.fullname" . }}-service-monitor
+    {{ .Values.serviceMonitor.labels | toYaml | nindent 4 }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  selector:
+    matchLabels:
+        app.kubernetes.io/name: {{ include "sparrow.fullname" . }}
+  endpoints:
+    - port: http
+      path: /metrics
+      targetPort: http
+{{- end }}
