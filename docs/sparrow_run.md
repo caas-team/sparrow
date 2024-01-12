@@ -24,7 +24,6 @@ sparrow run [flags]
       --loaderInterval int         defines the interval the loader reloads the configuration in seconds (default 300)
   -l, --loaderType string          Defines the loader type that will load the checks configuration during the runtime. The fallback is the fileLoader (default "http")
       --sparrowName string         The DNS name of the sparrow
-      --tm-config string           target manager: The path to the file to read the target manager config from
 ```
 
 ### Options inherited from parent commands

@@ -193,11 +193,11 @@ func newLatencyMetrics() latencyMetrics {
 }
 
 // GetMetricCollectors returns all metric collectors of check
-func (h *Latency) GetMetricCollectors() []prometheus.Collector {
+func (l *Latency) GetMetricCollectors() []prometheus.Collector {
 	return []prometheus.Collector{
-		h.metrics.latencyDuration,
-		h.metrics.latencyCount,
-		h.metrics.latencyHistogram,
+		l.metrics.latencyDuration,
+		l.metrics.latencyCount,
+		l.metrics.latencyHistogram,
 	}
 }
 
