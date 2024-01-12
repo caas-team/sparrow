@@ -33,12 +33,16 @@ import (
 type HttpLoader struct {
 	cfg        *Config
 	cCfgChecks chan<- map[string]any
+	client     *http.Client
 }
 
 func NewHttpLoader(cfg *Config, cCfgChecks chan<- map[string]any) *HttpLoader {
 	return &HttpLoader{
 		cfg:        cfg,
 		cCfgChecks: cCfgChecks,
+		client: &http.Client{
+			Timeout: cfg.Loader.http.timeout,
+		},
 	}
 }
 
@@ -80,9 +84,6 @@ func (gl *HttpLoader) Run(ctx context.Context) {
 func (gl *HttpLoader) GetRuntimeConfig(ctx context.Context) (*RuntimeConfig, error) {
 	log := logger.FromContext(ctx).With("url", gl.cfg.Loader.http.url)
 
-	client := http.DefaultClient
-	client.Timeout = gl.cfg.Loader.http.timeout
-
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, gl.cfg.Loader.http.url, http.NoBody)
 	if err != nil {
 		log.Error("Could not create http GET request", "error", err.Error())
@@ -92,7 +93,7 @@ func (gl *HttpLoader) GetRuntimeConfig(ctx context.Context) (*RuntimeConfig, err
 		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", gl.cfg.Loader.http.token))
 	}
 
-	res, err := client.Do(req)
+	res, err := gl.client.Do(req)
 	if err != nil {
 		log.Error("Http get request failed", "error", err.Error())
 		return nil, err

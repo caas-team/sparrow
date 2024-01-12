@@ -8,7 +8,6 @@ import (
 	"github.com/caas-team/sparrow/pkg/api"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/prometheus/client_golang/prometheus"
-	"net/http"
 	"sync"
 )
 
@@ -36,9 +35,6 @@ var _ Check = &CheckMock{}
 //			},
 //			SchemaFunc: func() (*openapi3.SchemaRef, error) {
 //				panic("mock out the Schema method")
-//			},
-//			SetClientFunc: func(c *http.Client)  {
-//				panic("mock out the SetClient method")
 //			},
 //			SetConfigFunc: func(ctx context.Context, config any) error {
 //				panic("mock out the SetConfig method")
@@ -70,9 +66,6 @@ type CheckMock struct {
 
 	// SchemaFunc mocks the Schema method.
 	SchemaFunc func() (*openapi3.SchemaRef, error)
-
-	// SetClientFunc mocks the SetClient method.
-	SetClientFunc func(c *http.Client)
 
 	// SetConfigFunc mocks the SetConfig method.
 	SetConfigFunc func(ctx context.Context, config any) error
@@ -110,11 +103,6 @@ type CheckMock struct {
 		// Schema holds details about calls to the Schema method.
 		Schema []struct {
 		}
-		// SetClient holds details about calls to the SetClient method.
-		SetClient []struct {
-			// C is the c argument value.
-			C *http.Client
-		}
 		// SetConfig holds details about calls to the SetConfig method.
 		SetConfig []struct {
 			// Ctx is the ctx argument value.
@@ -140,7 +128,6 @@ type CheckMock struct {
 	lockRegisterHandler     sync.RWMutex
 	lockRun                 sync.RWMutex
 	lockSchema              sync.RWMutex
-	lockSetClient           sync.RWMutex
 	lockSetConfig           sync.RWMutex
 	lockShutdown            sync.RWMutex
 	lockStartup             sync.RWMutex
@@ -301,38 +288,6 @@ func (mock *CheckMock) SchemaCalls() []struct {
 	mock.lockSchema.RLock()
 	calls = mock.calls.Schema
 	mock.lockSchema.RUnlock()
-	return calls
-}
-
-// SetClient calls SetClientFunc.
-func (mock *CheckMock) SetClient(c *http.Client) {
-	if mock.SetClientFunc == nil {
-		panic("CheckMock.SetClientFunc: method is nil but Check.SetClient was just called")
-	}
-	callInfo := struct {
-		C *http.Client
-	}{
-		C: c,
-	}
-	mock.lockSetClient.Lock()
-	mock.calls.SetClient = append(mock.calls.SetClient, callInfo)
-	mock.lockSetClient.Unlock()
-	mock.SetClientFunc(c)
-}
-
-// SetClientCalls gets all the calls that were made to SetClient.
-// Check the length with:
-//
-//	len(mockedCheck.SetClientCalls())
-func (mock *CheckMock) SetClientCalls() []struct {
-	C *http.Client
-} {
-	var calls []struct {
-		C *http.Client
-	}
-	mock.lockSetClient.RLock()
-	calls = mock.calls.SetClient
-	mock.lockSetClient.RUnlock()
 	return calls
 }
 
