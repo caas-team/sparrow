@@ -13,75 +13,75 @@ type Flag struct {
 }
 
 type StringFlag struct {
-	f *Flag
+	*Flag
 }
 
 type IntFlag struct {
-	f *Flag
+	*Flag
 }
 
 type DurationFlag struct {
-	f *Flag
+	*Flag
 }
 
 type StringPFlag struct {
-	f  *Flag
+	*Flag
 	sh string
 }
 
 // Bind registers the flag with the command and binds it to the config
 func (f *StringFlag) Bind(cmd *cobra.Command, value, usage string) {
-	cmd.PersistentFlags().String(f.f.Cli, value, usage)
-	if err := viper.BindPFlag(f.f.Config, cmd.PersistentFlags().Lookup(f.f.Cli)); err != nil {
+	cmd.PersistentFlags().String(f.Cli, value, usage)
+	if err := viper.BindPFlag(f.Config, cmd.PersistentFlags().Lookup(f.Cli)); err != nil {
 		panic(err)
 	}
 }
 
 func (f *Flag) String() *StringFlag {
 	return &StringFlag{
-		f: f,
+		Flag: f,
 	}
 }
 
 func (f *DurationFlag) Bind(cmd *cobra.Command, value time.Duration, usage string) {
-	cmd.PersistentFlags().Duration(f.f.Cli, value, usage)
-	if err := viper.BindPFlag(f.f.Config, cmd.PersistentFlags().Lookup(f.f.Cli)); err != nil {
+	cmd.PersistentFlags().Duration(f.Cli, value, usage)
+	if err := viper.BindPFlag(f.Config, cmd.PersistentFlags().Lookup(f.Cli)); err != nil {
 		panic(err)
 	}
 }
 
 func (f *Flag) Duration() *DurationFlag {
 	return &DurationFlag{
-		f: f,
+		Flag: f,
 	}
 }
 
 // Bind registers the flag with the command and binds it to the config
 func (f *IntFlag) Bind(cmd *cobra.Command, value int, usage string) {
-	cmd.PersistentFlags().Int(f.f.Cli, value, usage)
-	if err := viper.BindPFlag(f.f.Config, cmd.PersistentFlags().Lookup(f.f.Cli)); err != nil {
+	cmd.PersistentFlags().Int(f.Cli, value, usage)
+	if err := viper.BindPFlag(f.Config, cmd.PersistentFlags().Lookup(f.Cli)); err != nil {
 		panic(err)
 	}
 }
 
 func (f *Flag) Int() *IntFlag {
 	return &IntFlag{
-		f: f,
+		Flag: f,
 	}
 }
 
 // Bind registers the flag with the command and binds it to the config
 func (f *StringPFlag) Bind(cmd *cobra.Command, value, usage string) {
-	cmd.PersistentFlags().StringP(f.f.Cli, f.sh, value, usage)
-	if err := viper.BindPFlag(f.f.Config, cmd.PersistentFlags().Lookup(f.f.Cli)); err != nil {
+	cmd.PersistentFlags().StringP(f.Cli, f.sh, value, usage)
+	if err := viper.BindPFlag(f.Config, cmd.PersistentFlags().Lookup(f.Cli)); err != nil {
 		panic(err)
 	}
 }
 
 func (f *Flag) StringP(shorthand string) *StringPFlag {
 	return &StringPFlag{
-		f:  f,
-		sh: shorthand,
+		Flag: f,
+		sh:   shorthand,
 	}
 }
 
