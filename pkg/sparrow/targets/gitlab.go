@@ -41,7 +41,7 @@ const shutdownTimeout = 30 * time.Second
 type gitlabTargetManager struct {
 	targets []checks.GlobalTarget
 	mu      sync.RWMutex
-	// channel to signal the reconcile routine to stop
+	// channel to signal the "reconcile" routine to stop
 	done   chan struct{}
 	gitlab gitlab.Gitlab
 	// the DNS name used for self-registration
