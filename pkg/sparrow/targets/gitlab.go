@@ -88,7 +88,7 @@ func (t *gitlabTargetManager) Reconcile(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			log.Error("Context canceled", "err", ctx.Err())
+			log.Error("Error while reconciling gitlab targets", "err", ctx.Err())
 			return ctx.Err()
 		case <-t.done:
 			log.Info("Gitlab target reconciliation ended")
@@ -96,13 +96,13 @@ func (t *gitlabTargetManager) Reconcile(ctx context.Context) error {
 		case <-checkTimer.C:
 			err := t.refreshTargets(ctx)
 			if err != nil {
-				log.Error("Failed to get global targets", "error", err)
+				log.Warn("Failed to get global targets", "error", err)
 			}
 			checkTimer.Reset(t.checkInterval)
 		case <-registrationTimer.C:
 			err := t.updateRegistration(ctx)
 			if err != nil {
-				log.Error("Failed to register self as global target", "error", err)
+				log.Warn("Failed to register self as global target", "error", err)
 			}
 			registrationTimer.Reset(t.registrationInterval)
 		}

@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
+	"sync"
 	"time"
 
 	"github.com/caas-team/sparrow/pkg/sparrow/targets"
@@ -56,9 +57,11 @@ type Sparrow struct {
 	cErr chan error
 	// cDone is used to signal that the sparrow was shut down because of an error
 	cDone chan struct{}
+	// shutOnce is used to ensure that the shutdown function is only called once
+	shutOnce sync.Once
 
-	loader  config.Loader
-	targets targets.TargetManager
+	loader config.Loader
+	tarMan targets.TargetManager
 
 	routingTree *api.RoutingTree
 	router      chi.Router
@@ -84,7 +87,7 @@ func New(cfg *config.Config) *Sparrow {
 
 	if cfg.HasTargetManager() {
 		gm := targets.NewGitlabManager(cfg.SparrowName, cfg.TargetManager)
-		sparrow.targets = gm
+		sparrow.tarMan = gm
 	}
 
 	sparrow.loader = config.NewLoader(cfg, sparrow.cCfgChecks)
@@ -95,21 +98,20 @@ func New(cfg *config.Config) *Sparrow {
 // Run starts the sparrow
 func (s *Sparrow) Run(ctx context.Context) error {
 	ctx, cancel := logger.NewContextWithLogger(ctx)
+	log := logger.FromContext(ctx)
 	defer cancel()
 
 	go func() {
 		s.cErr <- s.loader.Run(ctx)
 	}()
 	go func() {
-		if s.targets != nil {
-			s.cErr <- s.targets.Reconcile(ctx)
+		if s.cfg.HasTargetManager() {
+			s.cErr <- s.tarMan.Reconcile(ctx)
 		}
 	}()
 	go func() {
 		s.cErr <- s.api(ctx)
 	}()
-
-	go s.handleErrors(ctx)
 
 	for {
 		select {
@@ -118,6 +120,13 @@ func (s *Sparrow) Run(ctx context.Context) error {
 		case configChecks := <-s.cCfgChecks:
 			s.cfg.Checks = configChecks
 			s.ReconcileChecks(ctx)
+		case <-ctx.Done():
+			s.shutdown(ctx)
+		case err := <-s.cErr:
+			if err != nil {
+				log.Error("Non-recoverable error in sparrow component", "error", err)
+				s.shutdown(ctx)
+			}
 		case <-s.cDone:
 			return fmt.Errorf("sparrow was shut down")
 		}
@@ -164,7 +173,7 @@ func (s *Sparrow) updateCheckTargets(cfg any) any {
 		return nil
 	}
 
-	// check if map with targets
+	// check if map with tarMan
 	checkCfg, ok := cfg.(map[string]any)
 	if !ok {
 		return checkCfg
@@ -173,7 +182,7 @@ func (s *Sparrow) updateCheckTargets(cfg any) any {
 		return checkCfg
 	}
 
-	// Check if targets is a slice
+	// Check if tarMan is a slice
 	actuali, ok := checkCfg["targets"].([]any)
 	if !ok {
 		return checkCfg
@@ -192,10 +201,10 @@ func (s *Sparrow) updateCheckTargets(cfg any) any {
 	}
 	var urls []string
 
-	if s.targets == nil {
+	if s.tarMan == nil {
 		return checkCfg
 	}
-	gt := s.targets.GetTargets()
+	gt := s.tarMan.GetTargets()
 
 	// filter out globalTargets that are already in the config and self
 	for _, t := range gt {
@@ -304,34 +313,18 @@ func (s *Sparrow) shutdown(ctx context.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 	defer cancel()
 
-	var errS error
-	if s.cfg.HasTargetManager() {
-		errS = s.targets.Shutdown(ctx)
-	}
-	errA := s.shutdownAPI(ctx)
-	if errS != nil || errA != nil {
-		log.Error("Failed to shutdown gracefully", "contextError", errC, "apiError", errA, "targetError", errS)
-	}
-
-	s.cDone <- struct{}{}
-}
-
-// handleErrors handles errors from the sparrow components
-// If a non-recoverable error happens, the sparrow will shut down
-// the various components and return the error.
-func (s *Sparrow) handleErrors(ctx context.Context) {
-	log := logger.FromContext(ctx)
-	for {
-		select {
-		case <-ctx.Done():
-			log.Info("Context done, shutting down sparrow")
-			s.shutdown(ctx)
-
-		case err := <-s.cErr:
-			if err != nil {
-				log.Error("Error in sparrow component, shutting down", "error", err)
-				s.shutdown(ctx)
-			}
+	s.shutOnce.Do(func() {
+		log.Info("Shutting down sparrow gracefully")
+		var errS error
+		if s.cfg.HasTargetManager() {
+			errS = s.tarMan.Shutdown(ctx)
 		}
-	}
+		errA := s.shutdownAPI(ctx)
+		if errS != nil || errA != nil {
+			log.Error("Failed to shutdown gracefully", "contextError", errC, "apiError", errA, "targetError", errS)
+		}
+
+		// Signal that shutdown is complete
+		s.cDone <- struct{}{}
+	})
 }
