@@ -105,7 +105,7 @@ func (s *Sparrow) Run(ctx context.Context) error {
 		s.cErr <- s.loader.Run(ctx)
 	}()
 	go func() {
-		if s.cfg.HasTargetManager() {
+		if s.tarMan != nil {
 			s.cErr <- s.tarMan.Reconcile(ctx)
 		}
 	}()
@@ -316,7 +316,7 @@ func (s *Sparrow) shutdown(ctx context.Context) {
 	s.shutOnce.Do(func() {
 		log.Info("Shutting down sparrow gracefully")
 		var errS error
-		if s.cfg.HasTargetManager() {
+		if s.tarMan != nil {
 			errS = s.tarMan.Shutdown(ctx)
 		}
 		errA := s.shutdownAPI(ctx)

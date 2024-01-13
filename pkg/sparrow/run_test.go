@@ -243,20 +243,11 @@ func TestSparrow_Run_ContextCancel(t *testing.T) {
 			File:     config.FileLoaderConfig{Path: "../config/testdata/config.yaml"},
 			Interval: time.Second * 1,
 		},
-		TargetManager: config.TargetManagerConfig{
-			CheckInterval:        time.Second * 1,
-			RegistrationInterval: time.Second * 1,
-			UnhealthyThreshold:   time.Second * 1,
-			Gitlab: config.GitlabTargetManagerConfig{
-				BaseURL:   "https://gitlab.com",
-				Token:     "my-cool-token",
-				ProjectID: 42,
-			},
-		},
 	}
 
 	// start sparrow
 	s := New(c)
+	s.tarMan = &gitlabmock.MockTargetManager{}
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
 		err := s.Run(ctx)
