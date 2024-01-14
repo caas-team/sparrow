@@ -73,7 +73,7 @@ type HealthConfig struct {
 	Retry    helper.RetryConfig `json:"retry" yaml:"retry" mapstructure:"retry"`
 }
 
-// Defined metric collectors of health check
+// healthMetrics contains the metric collectors for the Health check
 type healthMetrics struct {
 	*prometheus.GaugeVec
 }
