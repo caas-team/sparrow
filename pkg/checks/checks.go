@@ -38,7 +38,7 @@ var (
 		"health":  NewHealthCheck,
 		"latency": NewLatencyCheck,
 	}
-	// BasicRetryConfig provides a default configuration for the retry mechanism
+	// DefaultRetry provides a default configuration for the retry mechanism
 	DefaultRetry = helper.RetryConfig{
 		Count: 3,
 		Delay: time.Second,

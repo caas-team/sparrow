@@ -19,12 +19,13 @@
 package helper
 
 import (
-	"reflect"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
-type MyConfig struct {
+type testConfig struct {
 	Count     int
 	Name      string
 	Urls      []string
@@ -41,7 +42,7 @@ type test[T any] struct {
 }
 
 func TestDecode(t *testing.T) {
-	tests := []test[MyConfig]{
+	tests := []test[testConfig]{
 		{
 			name: "Valid input",
 			input: map[string]any{
@@ -51,7 +52,7 @@ func TestDecode(t *testing.T) {
 				"Timeout": "30m",
 				"Enabled": "true",
 			},
-			want: MyConfig{
+			want: testConfig{
 				Count:     123,
 				Name:      "example",
 				Urls:      []string{"one", "two", "three"},
@@ -63,22 +64,20 @@ func TestDecode(t *testing.T) {
 		{
 			name:      "Invalid input type",
 			input:     "invalid input",
-			want:      MyConfig{},
+			want:      testConfig{},
 			expectErr: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := Decode[MyConfig](tt.input)
+			got, err := Decode[testConfig](tt.input)
 
 			if (err != nil) != tt.expectErr {
-				t.Errorf("Test %s failed: expected error: %v, got: %v", tt.name, tt.expectErr, err)
+				t.Errorf("Decode() error = %v, expectErr %v", err, tt.expectErr)
 			}
 
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("Test %s failed: expected result: %+v, got: %+v", tt.name, tt.want, got)
-			}
+			assert.Equal(t, got, tt.want, "Decode() = %v, want %v", got, tt.want)
 		})
 	}
 }

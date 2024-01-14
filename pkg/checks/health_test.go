@@ -28,9 +28,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// Ensure that Health implements the Check interface
-var _ Check = (*Health)(nil)
-
 func TestHealth_SetConfig(t *testing.T) {
 	tests := []struct {
 		name           string
