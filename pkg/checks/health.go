@@ -110,8 +110,8 @@ func (h *Health) Run(ctx context.Context) error {
 
 // Startup is called once when the health check is registered
 func (h *Health) Startup(ctx context.Context, cResult chan<- Result) error {
-	log := logger.FromContext(ctx).WithGroup("latency")
-	log.Debug("Starting latency check")
+	log := logger.FromContext(ctx).WithGroup("health")
+	log.Debug("Starting health check")
 
 	h.cResult = cResult
 	return nil
