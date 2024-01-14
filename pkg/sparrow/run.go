@@ -26,64 +26,68 @@ import (
 	"sync"
 	"time"
 
+	"github.com/caas-team/sparrow/pkg/api"
+	"github.com/caas-team/sparrow/pkg/metrics"
 	"github.com/caas-team/sparrow/pkg/sparrow/targets"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/caas-team/sparrow/internal/logger"
-	"github.com/caas-team/sparrow/pkg/api"
 	"github.com/caas-team/sparrow/pkg/checks"
 	"github.com/caas-team/sparrow/pkg/config"
 	"github.com/caas-team/sparrow/pkg/db"
-	"github.com/go-chi/chi/v5"
 )
 
 const shutdownTimeout = time.Second * 90
 
 type Sparrow struct {
-	db db.DB
+	db      db.DB
+	api     *api.API
+	loader  config.Loader
+	tarMan  targets.TargetManager
+	metrics metrics.Metrics
+	errHandlers
+	checksImpl
+}
+
+type checksImpl struct {
 	// the existing checks
-	checks map[string]checks.Check
-	server *http.Server
-
-	metrics Metrics
-
+	checks      map[string]checks.Check
 	resultFanIn map[string]chan checks.Result
 	cfg         *config.Config
-
 	// cCfgChecks is the channel where the loader sends the runtime configuration of the checks
 	cCfgChecks chan map[string]any
 	// cResult is the channel where the checks send their results to
 	cResult chan checks.ResultDTO
+}
+
+type errHandlers struct {
 	// cErr is used to handle non-recoverable errors of the sparrow components
 	cErr chan error
 	// cDone is used to signal that the sparrow was shut down because of an error
 	cDone chan struct{}
 	// shutOnce is used to ensure that the shutdown function is only called once
 	shutOnce sync.Once
-
-	loader config.Loader
-	tarMan targets.TargetManager
-
-	routingTree *api.RoutingTree
-	router      chi.Router
 }
 
 // New creates a new sparrow from a given configfile
 func New(cfg *config.Config) *Sparrow {
 	sparrow := &Sparrow{
-		db:          db.NewInMemory(),
-		checks:      make(map[string]checks.Check),
-		metrics:     NewMetrics(),
-		resultFanIn: make(map[string]chan checks.Result),
-		cResult:     make(chan checks.ResultDTO, 1),
-		cfg:         cfg,
-		cCfgChecks:  make(chan map[string]any, 1),
-		routingTree: api.NewRoutingTree(),
-		router:      chi.NewRouter(),
-		cErr:        make(chan error, 1),
-		cDone:       make(chan struct{}, 1),
+		db:      db.NewInMemory(),
+		api:     api.New(&cfg.Api),
+		metrics: metrics.NewMetrics(),
+		errHandlers: errHandlers{
+			cErr:     make(chan error, 1),
+			cDone:    make(chan struct{}, 1),
+			shutOnce: sync.Once{},
+		},
+		checksImpl: checksImpl{
+			checks:      make(map[string]checks.Check),
+			resultFanIn: make(map[string]chan checks.Result),
+			cfg:         cfg,
+			cCfgChecks:  make(chan map[string]any, 1),
+			cResult:     make(chan checks.ResultDTO, 1),
+		},
 	}
-
-	sparrow.server = &http.Server{Addr: cfg.Api.ListeningAddress, Handler: sparrow.router, ReadHeaderTimeout: readHeaderTimeout}
 
 	if cfg.HasTargetManager() {
 		gm := targets.NewGitlabManager(cfg.SparrowName, cfg.TargetManager)
@@ -91,7 +95,6 @@ func New(cfg *config.Config) *Sparrow {
 	}
 
 	sparrow.loader = config.NewLoader(cfg, sparrow.cCfgChecks)
-	sparrow.db = db.NewInMemory()
 	return sparrow
 }
 
@@ -109,8 +112,26 @@ func (s *Sparrow) Run(ctx context.Context) error {
 			s.cErr <- s.tarMan.Reconcile(ctx)
 		}
 	}()
+
 	go func() {
-		s.cErr <- s.api(ctx)
+		routes := []api.Route{
+			{Path: "/openapi", Method: http.MethodGet,
+				Handler: s.handleOpenAPI},
+			{Path: fmt.Sprintf("/v1/metrics/{%s}", urlParamCheckName), Method: http.MethodGet,
+				Handler: s.handleCheckMetrics},
+			{Path: "/checks/*", Method: "HandleFunc",
+				Handler: s.handleChecks},
+			{Path: "/metrics", Method: "",
+				Handler: promhttp.HandlerFor(
+					s.metrics.GetRegistry(),
+					promhttp.HandlerOpts{Registry: s.metrics.GetRegistry()},
+				).ServeHTTP},
+		}
+		err := s.api.RegisterRoutes(ctx, routes...)
+		if err != nil {
+			s.cErr <- err
+		}
+		s.cErr <- s.api.Run(ctx)
 	}()
 
 	for {
@@ -248,7 +269,7 @@ func (s *Sparrow) registerCheck(ctx context.Context, name string, checkCfg any) 
 		close(checkChan)
 		return
 	}
-	check.RegisterHandler(ctx, s.routingTree)
+	check.RegisterHandler(ctx, s.api.RoutingTree)
 
 	// Add prometheus collectors of check to registry
 	for _, collector := range check.GetMetricCollectors() {
@@ -269,7 +290,7 @@ func (s *Sparrow) registerCheck(ctx context.Context, name string, checkCfg any) 
 func (s *Sparrow) unregisterCheck(ctx context.Context, name string, check checks.Check) {
 	log := logger.FromContext(ctx).With("name", name)
 	// Check has been removed from config; shutdown and remove
-	check.DeregisterHandler(ctx, s.routingTree)
+	check.DeregisterHandler(ctx, s.api.RoutingTree)
 
 	// Remove prometheus collectors of check from registry
 	for _, metricsCollector := range check.GetMetricCollectors() {
@@ -319,7 +340,7 @@ func (s *Sparrow) shutdown(ctx context.Context) {
 		if s.tarMan != nil {
 			errS = s.tarMan.Shutdown(ctx)
 		}
-		errA := s.shutdownAPI(ctx)
+		errA := s.api.Shutdown(ctx)
 		if errS != nil || errA != nil {
 			log.Error("Failed to shutdown gracefully", "contextError", errC, "apiError", errA, "targetError", errS)
 		}

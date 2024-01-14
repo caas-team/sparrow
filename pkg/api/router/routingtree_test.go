@@ -16,7 +16,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package api
+package router
 
 import (
 	"net/http"
