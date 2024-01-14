@@ -20,7 +20,6 @@ package checks
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -86,7 +85,7 @@ func (l *Latency) Run(ctx context.Context) error {
 	ctx, cancel := logger.NewContextWithLogger(ctx, "latency")
 	defer cancel()
 	log := logger.FromContext(ctx)
-	log.Info(fmt.Sprintf("Using latency check interval of %s", l.config.Interval.String()))
+	log.Info("Starting latency check", "interval", l.config.Interval.String())
 
 	for {
 		select {
@@ -112,7 +111,7 @@ func (l *Latency) Run(ctx context.Context) error {
 
 func (l *Latency) Startup(ctx context.Context, cResult chan<- Result) error {
 	log := logger.FromContext(ctx).WithGroup("latency")
-	log.Debug("Starting latency check")
+	log.Debug("Initializing latency check")
 
 	l.cResult = cResult
 	return nil
