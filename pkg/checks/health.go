@@ -83,7 +83,7 @@ func (h *Health) Run(ctx context.Context) error {
 	ctx, cancel := logger.NewContextWithLogger(ctx, "health")
 	defer cancel()
 	log := logger.FromContext(ctx)
-	log.Info(fmt.Sprintf("Using health check interval of %s", h.config.Interval.String()))
+	log.Info("Starting healthcheck", "interval", h.config.Interval.String())
 
 	for {
 		select {
@@ -111,7 +111,7 @@ func (h *Health) Run(ctx context.Context) error {
 // Startup is called once when the health check is registered
 func (h *Health) Startup(ctx context.Context, cResult chan<- Result) error {
 	log := logger.FromContext(ctx).WithGroup("health")
-	log.Debug("Starting health check")
+	log.Debug("Initializing health check")
 
 	h.cResult = cResult
 	return nil
