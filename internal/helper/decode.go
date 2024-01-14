@@ -24,12 +24,14 @@ import "github.com/mitchellh/mapstructure"
 // It leverages the mapstructure package for decoding the input data.
 //
 // Parameters:
-// - input: This is the source data that needs to be decoded. The input can be of any type, such as a map or a struct.
+//   - input: This is the source data that needs to be decoded.
+//     The input can be of any type, such as a map or a struct.
 //
 // Returns:
 //   - T: The function returns a value of type T, which is the target type that the input is decoded into.
 //     The generic type T allows this function to be flexible and used with various types.
-//   - error: If the decoding process encounters any issues, an error is returned. This could be due to a mismatch
+//   - error: If the decoding process encounters any issues, an error is returned.
+//     This could be due to a mismatch
 //     between the input and the target type T or other decoding issues.
 //
 // The function utilizes a DecoderConfig from the mapstructure package to set up the decoding process.
