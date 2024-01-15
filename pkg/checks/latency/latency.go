@@ -35,6 +35,7 @@ import (
 	"github.com/caas-team/sparrow/pkg/checks"
 	"github.com/caas-team/sparrow/pkg/checks/config"
 	"github.com/caas-team/sparrow/pkg/checks/errors"
+	"github.com/caas-team/sparrow/pkg/checks/oapi"
 )
 
 var _ checks.Check = (*Latency)(nil)
@@ -146,7 +147,7 @@ func (l *Latency) SetConfig(ctx context.Context, conf any) error {
 // Schema provides the schema of the data that will be provided
 // by the latency check
 func (l *Latency) Schema() (*openapi3.SchemaRef, error) {
-	return checks.OpenapiFromPerfData(make(map[string]LatencyResult))
+	return oapi.OpenapiFromPerfData(make(map[string]LatencyResult))
 }
 
 // RegisterHandler registers a server handler
