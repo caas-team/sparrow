@@ -26,7 +26,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/caas-team/sparrow/pkg/checks/config"
+	"github.com/caas-team/sparrow/pkg/checks/specs"
 	"github.com/jarcoal/httpmock"
 )
 
@@ -134,7 +134,7 @@ func Test_gitlab_FetchFiles(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		want     []config.GlobalTarget
+		want     []specs.GlobalTarget
 		fileList []file
 		wantErr  bool
 		mockCode int
@@ -147,7 +147,7 @@ func Test_gitlab_FetchFiles(t *testing.T) {
 		},
 		{
 			name: "success - 1 target",
-			want: []config.GlobalTarget{
+			want: []specs.GlobalTarget{
 				{
 					Url:      "test",
 					LastSeen: time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC),
@@ -163,7 +163,7 @@ func Test_gitlab_FetchFiles(t *testing.T) {
 		},
 		{
 			name: "success - 2 targets",
-			want: []config.GlobalTarget{
+			want: []specs.GlobalTarget{
 				{
 					Url:      "test",
 					LastSeen: time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC),
@@ -228,7 +228,7 @@ func Test_gitlab_fetchFiles_error_cases(t *testing.T) {
 		Name string `json:"name"`
 	}
 	type mockResponses struct {
-		response config.GlobalTarget
+		response specs.GlobalTarget
 		err      bool
 	}
 
@@ -254,14 +254,14 @@ func Test_gitlab_fetchFiles_error_cases(t *testing.T) {
 			name: "failure - API error after one successful request",
 			mockResponses: []mockResponses{
 				{
-					response: config.GlobalTarget{
+					response: specs.GlobalTarget{
 						Url:      "test",
 						LastSeen: time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC),
 					},
 					err: false,
 				},
 				{
-					response: config.GlobalTarget{},
+					response: specs.GlobalTarget{},
 					err:      true,
 				},
 			},
@@ -318,7 +318,7 @@ func TestClient_PutFile(t *testing.T) { //nolint:dupl // no need to refactor yet
 				Branch:      "main",
 				AuthorEmail: "test@sparrow",
 				AuthorName:  "sparrpw",
-				Content: config.GlobalTarget{
+				Content: specs.GlobalTarget{
 					Url:      "https://test.de",
 					LastSeen: now,
 				},
@@ -333,7 +333,7 @@ func TestClient_PutFile(t *testing.T) { //nolint:dupl // no need to refactor yet
 				Branch:      "main",
 				AuthorEmail: "test@sparrow",
 				AuthorName:  "sparrpw",
-				Content: config.GlobalTarget{
+				Content: specs.GlobalTarget{
 					Url:      "https://test.de",
 					LastSeen: now,
 				},
@@ -392,7 +392,7 @@ func TestClient_PostFile(t *testing.T) { //nolint:dupl // no need to refactor ye
 				Branch:      "main",
 				AuthorEmail: "test@sparrow",
 				AuthorName:  "sparrpw",
-				Content: config.GlobalTarget{
+				Content: specs.GlobalTarget{
 					Url:      "https://test.de",
 					LastSeen: now,
 				},
@@ -407,7 +407,7 @@ func TestClient_PostFile(t *testing.T) { //nolint:dupl // no need to refactor ye
 				Branch:      "main",
 				AuthorEmail: "test@sparrow",
 				AuthorName:  "sparrpw",
-				Content: config.GlobalTarget{
+				Content: specs.GlobalTarget{
 					Url:      "https://test.de",
 					LastSeen: now,
 				},

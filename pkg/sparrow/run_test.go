@@ -33,8 +33,8 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/caas-team/sparrow/internal/logger"
-	checkConfig "github.com/caas-team/sparrow/pkg/checks/config"
 	"github.com/caas-team/sparrow/pkg/checks/register"
+	"github.com/caas-team/sparrow/pkg/checks/specs"
 	"github.com/caas-team/sparrow/pkg/config"
 	"github.com/caas-team/sparrow/pkg/db"
 )
@@ -56,7 +56,7 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 		ShutdownFunc: func(ctx context.Context) error {
 			return nil
 		},
-		StartupFunc: func(ctx context.Context, cResult chan<- checkConfig.Result) error {
+		StartupFunc: func(ctx context.Context, cResult chan<- specs.Result) error {
 			return nil
 		},
 		RegisterHandlerFunc:   func(ctx context.Context, router *api.RoutingTree) {},
@@ -74,9 +74,9 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 
 	type fields struct {
 		checks      map[string]checks.Check
-		resultFanIn map[string]chan checkConfig.Result
+		resultFanIn map[string]chan specs.Result
 
-		cResult    chan checkConfig.ResultDTO
+		cResult    chan specs.ResultDTO
 		loader     config.Loader
 		cfg        *config.Config
 		cCfgChecks chan map[string]any
@@ -94,7 +94,7 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 				checks:      map[string]checks.Check{},
 				cfg:         &config.Config{},
 				cCfgChecks:  make(chan map[string]any, 1),
-				resultFanIn: make(map[string]chan checkConfig.Result),
+				resultFanIn: make(map[string]chan specs.Result),
 			},
 			newChecksConfig: map[string]any{
 				"alpha": "I like sparrows",
@@ -108,7 +108,7 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 				},
 				cfg:         &config.Config{},
 				cCfgChecks:  make(chan map[string]any, 1),
-				resultFanIn: make(map[string]chan checkConfig.Result),
+				resultFanIn: make(map[string]chan specs.Result),
 			},
 			newChecksConfig: map[string]any{
 				"alpha": "I like sparrows",
@@ -123,7 +123,7 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 				},
 				cfg:         &config.Config{},
 				cCfgChecks:  make(chan map[string]any, 1),
-				resultFanIn: make(map[string]chan checkConfig.Result),
+				resultFanIn: make(map[string]chan specs.Result),
 			},
 			newChecksConfig: map[string]any{},
 		},
@@ -136,7 +136,7 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 				},
 				cfg:         &config.Config{},
 				cCfgChecks:  make(chan map[string]any, 1),
-				resultFanIn: make(map[string]chan checkConfig.Result),
+				resultFanIn: make(map[string]chan specs.Result),
 			},
 			newChecksConfig: map[string]any{
 				"alpha": "I like sparrows",
@@ -171,12 +171,12 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 }
 
 func Test_fanInResults(t *testing.T) {
-	checkChan := make(chan checkConfig.Result, 1)
-	cResult := make(chan checkConfig.ResultDTO, 1)
+	checkChan := make(chan specs.Result, 1)
+	cResult := make(chan specs.ResultDTO, 1)
 	name := "check"
 	go fanInResults(checkChan, cResult, name)
 
-	result := checkConfig.Result{
+	result := specs.Result{
 		Timestamp: time.Time{},
 		Err:       "",
 		Data:      0,
@@ -185,7 +185,7 @@ func Test_fanInResults(t *testing.T) {
 	checkChan <- result
 	output := <-cResult
 
-	want := checkConfig.ResultDTO{
+	want := specs.ResultDTO{
 		Name:   name,
 		Result: &result,
 	}
@@ -228,7 +228,7 @@ func TestSparrow_Run(t *testing.T) {
 // updates the check targets, if they exists in the config of the checks.
 func TestSparrow_updateCheckTargets(t *testing.T) {
 	now := time.Now()
-	gt := []checkConfig.GlobalTarget{
+	gt := []specs.GlobalTarget{
 		{
 			Url:      "https://localhost.de",
 			LastSeen: now,
@@ -237,7 +237,7 @@ func TestSparrow_updateCheckTargets(t *testing.T) {
 	tests := []struct {
 		name          string
 		config        any
-		globalTargets []checkConfig.GlobalTarget
+		globalTargets []specs.GlobalTarget
 		expected      any
 	}{
 		{
@@ -321,7 +321,7 @@ func TestSparrow_updateCheckTargets(t *testing.T) {
 			config: map[string]any{
 				"targets": []any{"https://localhost.de"},
 			},
-			globalTargets: append(gt, checkConfig.GlobalTarget{
+			globalTargets: append(gt, specs.GlobalTarget{
 				Url: "https://wonderhost.usa",
 			}),
 			expected: map[string]any{

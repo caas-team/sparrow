@@ -33,16 +33,16 @@ import (
 	"github.com/caas-team/sparrow/internal/logger"
 	"github.com/caas-team/sparrow/pkg/api"
 	"github.com/caas-team/sparrow/pkg/checks"
-	"github.com/caas-team/sparrow/pkg/checks/config"
 	"github.com/caas-team/sparrow/pkg/checks/errors"
 	"github.com/caas-team/sparrow/pkg/checks/oapi"
+	"github.com/caas-team/sparrow/pkg/checks/specs"
 )
 
 var _ checks.Check = (*Latency)(nil)
 
 // Latency is a check that measures the latency to an endpoint
 type Latency struct {
-	config.CheckBase
+	specs.CheckBase
 	config  LatencyConfig
 	metrics latencyMetrics
 }
@@ -50,13 +50,13 @@ type Latency struct {
 // NewLatencyCheck creates a new instance of the latency check
 func NewLatencyCheck() checks.Check {
 	return &Latency{
-		CheckBase: config.CheckBase{
+		CheckBase: specs.CheckBase{
 			Mu:      sync.Mutex{},
 			CResult: nil,
 			Done:    make(chan bool, 1),
 		},
 		config: LatencyConfig{
-			Retry: config.DefaultRetry,
+			Retry: specs.DefaultRetry,
 		},
 		metrics: newLatencyMetrics(),
 	}
@@ -101,7 +101,7 @@ func (l *Latency) Run(ctx context.Context) error {
 		case <-time.After(l.config.Interval):
 			res := l.check(ctx)
 			errval := ""
-			r := config.Result{
+			r := specs.Result{
 				Data:      res,
 				Err:       errval,
 				Timestamp: time.Now(),
@@ -113,7 +113,7 @@ func (l *Latency) Run(ctx context.Context) error {
 	}
 }
 
-func (l *Latency) Startup(ctx context.Context, cResult chan<- config.Result) error {
+func (l *Latency) Startup(ctx context.Context, cResult chan<- specs.Result) error {
 	log := logger.FromContext(ctx).WithGroup("latency")
 	log.Debug("Initializing latency check")
 

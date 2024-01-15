@@ -21,7 +21,7 @@ package targets
 import (
 	"context"
 
-	"github.com/caas-team/sparrow/pkg/checks/config"
+	"github.com/caas-team/sparrow/pkg/checks/specs"
 )
 
 // TargetManager handles the management of globalTargets for
@@ -31,7 +31,7 @@ type TargetManager interface {
 	// endpoint and updates the local state
 	Reconcile(ctx context.Context)
 	// GetTargets returns the current global targets
-	GetTargets() []config.GlobalTarget
+	GetTargets() []specs.GlobalTarget
 	// Shutdown shuts down the target manager
 	// and unregisters the instance as a global target
 	Shutdown(ctx context.Context) error
