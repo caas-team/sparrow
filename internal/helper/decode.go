@@ -20,9 +20,23 @@ package helper
 
 import "github.com/mitchellh/mapstructure"
 
-// Decode attempts to convert the provided input into the specified type 'T'.
-// It uses the mapstructure library's decoding capabilities, handling data conversions.
+// Decode is a generic function that takes an input of any type and attempts to decode it into a specified type T.
 // Returns the decoded value of type 'T' and any error encountered during decoding.
+//
+// Example Usage:
+// Suppose we have a struct named MyConfig with fields A (int), B (string), and C ([]string).
+// We can use Decode to convert a map[string]any to MyConfig type as shown below:
+//
+//	configMap := map[string]any{
+//	    "A": "123",
+//	    "B": "example",
+//	    "C": "one,two,three",
+//	}
+//	var myConfig MyConfig
+//	myConfig, err := Decode[MyConfig](configMap)
+//	if err != nil {
+//	    // handle error
+//	}
 func Decode[T any](input any) (T, error) {
 	var result T
 	config := &mapstructure.DecoderConfig{
