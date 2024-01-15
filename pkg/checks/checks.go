@@ -76,9 +76,12 @@ type Check interface {
 // CheckBase is a struct providing common fields used by implementations of the Check interface.
 // It serves as a foundational structure that should be embedded in specific check implementations.
 type CheckBase struct {
-	mu      sync.Mutex
+	// Mutex for thread-safe access to shared resources within the check implementation
+	mu sync.Mutex
+	// Essential for passing check results back to the Sparrow; must be utilized by Check implementations
 	cResult chan<- Result
-	done    chan bool
+	// Signal channel used to notify about shutdown of a check
+	done chan bool
 }
 
 // Result encapsulates the outcome of a check run.
