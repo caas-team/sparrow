@@ -16,7 +16,5 @@ The check results are exposed via an API.
 
 ### SEE ALSO
 
-* [sparrow completion](sparrow_completion.md)	 - Generate the autocompletion script for the specified shell
-* [sparrow gen-docs](sparrow_gen-docs.md)	 - Generate markdown documentation
 * [sparrow run](sparrow_run.md)	 - Run sparrow
 

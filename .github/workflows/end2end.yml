@@ -4,8 +4,7 @@
 name: End2End Testing
 on:
   push:
-    paths:
-    - 'chart/**'
+  pull_request:
 
 jobs:
   end2end:
@@ -60,7 +59,7 @@ jobs:
           --set extraArgs.loaderType=file \
           --set extraArgs.loaderFilePath=/runconfig/checks.yaml \
           --set image.tag=${{ steps.version.outputs.value }} \
-          --set startupConfig.sparrowName=the-sparrow.com \
+          --set startupConfig.name=the-sparrow.com \
           chart
     - name: Check Pods
       run: |

@@ -74,8 +74,8 @@ func TestHttpLoader_GetRuntimeConfig(t *testing.T) {
 				Loader: LoaderConfig{
 					Type:     "http",
 					Interval: time.Second,
-					http: HttpLoaderConfig{
-						token: "SECRET",
+					Http: HttpLoaderConfig{
+						Token: "SECRET",
 					},
 				},
 			},
@@ -127,8 +127,8 @@ func TestHttpLoader_GetRuntimeConfig(t *testing.T) {
 			endpoint := "https://api.test.com/test"
 			httpmock.RegisterResponder("GET", endpoint,
 				func(req *http.Request) (*http.Response, error) {
-					if tt.cfg.Loader.http.token != "" {
-						require.Equal(t, req.Header.Get("Authorization"), fmt.Sprintf("Bearer %s", tt.cfg.Loader.http.token))
+					if tt.cfg.Loader.Http.Token != "" {
+						require.Equal(t, req.Header.Get("Authorization"), fmt.Sprintf("Bearer %s", tt.cfg.Loader.Http.Token))
 						fmt.Println("TOKEN tested")
 					}
 					resp, _ := httpmock.NewStringResponder(tt.httpResponder.statusCode, tt.httpResponder.response)(req)
@@ -144,8 +144,11 @@ func TestHttpLoader_GetRuntimeConfig(t *testing.T) {
 			gl := &HttpLoader{
 				cfg:        tt.cfg,
 				cCfgChecks: make(chan<- map[string]any, 1),
+				client: &http.Client{
+					Timeout: tt.cfg.Loader.Http.Timeout,
+				},
 			}
-			gl.cfg.Loader.http.url = endpoint
+			gl.cfg.Loader.Http.Url = endpoint
 
 			got, err := gl.GetRuntimeConfig(ctx)
 			if (err != nil) != tt.wantErr {

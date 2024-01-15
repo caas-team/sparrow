@@ -19,28 +19,27 @@
 package config
 
 import (
-	"net/http"
 	"sync"
 	"time"
 
 	"github.com/caas-team/sparrow/internal/helper"
 )
 
-var (
-	// BasicRetryConfig provides a default configuration for the retry mechanism
-	DefaultRetry = helper.RetryConfig{
-		Count: 3,
-		Delay: time.Second,
-	}
-)
+// DefaultRetry provides a default configuration for the retry mechanism
+var DefaultRetry = helper.RetryConfig{
+	Count: 3,
+	Delay: time.Second,
+}
 
 // CheckBase is a struct providing common fields used by implementations of the Check interface.
 // It serves as a foundational structure that should be embedded in specific check implementations.
 type CheckBase struct {
-	Mu      sync.Mutex
+	// Mutex for thread-safe access to shared resources within the check implementation
+	Mu sync.Mutex
+	// Essential for passing check results back to the Sparrow; must be utilized by Check implementations
 	CResult chan<- Result
-	Done    chan bool
-	Client  *http.Client
+	// Signal channel used to notify about shutdown of a check
+	Done chan bool
 }
 
 // GlobalTarget includes the basic information regarding

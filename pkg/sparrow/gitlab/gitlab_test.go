@@ -49,32 +49,43 @@ func Test_gitlab_fetchFileList(t *testing.T) {
 			mockBody: []file{},
 		},
 		{
+			name:     "success - 0 targets with 1 file",
+			want:     nil,
+			wantErr:  false,
+			mockCode: http.StatusOK,
+			mockBody: []file{
+				{
+					Name: "README.md",
+				},
+			},
+		},
+		{
 			name: "success - 1 target",
 			want: []string{
-				"test",
+				"test.json",
 			},
 			wantErr:  false,
 			mockCode: http.StatusOK,
 			mockBody: []file{
 				{
-					Name: "test",
+					Name: "test.json",
 				},
 			},
 		},
 		{
 			name: "success - 2 targets",
 			want: []string{
-				"test",
-				"test2",
+				"test.json",
+				"test2.json",
 			},
 			wantErr:  false,
 			mockCode: http.StatusOK,
 			mockBody: []file{
 				{
-					Name: "test",
+					Name: "test.json",
 				},
 				{
-					Name: "test2",
+					Name: "test2.json",
 				},
 			},
 		},
@@ -144,7 +155,7 @@ func Test_gitlab_FetchFiles(t *testing.T) {
 			},
 			fileList: []file{
 				{
-					Name: "test",
+					Name: "test.json",
 				},
 			},
 			wantErr:  false,
@@ -164,10 +175,10 @@ func Test_gitlab_FetchFiles(t *testing.T) {
 			},
 			fileList: []file{
 				{
-					Name: "test",
+					Name: "test.json",
 				},
 				{
-					Name: "test2",
+					Name: "test2.json",
 				},
 			},
 			wantErr:  false,

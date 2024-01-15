@@ -33,7 +33,6 @@ import (
 	"github.com/caas-team/sparrow/pkg/checks/config"
 	"github.com/caas-team/sparrow/pkg/checks/errors"
 	"github.com/getkin/kin-openapi/openapi3"
-	"github.com/mitchellh/mapstructure"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -60,7 +59,6 @@ func NewHealthCheck() checks.Check {
 			Mu:      sync.Mutex{},
 			CResult: nil,
 			Done:    make(chan bool, 1),
-			Client:  &http.Client{},
 		},
 		route: "health",
 		config: HealthConfig{
@@ -72,21 +70,15 @@ func NewHealthCheck() checks.Check {
 
 // HealthConfig defines the configuration parameters for a health check
 type HealthConfig struct {
-	Targets  []string
-	Interval time.Duration
-	Timeout  time.Duration
-	Retry    helper.RetryConfig
+	Targets  []string           `json:"targets,omitempty" yaml:"targets,omitempty" mapstructure:"targets"`
+	Interval time.Duration      `json:"interval" yaml:"interval" mapstructure:"interval"`
+	Timeout  time.Duration      `json:"timeout" yaml:"timeout" mapstructure:"timeout"`
+	Retry    helper.RetryConfig `json:"retry" yaml:"retry" mapstructure:"retry"`
 }
 
-// HealthResult represents the result of a single health check for a specific target
-type HealthResult struct {
-	Target string `json:"target"`
-	Status string `json:"status"`
-}
-
-// Defined metric collectors of health check
+// healthMetrics contains the metric collectors for the Health check
 type healthMetrics struct {
-	health *prometheus.GaugeVec
+	*prometheus.GaugeVec
 }
 
 // Run starts the health check
@@ -94,7 +86,7 @@ func (h *Health) Run(ctx context.Context) error {
 	ctx, cancel := logger.NewContextWithLogger(ctx, "health")
 	defer cancel()
 	log := logger.FromContext(ctx)
-	log.Info(fmt.Sprintf("Using latency check interval of %s", h.config.Interval.String()))
+	log.Info("Starting healthcheck", "interval", h.config.Interval.String())
 
 	for {
 		select {
@@ -121,8 +113,8 @@ func (h *Health) Run(ctx context.Context) error {
 
 // Startup is called once when the health check is registered
 func (h *Health) Startup(ctx context.Context, cResult chan<- config.Result) error {
-	log := logger.FromContext(ctx).WithGroup("latency")
-	log.Debug("Starting latency check")
+	log := logger.FromContext(ctx).WithGroup("health")
+	log.Debug("Initializing health check")
 
 	h.CResult = cResult
 	return nil
@@ -137,13 +129,15 @@ func (h *Health) Shutdown(_ context.Context) error {
 }
 
 // SetConfig sets the configuration for the health check
-func (h *Health) SetConfig(_ context.Context, config any) error {
-	var c HealthConfig
-	if err := mapstructure.Decode(config, &c); err != nil {
+func (h *Health) SetConfig(ctx context.Context, conf any) error {
+	log := logger.FromContext(ctx)
+
+	c, err := helper.Decode[HealthConfig](conf)
+	if err != nil {
+		log.Error("Failed to decode health config", "error", err)
 		return errors.ErrInvalidConfig
 	}
-	c.Interval *= time.Second
-	c.Retry.Delay *= time.Second
+
 	h.Mu.Lock()
 	defer h.Mu.Unlock()
 	h.config = c
@@ -151,17 +145,10 @@ func (h *Health) SetConfig(_ context.Context, config any) error {
 	return nil
 }
 
-// SetClient sets the http client for the health check
-func (h *Health) SetClient(c *http.Client) {
-	h.Mu.Lock()
-	defer h.Mu.Unlock()
-	h.Client = c
-}
-
 // Schema provides the schema of the data that will be provided
 // by the health check
 func (h *Health) Schema() (*openapi3.SchemaRef, error) {
-	return checks.OpenapiFromPerfData[[]HealthResult]([]HealthResult{})
+	return checks.OpenapiFromPerfData[map[string]string](map[string]string{})
 }
 
 // RegisterHandler dynamically registers a server handler
@@ -183,7 +170,7 @@ func (h *Health) DeregisterHandler(_ context.Context, router *api.RoutingTree) {
 // NewHealthMetrics initializes metric collectors of the health check
 func newHealthMetrics() healthMetrics {
 	return healthMetrics{
-		health: prometheus.NewGaugeVec(
+		GaugeVec: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
 				Name: "sparrow_health_up",
 				Help: "Health of targets",
@@ -198,35 +185,35 @@ func newHealthMetrics() healthMetrics {
 // GetMetricCollectors returns all metric collectors of check
 func (h *Health) GetMetricCollectors() []prometheus.Collector {
 	return []prometheus.Collector{
-		h.metrics.health,
+		h.metrics,
 	}
 }
 
 // check performs a health check using a retry function
 // to get the health status for all targets
-func (h *Health) check(ctx context.Context) []HealthResult {
+func (h *Health) check(ctx context.Context) map[string]string {
 	log := logger.FromContext(ctx).WithGroup("check")
 	log.Debug("Checking health")
 	if len(h.config.Targets) == 0 {
 		log.Debug("No targets defined")
-		return []HealthResult{}
+		return map[string]string{}
 	}
 	log.Debug("Getting health status for each target in separate routine", "amount", len(h.config.Targets))
 
 	var wg sync.WaitGroup
 	var mu sync.Mutex
-	results := []HealthResult{}
+	results := map[string]string{}
 
-	h.Mu.Lock()
-	h.Client.Timeout = h.config.Timeout * time.Second
-	h.Mu.Unlock()
+	client := &http.Client{
+		Timeout: h.config.Timeout,
+	}
 	for _, t := range h.config.Targets {
 		target := t
 		wg.Add(1)
 		l := log.With("target", target)
 
 		getHealthRetry := helper.Retry(func(ctx context.Context) error {
-			return getHealth(ctx, h.Client, target)
+			return getHealth(ctx, client, target)
 		}, h.config.Retry)
 
 		go func() {
@@ -236,17 +223,15 @@ func (h *Health) check(ctx context.Context) []HealthResult {
 			l.Debug("Starting retry routine to get health status")
 			if err := getHealthRetry(ctx); err != nil {
 				state = 0
-				l.Warn("Error while checking health", "error", err)
+				l.Warn(fmt.Sprintf("Health check failed after %d retries", h.config.Retry.Count), "error", err)
 			}
 
 			l.Debug("Successfully got health status of target", "status", stateMapping[state])
 			mu.Lock()
 			defer mu.Unlock()
-			results = append(results, HealthResult{
-				Target: target,
-				Status: stateMapping[state],
-			})
-			h.metrics.health.WithLabelValues(target).Set(float64(state))
+			results[target] = stateMapping[state]
+
+			h.metrics.WithLabelValues(target).Set(float64(state))
 		}()
 	}
 
@@ -263,13 +248,13 @@ func getHealth(ctx context.Context, client *http.Client, url string) error {
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 	if err != nil {
-		log.Error("Could not create http GET request", "error", err.Error())
+		log.Error("Error while creating request", "error", err)
 		return err
 	}
 
 	resp, err := client.Do(req) //nolint:bodyclose // Closed in defer below
 	if err != nil {
-		log.Error("Http get request failed", "error", err.Error())
+		log.Error("Error while requesting health", "error", err)
 		return err
 	}
 	defer func(Body io.ReadCloser) {
@@ -277,7 +262,7 @@ func getHealth(ctx context.Context, client *http.Client, url string) error {
 	}(resp.Body)
 
 	if resp.StatusCode != http.StatusOK {
-		log.Error("Http get request failed", "status", resp.Status)
+		log.Warn("Health request was not ok (HTTP Status 200)", "status", resp.Status)
 		return fmt.Errorf("request failed, status is %s", resp.Status)
 	}
 
