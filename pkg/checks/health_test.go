@@ -22,13 +22,11 @@ import (
 	"context"
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/jarcoal/httpmock"
 	"github.com/stretchr/testify/assert"
 )
-
-// Ensure that Health implements the Check interface
-var _ Check = (*Health)(nil)
 
 func TestHealth_SetConfig(t *testing.T) {
 	tests := []struct {
@@ -43,11 +41,13 @@ func TestHealth_SetConfig(t *testing.T) {
 				"targets": []any{
 					"test",
 				},
+				"interval": "10s",
+				"timeout":  "30s",
 			},
 			expectedConfig: HealthConfig{
-				Targets: []string{
-					"test",
-				},
+				Targets:  []string{"test"},
+				Interval: 10 * time.Second,
+				Timeout:  30 * time.Second,
 			},
 			wantErr: false,
 		},
@@ -88,8 +88,9 @@ func Test_getHealth(t *testing.T) {
 	endpoint := "https://api.test.com/test"
 
 	type args struct {
-		ctx context.Context
-		url string
+		ctx    context.Context
+		client *http.Client
+		url    string
 	}
 	tests := []struct {
 		name string
@@ -101,8 +102,9 @@ func Test_getHealth(t *testing.T) {
 		{
 			name: "status 200",
 			args: args{
-				ctx: context.Background(),
-				url: endpoint,
+				ctx:    context.Background(),
+				client: &http.Client{},
+				url:    endpoint,
 			},
 			httpResponder: httpmock.NewStringResponder(200, ""),
 			wantErr:       false,
@@ -110,8 +112,9 @@ func Test_getHealth(t *testing.T) {
 		{
 			name: "status not 200",
 			args: args{
-				ctx: context.Background(),
-				url: endpoint,
+				ctx:    context.Background(),
+				client: &http.Client{},
+				url:    endpoint,
 			},
 			httpResponder: httpmock.NewStringResponder(400, ""),
 			wantErr:       true,
@@ -119,8 +122,9 @@ func Test_getHealth(t *testing.T) {
 		{
 			name: "ctx is nil",
 			args: args{
-				ctx: nil,
-				url: endpoint,
+				ctx:    nil,
+				client: &http.Client{},
+				url:    endpoint,
 			},
 			httpResponder: httpmock.NewStringResponder(200, ""),
 			wantErr:       true,
@@ -128,8 +132,9 @@ func Test_getHealth(t *testing.T) {
 		{
 			name: "unknown url",
 			args: args{
-				ctx: context.Background(),
-				url: "unknown url",
+				ctx:    context.Background(),
+				client: &http.Client{},
+				url:    "unknown url",
 			},
 			httpResponder: httpmock.NewStringResponder(200, ""),
 			wantErr:       true,
@@ -138,7 +143,7 @@ func Test_getHealth(t *testing.T) {
 	for _, tt := range tests {
 		httpmock.RegisterResponder(http.MethodGet, endpoint, tt.httpResponder)
 		t.Run(tt.name, func(t *testing.T) {
-			if err := getHealth(tt.args.ctx, tt.args.url); (err != nil) != tt.wantErr {
+			if err := getHealth(tt.args.ctx, tt.args.client, tt.args.url); (err != nil) != tt.wantErr {
 				t.Errorf("getHealth() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
@@ -150,58 +155,48 @@ func TestHealth_Check(t *testing.T) {
 	defer httpmock.DeactivateAndReset()
 
 	tests := []struct {
-		name               string
-		registerdEndpoints map[string]int
-		targets            []string
-		ctx                context.Context
-		want               healthData
+		name                string
+		registeredEndpoints map[string]int
+		targets             []string
+		ctx                 context.Context
+		want                map[string]string
 	}{
 		{
-			name:               "no target",
-			registerdEndpoints: nil,
-			targets:            []string{},
-			ctx:                context.Background(),
-			want:               healthData{},
+			name:                "no target",
+			registeredEndpoints: nil,
+			targets:             []string{},
+			ctx:                 context.Background(),
+			want:                map[string]string{},
 		},
 		{
 			name: "one target healthy",
-			registerdEndpoints: map[string]int{
+			registeredEndpoints: map[string]int{
 				"https://api.test.com": 200,
 			},
 			targets: []string{
 				"https://api.test.com",
 			},
 			ctx: context.Background(),
-			want: healthData{
-				Targets: []Target{
-					{
-						Target: "https://api.test.com",
-						Status: "healthy",
-					},
-				},
+			want: map[string]string{
+				"https://api.test.com": "healthy",
 			},
 		},
 		{
 			name: "one target unhealthy",
-			registerdEndpoints: map[string]int{
+			registeredEndpoints: map[string]int{
 				"https://api.test.com": 400,
 			},
 			targets: []string{
 				"https://api.test.com",
 			},
 			ctx: context.Background(),
-			want: healthData{
-				Targets: []Target{
-					{
-						Target: "https://api.test.com",
-						Status: "unhealthy",
-					},
-				},
+			want: map[string]string{
+				"https://api.test.com": "unhealthy",
 			},
 		},
 		{
 			name: "many targets",
-			registerdEndpoints: map[string]int{
+			registeredEndpoints: map[string]int{
 				"https://api1.test.com": 200,
 				"https://api2.test.com": 400,
 				"https://api3.test.com": 200,
@@ -216,35 +211,18 @@ func TestHealth_Check(t *testing.T) {
 				"https://api5.test.com",
 			},
 			ctx: context.Background(),
-			want: healthData{
-				Targets: []Target{
-					{
-						Target: "https://api1.test.com",
-						Status: "healthy",
-					},
-					{
-						Target: "https://api2.test.com",
-						Status: "unhealthy",
-					},
-					{
-						Target: "https://api3.test.com",
-						Status: "healthy",
-					},
-					{
-						Target: "https://api4.test.com",
-						Status: "unhealthy",
-					},
-					{
-						Target: "https://api5.test.com",
-						Status: "healthy",
-					},
-				},
+			want: map[string]string{
+				"https://api1.test.com": "healthy",
+				"https://api2.test.com": "unhealthy",
+				"https://api3.test.com": "healthy",
+				"https://api4.test.com": "unhealthy",
+				"https://api5.test.com": "healthy",
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			for endpoint, statuscode := range tt.registerdEndpoints {
+			for endpoint, statuscode := range tt.registeredEndpoints {
 				httpmock.RegisterResponder(http.MethodGet, endpoint,
 					httpmock.NewStringResponder(statuscode, ""),
 				)
@@ -253,17 +231,19 @@ func TestHealth_Check(t *testing.T) {
 			h := &Health{
 				config: HealthConfig{
 					Targets: tt.targets,
+					Timeout: 30,
+					Retry:   DefaultRetry,
 				},
 				metrics: newHealthMetrics(),
 			}
 			got := h.check(tt.ctx)
-			assert.Equal(t, len(got.Targets), len(tt.want.Targets), "Amount of targets is not equal")
-			for _, target := range tt.want.Targets {
+			assert.Equal(t, len(got), len(tt.want), "Amount of targets is not equal")
+			for target, status := range tt.want {
 				helperStatus := "unhealthy"
-				if tt.registerdEndpoints[target.Target] == 200 {
+				if tt.registeredEndpoints[target] == 200 {
 					helperStatus = "healthy"
 				}
-				assert.Equal(t, helperStatus, target.Status, "Target does not map with expected target")
+				assert.Equal(t, helperStatus, status, "Target does not map with expected target")
 			}
 		})
 	}
@@ -272,7 +252,9 @@ func TestHealth_Check(t *testing.T) {
 func TestHealth_Shutdown(t *testing.T) {
 	cDone := make(chan bool, 1)
 	c := Health{
-		done: cDone,
+		CheckBase: CheckBase{
+			done: cDone,
+		},
 	}
 	err := c.Shutdown(context.Background())
 	if err != nil {

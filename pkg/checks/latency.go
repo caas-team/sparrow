@@ -20,7 +20,6 @@ package checks
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -28,7 +27,6 @@ import (
 	"time"
 
 	"github.com/getkin/kin-openapi/openapi3"
-	"github.com/mitchellh/mapstructure"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/caas-team/sparrow/internal/helper"
@@ -38,31 +36,37 @@ import (
 
 var _ Check = (*Latency)(nil)
 
+// Latency is a check that measures the latency to an endpoint
+type Latency struct {
+	CheckBase
+	config  LatencyConfig
+	metrics latencyMetrics
+}
+
+// NewLatencyCheck creates a new instance of the latency check
 func NewLatencyCheck() Check {
 	return &Latency{
-		mu:      sync.Mutex{},
-		cfg:     LatencyConfig{},
-		c:       nil,
-		done:    make(chan bool, 1),
+		CheckBase: CheckBase{
+			mu:      sync.Mutex{},
+			cResult: nil,
+			done:    make(chan bool, 1),
+		},
+		config: LatencyConfig{
+			Retry: DefaultRetry,
+		},
 		metrics: newLatencyMetrics(),
 	}
 }
 
-type Latency struct {
-	cfg     LatencyConfig
-	mu      sync.Mutex
-	c       chan<- Result
-	done    chan bool
-	metrics latencyMetrics
-}
-
+// LatencyConfig defines the configuration parameters for a latency check
 type LatencyConfig struct {
-	Targets  []string           `json:"targets" yaml:"targets"`
-	Interval time.Duration      `json:"interval" yaml:"interval"`
-	Timeout  time.Duration      `json:"timeout" yaml:"timeout"`
-	Retry    helper.RetryConfig `json:"retry" yaml:"retry"`
+	Targets  []string           `json:"targets,omitempty" yaml:"targets,omitempty" mapstructure:"targets"`
+	Interval time.Duration      `json:"interval" yaml:"interval" mapstructure:"interval"`
+	Timeout  time.Duration      `json:"timeout" yaml:"timeout" mapstructure:"timeout"`
+	Retry    helper.RetryConfig `json:"retry" yaml:"retry" mapstructure:"retry"`
 }
 
+// LatencyResult represents the result of a single latency check for a specific target
 type LatencyResult struct {
 	Code  int     `json:"code"`
 	Error *string `json:"error"`
@@ -71,16 +75,17 @@ type LatencyResult struct {
 
 // Defined metric collectors of latency check
 type latencyMetrics struct {
-	latencyDuration  *prometheus.GaugeVec
-	latencyCount     *prometheus.CounterVec
-	latencyHistogram *prometheus.HistogramVec
+	duration  *prometheus.GaugeVec
+	count     *prometheus.CounterVec
+	histogram *prometheus.HistogramVec
 }
 
+// Run starts the latency check
 func (l *Latency) Run(ctx context.Context) error {
 	ctx, cancel := logger.NewContextWithLogger(ctx, "latency")
 	defer cancel()
 	log := logger.FromContext(ctx)
-	log.Info(fmt.Sprintf("Using latency check interval of %s", l.cfg.Interval.String()))
+	log.Info("Starting latency check", "interval", l.config.Interval.String())
 
 	for {
 		select {
@@ -89,25 +94,26 @@ func (l *Latency) Run(ctx context.Context) error {
 			return ctx.Err()
 		case <-l.done:
 			return nil
-		case <-time.After(l.cfg.Interval):
-			results := l.check(ctx)
+		case <-time.After(l.config.Interval):
+			res := l.check(ctx)
 			errval := ""
-			checkResult := Result{
-				Data:      results,
+			r := Result{
+				Data:      res,
 				Err:       errval,
 				Timestamp: time.Now(),
 			}
 
-			l.c <- checkResult
+			l.cResult <- r
+			log.Debug("Successfully finished latency check run")
 		}
 	}
 }
 
 func (l *Latency) Startup(ctx context.Context, cResult chan<- Result) error {
 	log := logger.FromContext(ctx).WithGroup("latency")
-	log.Debug("Starting latency check")
+	log.Debug("Initializing latency check")
 
-	l.c = cResult
+	l.cResult = cResult
 	return nil
 }
 
@@ -118,33 +124,39 @@ func (l *Latency) Shutdown(_ context.Context) error {
 	return nil
 }
 
-func (l *Latency) SetConfig(_ context.Context, config any) error {
-	var c LatencyConfig
-	err := mapstructure.Decode(config, &c)
+func (l *Latency) SetConfig(ctx context.Context, config any) error {
+	log := logger.FromContext(ctx)
+
+	c, err := helper.Decode[LatencyConfig](config)
 	if err != nil {
+		log.Error("Failed to decode latency config", "error", err)
 		return ErrInvalidConfig
 	}
-	c.Interval = time.Second * c.Interval
-	c.Retry.Delay = time.Second * c.Retry.Delay
+
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	l.cfg = c
+	l.config = c
 
 	return nil
 }
 
+// Schema provides the schema of the data that will be provided
+// by the latency check
 func (l *Latency) Schema() (*openapi3.SchemaRef, error) {
 	return OpenapiFromPerfData(make(map[string]LatencyResult))
 }
 
+// RegisterHandler registers a server handler
 func (l *Latency) RegisterHandler(_ context.Context, router *api.RoutingTree) {
 	router.Add(http.MethodGet, "v1alpha1/latency", l.Handler)
 }
 
+// DeregisterHandler deletes the server handler
 func (l *Latency) DeregisterHandler(_ context.Context, router *api.RoutingTree) {
 	router.Remove(http.MethodGet, "v1alpha1/latency")
 }
 
+// Handler defines the server handler for the latency check
 func (l *Latency) Handler(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
@@ -152,7 +164,7 @@ func (l *Latency) Handler(w http.ResponseWriter, _ *http.Request) {
 // NewLatencyMetrics initializes metric collectors of the latency check
 func newLatencyMetrics() latencyMetrics {
 	return latencyMetrics{
-		latencyDuration: prometheus.NewGaugeVec(
+		duration: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
 				Name: "sparrow_latency_duration_seconds",
 				Help: "Latency with status information of targets",
@@ -162,7 +174,7 @@ func newLatencyMetrics() latencyMetrics {
 				"status",
 			},
 		),
-		latencyCount: prometheus.NewCounterVec(
+		count: prometheus.NewCounterVec(
 			prometheus.CounterOpts{
 				Name: "sparrow_latency_count",
 				Help: "Count of latency checks done",
@@ -171,7 +183,7 @@ func newLatencyMetrics() latencyMetrics {
 				"target",
 			},
 		),
-		latencyHistogram: prometheus.NewHistogramVec(
+		histogram: prometheus.NewHistogramVec(
 			prometheus.HistogramOpts{
 				Name: "sparrow_latency_duration",
 				Help: "Latency of targets in seconds",
@@ -186,29 +198,31 @@ func newLatencyMetrics() latencyMetrics {
 // GetMetricCollectors returns all metric collectors of check
 func (l *Latency) GetMetricCollectors() []prometheus.Collector {
 	return []prometheus.Collector{
-		l.metrics.latencyDuration,
-		l.metrics.latencyCount,
-		l.metrics.latencyHistogram,
+		l.metrics.duration,
+		l.metrics.count,
+		l.metrics.histogram,
 	}
 }
 
+// check performs a latency check using a retry function
+// to get the latency to all targets
 func (l *Latency) check(ctx context.Context) map[string]LatencyResult {
 	log := logger.FromContext(ctx).WithGroup("check")
 	log.Debug("Checking latency")
-	if len(l.cfg.Targets) == 0 {
+	if len(l.config.Targets) == 0 {
 		log.Debug("No targets defined")
 		return map[string]LatencyResult{}
 	}
-	log.Debug("Getting latency status for each target in separate routine", "amount", len(l.cfg.Targets))
+	log.Debug("Getting latency status for each target in separate routine", "amount", len(l.config.Targets))
 
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 	results := map[string]LatencyResult{}
 
 	client := &http.Client{
-		Timeout: l.cfg.Timeout * time.Second,
+		Timeout: l.config.Timeout,
 	}
-	for _, t := range l.cfg.Targets {
+	for _, t := range l.config.Targets {
 		target := t
 		wg.Add(1)
 		lo := log.With("target", target)
@@ -220,7 +234,7 @@ func (l *Latency) check(ctx context.Context) map[string]LatencyResult {
 			results[target] = res
 
 			return nil
-		}, l.cfg.Retry)
+		}, l.config.Retry)
 
 		go func() {
 			defer wg.Done()
@@ -233,9 +247,9 @@ func (l *Latency) check(ctx context.Context) map[string]LatencyResult {
 			lo.Debug("Successfully got latency status of target")
 			mu.Lock()
 			defer mu.Unlock()
-			l.metrics.latencyDuration.WithLabelValues(target, strconv.Itoa(results[target].Code)).Set(results[target].Total)
-			l.metrics.latencyHistogram.WithLabelValues(target).Observe(results[target].Total)
-			l.metrics.latencyCount.WithLabelValues(target).Inc()
+			l.metrics.duration.WithLabelValues(target, strconv.Itoa(results[target].Code)).Set(results[target].Total)
+			l.metrics.histogram.WithLabelValues(target).Observe(results[target].Total)
+			l.metrics.count.WithLabelValues(target).Inc()
 		}()
 	}
 

@@ -20,22 +20,33 @@ package checks
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/prometheus/client_golang/prometheus"
 
+	"github.com/caas-team/sparrow/internal/helper"
 	"github.com/caas-team/sparrow/pkg/api"
 )
 
-// RegisteredChecks will be registered in this map
-// The key is the name of the Check
-// The name needs to map the configuration item key
-var RegisteredChecks = map[string]func() Check{
-	"health":  NewHealthCheck,
-	"latency": NewLatencyCheck,
-}
+var (
+	// RegisteredChecks will be registered in this map
+	// The key is the name of the Check
+	// The name needs to map the configuration item key
+	RegisteredChecks = map[string]func() Check{
+		"health":  NewHealthCheck,
+		"latency": NewLatencyCheck,
+	}
+	// DefaultRetry provides a default configuration for the retry mechanism
+	DefaultRetry = helper.RetryConfig{
+		Count: 3,
+		Delay: time.Second,
+	}
+)
 
+// Check implementations are expected to perform specific monitoring tasks and report results.
+//
 //go:generate moq -out checks_moq.go . Check
 type Check interface {
 	// Run is called once per check interval
@@ -62,6 +73,18 @@ type Check interface {
 	GetMetricCollectors() []prometheus.Collector
 }
 
+// CheckBase is a struct providing common fields used by implementations of the Check interface.
+// It serves as a foundational structure that should be embedded in specific check implementations.
+type CheckBase struct {
+	// Mutex for thread-safe access to shared resources within the check implementation
+	mu sync.Mutex
+	// Essential for passing check results back to the Sparrow; must be utilized by Check implementations
+	cResult chan<- Result
+	// Signal channel used to notify about shutdown of a check
+	done chan bool
+}
+
+// Result encapsulates the outcome of a check run.
 type Result struct {
 	// data contains performance metrics about the check run
 	Data any `json:"data"`
@@ -79,6 +102,7 @@ type GlobalTarget struct {
 	LastSeen time.Time `json:"lastSeen"`
 }
 
+// ResultDTO is a data transfer object used to associate a check's name with its result.
 type ResultDTO struct {
 	Name   string
 	Result *Result
