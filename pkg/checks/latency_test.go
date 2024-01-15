@@ -136,8 +136,8 @@ func TestLatency_Run(t *testing.T) { //nolint:gocyclo
 
 			err = c.SetConfig(tt.ctx, map[string]any{
 				"targets":  tt.targets,
-				"interval": 1,
-				"timeout":  5,
+				"interval": "1s",
+				"timeout":  "5s",
 			})
 			if err != nil {
 				t.Fatalf("Latency.SetConfig() error = %v", err)
@@ -290,7 +290,7 @@ func TestLatency_check(t *testing.T) {
 			}
 
 			l := &Latency{
-				cfg:     LatencyConfig{Targets: tt.targets, Interval: time.Second * 120, Timeout: time.Second * 1},
+				config:  LatencyConfig{Targets: tt.targets, Interval: time.Second * 120, Timeout: time.Second * 1},
 				metrics: newLatencyMetrics(),
 			}
 
@@ -331,7 +331,9 @@ func TestLatency_Startup(t *testing.T) {
 func TestLatency_Shutdown(t *testing.T) {
 	cDone := make(chan bool, 1)
 	c := Latency{
-		done: cDone,
+		CheckBase: CheckBase{
+			done: cDone,
+		},
 	}
 	err := c.Shutdown(context.Background())
 	if err != nil {
@@ -353,8 +355,8 @@ func TestLatency_SetConfig(t *testing.T) {
 	if err != nil {
 		t.Errorf("SetConfig() error = %v", err)
 	}
-	if !reflect.DeepEqual(c.cfg, wantCfg) {
-		t.Errorf("SetConfig() = %v, want %v", c.cfg, wantCfg)
+	if !reflect.DeepEqual(c.config, wantCfg) {
+		t.Errorf("SetConfig() = %v, want %v", c.config, wantCfg)
 	}
 }
 

@@ -27,7 +27,7 @@ import (
 	"github.com/caas-team/sparrow/internal/logger"
 )
 
-// Validate validates the config
+// Validate validates the startup config
 func (c *Config) Validate(ctx context.Context) error {
 	ctx, cancel := logger.NewContextWithLogger(ctx)
 	defer cancel()
