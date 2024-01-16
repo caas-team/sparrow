@@ -25,7 +25,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/caas-team/sparrow/pkg/api"
-	"github.com/caas-team/sparrow/pkg/checks/specs"
+	"github.com/caas-team/sparrow/pkg/checks/types"
 )
 
 // Check implementations are expected to perform specific monitoring tasks and report results.
@@ -39,7 +39,7 @@ type Check interface {
 	// Startup is called once when the check is registered
 	// In the Run() method, the check should send results to the cResult channel
 	// this will cause sparrow to update its data store with the results
-	Startup(ctx context.Context, cResult chan<- specs.Result) error
+	Startup(ctx context.Context, cResult chan<- types.Result) error
 	// Shutdown is called once when the check is unregistered or sparrow shuts down
 	Shutdown(ctx context.Context) error
 	// SetConfig is called once when the check is registered

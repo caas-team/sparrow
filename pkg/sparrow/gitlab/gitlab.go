@@ -30,14 +30,14 @@ import (
 	"strings"
 
 	"github.com/caas-team/sparrow/internal/logger"
-	"github.com/caas-team/sparrow/pkg/checks/specs"
+	"github.com/caas-team/sparrow/pkg/checks/types"
 )
 
 // Gitlab handles interaction with a gitlab repository containing
 // the global targets for the Sparrow instance
 type Gitlab interface {
 	// FetchFiles fetches the files from the global targets repository
-	FetchFiles(ctx context.Context) ([]specs.GlobalTarget, error)
+	FetchFiles(ctx context.Context) ([]types.GlobalTarget, error)
 	// PutFile updates the file in the repository
 	PutFile(ctx context.Context, file File) error
 	// PostFile creates the file in the repository
@@ -113,7 +113,7 @@ type File struct {
 	Branch        string             `json:"branch"`
 	AuthorEmail   string             `json:"author_email"`
 	AuthorName    string             `json:"author_name"`
-	Content       specs.GlobalTarget `json:"content"`
+	Content       types.GlobalTarget `json:"content"`
 	CommitMessage string             `json:"commit_message"`
 	fileName      string
 }
@@ -128,7 +128,7 @@ func New(baseURL, token string, pid int) Gitlab {
 }
 
 // FetchFiles fetches the files from the global targets repository from the configured gitlab repository
-func (g *Client) FetchFiles(ctx context.Context) ([]specs.GlobalTarget, error) {
+func (g *Client) FetchFiles(ctx context.Context) ([]types.GlobalTarget, error) {
 	log := logger.FromContext(ctx)
 	fl, err := g.fetchFileList(ctx)
 	if err != nil {
@@ -136,7 +136,7 @@ func (g *Client) FetchFiles(ctx context.Context) ([]specs.GlobalTarget, error) {
 		return nil, err
 	}
 
-	var result []specs.GlobalTarget
+	var result []types.GlobalTarget
 	for _, f := range fl {
 		gl, err := g.fetchFile(ctx, f)
 		if err != nil {
@@ -150,9 +150,9 @@ func (g *Client) FetchFiles(ctx context.Context) ([]specs.GlobalTarget, error) {
 }
 
 // fetchFile fetches the file from the global targets repository from the configured gitlab repository
-func (g *Client) fetchFile(ctx context.Context, f string) (specs.GlobalTarget, error) {
+func (g *Client) fetchFile(ctx context.Context, f string) (types.GlobalTarget, error) {
 	log := logger.FromContext(ctx).With("file", f)
-	var res specs.GlobalTarget
+	var res types.GlobalTarget
 	// URL encode the name
 	n := url.PathEscape(f)
 	req, err := http.NewRequestWithContext(ctx,

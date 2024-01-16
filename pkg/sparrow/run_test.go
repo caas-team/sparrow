@@ -34,7 +34,7 @@ import (
 
 	"github.com/caas-team/sparrow/internal/logger"
 	"github.com/caas-team/sparrow/pkg/checks/register"
-	"github.com/caas-team/sparrow/pkg/checks/specs"
+	"github.com/caas-team/sparrow/pkg/checks/types"
 	"github.com/caas-team/sparrow/pkg/config"
 	"github.com/caas-team/sparrow/pkg/db"
 )
@@ -56,7 +56,7 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 		ShutdownFunc: func(ctx context.Context) error {
 			return nil
 		},
-		StartupFunc: func(ctx context.Context, cResult chan<- specs.Result) error {
+		StartupFunc: func(ctx context.Context, cResult chan<- types.Result) error {
 			return nil
 		},
 		RegisterHandlerFunc:   func(ctx context.Context, router *api.RoutingTree) {},
@@ -74,9 +74,9 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 
 	type fields struct {
 		checks      map[string]checks.Check
-		resultFanIn map[string]chan specs.Result
+		resultFanIn map[string]chan types.Result
 
-		cResult    chan specs.ResultDTO
+		cResult    chan types.ResultDTO
 		loader     config.Loader
 		cfg        *config.Config
 		cCfgChecks chan map[string]any
@@ -94,7 +94,7 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 				checks:      map[string]checks.Check{},
 				cfg:         &config.Config{},
 				cCfgChecks:  make(chan map[string]any, 1),
-				resultFanIn: make(map[string]chan specs.Result),
+				resultFanIn: make(map[string]chan types.Result),
 			},
 			newChecksConfig: map[string]any{
 				"alpha": "I like sparrows",
@@ -108,7 +108,7 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 				},
 				cfg:         &config.Config{},
 				cCfgChecks:  make(chan map[string]any, 1),
-				resultFanIn: make(map[string]chan specs.Result),
+				resultFanIn: make(map[string]chan types.Result),
 			},
 			newChecksConfig: map[string]any{
 				"alpha": "I like sparrows",
@@ -123,7 +123,7 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 				},
 				cfg:         &config.Config{},
 				cCfgChecks:  make(chan map[string]any, 1),
-				resultFanIn: make(map[string]chan specs.Result),
+				resultFanIn: make(map[string]chan types.Result),
 			},
 			newChecksConfig: map[string]any{},
 		},
@@ -136,7 +136,7 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 				},
 				cfg:         &config.Config{},
 				cCfgChecks:  make(chan map[string]any, 1),
-				resultFanIn: make(map[string]chan specs.Result),
+				resultFanIn: make(map[string]chan types.Result),
 			},
 			newChecksConfig: map[string]any{
 				"alpha": "I like sparrows",
@@ -171,12 +171,12 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 }
 
 func Test_fanInResults(t *testing.T) {
-	checkChan := make(chan specs.Result, 1)
-	cResult := make(chan specs.ResultDTO, 1)
+	checkChan := make(chan types.Result, 1)
+	cResult := make(chan types.ResultDTO, 1)
 	name := "check"
 	go fanInResults(checkChan, cResult, name)
 
-	result := specs.Result{
+	result := types.Result{
 		Timestamp: time.Time{},
 		Err:       "",
 		Data:      0,
@@ -185,7 +185,7 @@ func Test_fanInResults(t *testing.T) {
 	checkChan <- result
 	output := <-cResult
 
-	want := specs.ResultDTO{
+	want := types.ResultDTO{
 		Name:   name,
 		Result: &result,
 	}
@@ -271,7 +271,7 @@ func TestSparrow_Run_ContextCancel(t *testing.T) {
 // updates the check targets, if they exist in the config of the checks.
 func TestSparrow_updateCheckTargets(t *testing.T) {
 	now := time.Now()
-	gt := []specs.GlobalTarget{
+	gt := []types.GlobalTarget{
 		{
 			Url:      "https://localhost.de",
 			LastSeen: now,
@@ -280,7 +280,7 @@ func TestSparrow_updateCheckTargets(t *testing.T) {
 	tests := []struct {
 		name          string
 		config        any
-		globalTargets []specs.GlobalTarget
+		globalTargets []types.GlobalTarget
 		expected      any
 	}{
 		{
@@ -364,7 +364,7 @@ func TestSparrow_updateCheckTargets(t *testing.T) {
 			config: map[string]any{
 				"targets": []any{"https://localhost.de"},
 			},
-			globalTargets: append(gt, specs.GlobalTarget{
+			globalTargets: append(gt, types.GlobalTarget{
 				Url: "https://wonderhost.usa",
 			}),
 			expected: map[string]any{

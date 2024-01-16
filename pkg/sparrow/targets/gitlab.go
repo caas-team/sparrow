@@ -27,7 +27,7 @@ import (
 
 	"github.com/caas-team/sparrow/pkg/config"
 
-	"github.com/caas-team/sparrow/pkg/checks/specs"
+	"github.com/caas-team/sparrow/pkg/checks/types"
 	"github.com/caas-team/sparrow/pkg/sparrow/gitlab"
 
 	"github.com/caas-team/sparrow/internal/logger"
@@ -39,7 +39,7 @@ const shutdownTimeout = 30 * time.Second
 
 // gitlabTargetManager implements TargetManager
 type gitlabTargetManager struct {
-	targets []specs.GlobalTarget
+	targets []types.GlobalTarget
 	mu      sync.RWMutex
 	// channel to signal the "reconcile" routine to stop
 	done   chan struct{}
@@ -110,7 +110,7 @@ func (t *gitlabTargetManager) Reconcile(ctx context.Context) error {
 }
 
 // GetTargets returns the current targets of the gitlabTargetManager
-func (t *gitlabTargetManager) GetTargets() []specs.GlobalTarget {
+func (t *gitlabTargetManager) GetTargets() []types.GlobalTarget {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
 	return t.targets
@@ -164,7 +164,7 @@ func (t *gitlabTargetManager) updateRegistration(ctx context.Context) error {
 		Branch:      "main",
 		AuthorEmail: fmt.Sprintf("%s@sparrow", t.name),
 		AuthorName:  t.name,
-		Content:     specs.GlobalTarget{Url: fmt.Sprintf("https://%s", t.name), LastSeen: time.Now().UTC()},
+		Content:     types.GlobalTarget{Url: fmt.Sprintf("https://%s", t.name), LastSeen: time.Now().UTC()},
 	}
 	f.SetFileName(fmt.Sprintf("%s.json", t.name))
 
@@ -197,7 +197,7 @@ func (t *gitlabTargetManager) refreshTargets(ctx context.Context) error {
 	log := logger.FromContext(ctx)
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	var healthyTargets []specs.GlobalTarget
+	var healthyTargets []types.GlobalTarget
 	targets, err := t.gitlab.FetchFiles(ctx)
 	if err != nil {
 		log.Error("Failed to update global targets", "error", err)

@@ -32,7 +32,7 @@ import (
 	"github.com/caas-team/sparrow/pkg/checks"
 	"github.com/caas-team/sparrow/pkg/checks/errors"
 	"github.com/caas-team/sparrow/pkg/checks/oapi"
-	"github.com/caas-team/sparrow/pkg/checks/specs"
+	"github.com/caas-team/sparrow/pkg/checks/types"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -47,7 +47,7 @@ var (
 
 // Health is a check that measures the availability of an endpoint
 type Health struct {
-	specs.CheckBase
+	types.CheckBase
 	route   string
 	config  HealthConfig
 	metrics healthMetrics
@@ -56,14 +56,14 @@ type Health struct {
 // NewHealthCheck creates a new instance of the health check
 func NewHealthCheck() checks.Check {
 	return &Health{
-		CheckBase: specs.CheckBase{
+		CheckBase: types.CheckBase{
 			Mu:      sync.Mutex{},
 			CResult: nil,
 			Done:    make(chan bool, 1),
 		},
 		route: "health",
 		config: HealthConfig{
-			Retry: specs.DefaultRetry,
+			Retry: types.DefaultRetry,
 		},
 		metrics: newHealthMetrics(),
 	}
@@ -100,7 +100,7 @@ func (h *Health) Run(ctx context.Context) error {
 		case <-time.After(h.config.Interval):
 			res := h.check(ctx)
 			errval := ""
-			r := specs.Result{
+			r := types.Result{
 				Data:      res,
 				Err:       errval,
 				Timestamp: time.Now(),
@@ -113,7 +113,7 @@ func (h *Health) Run(ctx context.Context) error {
 }
 
 // Startup is called once when the health check is registered
-func (h *Health) Startup(ctx context.Context, cResult chan<- specs.Result) error {
+func (h *Health) Startup(ctx context.Context, cResult chan<- types.Result) error {
 	log := logger.FromContext(ctx).WithGroup("health")
 	log.Debug("Initializing health check")
 

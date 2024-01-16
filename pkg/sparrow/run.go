@@ -32,7 +32,7 @@ import (
 	"github.com/caas-team/sparrow/internal/logger"
 	"github.com/caas-team/sparrow/pkg/api"
 	"github.com/caas-team/sparrow/pkg/checks/register"
-	"github.com/caas-team/sparrow/pkg/checks/specs"
+	"github.com/caas-team/sparrow/pkg/checks/types"
 	"github.com/caas-team/sparrow/pkg/config"
 	"github.com/caas-team/sparrow/pkg/db"
 	"github.com/go-chi/chi/v5"
@@ -48,13 +48,13 @@ type Sparrow struct {
 
 	metrics Metrics
 
-	resultFanIn map[string]chan specs.Result
+	resultFanIn map[string]chan types.Result
 
 	cfg *config.Config
 
 	cCfgChecks chan map[string]any
 	// cResult is the channel where the checks send their results to
-	cResult chan specs.ResultDTO
+	cResult chan types.ResultDTO
 	// cErr is used to handle non-recoverable errors of the sparrow components
 	cErr chan error
 	// cDone is used to signal that the sparrow was shut down because of an error
@@ -75,8 +75,8 @@ func New(cfg *config.Config) *Sparrow {
 		db:          db.NewInMemory(),
 		checks:      make(map[string]checks.Check),
 		metrics:     NewMetrics(),
-		resultFanIn: make(map[string]chan specs.Result),
-		cResult:     make(chan specs.ResultDTO, 1),
+		resultFanIn: make(map[string]chan types.Result),
+		cResult:     make(chan types.ResultDTO, 1),
 		cfg:         cfg,
 		cCfgChecks:  make(chan map[string]any, 1),
 		routingTree: api.NewRoutingTree(),
@@ -236,7 +236,7 @@ func (s *Sparrow) registerCheck(ctx context.Context, name string, checkCfg any) 
 	s.checks[name] = check
 
 	// Create a fan in a channel for the check
-	checkChan := make(chan specs.Result, 1)
+	checkChan := make(chan types.Result, 1)
 	s.resultFanIn[name] = checkChan
 
 	err := check.SetConfig(ctx, checkCfg)
@@ -297,9 +297,9 @@ func (s *Sparrow) unregisterCheck(ctx context.Context, name string, check checks
 //
 // It allows augmenting the results with the check name which is needed by the db
 // without putting the responsibility of providing the name on every iteration on the check
-func fanInResults(checkChan chan specs.Result, cResult chan specs.ResultDTO, name string) {
+func fanInResults(checkChan chan types.Result, cResult chan types.ResultDTO, name string) {
 	for i := range checkChan {
-		cResult <- specs.ResultDTO{
+		cResult <- types.ResultDTO{
 			Name:   name,
 			Result: &i,
 		}

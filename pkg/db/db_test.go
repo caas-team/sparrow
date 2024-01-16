@@ -23,22 +23,22 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/caas-team/sparrow/pkg/checks/specs"
+	"github.com/caas-team/sparrow/pkg/checks/types"
 )
 
 func TestInMemory_Save(t *testing.T) {
 	type fields struct {
-		data map[string]specs.Result
+		data map[string]types.Result
 	}
 	type args struct {
-		result specs.ResultDTO
+		result types.ResultDTO
 	}
 	tests := []struct {
 		name   string
 		fields fields
 		args   args
 	}{
-		{name: "Saves without error", fields: fields{data: make(map[string]specs.Result)}, args: args{result: specs.ResultDTO{Name: "Test", Result: &specs.Result{Data: 0}}}},
+		{name: "Saves without error", fields: fields{data: make(map[string]types.Result)}, args: args{result: types.ResultDTO{Name: "Test", Result: &types.Result{Data: 0}}}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -80,13 +80,13 @@ func TestNewInMemory(t *testing.T) {
 
 func TestInMemory_Get(t *testing.T) {
 	type fields struct {
-		data map[string]*specs.Result
+		data map[string]*types.Result
 	}
 	type args struct {
 		check string
 	}
 	type want struct {
-		check specs.Result
+		check types.Result
 		ok    bool
 	}
 	tests := []struct {
@@ -95,14 +95,14 @@ func TestInMemory_Get(t *testing.T) {
 		args   args
 		want   want
 	}{
-		{name: "Can get value", fields: fields{data: map[string]*specs.Result{
+		{name: "Can get value", fields: fields{data: map[string]*types.Result{
 			"alpha": {Data: 0},
 			"beta":  {Data: 1},
-		}}, want: want{ok: true, check: specs.Result{Data: 1}}, args: args{check: "beta"}},
-		{name: "Not found", fields: fields{data: map[string]*specs.Result{
+		}}, want: want{ok: true, check: types.Result{Data: 1}}, args: args{check: "beta"}},
+		{name: "Not found", fields: fields{data: map[string]*types.Result{
 			"alpha": {Data: 0},
 			"beta":  {Data: 1},
-		}}, want: want{ok: false, check: specs.Result{}}, args: args{check: "NOTFOUND"}},
+		}}, want: want{ok: false, check: types.Result{}}, args: args{check: "NOTFOUND"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -122,19 +122,19 @@ func TestInMemory_Get(t *testing.T) {
 
 func TestInMemory_List(t *testing.T) {
 	type fields struct {
-		data map[string]*specs.Result
+		data map[string]*types.Result
 	}
 	tests := []struct {
 		name   string
 		fields fields
-		want   map[string]specs.Result
+		want   map[string]types.Result
 	}{
 		{name: "Lists all entries", fields: fields{
-			data: map[string]*specs.Result{
+			data: map[string]*types.Result{
 				"alpha": {Data: 0},
 				"beta":  {Data: 1},
 			},
-		}, want: map[string]specs.Result{
+		}, want: map[string]types.Result{
 			"alpha": {Data: 0},
 			"beta":  {Data: 1},
 		}},
@@ -173,15 +173,15 @@ func TestInMemory_List(t *testing.T) {
 
 func TestInMemory_ListThreadsafe(t *testing.T) {
 	db := NewInMemory()
-	db.Save(specs.ResultDTO{Name: "alpha", Result: &specs.Result{Data: 0}})
-	db.Save(specs.ResultDTO{Name: "beta", Result: &specs.Result{Data: 1}})
+	db.Save(types.ResultDTO{Name: "alpha", Result: &types.Result{Data: 0}})
+	db.Save(types.ResultDTO{Name: "beta", Result: &types.Result{Data: 1}})
 
 	got := db.List()
 	if len(got) != 2 {
 		t.Errorf("Expected 2 entries but got %d", len(got))
 	}
 
-	got["alpha"] = specs.Result{Data: 50}
+	got["alpha"] = types.Result{Data: 50}
 
 	newGot := db.List()
 	if newGot["alpha"].Data != 0 {
