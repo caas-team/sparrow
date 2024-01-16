@@ -33,7 +33,7 @@ func TestHealth_SetConfig(t *testing.T) {
 	tests := []struct {
 		name           string
 		inputConfig    any
-		expectedConfig HealthConfig
+		expectedConfig config
 		wantErr        bool
 	}{
 		{
@@ -45,7 +45,7 @@ func TestHealth_SetConfig(t *testing.T) {
 				"interval": "10s",
 				"timeout":  "30s",
 			},
-			expectedConfig: HealthConfig{
+			expectedConfig: config{
 				Targets:  []string{"test"},
 				Interval: 10 * time.Second,
 				Timeout:  30 * time.Second,
@@ -55,7 +55,7 @@ func TestHealth_SetConfig(t *testing.T) {
 		{
 			name:        "missing config field",
 			inputConfig: map[string]any{},
-			expectedConfig: HealthConfig{
+			expectedConfig: config{
 				Targets: nil,
 			},
 			wantErr: false,
@@ -65,7 +65,7 @@ func TestHealth_SetConfig(t *testing.T) {
 			inputConfig: map[string]any{
 				"target": struct{ name string }{name: "bla"},
 			},
-			expectedConfig: HealthConfig{},
+			expectedConfig: config{},
 			wantErr:        false,
 		},
 	}
@@ -230,7 +230,7 @@ func TestHealth_Check(t *testing.T) {
 			}
 
 			h := &Health{
-				config: HealthConfig{
+				config: config{
 					Targets: tt.targets,
 					Timeout: 30,
 					Retry:   types.DefaultRetry,
@@ -270,7 +270,7 @@ func TestHealth_Shutdown(t *testing.T) {
 		cDone <- true
 	}, "Channel is closed, should panic")
 
-	hc := NewHealthCheck()
+	hc := NewCheck()
 	err = hc.Shutdown(context.Background())
 	if err != nil {
 		t.Errorf("Shutdown() error = %v", err)

@@ -28,6 +28,6 @@ import (
 // The key is the name of the Check
 // The name needs to map the configuration item key
 var RegisteredChecks = map[string]func() checks.Check{
-	"health":  health.NewHealthCheck,
-	"latency": latency.NewLatencyCheck,
+	"health":  health.NewCheck,
+	"latency": latency.NewCheck,
 }

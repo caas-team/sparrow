@@ -49,12 +49,12 @@ var (
 type Health struct {
 	types.CheckBase
 	route   string
-	config  HealthConfig
-	metrics healthMetrics
+	config  config
+	metrics metrics
 }
 
-// NewHealthCheck creates a new instance of the health check
-func NewHealthCheck() checks.Check {
+// NewCheck creates a new instance of the health check
+func NewCheck() checks.Check {
 	return &Health{
 		CheckBase: types.CheckBase{
 			Mu:      sync.Mutex{},
@@ -62,23 +62,23 @@ func NewHealthCheck() checks.Check {
 			Done:    make(chan bool, 1),
 		},
 		route: "health",
-		config: HealthConfig{
+		config: config{
 			Retry: types.DefaultRetry,
 		},
 		metrics: newHealthMetrics(),
 	}
 }
 
-// HealthConfig defines the configuration parameters for a health check
-type HealthConfig struct {
+// Config defines the configuration parameters for a health check
+type config struct {
 	Targets  []string           `json:"targets,omitempty" yaml:"targets,omitempty" mapstructure:"targets"`
 	Interval time.Duration      `json:"interval" yaml:"interval" mapstructure:"interval"`
 	Timeout  time.Duration      `json:"timeout" yaml:"timeout" mapstructure:"timeout"`
 	Retry    helper.RetryConfig `json:"retry" yaml:"retry" mapstructure:"retry"`
 }
 
-// healthMetrics contains the metric collectors for the Health check
-type healthMetrics struct {
+// metrics contains the metric collectors for the Health check
+type metrics struct {
 	*prometheus.GaugeVec
 }
 
@@ -133,7 +133,7 @@ func (h *Health) Shutdown(_ context.Context) error {
 func (h *Health) SetConfig(ctx context.Context, conf any) error {
 	log := logger.FromContext(ctx)
 
-	c, err := helper.Decode[HealthConfig](conf)
+	c, err := helper.Decode[config](conf)
 	if err != nil {
 		log.Error("Failed to decode health config", "error", err)
 		return errors.ErrInvalidConfig
@@ -169,8 +169,8 @@ func (h *Health) DeregisterHandler(_ context.Context, router *api.RoutingTree) {
 }
 
 // NewHealthMetrics initializes metric collectors of the health check
-func newHealthMetrics() healthMetrics {
-	return healthMetrics{
+func newHealthMetrics() metrics {
+	return metrics{
 		GaugeVec: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
 				Name: "sparrow_health_up",
