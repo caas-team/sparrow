@@ -29,7 +29,7 @@ import (
 
 // Validate validates the startup config
 func (c *Config) Validate(ctx context.Context) error {
-	ctx, cancel := logger.NewContextWithLogger(ctx, "configValidation")
+	ctx, cancel := logger.NewContextWithLogger(ctx)
 	defer cancel()
 	log := logger.FromContext(ctx)
 

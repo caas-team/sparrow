@@ -20,6 +20,7 @@ package targets
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -40,8 +41,9 @@ const shutdownTimeout = 30 * time.Second
 type gitlabTargetManager struct {
 	targets []checks.GlobalTarget
 	mu      sync.RWMutex
-	done    chan struct{}
-	gitlab  gitlab.Gitlab
+	// channel to signal the "reconcile" routine to stop
+	done   chan struct{}
+	gitlab gitlab.Gitlab
 	// the DNS name used for self-registration
 	name string
 	// the interval for the target reconciliation process
@@ -73,7 +75,7 @@ func NewGitlabManager(name string, gtmConfig config.TargetManagerConfig) *gitlab
 //
 // The global targets are evaluated for healthiness and
 // unhealthy gitlabTargetManager are removed.
-func (t *gitlabTargetManager) Reconcile(ctx context.Context) {
+func (t *gitlabTargetManager) Reconcile(ctx context.Context) error {
 	log := logger.FromContext(ctx)
 	log.Info("Starting global gitlabTargetManager reconciler")
 
@@ -86,29 +88,21 @@ func (t *gitlabTargetManager) Reconcile(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			if err := ctx.Err(); err != nil {
-				log.Error("Context canceled", "error", err)
-				ctxS, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
-				defer cancel() //nolint: gocritic // how else can we defer a cancel?
-				err = t.Shutdown(ctxS)
-				if err != nil {
-					log.Error("Failed to shutdown gracefully, stopping routine", "error", err)
-					return
-				}
-			}
+			log.Error("Error while reconciling gitlab targets", "err", ctx.Err())
+			return ctx.Err()
 		case <-t.done:
-			log.Info("Ending Reconcile routine")
-			return
+			log.Info("Gitlab target reconciliation ended")
+			return nil
 		case <-checkTimer.C:
 			err := t.refreshTargets(ctx)
 			if err != nil {
-				log.Error("Failed to get global targets", "error", err)
+				log.Warn("Failed to get global targets", "error", err)
 			}
 			checkTimer.Reset(t.checkInterval)
 		case <-registrationTimer.C:
 			err := t.updateRegistration(ctx)
 			if err != nil {
-				log.Error("Failed to register self as global target", "error", err)
+				log.Warn("Failed to register self as global target", "error", err)
 			}
 			registrationTimer.Reset(t.registrationInterval)
 		}
@@ -127,8 +121,12 @@ func (t *gitlabTargetManager) GetTargets() []checks.GlobalTarget {
 func (t *gitlabTargetManager) Shutdown(ctx context.Context) error {
 	t.mu.Lock()
 	defer t.mu.Unlock()
+
+	errC := ctx.Err()
 	log := logger.FromContext(ctx)
 	log.Debug("Shut down signal received")
+	ctxS, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+	defer cancel()
 
 	if t.Registered() {
 		f := gitlab.File{
@@ -138,17 +136,17 @@ func (t *gitlabTargetManager) Shutdown(ctx context.Context) error {
 			CommitMessage: "Unregistering global target",
 		}
 		f.SetFileName(fmt.Sprintf("%s.json", t.name))
-		err := t.gitlab.DeleteFile(ctx, f)
+		err := t.gitlab.DeleteFile(ctxS, f)
 		if err != nil {
 			log.Error("Failed to shutdown gracefully", "error", err)
-			return err
+			return fmt.Errorf("failed to shutdown gracefully: %w", errors.Join(errC, err))
 		}
 		t.registered = false
 	}
 
 	select {
 	case t.done <- struct{}{}:
-		log.Info("Stopping reconcile routine")
+		log.Debug("Stopping gitlab reconciliation routine")
 	default:
 	}
 

@@ -51,54 +51,57 @@ func NewHttpLoader(cfg *Config, cCfgChecks chan<- map[string]any) *HttpLoader {
 // The config is will be loaded periodically defined by the
 // loader interval configuration. A failed request will be retried defined
 // by the retry configuration
-func (gl *HttpLoader) Run(ctx context.Context) {
-	ctx, cancel := logger.NewContextWithLogger(ctx, "httpLoader")
+func (hl *HttpLoader) Run(ctx context.Context) error {
+	ctx, cancel := logger.NewContextWithLogger(ctx)
 	defer cancel()
 	log := logger.FromContext(ctx)
-
 	var runtimeCfg *RuntimeConfig
+
 	for {
-		getConfigRetry := helper.Retry(func(ctx context.Context) error {
-			var err error
-			runtimeCfg, err = gl.GetRuntimeConfig(ctx)
-			return err
-		}, gl.cfg.Loader.Http.RetryCfg)
-
-		if err := getConfigRetry(ctx); err != nil {
-			log.Error("Could not get remote runtime configuration", "error", err)
-			return
-		}
-
-		log.Info("Successfully got remote runtime configuration")
-		gl.cCfgChecks <- runtimeCfg.Checks
-
 		select {
 		case <-ctx.Done():
-			return
-		case <-time.After(gl.cfg.Loader.Interval):
+			return ctx.Err()
+		case <-time.After(hl.cfg.Loader.Interval):
+			getConfigRetry := helper.Retry(func(ctx context.Context) error {
+				var err error
+				runtimeCfg, err = hl.GetRuntimeConfig(ctx)
+				return err
+			}, hl.cfg.Loader.Http.RetryCfg)
+
+			if err := getConfigRetry(ctx); err != nil {
+				log.Warn("Could not get remote runtime configuration", "error", err)
+			}
+
+			log.Info("Successfully got remote runtime configuration")
+			hl.cCfgChecks <- runtimeCfg.Checks
 		}
 	}
 }
 
 // GetRuntimeConfig gets the remote runtime configuration
-func (gl *HttpLoader) GetRuntimeConfig(ctx context.Context) (*RuntimeConfig, error) {
-	log := logger.FromContext(ctx).With("url", gl.cfg.Loader.Http.Url)
+func (hl *HttpLoader) GetRuntimeConfig(ctx context.Context) (*RuntimeConfig, error) {
+	log := logger.FromContext(ctx).With("url", hl.cfg.Loader.Http.Url)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, gl.cfg.Loader.Http.Url, http.NoBody)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, hl.cfg.Loader.Http.Url, http.NoBody)
 	if err != nil {
 		log.Error("Could not create http GET request", "error", err.Error())
 		return nil, err
 	}
-	if gl.cfg.Loader.Http.Token != "" {
-		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", gl.cfg.Loader.Http.Token))
+	if hl.cfg.Loader.Http.Token != "" {
+		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", hl.cfg.Loader.Http.Token))
 	}
 
-	res, err := gl.client.Do(req)
+	res, err := hl.client.Do(req) //nolint:bodyclose
 	if err != nil {
 		log.Error("Http get request failed", "error", err.Error())
 		return nil, err
 	}
-	defer res.Body.Close()
+	defer func(Body io.ReadCloser) {
+		err = Body.Close()
+		if err != nil {
+			log.Error("Failed to close response body", "error", err.Error())
+		}
+	}(res.Body)
 
 	if res.StatusCode != http.StatusOK {
 		log.Error("Http get request failed", "status", res.Status)

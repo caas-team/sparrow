@@ -23,7 +23,7 @@ import (
 	"sync"
 )
 
-// creates a simple routing tree, so checks can easily create and remove handlers
+// RoutingTree creates a simple routing tree, so checks can easily create and remove handlers
 // Maps the method to the path and the handler
 type RoutingTree struct {
 	tree map[string]map[string]http.HandlerFunc

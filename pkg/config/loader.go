@@ -23,7 +23,7 @@ import (
 )
 
 type Loader interface {
-	Run(context.Context)
+	Run(context.Context) error
 }
 
 // NewLoader Get a new typed runtime configuration loader

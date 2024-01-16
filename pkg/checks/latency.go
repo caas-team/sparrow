@@ -82,7 +82,7 @@ type latencyMetrics struct {
 
 // Run starts the latency check
 func (l *Latency) Run(ctx context.Context) error {
-	ctx, cancel := logger.NewContextWithLogger(ctx, "latency")
+	ctx, cancel := logger.NewContextWithLogger(ctx)
 	defer cancel()
 	log := logger.FromContext(ctx)
 	log.Info("Starting latency check", "interval", l.config.Interval.String())
@@ -110,7 +110,7 @@ func (l *Latency) Run(ctx context.Context) error {
 }
 
 func (l *Latency) Startup(ctx context.Context, cResult chan<- Result) error {
-	log := logger.FromContext(ctx).WithGroup("latency")
+	log := logger.FromContext(ctx)
 	log.Debug("Initializing latency check")
 
 	l.cResult = cResult
@@ -207,7 +207,7 @@ func (l *Latency) GetMetricCollectors() []prometheus.Collector {
 // check performs a latency check using a retry function
 // to get the latency to all targets
 func (l *Latency) check(ctx context.Context) map[string]LatencyResult {
-	log := logger.FromContext(ctx).WithGroup("check")
+	log := logger.FromContext(ctx)
 	log.Debug("Checking latency")
 	if len(l.config.Targets) == 0 {
 		log.Debug("No targets defined")

@@ -82,8 +82,6 @@ func run() func(cmd *cobra.Command, args []string) error {
 		log.Info("Running sparrow")
 		if err = s.Run(ctx); err != nil {
 			err = fmt.Errorf("error while running sparrow: %w", err)
-			// by this time all shutdown routines should have been called
-			// so we can exit here
 			return err
 		}
 
