@@ -16,7 +16,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package oapi
+package checks
 
 import (
 	"reflect"

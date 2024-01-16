@@ -31,7 +31,6 @@ import (
 	"github.com/caas-team/sparrow/pkg/api"
 	"github.com/caas-team/sparrow/pkg/checks"
 	"github.com/caas-team/sparrow/pkg/checks/errors"
-	"github.com/caas-team/sparrow/pkg/checks/oapi"
 	"github.com/caas-team/sparrow/pkg/checks/types"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/prometheus/client_golang/prometheus"
@@ -149,7 +148,7 @@ func (h *Health) SetConfig(ctx context.Context, conf any) error {
 // Schema provides the schema of the data that will be provided
 // by the health check
 func (h *Health) Schema() (*openapi3.SchemaRef, error) {
-	return oapi.OpenapiFromPerfData[map[string]string](map[string]string{})
+	return checks.OpenapiFromPerfData[map[string]string](map[string]string{})
 }
 
 // RegisterHandler dynamically registers a server handler
