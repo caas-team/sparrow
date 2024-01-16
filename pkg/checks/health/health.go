@@ -84,7 +84,7 @@ type healthMetrics struct {
 
 // Run starts the health check
 func (h *Health) Run(ctx context.Context) error {
-	ctx, cancel := logger.NewContextWithLogger(ctx, "health")
+	ctx, cancel := logger.NewContextWithLogger(ctx)
 	defer cancel()
 	log := logger.FromContext(ctx)
 	log.Info("Starting healthcheck", "interval", h.config.Interval.String())
@@ -193,7 +193,7 @@ func (h *Health) GetMetricCollectors() []prometheus.Collector {
 // check performs a health check using a retry function
 // to get the health status for all targets
 func (h *Health) check(ctx context.Context) map[string]string {
-	log := logger.FromContext(ctx).WithGroup("check")
+	log := logger.FromContext(ctx)
 	log.Debug("Checking health")
 	if len(h.config.Targets) == 0 {
 		log.Debug("No targets defined")
@@ -259,7 +259,10 @@ func getHealth(ctx context.Context, client *http.Client, url string) error {
 		return err
 	}
 	defer func(Body io.ReadCloser) {
-		_ = Body.Close()
+		err := Body.Close()
+		if err != nil {
+			log.Error("Failed to close response body", "error", err.Error())
+		}
 	}(resp.Body)
 
 	if resp.StatusCode != http.StatusOK {

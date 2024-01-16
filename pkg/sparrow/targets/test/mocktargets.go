@@ -12,9 +12,10 @@ type MockTargetManager struct {
 	Targets []specs.GlobalTarget
 }
 
-func (m *MockTargetManager) Reconcile(ctx context.Context) {
+func (m *MockTargetManager) Reconcile(ctx context.Context) error {
 	log := logger.FromContext(ctx)
 	log.Info("MockReconcile called")
+	return nil
 }
 
 func (m *MockTargetManager) Shutdown(ctx context.Context) error {

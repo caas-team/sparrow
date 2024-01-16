@@ -24,7 +24,7 @@ import (
 	"github.com/getkin/kin-openapi/openapi3gen"
 )
 
-// Takes in check perfdata and returns an openapi3.SchemaRef of a result wrapping the perfData
+// OpenapiFromPerfData takes in check perfdata and returns an openapi3.SchemaRef of a result wrapping the perfData
 // this is a workaround, since the openapi3gen.NewSchemaRefForValue function does not work with any types
 func OpenapiFromPerfData[T any](data T) (*openapi3.SchemaRef, error) {
 	checkSchema, err := openapi3gen.NewSchemaRefForValue(specs.Result{}, openapi3.Schemas{})

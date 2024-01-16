@@ -29,7 +29,7 @@ import (
 type TargetManager interface {
 	// Reconcile fetches the global targets from the configured
 	// endpoint and updates the local state
-	Reconcile(ctx context.Context)
+	Reconcile(ctx context.Context) error
 	// GetTargets returns the current global targets
 	GetTargets() []specs.GlobalTarget
 	// Shutdown shuts down the target manager

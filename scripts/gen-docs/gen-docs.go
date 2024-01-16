@@ -41,7 +41,7 @@ func execute() {
 	rootCmd.AddCommand(NewCmdGenDocs())
 
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		_, _ = fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
@@ -68,7 +68,7 @@ func runGenDocs(path *string) func(cmd *cobra.Command, args []string) error {
 	c.DisableAutoGenTag = true
 	return func(cmd *cobra.Command, args []string) error {
 		if err := doc.GenMarkdownTree(c, *path); err != nil {
-			return fmt.Errorf("Failed to generate docs: %w", err)
+			return fmt.Errorf("failed to generate docs: %w", err)
 		}
 		return nil
 	}

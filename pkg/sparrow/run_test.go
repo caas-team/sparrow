@@ -40,7 +40,7 @@ import (
 )
 
 func TestSparrow_ReconcileChecks(t *testing.T) {
-	ctx, cancel := logger.NewContextWithLogger(context.Background(), "sparrow-test")
+	ctx, cancel := logger.NewContextWithLogger(context.Background())
 	defer cancel()
 
 	mockCheck := checks.CheckMock{
@@ -197,18 +197,28 @@ func Test_fanInResults(t *testing.T) {
 	close(checkChan)
 }
 
-// TestSparrow_Run tests that the Run method starts the API
-func TestSparrow_Run(t *testing.T) {
+// TestSparrow_Run_FullComponentStart tests that the Run method starts the API,
+// loader and a targetManager all start.
+func TestSparrow_Run_FullComponentStart(t *testing.T) {
 	// create simple file loader config
 	c := &config.Config{
 		Api: config.ApiConfig{ListeningAddress: ":9090"},
 		Loader: config.LoaderConfig{
 			Type:     "file",
+			File:     config.FileLoaderConfig{Path: "../config/testdata/config.yaml"},
 			Interval: time.Second * 1,
 		},
+		TargetManager: config.TargetManagerConfig{
+			CheckInterval:        time.Second * 1,
+			RegistrationInterval: time.Second * 1,
+			UnhealthyThreshold:   time.Second * 1,
+			Gitlab: config.GitlabTargetManagerConfig{
+				BaseURL:   "https://gitlab.com",
+				Token:     "my-cool-token",
+				ProjectID: 42,
+			},
+		},
 	}
-
-	c.Loader.File.Path = ("../config/testdata/config.yaml")
 
 	// start sparrow
 	s := New(c)
@@ -220,12 +230,45 @@ func TestSparrow_Run(t *testing.T) {
 		}
 	}()
 
-	t.Log("Letting API run shortly")
-	time.Sleep(time.Millisecond * 150)
+	t.Log("Running sparrow for 10ms")
+	time.Sleep(time.Millisecond * 10)
+}
+
+// TestSparrow_Run_ContextCancel tests that after a context cancels the Run method
+// will return an error and all started components will be shut down.
+func TestSparrow_Run_ContextCancel(t *testing.T) {
+	// create simple file loader config
+	c := &config.Config{
+		Api: config.ApiConfig{ListeningAddress: ":9090"},
+		Loader: config.LoaderConfig{
+			Type:     "file",
+			File:     config.FileLoaderConfig{Path: "../config/testdata/config.yaml"},
+			Interval: time.Second * 1,
+		},
+	}
+
+	// start sparrow
+	s := New(c)
+	s.tarMan = &gitlabmock.MockTargetManager{}
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		err := s.Run(ctx)
+		t.Logf("Sparrow exited with error: %v", err)
+		if err == nil {
+			t.Error("Sparrow.Run() should have errored out, no error received")
+		}
+	}()
+
+	t.Log("Running sparrow for 10ms")
+	time.Sleep(time.Millisecond * 10)
+
+	t.Log("Canceling context and waiting for shutdown")
+	cancel()
+	time.Sleep(time.Millisecond * 30)
 }
 
 // TestSparrow_updateCheckTargets tests that the updateCheckTargets method
-// updates the check targets, if they exists in the config of the checks.
+// updates the check targets, if they exist in the config of the checks.
 func TestSparrow_updateCheckTargets(t *testing.T) {
 	now := time.Now()
 	gt := []specs.GlobalTarget{
@@ -333,7 +376,7 @@ func TestSparrow_updateCheckTargets(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &Sparrow{
-				targets: &gitlabmock.MockTargetManager{
+				tarMan: &gitlabmock.MockTargetManager{
 					Targets: tt.globalTargets,
 				},
 				cfg: &config.Config{

@@ -62,7 +62,7 @@ func (i *InMemory) Get(check string) (specs.Result, bool) {
 	return *result, true
 }
 
-// Returns a copy of the map
+// List returns a copy of the map
 func (i *InMemory) List() map[string]specs.Result {
 	results := make(map[string]specs.Result)
 	i.data.Range(func(key, value any) bool {

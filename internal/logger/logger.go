@@ -36,18 +36,19 @@ func NewLogger(h ...slog.Handler) *slog.Logger {
 	if len(h) > 0 {
 		handler = h[0]
 	} else {
-		handler = slog.NewJSONHandler(os.Stderr, nil)
+		handler = slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{
+			AddSource: true,
+		})
 	}
 	return slog.New(handler)
 }
 
 // NewContextWithLogger creates a new context based on the provided parent context.
-// It embeds a logger into this new context, which is a child of the logger from the parent context.
-// The child logger inherits settings from the parent and is grouped under the provided childName.
+// It embeds a logger into this new context.
 // It also returns a cancel function to cancel the new context.
-func NewContextWithLogger(parent context.Context, childName string) (context.Context, context.CancelFunc) {
+func NewContextWithLogger(parent context.Context) (context.Context, context.CancelFunc) {
 	ctx, cancel := context.WithCancel(parent)
-	return IntoContext(ctx, FromContext(parent).WithGroup(childName)), cancel
+	return IntoContext(ctx, FromContext(parent)), cancel
 }
 
 // IntoContext embeds the provided slog.Logger into the given context and returns the modified context.
@@ -68,7 +69,7 @@ func FromContext(ctx context.Context) *slog.Logger {
 	return NewLogger()
 }
 
-// Take the logger from the context and add it to the request context
+// Middleware takes the logger from the context and adds it to the request context
 func Middleware(ctx context.Context) func(http.Handler) http.Handler {
 	log := FromContext(ctx)
 	return func(next http.Handler) http.Handler {
