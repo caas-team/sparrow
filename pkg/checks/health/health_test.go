@@ -72,7 +72,7 @@ func TestHealth_SetConfig(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h := &Health{
-				metrics: newHealthMetrics(),
+				metrics: newMetrics(),
 			}
 
 			if err := h.SetConfig(context.Background(), tt.inputConfig); (err != nil) != tt.wantErr {
@@ -235,7 +235,7 @@ func TestHealth_Check(t *testing.T) {
 					Timeout: 30,
 					Retry:   types.DefaultRetry,
 				},
-				metrics: newHealthMetrics(),
+				metrics: newMetrics(),
 			}
 			got := h.check(tt.ctx)
 			assert.Equal(t, len(got), len(tt.want), "Amount of targets is not equal")

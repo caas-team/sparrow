@@ -64,11 +64,11 @@ func NewCheck() checks.Check {
 		config: config{
 			Retry: types.DefaultRetry,
 		},
-		metrics: newHealthMetrics(),
+		metrics: newMetrics(),
 	}
 }
 
-// Config defines the configuration parameters for a health check
+// config defines the configuration parameters for a health check
 type config struct {
 	Targets  []string           `json:"targets,omitempty" yaml:"targets,omitempty" mapstructure:"targets"`
 	Interval time.Duration      `json:"interval" yaml:"interval" mapstructure:"interval"`
@@ -167,8 +167,8 @@ func (h *Health) DeregisterHandler(_ context.Context, router *api.RoutingTree) {
 	router.Remove(http.MethodGet, h.route)
 }
 
-// NewHealthMetrics initializes metric collectors of the health check
-func newHealthMetrics() metrics {
+// newMetrics initializes metric collectors of the health check
+func newMetrics() metrics {
 	return metrics{
 		GaugeVec: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{

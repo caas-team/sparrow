@@ -61,7 +61,7 @@ func NewCheck() checks.Check {
 	}
 }
 
-// Config defines the configuration parameters for a latency check
+// config defines the configuration parameters for a latency check
 type config struct {
 	Targets  []string           `json:"targets,omitempty" yaml:"targets,omitempty" mapstructure:"targets"`
 	Interval time.Duration      `json:"interval" yaml:"interval" mapstructure:"interval"`
@@ -76,7 +76,7 @@ type Result struct {
 	Total float64 `json:"total"`
 }
 
-// Defined metric collectors of latency check
+// metrics defines the metric collectors of the latency check
 type metrics struct {
 	duration  *prometheus.GaugeVec
 	count     *prometheus.CounterVec
