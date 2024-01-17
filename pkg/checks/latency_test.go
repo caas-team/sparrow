@@ -134,10 +134,10 @@ func TestLatency_Run(t *testing.T) { //nolint:gocyclo
 				t.Fatalf("Latency.Startup() error = %v", err)
 			}
 
-			err = c.SetConfig(tt.ctx, map[string]any{
-				"targets":  tt.targets,
-				"interval": "1s",
-				"timeout":  "5s",
+			err = c.SetConfig(&LatencyConfig{
+				Targets:  tt.targets,
+				Interval: time.Millisecond * 120,
+				Timeout:  time.Second * 1,
 			})
 			if err != nil {
 				t.Fatalf("Latency.SetConfig() error = %v", err)
@@ -351,7 +351,7 @@ func TestLatency_SetConfig(t *testing.T) {
 		Targets: []string{"http://localhost:9090"},
 	}
 
-	err := c.SetConfig(context.Background(), wantCfg)
+	err := c.SetConfig(&wantCfg)
 	if err != nil {
 		t.Errorf("SetConfig() error = %v", err)
 	}

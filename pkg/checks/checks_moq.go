@@ -24,8 +24,14 @@ var _ Check = &CheckMock{}
 //			DeregisterHandlerFunc: func(ctx context.Context, router *api.RoutingTree)  {
 //				panic("mock out the DeregisterHandler method")
 //			},
+//			GetConfigFunc: func() Config {
+//				panic("mock out the GetConfig method")
+//			},
 //			GetMetricCollectorsFunc: func() []prometheus.Collector {
 //				panic("mock out the GetMetricCollectors method")
+//			},
+//			NameFunc: func() string {
+//				panic("mock out the Name method")
 //			},
 //			RegisterHandlerFunc: func(ctx context.Context, router *api.RoutingTree)  {
 //				panic("mock out the RegisterHandler method")
@@ -36,7 +42,7 @@ var _ Check = &CheckMock{}
 //			SchemaFunc: func() (*openapi3.SchemaRef, error) {
 //				panic("mock out the Schema method")
 //			},
-//			SetConfigFunc: func(ctx context.Context, config any) error {
+//			SetConfigFunc: func(config Config) error {
 //				panic("mock out the SetConfig method")
 //			},
 //			ShutdownFunc: func(ctx context.Context) error {
@@ -55,8 +61,14 @@ type CheckMock struct {
 	// DeregisterHandlerFunc mocks the DeregisterHandler method.
 	DeregisterHandlerFunc func(ctx context.Context, router *api.RoutingTree)
 
+	// GetConfigFunc mocks the GetConfig method.
+	GetConfigFunc func() Config
+
 	// GetMetricCollectorsFunc mocks the GetMetricCollectors method.
 	GetMetricCollectorsFunc func() []prometheus.Collector
+
+	// NameFunc mocks the Name method.
+	NameFunc func() string
 
 	// RegisterHandlerFunc mocks the RegisterHandler method.
 	RegisterHandlerFunc func(ctx context.Context, router *api.RoutingTree)
@@ -68,7 +80,7 @@ type CheckMock struct {
 	SchemaFunc func() (*openapi3.SchemaRef, error)
 
 	// SetConfigFunc mocks the SetConfig method.
-	SetConfigFunc func(ctx context.Context, config any) error
+	SetConfigFunc func(config Config) error
 
 	// ShutdownFunc mocks the Shutdown method.
 	ShutdownFunc func(ctx context.Context) error
@@ -85,8 +97,14 @@ type CheckMock struct {
 			// Router is the router argument value.
 			Router *api.RoutingTree
 		}
+		// GetConfig holds details about calls to the GetConfig method.
+		GetConfig []struct {
+		}
 		// GetMetricCollectors holds details about calls to the GetMetricCollectors method.
 		GetMetricCollectors []struct {
+		}
+		// Name holds details about calls to the Name method.
+		Name []struct {
 		}
 		// RegisterHandler holds details about calls to the RegisterHandler method.
 		RegisterHandler []struct {
@@ -105,10 +123,8 @@ type CheckMock struct {
 		}
 		// SetConfig holds details about calls to the SetConfig method.
 		SetConfig []struct {
-			// Ctx is the ctx argument value.
-			Ctx context.Context
 			// Config is the config argument value.
-			Config any
+			Config Config
 		}
 		// Shutdown holds details about calls to the Shutdown method.
 		Shutdown []struct {
@@ -124,7 +140,9 @@ type CheckMock struct {
 		}
 	}
 	lockDeregisterHandler   sync.RWMutex
+	lockGetConfig           sync.RWMutex
 	lockGetMetricCollectors sync.RWMutex
+	lockName                sync.RWMutex
 	lockRegisterHandler     sync.RWMutex
 	lockRun                 sync.RWMutex
 	lockSchema              sync.RWMutex
@@ -169,6 +187,33 @@ func (mock *CheckMock) DeregisterHandlerCalls() []struct {
 	return calls
 }
 
+// GetConfig calls GetConfigFunc.
+func (mock *CheckMock) GetConfig() Config {
+	if mock.GetConfigFunc == nil {
+		panic("CheckMock.GetConfigFunc: method is nil but Check.GetConfig was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockGetConfig.Lock()
+	mock.calls.GetConfig = append(mock.calls.GetConfig, callInfo)
+	mock.lockGetConfig.Unlock()
+	return mock.GetConfigFunc()
+}
+
+// GetConfigCalls gets all the calls that were made to GetConfig.
+// Check the length with:
+//
+//	len(mockedCheck.GetConfigCalls())
+func (mock *CheckMock) GetConfigCalls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockGetConfig.RLock()
+	calls = mock.calls.GetConfig
+	mock.lockGetConfig.RUnlock()
+	return calls
+}
+
 // GetMetricCollectors calls GetMetricCollectorsFunc.
 func (mock *CheckMock) GetMetricCollectors() []prometheus.Collector {
 	if mock.GetMetricCollectorsFunc == nil {
@@ -193,6 +238,33 @@ func (mock *CheckMock) GetMetricCollectorsCalls() []struct {
 	mock.lockGetMetricCollectors.RLock()
 	calls = mock.calls.GetMetricCollectors
 	mock.lockGetMetricCollectors.RUnlock()
+	return calls
+}
+
+// Name calls NameFunc.
+func (mock *CheckMock) Name() string {
+	if mock.NameFunc == nil {
+		panic("CheckMock.NameFunc: method is nil but Check.Name was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockName.Lock()
+	mock.calls.Name = append(mock.calls.Name, callInfo)
+	mock.lockName.Unlock()
+	return mock.NameFunc()
+}
+
+// NameCalls gets all the calls that were made to Name.
+// Check the length with:
+//
+//	len(mockedCheck.NameCalls())
+func (mock *CheckMock) NameCalls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockName.RLock()
+	calls = mock.calls.Name
+	mock.lockName.RUnlock()
 	return calls
 }
 
@@ -292,21 +364,19 @@ func (mock *CheckMock) SchemaCalls() []struct {
 }
 
 // SetConfig calls SetConfigFunc.
-func (mock *CheckMock) SetConfig(ctx context.Context, config any) error {
+func (mock *CheckMock) SetConfig(config Config) error {
 	if mock.SetConfigFunc == nil {
 		panic("CheckMock.SetConfigFunc: method is nil but Check.SetConfig was just called")
 	}
 	callInfo := struct {
-		Ctx    context.Context
-		Config any
+		Config Config
 	}{
-		Ctx:    ctx,
 		Config: config,
 	}
 	mock.lockSetConfig.Lock()
 	mock.calls.SetConfig = append(mock.calls.SetConfig, callInfo)
 	mock.lockSetConfig.Unlock()
-	return mock.SetConfigFunc(ctx, config)
+	return mock.SetConfigFunc(config)
 }
 
 // SetConfigCalls gets all the calls that were made to SetConfig.
@@ -314,12 +384,10 @@ func (mock *CheckMock) SetConfig(ctx context.Context, config any) error {
 //
 //	len(mockedCheck.SetConfigCalls())
 func (mock *CheckMock) SetConfigCalls() []struct {
-	Ctx    context.Context
-	Config any
+	Config Config
 } {
 	var calls []struct {
-		Ctx    context.Context
-		Config any
+		Config Config
 	}
 	mock.lockSetConfig.RLock()
 	calls = mock.calls.SetConfig

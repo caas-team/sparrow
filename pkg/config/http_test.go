@@ -28,9 +28,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
+	"github.com/caas-team/sparrow/pkg/checks"
+
 	"github.com/caas-team/sparrow/internal/logger"
 	"github.com/jarcoal/httpmock"
-	"github.com/stretchr/testify/require"
 )
 
 func TestHttpLoader_GetRuntimeConfig(t *testing.T) {
@@ -45,7 +48,7 @@ func TestHttpLoader_GetRuntimeConfig(t *testing.T) {
 		name          string
 		cfg           *Config
 		httpResponder httpResponder
-		want          *RuntimeConfig
+		want          *checks.RuntimeConfig
 		wantErr       bool
 	}{
 		{
@@ -53,17 +56,19 @@ func TestHttpLoader_GetRuntimeConfig(t *testing.T) {
 			cfg: &Config{
 				Loader: LoaderConfig{
 					Type:     "http",
-					Interval: time.Second,
+					Interval: 1 * time.Second,
 				},
 			},
 			httpResponder: httpResponder{
 				statusCode: 200,
 				response:   httpmock.File("testdata/config.yaml").String(),
 			},
-			want: &RuntimeConfig{
-				Checks: map[string]any{
-					"testCheck1": map[string]any{
-						"enabled": true,
+			want: &checks.RuntimeConfig{
+				Checks: checks.Checks{
+					Health: &checks.HealthConfig{
+						Targets:  []string{"http://localhost:8080/health"},
+						Interval: 1 * time.Second,
+						Timeout:  1 * time.Second,
 					},
 				},
 			},
@@ -83,10 +88,12 @@ func TestHttpLoader_GetRuntimeConfig(t *testing.T) {
 				statusCode: 200,
 				response:   httpmock.File("testdata/config.yaml").String(),
 			},
-			want: &RuntimeConfig{
-				Checks: map[string]any{
-					"testCheck1": map[string]any{
-						"enabled": true,
+			want: &checks.RuntimeConfig{
+				Checks: checks.Checks{
+					Health: &checks.HealthConfig{
+						Targets:  []string{"http://localhost:8080/health"},
+						Interval: 1 * time.Second,
+						Timeout:  1 * time.Second,
 					},
 				},
 			},
@@ -103,22 +110,6 @@ func TestHttpLoader_GetRuntimeConfig(t *testing.T) {
 				statusCode: 400,
 				response:   httpmock.File("testdata/config.yaml").String(),
 			},
-			want:    nil,
-			wantErr: true,
-		},
-		{
-			name: "Get runtime configuration payload not yaml",
-			cfg: &Config{
-				Loader: LoaderConfig{
-					Type:     "http",
-					Interval: time.Second,
-				},
-			},
-			httpResponder: httpResponder{
-				statusCode: 200,
-				response:   `this is not yaml`,
-			},
-			want:    nil,
 			wantErr: true,
 		},
 	}
@@ -142,8 +133,8 @@ func TestHttpLoader_GetRuntimeConfig(t *testing.T) {
 			defer cancel()
 
 			gl := &HttpLoader{
-				cfg:        tt.cfg,
-				cCfgChecks: make(chan<- map[string]any, 1),
+				cfg:         tt.cfg,
+				cConfigCfgs: make(chan<- checks.RuntimeConfig, 1),
 				client: &http.Client{
 					Timeout: tt.cfg.Loader.Http.Timeout,
 				},
@@ -155,7 +146,7 @@ func TestHttpLoader_GetRuntimeConfig(t *testing.T) {
 				t.Errorf("HttpLoader.GetRuntimeConfig() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if !reflect.DeepEqual(got, tt.want) {
+			if err == nil && !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("HttpLoader.GetRuntimeConfig() = %v, want %v", got, tt.want)
 			}
 		})

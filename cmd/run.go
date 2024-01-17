@@ -67,7 +67,7 @@ func run() func(cmd *cobra.Command, args []string) error {
 		log := logger.NewLogger()
 		ctx := logger.IntoContext(context.Background(), log)
 
-		cfg := config.NewConfig()
+		var cfg config.Config
 
 		err := viper.Unmarshal(cfg)
 		if err != nil {
@@ -78,7 +78,7 @@ func run() func(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("error while validating the config: %w", err)
 		}
 
-		s := sparrow.New(cfg)
+		s := sparrow.New(&cfg)
 		log.Info("Running sparrow")
 		if err = s.Run(ctx); err != nil {
 			err = fmt.Errorf("error while running sparrow: %w", err)

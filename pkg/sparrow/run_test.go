@@ -24,146 +24,92 @@ import (
 	"testing"
 	"time"
 
+	"github.com/caas-team/sparrow/pkg/api"
+
 	gitlabmock "github.com/caas-team/sparrow/pkg/sparrow/targets/test"
 
-	"github.com/getkin/kin-openapi/openapi3"
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/caas-team/sparrow/internal/logger"
-	"github.com/caas-team/sparrow/pkg/api"
 	"github.com/caas-team/sparrow/pkg/checks"
 	"github.com/caas-team/sparrow/pkg/config"
-	"github.com/caas-team/sparrow/pkg/db"
 )
 
 func TestSparrow_ReconcileChecks(t *testing.T) {
 	ctx, cancel := logger.NewContextWithLogger(context.Background())
 	defer cancel()
 
-	mockCheck := checks.CheckMock{
-		RunFunc: func(ctx context.Context) error {
-			return nil
-		},
-		SchemaFunc: func() (*openapi3.SchemaRef, error) {
-			return nil, nil
-		},
-		SetConfigFunc: func(ctx context.Context, config any) error {
-			return nil
-		},
-		ShutdownFunc: func(ctx context.Context) error {
-			return nil
-		},
-		StartupFunc: func(ctx context.Context, cResult chan<- checks.Result) error {
-			return nil
-		},
-		RegisterHandlerFunc:   func(ctx context.Context, router *api.RoutingTree) {},
-		DeregisterHandlerFunc: func(ctx context.Context, router *api.RoutingTree) {},
-		GetMetricCollectorsFunc: func() []prometheus.Collector {
-			return []prometheus.Collector{}
-		},
-	}
-
-	checks.RegisteredChecks = map[string]func() checks.Check{
-		"alpha": func() checks.Check { return &mockCheck },
-		"beta":  func() checks.Check { return &mockCheck },
-		"gamma": func() checks.Check { return &mockCheck },
-	}
-
-	type fields struct {
-		checks      map[string]checks.Check
-		resultFanIn map[string]chan checks.Result
-
-		cResult    chan checks.ResultDTO
-		loader     config.Loader
-		cfg        *config.Config
-		cCfgChecks chan map[string]any
-		db         db.DB
-	}
-
+	rtcfg := &checks.RuntimeConfig{}
 	tests := []struct {
 		name            string
-		fields          fields
-		newChecksConfig map[string]any
+		checks          map[string]checks.Check
+		newChecksConfig checks.RuntimeConfig
 	}{
 		{
 			name: "no checks registered yet but register one",
-			fields: fields{
-				checks:      map[string]checks.Check{},
-				cfg:         &config.Config{},
-				cCfgChecks:  make(chan map[string]any, 1),
-				resultFanIn: make(map[string]chan checks.Result),
-			},
-			newChecksConfig: map[string]any{
-				"alpha": "I like sparrows",
-			},
+
+			checks: map[string]checks.Check{},
+
+			newChecksConfig: checks.RuntimeConfig{Checks: checks.Checks{Health: &checks.HealthConfig{
+				Targets: []string{"https://gitlab.com"},
+			}}},
 		},
 		{
-			name: "on checks registered and register another",
-			fields: fields{
-				checks: map[string]checks.Check{
-					"alpha": checks.RegisteredChecks["alpha"](),
+			name: "one healtcheck registered, register latency check",
+
+			checks: map[string]checks.Check{
+				checks.HealthCheckName: checks.RegisteredChecks[checks.HealthCheckName](),
+			},
+
+			newChecksConfig: checks.RuntimeConfig{Checks: checks.Checks{
+				Latency: &checks.LatencyConfig{
+					Targets: []string{"https://gitlab.com"},
 				},
-				cfg:         &config.Config{},
-				cCfgChecks:  make(chan map[string]any, 1),
-				resultFanIn: make(map[string]chan checks.Result),
-			},
-			newChecksConfig: map[string]any{
-				"alpha": "I like sparrows",
-				"beta":  "I like them more",
-			},
+				Health: &checks.HealthConfig{
+					Targets: []string{"https://gitlab.com"},
+				},
+			}},
 		},
 		{
-			name: "on checks registered but unregister all",
-			fields: fields{
-				checks: map[string]checks.Check{
-					"alpha": checks.RegisteredChecks["alpha"](),
-				},
-				cfg:         &config.Config{},
-				cCfgChecks:  make(chan map[string]any, 1),
-				resultFanIn: make(map[string]chan checks.Result),
+			name: "no checks registered but unregister all",
+
+			checks: map[string]checks.Check{
+				checks.HealthCheckName: checks.RegisteredChecks[checks.HealthCheckName](),
 			},
-			newChecksConfig: map[string]any{},
+
+			newChecksConfig: *rtcfg,
 		},
 		{
-			name: "two checks registered, register another and unregister one",
-			fields: fields{
-				checks: map[string]checks.Check{
-					"alpha": checks.RegisteredChecks["alpha"](),
-					"gamma": checks.RegisteredChecks["alpha"](),
-				},
-				cfg:         &config.Config{},
-				cCfgChecks:  make(chan map[string]any, 1),
-				resultFanIn: make(map[string]chan checks.Result),
+			name: "one health check registered, register latency and unregister health",
+
+			checks: map[string]checks.Check{
+				checks.HealthCheckName: checks.RegisteredChecks[checks.HealthCheckName](),
 			},
-			newChecksConfig: map[string]any{
-				"alpha": "I like sparrows",
-				"beta":  "I like them more",
+
+			newChecksConfig: checks.RuntimeConfig{
+				Checks: checks.Checks{
+					Latency: &checks.LatencyConfig{
+						Targets: []string{"https://gitlab.com"},
+					},
+				},
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &Sparrow{
-				checks:      tt.fields.checks,
-				resultFanIn: tt.fields.resultFanIn,
-				cResult:     tt.fields.cResult,
-				loader:      tt.fields.loader,
-				cfg:         tt.fields.cfg,
-				cCfgChecks:  tt.fields.cCfgChecks,
-				db:          tt.fields.db,
+				checks:      tt.checks,
+				resultFanIn: make(map[string]chan checks.Result),
+				cCfgChecks:  make(chan checks.RuntimeConfig, 1),
+				routingTree: api.NewRoutingTree(),
 				metrics:     NewMetrics(),
+				tarMan:      &gitlabmock.MockTargetManager{},
 			}
 
-			// Send new config to channel
-			s.cfg.Checks = tt.newChecksConfig
+			s.ReconcileChecks(ctx, tt.newChecksConfig)
 
-			s.ReconcileChecks(ctx)
-
-			for newChecksConfigName := range tt.newChecksConfig {
-				check := checks.RegisteredChecks[newChecksConfigName]()
-				assert.Equal(t, check, s.checks[newChecksConfigName])
-			}
+			// assert the currently registered checks are the ones in the new config
+			assert.Equal(t, tt.newChecksConfig.Checks.Size(), len(s.checks))
 		})
 	}
 }
@@ -265,108 +211,138 @@ func TestSparrow_Run_ContextCancel(t *testing.T) {
 	time.Sleep(time.Millisecond * 30)
 }
 
-// TestSparrow_updateCheckTargets tests that the updateCheckTargets method
-// updates the check targets, if they exist in the config of the checks.
-func TestSparrow_updateCheckTargets(t *testing.T) {
+// TestSparrow_enrichHealthTargets tests that the enrichTargets method
+// updates the HealthCheck targets, if they exist in the config of the checks.
+func TestSparrow_enrichTargets(t *testing.T) {
 	now := time.Now()
+	testTarget := "https://localhost.de"
 	gt := []checks.GlobalTarget{
 		{
-			Url:      "https://localhost.de",
+			Url:      testTarget,
 			LastSeen: now,
 		},
 	}
 	tests := []struct {
 		name          string
-		config        any
+		config        checks.RuntimeConfig
 		globalTargets []checks.GlobalTarget
-		expected      any
+		expected      checks.RuntimeConfig
 	}{
 		{
 			name:          "no config",
-			config:        nil,
+			config:        checks.RuntimeConfig{},
 			globalTargets: gt,
-			expected:      nil,
+			expected:      checks.RuntimeConfig{},
 		},
 		{
 			name: "config with no targets",
-			config: map[string]any{
-				"targets": nil,
+			config: checks.RuntimeConfig{
+				Checks: checks.Checks{
+					Health: &checks.HealthConfig{
+						Targets: nil,
+					},
+					Latency: &checks.LatencyConfig{
+						Targets: nil,
+					},
+				},
 			},
 			globalTargets: gt,
-			expected: map[string]any{
-				"targets": nil,
-			},
-		},
-		{
-			name: "config with non-expected targets type",
-			config: map[string]any{
-				"targets": "not a slice",
-			},
-			globalTargets: gt,
-			expected: map[string]any{
-				"targets": "not a slice",
+			expected: checks.RuntimeConfig{
+				Checks: checks.Checks{
+					Health: &checks.HealthConfig{
+						Targets: []string{testTarget},
+					},
+					Latency: &checks.LatencyConfig{
+						Targets: []string{testTarget},
+					},
+				},
 			},
 		},
 		{
 			name: "config with empty targets",
-			config: map[string]any{
-				"targets": []any{},
+			config: checks.RuntimeConfig{
+				Checks: checks.Checks{
+					Health: &checks.HealthConfig{
+						Targets: nil,
+					},
+					Latency: &checks.LatencyConfig{
+						Targets: nil,
+					},
+				},
 			},
 			globalTargets: gt,
-			expected: map[string]any{
-				"targets": []any{},
-			},
-		},
-		{
-			name: "config with non string target slice",
-			config: map[string]any{
-				"targets": []any{1, 2, 3},
-			},
-			globalTargets: gt,
-			expected: map[string]any{
-				"targets": []any{1, 2, 3},
-			},
-		},
-		{
-			name: "config with mixed target slice",
-			config: map[string]any{
-				"targets": []any{"https://gitlab.com", 1, 3},
-			},
-			globalTargets: gt,
-			expected: map[string]any{
-				"targets": []any{"https://gitlab.com", 1, 3},
+			expected: checks.RuntimeConfig{
+				Checks: checks.Checks{
+					Health: &checks.HealthConfig{
+						Targets: []string{testTarget},
+					},
+					Latency: &checks.LatencyConfig{
+						Targets: []string{testTarget},
+					},
+				},
 			},
 		},
 		{
 			name: "config with targets",
-			config: map[string]any{
-				"targets": []any{"https://gitlab.com"},
+			config: checks.RuntimeConfig{
+				Checks: checks.Checks{
+					Health: &checks.HealthConfig{
+						Targets: []string{"https://gitlab.com"},
+					},
+					Latency: &checks.LatencyConfig{
+						Targets: []string{"https://gitlab.com"},
+					},
+				},
 			},
 			globalTargets: gt,
-			expected: map[string]any{
-				"targets": []string{"https://gitlab.com", "https://localhost.de"},
+			expected: checks.RuntimeConfig{
+				Checks: checks.Checks{
+					Health: &checks.HealthConfig{
+						Targets: []string{"https://gitlab.com", testTarget},
+					},
+					Latency: &checks.LatencyConfig{
+						Targets: []string{"https://gitlab.com", testTarget},
+					},
+				},
 			},
 		},
 		{
 			name: "config has a target already present in global targets - no duplicates",
-			config: map[string]any{
-				"targets": []any{"https://localhost.de"},
+			config: checks.RuntimeConfig{
+				Checks: checks.Checks{
+					Health: &checks.HealthConfig{
+						Targets: []string{testTarget},
+					},
+				},
 			},
 			globalTargets: gt,
-			expected: map[string]any{
-				"targets": []string{"https://localhost.de"},
+			expected: checks.RuntimeConfig{
+				Checks: checks.Checks{
+					Health: &checks.HealthConfig{
+						Targets: []string{testTarget},
+					},
+				},
 			},
 		},
 		{
 			name: "global targets contains self - do not add to config",
-			config: map[string]any{
-				"targets": []any{"https://localhost.de"},
+			config: checks.RuntimeConfig{
+				Checks: checks.Checks{
+					Health: &checks.HealthConfig{
+						Targets: []string{testTarget},
+					},
+				},
 			},
 			globalTargets: append(gt, checks.GlobalTarget{
-				Url: "https://wonderhost.usa",
+				Url:      "https://sparrow.com",
+				LastSeen: now,
 			}),
-			expected: map[string]any{
-				"targets": []string{"https://localhost.de"},
+			expected: checks.RuntimeConfig{
+				Checks: checks.Checks{
+					Health: &checks.HealthConfig{
+						Targets: []string{testTarget},
+					},
+				},
 			},
 		},
 	}
@@ -378,10 +354,10 @@ func TestSparrow_updateCheckTargets(t *testing.T) {
 					Targets: tt.globalTargets,
 				},
 				cfg: &config.Config{
-					SparrowName: "wonderhost.usa",
+					SparrowName: "sparrow.com",
 				},
 			}
-			got := s.updateCheckTargets(tt.config)
+			got := s.enrichTargets(tt.config)
 			assert.Equal(t, tt.expected, got)
 		})
 	}

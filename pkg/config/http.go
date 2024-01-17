@@ -25,21 +25,23 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/caas-team/sparrow/pkg/checks"
+
 	"github.com/caas-team/sparrow/internal/helper"
 	"github.com/caas-team/sparrow/internal/logger"
 	"gopkg.in/yaml.v3"
 )
 
 type HttpLoader struct {
-	cfg        *Config
-	cCfgChecks chan<- map[string]any
-	client     *http.Client
+	cfg         *Config
+	cConfigCfgs chan<- checks.RuntimeConfig
+	client      *http.Client
 }
 
-func NewHttpLoader(cfg *Config, cCfgChecks chan<- map[string]any) *HttpLoader {
+func NewHttpLoader(cfg *Config, cCfgChecks chan<- checks.RuntimeConfig) *HttpLoader {
 	return &HttpLoader{
-		cfg:        cfg,
-		cCfgChecks: cCfgChecks,
+		cfg:         cfg,
+		cConfigCfgs: cCfgChecks,
 		client: &http.Client{
 			Timeout: cfg.Loader.Http.Timeout,
 		},
@@ -55,7 +57,7 @@ func (hl *HttpLoader) Run(ctx context.Context) error {
 	ctx, cancel := logger.NewContextWithLogger(ctx)
 	defer cancel()
 	log := logger.FromContext(ctx)
-	var runtimeCfg *RuntimeConfig
+	var runtimeCfg *checks.RuntimeConfig
 
 	for {
 		select {
@@ -73,13 +75,13 @@ func (hl *HttpLoader) Run(ctx context.Context) error {
 			}
 
 			log.Info("Successfully got remote runtime configuration")
-			hl.cCfgChecks <- runtimeCfg.Checks
+			hl.cConfigCfgs <- *runtimeCfg
 		}
 	}
 }
 
 // GetRuntimeConfig gets the remote runtime configuration
-func (hl *HttpLoader) GetRuntimeConfig(ctx context.Context) (*RuntimeConfig, error) {
+func (hl *HttpLoader) GetRuntimeConfig(ctx context.Context) (*checks.RuntimeConfig, error) {
 	log := logger.FromContext(ctx).With("url", hl.cfg.Loader.Http.Url)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, hl.cfg.Loader.Http.Url, http.NoBody)
@@ -115,7 +117,7 @@ func (hl *HttpLoader) GetRuntimeConfig(ctx context.Context) (*RuntimeConfig, err
 	}
 	log.Debug("Successfully got response")
 
-	runtimeCfg := &RuntimeConfig{}
+	runtimeCfg := &checks.RuntimeConfig{}
 	if err := yaml.Unmarshal(body, &runtimeCfg); err != nil {
 		log.Error("Could not unmarshal response", "error", err.Error())
 		return nil, err

@@ -34,7 +34,12 @@ import (
 	"github.com/caas-team/sparrow/pkg/api"
 )
 
-var _ Check = (*Latency)(nil)
+var (
+	_ Check  = (*Latency)(nil)
+	_ Config = (*LatencyConfig)(nil)
+)
+
+const LatencyName = "latency"
 
 // Latency is a check that measures the latency to an endpoint
 type Latency struct {
@@ -64,6 +69,14 @@ type LatencyConfig struct {
 	Interval time.Duration      `json:"interval" yaml:"interval" mapstructure:"interval"`
 	Timeout  time.Duration      `json:"timeout" yaml:"timeout" mapstructure:"timeout"`
 	Retry    helper.RetryConfig `json:"retry" yaml:"retry" mapstructure:"retry"`
+}
+
+func (l *LatencyConfig) Validate() error {
+	return nil
+}
+
+func (l *LatencyConfig) For() string {
+	return LatencyName
 }
 
 // LatencyResult represents the result of a single latency check for a specific target
@@ -124,20 +137,28 @@ func (l *Latency) Shutdown(_ context.Context) error {
 	return nil
 }
 
-func (l *Latency) SetConfig(ctx context.Context, config any) error {
-	log := logger.FromContext(ctx)
-
-	c, err := helper.Decode[LatencyConfig](config)
-	if err != nil {
-		log.Error("Failed to decode latency config", "error", err)
-		return ErrInvalidConfig
+// SetConfig sets the configuration for the latency check
+func (l *Latency) SetConfig(cfg Config) error {
+	if c, ok := cfg.(*LatencyConfig); ok {
+		l.mu.Lock()
+		defer l.mu.Unlock()
+		l.config = *c
+		return nil
 	}
 
+	return ErrNoAvailableConfig
+}
+
+// GetConfig returns the current configuration of the latency Check
+func (l *Latency) GetConfig() Config {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	l.config = c
+	return &l.config
+}
 
-	return nil
+// Name returns the name of the check
+func (l *Latency) Name() string {
+	return LatencyName
 }
 
 // Schema provides the schema of the data that will be provided

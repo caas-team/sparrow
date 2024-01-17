@@ -31,18 +31,16 @@ import (
 func TestHealth_SetConfig(t *testing.T) {
 	tests := []struct {
 		name           string
-		inputConfig    any
+		inputConfig    Config
 		expectedConfig HealthConfig
 		wantErr        bool
 	}{
 		{
 			name: "simple config",
-			inputConfig: map[string]any{
-				"targets": []any{
-					"test",
-				},
-				"interval": "10s",
-				"timeout":  "30s",
+			inputConfig: &HealthConfig{
+				Targets:  []string{"test"},
+				Interval: 10 * time.Second,
+				Timeout:  30 * time.Second,
 			},
 			expectedConfig: HealthConfig{
 				Targets:  []string{"test"},
@@ -52,20 +50,24 @@ func TestHealth_SetConfig(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name:        "missing config field",
-			inputConfig: map[string]any{},
-			expectedConfig: HealthConfig{
-				Targets: nil,
-			},
-			wantErr: false,
+			name:           "empty config",
+			inputConfig:    &HealthConfig{},
+			expectedConfig: HealthConfig{},
+			wantErr:        false,
 		},
 		{
 			name: "wrong type",
-			inputConfig: map[string]any{
-				"target": struct{ name string }{name: "bla"},
+			inputConfig: &LatencyConfig{
+				Targets: []string{"test"},
 			},
 			expectedConfig: HealthConfig{},
-			wantErr:        false,
+			wantErr:        true,
+		},
+		{
+			name:           "nil config",
+			inputConfig:    nil,
+			expectedConfig: HealthConfig{},
+			wantErr:        true,
 		},
 	}
 	for _, tt := range tests {
@@ -74,7 +76,7 @@ func TestHealth_SetConfig(t *testing.T) {
 				metrics: newHealthMetrics(),
 			}
 
-			if err := h.SetConfig(context.Background(), tt.inputConfig); (err != nil) != tt.wantErr {
+			if err := h.SetConfig(tt.inputConfig); (err != nil) != tt.wantErr {
 				t.Errorf("Health.SetConfig() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			assert.Equal(t, tt.expectedConfig, h.config, "Config is not equal")

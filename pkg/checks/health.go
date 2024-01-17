@@ -34,12 +34,15 @@ import (
 )
 
 var (
-	_            Check = (*Health)(nil)
-	stateMapping       = map[int]string{
+	_            Check  = (*Health)(nil)
+	_            Config = (*HealthConfig)(nil)
+	stateMapping        = map[int]string{
 		0: "unhealthy",
 		1: "healthy",
 	}
 )
+
+const HealthCheckName = "health"
 
 // Health is a check that measures the availability of an endpoint
 type Health struct {
@@ -71,6 +74,14 @@ type HealthConfig struct {
 	Interval time.Duration      `json:"interval" yaml:"interval" mapstructure:"interval"`
 	Timeout  time.Duration      `json:"timeout" yaml:"timeout" mapstructure:"timeout"`
 	Retry    helper.RetryConfig `json:"retry" yaml:"retry" mapstructure:"retry"`
+}
+
+func (h *HealthConfig) Validate() error {
+	return nil
+}
+
+func (h *HealthConfig) For() string {
+	return HealthCheckName
 }
 
 // healthMetrics contains the metric collectors for the Health check
@@ -126,20 +137,27 @@ func (h *Health) Shutdown(_ context.Context) error {
 }
 
 // SetConfig sets the configuration for the health check
-func (h *Health) SetConfig(ctx context.Context, config any) error {
-	log := logger.FromContext(ctx)
-
-	c, err := helper.Decode[HealthConfig](config)
-	if err != nil {
-		log.Error("Failed to decode health config", "error", err)
-		return ErrInvalidConfig
+func (h *Health) SetConfig(cfg Config) error {
+	if c, ok := cfg.(*HealthConfig); ok {
+		h.mu.Lock()
+		defer h.mu.Unlock()
+		h.config = *c
+		return nil
 	}
 
+	return ErrNoAvailableConfig
+}
+
+// GetConfig returns the current configuration of the check
+func (h *Health) GetConfig() Config {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	h.config = c
+	return &h.config
+}
 
-	return nil
+// Name returns the name of the check
+func (h *Health) Name() string {
+	return HealthCheckName
 }
 
 // Schema provides the schema of the data that will be provided

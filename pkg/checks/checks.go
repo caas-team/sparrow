@@ -20,6 +20,7 @@ package checks
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"time"
 
@@ -49,9 +50,9 @@ var (
 //
 //go:generate moq -out checks_moq.go . Check
 type Check interface {
-	// Run is called once per check interval
-	// this should error if there is a problem running the check
-	// Returns an error and a result. Returning a non nil error will cause a shutdown of the system
+	// Run is called once, to start running the check. The check should
+	// run until the context is canceled and handle problems itself.
+	// Returning a non-nil error will cause the shutdown of the check.
 	Run(ctx context.Context) error
 	// Startup is called once when the check is registered
 	// In the Run() method, the check should send results to the cResult channel
@@ -62,7 +63,11 @@ type Check interface {
 	// SetConfig is called once when the check is registered
 	// This is also called while the check is running, if the remote config is updated
 	// This should return an error if the config is invalid
-	SetConfig(ctx context.Context, config any) error
+	SetConfig(config Config) error
+	// GetConfig returns the current configuration of the check
+	GetConfig() Config
+	// Name returns the name of the check
+	Name() string
 	// Schema returns an openapi3.SchemaRef of the result type returned by the check
 	Schema() (*openapi3.SchemaRef, error)
 	// RegisterHandler Allows the check to register a handler on sparrows http server at runtime
@@ -71,6 +76,29 @@ type Check interface {
 	DeregisterHandler(ctx context.Context, router *api.RoutingTree)
 	// GetMetricCollectors allows the check to provide prometheus metric collectors
 	GetMetricCollectors() []prometheus.Collector
+}
+
+// New creates a new check instance from the given name
+func New(cfg Config) (Check, error) {
+	if f, ok := RegisteredChecks[cfg.For()]; ok {
+		c := f()
+		err := c.SetConfig(cfg)
+		return f(), err
+	}
+	return nil, errors.New("unknown check type")
+}
+
+// NewChecksFromConfig creates all checks defined provided config
+func NewChecksFromConfig(cfg RuntimeConfig) (map[string]Check, error) {
+	checks := make(map[string]Check)
+	for _, c := range cfg.Checks.Iter() {
+		check, err := New(c)
+		if err != nil {
+			return nil, err
+		}
+		checks[check.Name()] = check
+	}
+	return checks, nil
 }
 
 // CheckBase is a struct providing common fields used by implementations of the Check interface.
@@ -106,4 +134,12 @@ type GlobalTarget struct {
 type ResultDTO struct {
 	Name   string
 	Result *Result
+}
+
+// Config is the interface that all check configurations must implement
+type Config interface {
+	// Validate validates the check's configuration
+	Validate() error
+	// For returns the name of the check being configured
+	For() string
 }

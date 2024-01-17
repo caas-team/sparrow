@@ -115,7 +115,6 @@ func TestConfig_Validate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c := &Config{
-				Checks:      nil,
 				SparrowName: "cool-dns-name.org",
 				Loader:      tt.fields.Loader,
 			}

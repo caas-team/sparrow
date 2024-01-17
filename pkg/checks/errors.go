@@ -20,4 +20,7 @@ package checks
 
 import "errors"
 
-var ErrInvalidConfig = errors.New("invalid config")
+var (
+	ErrInvalidConfig     = errors.New("invalid config")
+	ErrNoAvailableConfig = errors.New("no available config")
+)
