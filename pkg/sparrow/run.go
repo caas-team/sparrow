@@ -26,13 +26,15 @@ import (
 	"sync"
 	"time"
 
+	"github.com/caas-team/sparrow/pkg/checks/factory"
+	"github.com/caas-team/sparrow/pkg/checks/runtime"
+
 	checks2 "github.com/caas-team/sparrow/pkg/checks"
 
 	"github.com/caas-team/sparrow/pkg/sparrow/targets"
 
 	"github.com/caas-team/sparrow/internal/logger"
 	"github.com/caas-team/sparrow/pkg/api"
-	"github.com/caas-team/sparrow/pkg/checks/types"
 	"github.com/caas-team/sparrow/pkg/config"
 	"github.com/caas-team/sparrow/pkg/db"
 	"github.com/go-chi/chi/v5"
@@ -53,7 +55,7 @@ type Sparrow struct {
 	cfg *config.Config
 
 	// cCfgChecks is the channel where the loader sends the checkCfg configuration of the checks
-	cCfgChecks chan types.RuntimeConfig
+	cCfgChecks chan runtime.Config
 	// cResult is the channel where the checks send their results to
 	cResult chan checks2.ResultDTO
 	// cErr is used to handle non-recoverable errors of the sparrow components
@@ -79,7 +81,7 @@ func New(cfg *config.Config) *Sparrow {
 		resultFanIn: make(map[string]chan checks2.Result),
 		cResult:     make(chan checks2.ResultDTO, 1),
 		cfg:         cfg,
-		cCfgChecks:  make(chan types.RuntimeConfig, 1),
+		cCfgChecks:  make(chan runtime.Config, 1),
 		routingTree: api.NewRoutingTree(),
 		router:      chi.NewRouter(),
 		cErr:        make(chan error, 1),
@@ -137,10 +139,10 @@ func (s *Sparrow) Run(ctx context.Context) error {
 
 // ReconcileChecks registers new Checks, unregisters removed Checks,
 // resets the Configs of Checks and starts running the checks
-func (s *Sparrow) ReconcileChecks(ctx context.Context, cfg types.RuntimeConfig) {
+func (s *Sparrow) ReconcileChecks(ctx context.Context, cfg runtime.Config) {
 	// generate checks from configuration
 	s.enrichTargets(cfg)
-	ck, err := types.NewChecksFromConfig(cfg)
+	ck, err := factory.NewChecksFromConfig(cfg)
 	if err != nil {
 		logger.FromContext(ctx).ErrorContext(ctx, "Failed to create checks from config", "error", err)
 		return
@@ -185,7 +187,7 @@ func (s *Sparrow) ReconcileChecks(ctx context.Context, cfg types.RuntimeConfig) 
 // enrichTargets updates the targets of the sparrow's checks with the
 // global targets.
 // Per default, the two target lists are merged.
-func (s *Sparrow) enrichTargets(cfg types.RuntimeConfig) types.RuntimeConfig {
+func (s *Sparrow) enrichTargets(cfg runtime.Config) runtime.Config {
 	if cfg.Empty() {
 		return cfg
 	}

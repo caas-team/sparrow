@@ -27,8 +27,6 @@ import (
 	"time"
 
 	"github.com/caas-team/sparrow/pkg/checks"
-	"github.com/caas-team/sparrow/pkg/checks/errors"
-
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/prometheus/client_golang/prometheus"
 
@@ -149,7 +147,7 @@ func (l *Latency) SetConfig(cfg checks.Runtime) error {
 		return nil
 	}
 
-	return errors.ErrNoAvailableConfig
+	return checks.ErrNoAvailableConfig
 }
 
 // GetConfig returns the current configuration of the latency Check

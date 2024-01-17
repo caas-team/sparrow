@@ -16,61 +16,20 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package types
+package runtime
 
 import (
-	"errors"
-	"time"
-
 	"github.com/caas-team/sparrow/pkg/checks"
 	"github.com/caas-team/sparrow/pkg/checks/health"
 	"github.com/caas-team/sparrow/pkg/checks/latency"
 )
 
-// GlobalTarget includes the basic information regarding
-// other Sparrow instances, which this Sparrow can communicate with.
-type GlobalTarget struct {
-	Url      string    `json:"url"`
-	LastSeen time.Time `json:"lastSeen"`
-}
-
-// New creates a new check instance from the given name
-func New(cfg checks.Runtime) (checks.Check, error) {
-	if f, ok := RegisteredChecks[cfg.For()]; ok {
-		c := f()
-		err := c.SetConfig(cfg)
-		return f(), err
-	}
-	return nil, errors.New("unknown check type")
-}
-
-// NewChecksFromConfig creates all checks defined provided config
-func NewChecksFromConfig(cfg RuntimeConfig) (map[string]checks.Check, error) {
-	result := make(map[string]checks.Check)
-	for _, c := range cfg.Checks.Iter() {
-		check, err := New(c)
-		if err != nil {
-			return nil, err
-		}
-		result[check.Name()] = check
-	}
-	return result, nil
-}
-
-// RegisteredChecks will be registered in this map
-// The key is the name of the Check
-// The name needs to map the configuration item key
-var RegisteredChecks = map[string]func() checks.Check{
-	"health":  health.NewCheck,
-	"latency": latency.NewCheck,
-}
-
-type RuntimeConfig struct {
+type Config struct {
 	Checks Checks `yaml:"checks" json:"checks"`
 }
 
 // Empty returns true if no checks are configured
-func (c RuntimeConfig) Empty() bool {
+func (c Config) Empty() bool {
 	return c.Checks.Empty()
 }
 

@@ -16,11 +16,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package errors
+package checks
 
 import "errors"
 
-var (
-	ErrInvalidConfig     = errors.New("invalid config")
-	ErrNoAvailableConfig = errors.New("no available config")
-)
+var ErrNoAvailableConfig = errors.New("no available config")

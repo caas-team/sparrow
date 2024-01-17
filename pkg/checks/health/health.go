@@ -26,12 +26,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/caas-team/sparrow/pkg/checks"
-	"github.com/caas-team/sparrow/pkg/checks/errors"
-
 	"github.com/caas-team/sparrow/internal/helper"
 	"github.com/caas-team/sparrow/internal/logger"
 	"github.com/caas-team/sparrow/pkg/api"
+	"github.com/caas-team/sparrow/pkg/checks"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -148,7 +146,7 @@ func (h *Health) SetConfig(cfg checks.Runtime) error {
 		return nil
 	}
 
-	return errors.ErrNoAvailableConfig
+	return checks.ErrNoAvailableConfig
 }
 
 // GetConfig returns the current configuration of the check

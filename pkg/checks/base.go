@@ -84,3 +84,10 @@ type ResultDTO struct {
 	Name   string
 	Result *Result
 }
+
+// GlobalTarget includes the basic information regarding
+// other Sparrow instances, which this Sparrow can communicate with.
+type GlobalTarget struct {
+	Url      string    `json:"url"`
+	LastSeen time.Time `json:"lastSeen"`
+}

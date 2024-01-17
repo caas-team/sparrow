@@ -23,7 +23,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/caas-team/sparrow/pkg/checks/types"
+	"github.com/caas-team/sparrow/pkg/checks/runtime"
 
 	"gopkg.in/yaml.v3"
 
@@ -34,10 +34,10 @@ var _ Loader = (*FileLoader)(nil)
 
 type FileLoader struct {
 	path string
-	c    chan<- types.RuntimeConfig
+	c    chan<- runtime.Config
 }
 
-func NewFileLoader(cfg *Config, cCfgChecks chan<- types.RuntimeConfig) *FileLoader {
+func NewFileLoader(cfg *Config, cCfgChecks chan<- runtime.Config) *FileLoader {
 	return &FileLoader{
 		path: cfg.Loader.File.Path,
 		c:    cCfgChecks,
@@ -54,7 +54,7 @@ func (f *FileLoader) Run(ctx context.Context) error {
 		return fmt.Errorf("failed to read config file: %w", err)
 	}
 
-	var cfg types.RuntimeConfig
+	var cfg runtime.Config
 
 	if err := yaml.Unmarshal(b, &cfg); err != nil {
 		log.Error("Failed to parse config file", "error", err)
