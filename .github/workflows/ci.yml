@@ -68,14 +68,16 @@ jobs:
       - name: Checkout Repo
         uses: actions/checkout@v4
 
-      - name: Get Version
+      - name: Get App Version
         id: appVersion
         run:  echo "value=commit-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
 
-      - name: Get Version
+      - name: Get Chart Version
         id: chartVersion
         # produces a tag like: 0.2.2-commit-asdf3
-        run: echo "value=$(git tag --sort=taggerdate | tail -1 | cut -c 2-)-commit-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+        run: >
+          git tag --sort=taggerdate | tail -1 | cut -c 2- 
+          echo "value=$(git tag --sort=taggerdate | tail -1 | cut -c 2-)-commit-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
       
       - name: Registry login
         run: helm registry login ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
