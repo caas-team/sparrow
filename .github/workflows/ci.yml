@@ -70,6 +70,9 @@ jobs:
         with:
           fetch-tags: true
 
+      - name: List tags
+        run: git tag -l
+
       - name: Get App Version
         id: appVersion
         run:  echo "value=commit-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
