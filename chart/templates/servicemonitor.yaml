@@ -6,7 +6,7 @@ metadata:
   labels:
     app.kubernetes.io/name: {{ include "sparrow.fullname" . }}-service-monitor
     {{- with .Values.serviceMonitor.labels }}
-    {{ toYaml . | indent 4 }}
+    {{ toYaml . | nindent 4 }}
     {{- end }}
   namespace: {{ .Release.Namespace }}
 spec:
