@@ -75,7 +75,7 @@ jobs:
       - name: Get Chart Version
         id: chartVersion
         # produces a tag like: 0.2.2-commit-asdf3
-        run: >
+        run: |
           git tag --sort=taggerdate | tail -1 | cut -c 2- 
           echo "value=$(git tag --sort=taggerdate | tail -1 | cut -c 2-)-commit-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
       
