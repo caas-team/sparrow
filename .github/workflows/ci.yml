@@ -1,4 +1,4 @@
-name: Contiuous Integration
+name: Continuous Integration
 
 on:
   push:
@@ -74,7 +74,7 @@ jobs:
         run: git fetch --tags
 
       - name: List remotes
-        run: git remote ls
+        run: git remote
 
       - name: List tags
         run: git tag -l
