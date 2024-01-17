@@ -67,6 +67,8 @@ jobs:
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v4
+        with:
+          fetch-tags: true
 
       - name: Get App Version
         id: appVersion
@@ -78,10 +80,7 @@ jobs:
         run: |
           git tag --sort=taggerdate | tail -1 | cut -c 2- 
           echo "value=$(git describe --tags --abbrev=0)-commit-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
-      - name: DEBUG
-        # produces a tag like: 0.2.2-commit-asdf3
-        run: git describe --tags --abbrev=0
-      
+
       - name: Registry login
         run: helm registry login ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
 
