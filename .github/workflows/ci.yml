@@ -75,7 +75,7 @@ jobs:
       - name: Get Version
         id: chartVersion
         # produces a tag like: 0.2.2-commit-asdf3
-        run: echo "values=$(git tag --sort=taggerdate | tail -1 | cut -c 2-)-commit-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+        run: echo "value=$(git tag --sort=taggerdate | tail -1 | cut -c 2-)-commit-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
       
       - name: Registry login
         run: helm registry login ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
