@@ -78,6 +78,9 @@ jobs:
         run: |
           git tag --sort=taggerdate | tail -1 | cut -c 2- 
           echo "value=$(git tag --sort=taggerdate | tail -1 | cut -c 2-)-commit-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+      - name: DEBUG
+        # produces a tag like: 0.2.2-commit-asdf3
+        run: git tag --sort=taggerdate 
       
       - name: Registry login
         run: helm registry login ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
