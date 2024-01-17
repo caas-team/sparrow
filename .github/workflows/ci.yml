@@ -70,6 +70,12 @@ jobs:
         with:
           fetch-tags: true
 
+      - name: Fetch tags explicitly
+        run: git fetch --tags
+
+      - name: List remotes
+        run: git remote ls
+
       - name: List tags
         run: git tag -l
 
