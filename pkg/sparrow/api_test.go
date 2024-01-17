@@ -30,8 +30,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/caas-team/sparrow/pkg/api"
 	"github.com/caas-team/sparrow/pkg/checks"
+
+	"github.com/caas-team/sparrow/pkg/api"
 	"github.com/caas-team/sparrow/pkg/config"
 	"github.com/caas-team/sparrow/pkg/db"
 	"github.com/getkin/kin-openapi/openapi3"

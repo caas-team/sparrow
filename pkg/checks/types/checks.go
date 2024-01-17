@@ -1,5 +1,5 @@
 // sparrow
-// (C) 2023, Deutsche Telekom IT GmbH
+// (C) 2024, Deutsche Telekom IT GmbH
 //
 // Deutsche Telekom IT GmbH and all other contributors /
 // copyright owners license this file to you under the Apache
@@ -16,7 +16,54 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package checks
+package types
+
+import (
+	"errors"
+	"time"
+
+	"github.com/caas-team/sparrow/pkg/checks"
+	"github.com/caas-team/sparrow/pkg/checks/health"
+	"github.com/caas-team/sparrow/pkg/checks/latency"
+)
+
+// GlobalTarget includes the basic information regarding
+// other Sparrow instances, which this Sparrow can communicate with.
+type GlobalTarget struct {
+	Url      string    `json:"url"`
+	LastSeen time.Time `json:"lastSeen"`
+}
+
+// New creates a new check instance from the given name
+func New(cfg checks.Runtime) (checks.Check, error) {
+	if f, ok := RegisteredChecks[cfg.For()]; ok {
+		c := f()
+		err := c.SetConfig(cfg)
+		return f(), err
+	}
+	return nil, errors.New("unknown check type")
+}
+
+// NewChecksFromConfig creates all checks defined provided config
+func NewChecksFromConfig(cfg RuntimeConfig) (map[string]checks.Check, error) {
+	result := make(map[string]checks.Check)
+	for _, c := range cfg.Checks.Iter() {
+		check, err := New(c)
+		if err != nil {
+			return nil, err
+		}
+		result[check.Name()] = check
+	}
+	return result, nil
+}
+
+// RegisteredChecks will be registered in this map
+// The key is the name of the Check
+// The name needs to map the configuration item key
+var RegisteredChecks = map[string]func() checks.Check{
+	"health":  health.NewCheck,
+	"latency": latency.NewCheck,
+}
 
 type RuntimeConfig struct {
 	Checks Checks `yaml:"checks" json:"checks"`
@@ -29,13 +76,13 @@ func (c RuntimeConfig) Empty() bool {
 
 // Checks holds the available check configurations
 type Checks struct {
-	Health  *HealthConfig  `yaml:"health" json:"health"`
-	Latency *LatencyConfig `yaml:"latency" json:"latency"`
+	Health  *health.Config  `yaml:"health" json:"health"`
+	Latency *latency.Config `yaml:"latency" json:"latency"`
 }
 
 // Iter returns configured checks in an iterable format
-func (c Checks) Iter() []Config {
-	var configs []Config
+func (c Checks) Iter() []checks.Runtime {
+	var configs []checks.Runtime
 	if c.Health != nil {
 		configs = append(configs, c.Health)
 	}

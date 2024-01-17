@@ -26,11 +26,13 @@ import (
 	"sync"
 	"time"
 
+	checks2 "github.com/caas-team/sparrow/pkg/checks"
+
 	"github.com/caas-team/sparrow/pkg/sparrow/targets"
 
 	"github.com/caas-team/sparrow/internal/logger"
 	"github.com/caas-team/sparrow/pkg/api"
-	"github.com/caas-team/sparrow/pkg/checks"
+	"github.com/caas-team/sparrow/pkg/checks/types"
 	"github.com/caas-team/sparrow/pkg/config"
 	"github.com/caas-team/sparrow/pkg/db"
 	"github.com/go-chi/chi/v5"
@@ -41,18 +43,19 @@ const shutdownTimeout = time.Second * 90
 type Sparrow struct {
 	db db.DB
 	// the existing checks
-	checks map[string]checks.Check
+	checks map[string]checks2.Check
 	server *http.Server
 
 	metrics Metrics
 
-	resultFanIn map[string]chan checks.Result
-	cfg         *config.Config
+	resultFanIn map[string]chan checks2.Result
+
+	cfg *config.Config
 
 	// cCfgChecks is the channel where the loader sends the checkCfg configuration of the checks
-	cCfgChecks chan checks.RuntimeConfig
+	cCfgChecks chan types.RuntimeConfig
 	// cResult is the channel where the checks send their results to
-	cResult chan checks.ResultDTO
+	cResult chan checks2.ResultDTO
 	// cErr is used to handle non-recoverable errors of the sparrow components
 	cErr chan error
 	// cDone is used to signal that the sparrow was shut down because of an error
@@ -71,12 +74,12 @@ type Sparrow struct {
 func New(cfg *config.Config) *Sparrow {
 	sparrow := &Sparrow{
 		db:          db.NewInMemory(),
-		checks:      make(map[string]checks.Check),
+		checks:      make(map[string]checks2.Check),
 		metrics:     NewMetrics(),
-		resultFanIn: make(map[string]chan checks.Result),
-		cResult:     make(chan checks.ResultDTO, 1),
+		resultFanIn: make(map[string]chan checks2.Result),
+		cResult:     make(chan checks2.ResultDTO, 1),
 		cfg:         cfg,
-		cCfgChecks:  make(chan checks.RuntimeConfig, 1),
+		cCfgChecks:  make(chan types.RuntimeConfig, 1),
 		routingTree: api.NewRoutingTree(),
 		router:      chi.NewRouter(),
 		cErr:        make(chan error, 1),
@@ -134,10 +137,10 @@ func (s *Sparrow) Run(ctx context.Context) error {
 
 // ReconcileChecks registers new Checks, unregisters removed Checks,
 // resets the Configs of Checks and starts running the checks
-func (s *Sparrow) ReconcileChecks(ctx context.Context, cfg checks.RuntimeConfig) {
+func (s *Sparrow) ReconcileChecks(ctx context.Context, cfg types.RuntimeConfig) {
 	// generate checks from configuration
 	s.enrichTargets(cfg)
-	ck, err := checks.NewChecksFromConfig(cfg)
+	ck, err := types.NewChecksFromConfig(cfg)
 	if err != nil {
 		logger.FromContext(ctx).ErrorContext(ctx, "Failed to create checks from config", "error", err)
 		return
@@ -182,7 +185,7 @@ func (s *Sparrow) ReconcileChecks(ctx context.Context, cfg checks.RuntimeConfig)
 // enrichTargets updates the targets of the sparrow's checks with the
 // global targets.
 // Per default, the two target lists are merged.
-func (s *Sparrow) enrichTargets(cfg checks.RuntimeConfig) checks.RuntimeConfig {
+func (s *Sparrow) enrichTargets(cfg types.RuntimeConfig) types.RuntimeConfig {
 	if cfg.Empty() {
 		return cfg
 	}
@@ -206,13 +209,13 @@ func (s *Sparrow) enrichTargets(cfg checks.RuntimeConfig) checks.RuntimeConfig {
 }
 
 // registerCheck registers and executes a new check
-func (s *Sparrow) registerCheck(ctx context.Context, check checks.Check) error {
+func (s *Sparrow) registerCheck(ctx context.Context, check checks2.Check) error {
 	log := logger.FromContext(ctx).With("name", check.Name())
 
 	s.checks[check.Name()] = check
 
 	// Create a fan in a channel for the check
-	checkChan := make(chan checks.Result, 1)
+	checkChan := make(chan checks2.Result, 1)
 	s.resultFanIn[check.Name()] = checkChan
 
 	go fanInResults(checkChan, s.cResult, check.Name())
@@ -241,7 +244,7 @@ func (s *Sparrow) registerCheck(ctx context.Context, check checks.Check) error {
 }
 
 // UnregisterCheck removes the check from sparrow and performs a soft shutdown for the check
-func (s *Sparrow) unregisterCheck(ctx context.Context, check checks.Check) {
+func (s *Sparrow) unregisterCheck(ctx context.Context, check checks2.Check) {
 	log := logger.FromContext(ctx).With("name", check.Name())
 	// Check has been removed from config; shutdown and remove
 	check.DeregisterHandler(ctx, s.routingTree)
@@ -270,9 +273,9 @@ func (s *Sparrow) unregisterCheck(ctx context.Context, check checks.Check) {
 //
 // It allows augmenting the results with the check name which is needed by the db
 // without putting the responsibility of providing the name on every iteration on the check
-func fanInResults(checkChan chan checks.Result, cResult chan checks.ResultDTO, name string) {
+func fanInResults(checkChan chan checks2.Result, cResult chan checks2.ResultDTO, name string) {
 	for i := range checkChan {
-		cResult <- checks.ResultDTO{
+		cResult <- checks2.ResultDTO{
 			Name:   name,
 			Result: &i,
 		}

@@ -1,5 +1,5 @@
 // sparrow
-// (C) 2023, Deutsche Telekom IT GmbH
+// (C) 2024, Deutsche Telekom IT GmbH
 //
 // Deutsche Telekom IT GmbH and all other contributors /
 // copyright owners license this file to you under the Apache
@@ -16,13 +16,16 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package checks
+package health
 
 import (
 	"context"
 	"net/http"
 	"testing"
 	"time"
+
+	"github.com/caas-team/sparrow/pkg/checks"
+	"github.com/caas-team/sparrow/pkg/checks/latency"
 
 	"github.com/jarcoal/httpmock"
 	"github.com/stretchr/testify/assert"
@@ -31,18 +34,18 @@ import (
 func TestHealth_SetConfig(t *testing.T) {
 	tests := []struct {
 		name           string
-		inputConfig    Config
-		expectedConfig HealthConfig
+		inputConfig    checks.Runtime
+		expectedConfig Config
 		wantErr        bool
 	}{
 		{
 			name: "simple config",
-			inputConfig: &HealthConfig{
+			inputConfig: &Config{
 				Targets:  []string{"test"},
 				Interval: 10 * time.Second,
 				Timeout:  30 * time.Second,
 			},
-			expectedConfig: HealthConfig{
+			expectedConfig: Config{
 				Targets:  []string{"test"},
 				Interval: 10 * time.Second,
 				Timeout:  30 * time.Second,
@@ -51,35 +54,35 @@ func TestHealth_SetConfig(t *testing.T) {
 		},
 		{
 			name:           "empty config",
-			inputConfig:    &HealthConfig{},
-			expectedConfig: HealthConfig{},
+			inputConfig:    &Config{},
+			expectedConfig: Config{},
 			wantErr:        false,
 		},
 		{
 			name: "wrong type",
-			inputConfig: &LatencyConfig{
+			inputConfig: &latency.Config{
 				Targets: []string{"test"},
 			},
-			expectedConfig: HealthConfig{},
+			expectedConfig: Config{},
 			wantErr:        true,
 		},
 		{
 			name:           "nil config",
 			inputConfig:    nil,
-			expectedConfig: HealthConfig{},
+			expectedConfig: Config{},
 			wantErr:        true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h := &Health{
-				metrics: newHealthMetrics(),
+				metrics: newMetrics(),
 			}
 
 			if err := h.SetConfig(tt.inputConfig); (err != nil) != tt.wantErr {
 				t.Errorf("Health.SetConfig() error = %v, wantErr %v", err, tt.wantErr)
 			}
-			assert.Equal(t, tt.expectedConfig, h.config, "Config is not equal")
+			assert.Equal(t, tt.expectedConfig, h.config, "Runtime is not equal")
 		})
 	}
 }
@@ -231,12 +234,12 @@ func TestHealth_Check(t *testing.T) {
 			}
 
 			h := &Health{
-				config: HealthConfig{
+				config: Config{
 					Targets: tt.targets,
 					Timeout: 30,
-					Retry:   DefaultRetry,
+					Retry:   checks.DefaultRetry,
 				},
-				metrics: newHealthMetrics(),
+				metrics: newMetrics(),
 			}
 			got := h.check(tt.ctx)
 			assert.Equal(t, len(got), len(tt.want), "Amount of targets is not equal")
@@ -254,8 +257,8 @@ func TestHealth_Check(t *testing.T) {
 func TestHealth_Shutdown(t *testing.T) {
 	cDone := make(chan bool, 1)
 	c := Health{
-		CheckBase: CheckBase{
-			done: cDone,
+		CheckBase: checks.CheckBase{
+			Done: cDone,
 		},
 	}
 	err := c.Shutdown(context.Background())
@@ -271,17 +274,17 @@ func TestHealth_Shutdown(t *testing.T) {
 		cDone <- true
 	}, "Channel is closed, should panic")
 
-	hc := NewHealthCheck()
+	hc := NewCheck()
 	err = hc.Shutdown(context.Background())
 	if err != nil {
 		t.Errorf("Shutdown() error = %v", err)
 	}
 
-	if !<-hc.(*Health).done {
+	if !<-hc.(*Health).Done {
 		t.Error("Channel should be done")
 	}
 
 	assert.Panics(t, func() {
-		hc.(*Health).done <- true
+		hc.(*Health).Done <- true
 	}, "Channel is closed, should panic")
 }

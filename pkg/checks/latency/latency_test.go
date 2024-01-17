@@ -1,5 +1,5 @@
 // sparrow
-// (C) 2023, Deutsche Telekom IT GmbH
+// (C) 2024, Deutsche Telekom IT GmbH
 //
 // Deutsche Telekom IT GmbH and all other contributors /
 // copyright owners license this file to you under the Apache
@@ -16,7 +16,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package checks
+package latency
 
 import (
 	"context"
@@ -26,6 +26,8 @@ import (
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/caas-team/sparrow/pkg/checks"
 
 	"github.com/caas-team/sparrow/pkg/api"
 	"github.com/jarcoal/httpmock"
@@ -55,7 +57,7 @@ func TestLatency_Run(t *testing.T) { //nolint:gocyclo
 		}
 		targets []string
 		ctx     context.Context
-		want    Result
+		want    checks.Result
 	}{
 		{
 			name: "success with one target",
@@ -72,8 +74,8 @@ func TestLatency_Run(t *testing.T) { //nolint:gocyclo
 			},
 			targets: []string{successURL},
 			ctx:     context.Background(),
-			want: Result{
-				Data: map[string]LatencyResult{
+			want: checks.Result{
+				Data: map[string]result{
 					successURL: {Code: http.StatusOK, Error: nil, Total: 0},
 				},
 				Timestamp: time.Time{},
@@ -105,8 +107,8 @@ func TestLatency_Run(t *testing.T) { //nolint:gocyclo
 			},
 			targets: []string{successURL, failURL, timeoutURL},
 			ctx:     context.Background(),
-			want: Result{
-				Data: map[string]LatencyResult{
+			want: checks.Result{
+				Data: map[string]result{
 					successURL: {Code: http.StatusOK, Error: nil, Total: 0},
 					failURL:    {Code: http.StatusInternalServerError, Error: nil, Total: 0},
 					timeoutURL: {Code: 0, Error: stringPointer(fmt.Sprintf("Get %q: context deadline exceeded", timeoutURL)), Total: 0},
@@ -127,14 +129,14 @@ func TestLatency_Run(t *testing.T) { //nolint:gocyclo
 				}
 			}
 
-			c := NewLatencyCheck()
-			results := make(chan Result, 1)
+			c := NewCheck()
+			results := make(chan checks.Result, 1)
 			err := c.Startup(tt.ctx, results)
 			if err != nil {
 				t.Fatalf("Latency.Startup() error = %v", err)
 			}
 
-			err = c.SetConfig(&LatencyConfig{
+			err = c.SetConfig(&Config{
 				Targets:  tt.targets,
 				Interval: time.Millisecond * 120,
 				Timeout:  time.Second * 1,
@@ -158,12 +160,12 @@ func TestLatency_Run(t *testing.T) { //nolint:gocyclo
 				}
 			}()
 
-			result := <-results
+			res := <-results
 
-			assert.IsType(t, tt.want.Data, result.Data)
+			assert.IsType(t, tt.want.Data, res.Data)
 
-			got := result.Data.(map[string]LatencyResult)
-			expected := result.Data.(map[string]LatencyResult)
+			got := res.Data.(map[string]result)
+			expected := res.Data.(map[string]result)
 			if len(got) != len(expected) {
 				t.Errorf("Length of Latency.Run() result set (%v) does not match length of expected result set (%v)", len(got), len(expected))
 			}
@@ -186,8 +188,8 @@ func TestLatency_Run(t *testing.T) { //nolint:gocyclo
 				}
 			}
 
-			if result.Err != tt.want.Err {
-				t.Errorf("Latency.Run() = %v, want %v", result.Err, tt.want.Err)
+			if res.Err != tt.want.Err {
+				t.Errorf("Latency.Run() = %v, want %v", res.Err, tt.want.Err)
 			}
 			httpmock.Reset()
 		})
@@ -207,14 +209,14 @@ func TestLatency_check(t *testing.T) {
 		}
 		targets []string
 		ctx     context.Context
-		want    map[string]LatencyResult
+		want    map[string]result
 	}{
 		{
 			name:                "no target",
 			registeredEndpoints: nil,
 			targets:             []string{},
 			ctx:                 context.Background(),
-			want:                map[string]LatencyResult{},
+			want:                map[string]result{},
 		},
 		{
 			name: "one target",
@@ -231,7 +233,7 @@ func TestLatency_check(t *testing.T) {
 			},
 			targets: []string{successURL},
 			ctx:     context.Background(),
-			want: map[string]LatencyResult{
+			want: map[string]result{
 				successURL: {Code: http.StatusOK, Error: nil, Total: 0},
 			},
 		},
@@ -259,7 +261,7 @@ func TestLatency_check(t *testing.T) {
 			},
 			targets: []string{successURL, failURL, timeoutURL},
 			ctx:     context.Background(),
-			want: map[string]LatencyResult{
+			want: map[string]result{
 				successURL: {
 					Code:  200,
 					Error: nil,
@@ -290,8 +292,8 @@ func TestLatency_check(t *testing.T) {
 			}
 
 			l := &Latency{
-				config:  LatencyConfig{Targets: tt.targets, Interval: time.Second * 120, Timeout: time.Second * 1},
-				metrics: newLatencyMetrics(),
+				config:  Config{Targets: tt.targets, Interval: time.Second * 120, Timeout: time.Second * 1},
+				metrics: newMetrics(),
 			}
 
 			got := l.check(tt.ctx)
@@ -323,7 +325,7 @@ func TestLatency_check(t *testing.T) {
 func TestLatency_Startup(t *testing.T) {
 	c := Latency{}
 
-	if err := c.Startup(context.Background(), make(chan<- Result, 1)); err != nil {
+	if err := c.Startup(context.Background(), make(chan<- checks.Result, 1)); err != nil {
 		t.Errorf("Startup() error = %v", err)
 	}
 }
@@ -331,8 +333,8 @@ func TestLatency_Startup(t *testing.T) {
 func TestLatency_Shutdown(t *testing.T) {
 	cDone := make(chan bool, 1)
 	c := Latency{
-		CheckBase: CheckBase{
-			done: cDone,
+		CheckBase: checks.CheckBase{
+			Done: cDone,
 		},
 	}
 	err := c.Shutdown(context.Background())
@@ -347,7 +349,7 @@ func TestLatency_Shutdown(t *testing.T) {
 
 func TestLatency_SetConfig(t *testing.T) {
 	c := Latency{}
-	wantCfg := LatencyConfig{
+	wantCfg := Config{
 		Targets: []string{"http://localhost:9090"},
 	}
 
@@ -399,7 +401,7 @@ func TestLatency_Handler(t *testing.T) {
 }
 
 func TestNewLatencyCheck(t *testing.T) {
-	c := NewLatencyCheck()
+	c := NewCheck()
 	if c == nil {
 		t.Error("NewLatencyCheck() should not be nil")
 	}

@@ -28,9 +28,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
+	"github.com/caas-team/sparrow/pkg/checks/health"
+	"github.com/caas-team/sparrow/pkg/checks/types"
 
-	"github.com/caas-team/sparrow/pkg/checks"
+	"github.com/stretchr/testify/require"
 
 	"github.com/caas-team/sparrow/internal/logger"
 	"github.com/jarcoal/httpmock"
@@ -48,7 +49,7 @@ func TestHttpLoader_GetRuntimeConfig(t *testing.T) {
 		name          string
 		cfg           *Config
 		httpResponder httpResponder
-		want          *checks.RuntimeConfig
+		want          *types.RuntimeConfig
 		wantErr       bool
 	}{
 		{
@@ -63,9 +64,9 @@ func TestHttpLoader_GetRuntimeConfig(t *testing.T) {
 				statusCode: 200,
 				response:   httpmock.File("testdata/config.yaml").String(),
 			},
-			want: &checks.RuntimeConfig{
-				Checks: checks.Checks{
-					Health: &checks.HealthConfig{
+			want: &types.RuntimeConfig{
+				Checks: types.Checks{
+					Health: &health.Config{
 						Targets:  []string{"http://localhost:8080/health"},
 						Interval: 1 * time.Second,
 						Timeout:  1 * time.Second,
@@ -88,9 +89,9 @@ func TestHttpLoader_GetRuntimeConfig(t *testing.T) {
 				statusCode: 200,
 				response:   httpmock.File("testdata/config.yaml").String(),
 			},
-			want: &checks.RuntimeConfig{
-				Checks: checks.Checks{
-					Health: &checks.HealthConfig{
+			want: &types.RuntimeConfig{
+				Checks: types.Checks{
+					Health: &health.Config{
 						Targets:  []string{"http://localhost:8080/health"},
 						Interval: 1 * time.Second,
 						Timeout:  1 * time.Second,
@@ -134,7 +135,7 @@ func TestHttpLoader_GetRuntimeConfig(t *testing.T) {
 
 			gl := &HttpLoader{
 				cfg:         tt.cfg,
-				cConfigCfgs: make(chan<- checks.RuntimeConfig, 1),
+				cConfigCfgs: make(chan<- types.RuntimeConfig, 1),
 				client: &http.Client{
 					Timeout: tt.cfg.Loader.Http.Timeout,
 				},

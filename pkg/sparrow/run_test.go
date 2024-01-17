@@ -24,6 +24,10 @@ import (
 	"testing"
 	"time"
 
+	checks2 "github.com/caas-team/sparrow/pkg/checks"
+	"github.com/caas-team/sparrow/pkg/checks/health"
+	"github.com/caas-team/sparrow/pkg/checks/latency"
+
 	"github.com/caas-team/sparrow/pkg/api"
 
 	gitlabmock "github.com/caas-team/sparrow/pkg/sparrow/targets/test"
@@ -31,7 +35,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/caas-team/sparrow/internal/logger"
-	"github.com/caas-team/sparrow/pkg/checks"
+	"github.com/caas-team/sparrow/pkg/checks/types"
 	"github.com/caas-team/sparrow/pkg/config"
 )
 
@@ -39,33 +43,33 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 	ctx, cancel := logger.NewContextWithLogger(context.Background())
 	defer cancel()
 
-	rtcfg := &checks.RuntimeConfig{}
+	rtcfg := &types.RuntimeConfig{}
 	tests := []struct {
 		name            string
-		checks          map[string]checks.Check
-		newChecksConfig checks.RuntimeConfig
+		checks          map[string]checks2.Check
+		newChecksConfig types.RuntimeConfig
 	}{
 		{
 			name: "no checks registered yet but register one",
 
-			checks: map[string]checks.Check{},
+			checks: map[string]checks2.Check{},
 
-			newChecksConfig: checks.RuntimeConfig{Checks: checks.Checks{Health: &checks.HealthConfig{
+			newChecksConfig: types.RuntimeConfig{Checks: types.Checks{Health: &health.Config{
 				Targets: []string{"https://gitlab.com"},
 			}}},
 		},
 		{
 			name: "one healtcheck registered, register latency check",
 
-			checks: map[string]checks.Check{
-				checks.HealthCheckName: checks.RegisteredChecks[checks.HealthCheckName](),
+			checks: map[string]checks2.Check{
+				health.CheckName: types.RegisteredChecks[health.CheckName](),
 			},
 
-			newChecksConfig: checks.RuntimeConfig{Checks: checks.Checks{
-				Latency: &checks.LatencyConfig{
+			newChecksConfig: types.RuntimeConfig{Checks: types.Checks{
+				Latency: &latency.Config{
 					Targets: []string{"https://gitlab.com"},
 				},
-				Health: &checks.HealthConfig{
+				Health: &health.Config{
 					Targets: []string{"https://gitlab.com"},
 				},
 			}},
@@ -73,8 +77,8 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 		{
 			name: "no checks registered but unregister all",
 
-			checks: map[string]checks.Check{
-				checks.HealthCheckName: checks.RegisteredChecks[checks.HealthCheckName](),
+			checks: map[string]checks2.Check{
+				health.CheckName: types.RegisteredChecks[health.CheckName](),
 			},
 
 			newChecksConfig: *rtcfg,
@@ -82,13 +86,13 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 		{
 			name: "one health check registered, register latency and unregister health",
 
-			checks: map[string]checks.Check{
-				checks.HealthCheckName: checks.RegisteredChecks[checks.HealthCheckName](),
+			checks: map[string]checks2.Check{
+				health.CheckName: types.RegisteredChecks[health.CheckName](),
 			},
 
-			newChecksConfig: checks.RuntimeConfig{
-				Checks: checks.Checks{
-					Latency: &checks.LatencyConfig{
+			newChecksConfig: types.RuntimeConfig{
+				Checks: types.Checks{
+					Latency: &latency.Config{
 						Targets: []string{"https://gitlab.com"},
 					},
 				},
@@ -99,8 +103,8 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &Sparrow{
 				checks:      tt.checks,
-				resultFanIn: make(map[string]chan checks.Result),
-				cCfgChecks:  make(chan checks.RuntimeConfig, 1),
+				resultFanIn: make(map[string]chan checks2.Result),
+				cCfgChecks:  make(chan types.RuntimeConfig, 1),
 				routingTree: api.NewRoutingTree(),
 				metrics:     NewMetrics(),
 				tarMan:      &gitlabmock.MockTargetManager{},
@@ -115,12 +119,12 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 }
 
 func Test_fanInResults(t *testing.T) {
-	checkChan := make(chan checks.Result, 1)
-	cResult := make(chan checks.ResultDTO, 1)
+	checkChan := make(chan checks2.Result, 1)
+	cResult := make(chan checks2.ResultDTO, 1)
 	name := "check"
 	go fanInResults(checkChan, cResult, name)
 
-	result := checks.Result{
+	result := checks2.Result{
 		Timestamp: time.Time{},
 		Err:       "",
 		Data:      0,
@@ -129,7 +133,7 @@ func Test_fanInResults(t *testing.T) {
 	checkChan <- result
 	output := <-cResult
 
-	want := checks.ResultDTO{
+	want := checks2.ResultDTO{
 		Name:   name,
 		Result: &result,
 	}
@@ -216,7 +220,7 @@ func TestSparrow_Run_ContextCancel(t *testing.T) {
 func TestSparrow_enrichTargets(t *testing.T) {
 	now := time.Now()
 	testTarget := "https://localhost.de"
-	gt := []checks.GlobalTarget{
+	gt := []types.GlobalTarget{
 		{
 			Url:      testTarget,
 			LastSeen: now,
@@ -224,35 +228,35 @@ func TestSparrow_enrichTargets(t *testing.T) {
 	}
 	tests := []struct {
 		name          string
-		config        checks.RuntimeConfig
-		globalTargets []checks.GlobalTarget
-		expected      checks.RuntimeConfig
+		config        types.RuntimeConfig
+		globalTargets []types.GlobalTarget
+		expected      types.RuntimeConfig
 	}{
 		{
 			name:          "no config",
-			config:        checks.RuntimeConfig{},
+			config:        types.RuntimeConfig{},
 			globalTargets: gt,
-			expected:      checks.RuntimeConfig{},
+			expected:      types.RuntimeConfig{},
 		},
 		{
 			name: "config with no targets",
-			config: checks.RuntimeConfig{
-				Checks: checks.Checks{
-					Health: &checks.HealthConfig{
+			config: types.RuntimeConfig{
+				Checks: types.Checks{
+					Health: &health.Config{
 						Targets: nil,
 					},
-					Latency: &checks.LatencyConfig{
+					Latency: &latency.Config{
 						Targets: nil,
 					},
 				},
 			},
 			globalTargets: gt,
-			expected: checks.RuntimeConfig{
-				Checks: checks.Checks{
-					Health: &checks.HealthConfig{
+			expected: types.RuntimeConfig{
+				Checks: types.Checks{
+					Health: &health.Config{
 						Targets: []string{testTarget},
 					},
-					Latency: &checks.LatencyConfig{
+					Latency: &latency.Config{
 						Targets: []string{testTarget},
 					},
 				},
@@ -260,23 +264,23 @@ func TestSparrow_enrichTargets(t *testing.T) {
 		},
 		{
 			name: "config with empty targets",
-			config: checks.RuntimeConfig{
-				Checks: checks.Checks{
-					Health: &checks.HealthConfig{
+			config: types.RuntimeConfig{
+				Checks: types.Checks{
+					Health: &health.Config{
 						Targets: nil,
 					},
-					Latency: &checks.LatencyConfig{
+					Latency: &latency.Config{
 						Targets: nil,
 					},
 				},
 			},
 			globalTargets: gt,
-			expected: checks.RuntimeConfig{
-				Checks: checks.Checks{
-					Health: &checks.HealthConfig{
+			expected: types.RuntimeConfig{
+				Checks: types.Checks{
+					Health: &health.Config{
 						Targets: []string{testTarget},
 					},
-					Latency: &checks.LatencyConfig{
+					Latency: &latency.Config{
 						Targets: []string{testTarget},
 					},
 				},
@@ -284,23 +288,23 @@ func TestSparrow_enrichTargets(t *testing.T) {
 		},
 		{
 			name: "config with targets",
-			config: checks.RuntimeConfig{
-				Checks: checks.Checks{
-					Health: &checks.HealthConfig{
+			config: types.RuntimeConfig{
+				Checks: types.Checks{
+					Health: &health.Config{
 						Targets: []string{"https://gitlab.com"},
 					},
-					Latency: &checks.LatencyConfig{
+					Latency: &latency.Config{
 						Targets: []string{"https://gitlab.com"},
 					},
 				},
 			},
 			globalTargets: gt,
-			expected: checks.RuntimeConfig{
-				Checks: checks.Checks{
-					Health: &checks.HealthConfig{
+			expected: types.RuntimeConfig{
+				Checks: types.Checks{
+					Health: &health.Config{
 						Targets: []string{"https://gitlab.com", testTarget},
 					},
-					Latency: &checks.LatencyConfig{
+					Latency: &latency.Config{
 						Targets: []string{"https://gitlab.com", testTarget},
 					},
 				},
@@ -308,17 +312,17 @@ func TestSparrow_enrichTargets(t *testing.T) {
 		},
 		{
 			name: "config has a target already present in global targets - no duplicates",
-			config: checks.RuntimeConfig{
-				Checks: checks.Checks{
-					Health: &checks.HealthConfig{
+			config: types.RuntimeConfig{
+				Checks: types.Checks{
+					Health: &health.Config{
 						Targets: []string{testTarget},
 					},
 				},
 			},
 			globalTargets: gt,
-			expected: checks.RuntimeConfig{
-				Checks: checks.Checks{
-					Health: &checks.HealthConfig{
+			expected: types.RuntimeConfig{
+				Checks: types.Checks{
+					Health: &health.Config{
 						Targets: []string{testTarget},
 					},
 				},
@@ -326,20 +330,20 @@ func TestSparrow_enrichTargets(t *testing.T) {
 		},
 		{
 			name: "global targets contains self - do not add to config",
-			config: checks.RuntimeConfig{
-				Checks: checks.Checks{
-					Health: &checks.HealthConfig{
+			config: types.RuntimeConfig{
+				Checks: types.Checks{
+					Health: &health.Config{
 						Targets: []string{testTarget},
 					},
 				},
 			},
-			globalTargets: append(gt, checks.GlobalTarget{
+			globalTargets: append(gt, types.GlobalTarget{
 				Url:      "https://sparrow.com",
 				LastSeen: now,
 			}),
-			expected: checks.RuntimeConfig{
-				Checks: checks.Checks{
-					Health: &checks.HealthConfig{
+			expected: types.RuntimeConfig{
+				Checks: types.Checks{
+					Health: &health.Config{
 						Targets: []string{testTarget},
 					},
 				},

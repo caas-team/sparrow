@@ -119,7 +119,7 @@ func TestConfig_Validate(t *testing.T) {
 				Loader:      tt.fields.Loader,
 			}
 			if err := c.Validate(ctx); (err != nil) != tt.wantErr {
-				t.Errorf("Config.Validate() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("Runtime.Validate() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}

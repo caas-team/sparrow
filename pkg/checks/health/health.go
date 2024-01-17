@@ -1,5 +1,5 @@
 // sparrow
-// (C) 2023, Deutsche Telekom IT GmbH
+// (C) 2024, Deutsche Telekom IT GmbH
 //
 // Deutsche Telekom IT GmbH and all other contributors /
 // copyright owners license this file to you under the Apache
@@ -16,7 +16,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package checks
+package health
 
 import (
 	"context"
@@ -26,6 +26,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/caas-team/sparrow/pkg/checks"
+	"github.com/caas-team/sparrow/pkg/checks/errors"
+
 	"github.com/caas-team/sparrow/internal/helper"
 	"github.com/caas-team/sparrow/internal/logger"
 	"github.com/caas-team/sparrow/pkg/api"
@@ -34,59 +37,59 @@ import (
 )
 
 var (
-	_            Check  = (*Health)(nil)
-	_            Config = (*HealthConfig)(nil)
-	stateMapping        = map[int]string{
+	_            checks.Check   = (*Health)(nil)
+	_            checks.Runtime = (*Config)(nil)
+	stateMapping                = map[int]string{
 		0: "unhealthy",
 		1: "healthy",
 	}
 )
 
-const HealthCheckName = "health"
+const CheckName = "health"
 
 // Health is a check that measures the availability of an endpoint
 type Health struct {
-	CheckBase
+	checks.CheckBase
 	route   string
-	config  HealthConfig
-	metrics healthMetrics
+	config  Config
+	metrics metrics
 }
 
-// NewHealthCheck creates a new instance of the health check
-func NewHealthCheck() Check {
+// NewCheck creates a new instance of the health check
+func NewCheck() checks.Check {
 	return &Health{
-		CheckBase: CheckBase{
-			mu:      sync.Mutex{},
-			cResult: nil,
-			done:    make(chan bool, 1),
+		CheckBase: checks.CheckBase{
+			Mu:      sync.Mutex{},
+			CResult: nil,
+			Done:    make(chan bool, 1),
 		},
 		route: "health",
-		config: HealthConfig{
-			Retry: DefaultRetry,
+		config: Config{
+			Retry: checks.DefaultRetry,
 		},
-		metrics: newHealthMetrics(),
+		metrics: newMetrics(),
 	}
 }
 
-// HealthConfig defines the configuration parameters for a health check
-type HealthConfig struct {
+// Config defines the configuration parameters for a health check
+type Config struct {
 	Targets  []string           `json:"targets,omitempty" yaml:"targets,omitempty" mapstructure:"targets"`
 	Interval time.Duration      `json:"interval" yaml:"interval" mapstructure:"interval"`
 	Timeout  time.Duration      `json:"timeout" yaml:"timeout" mapstructure:"timeout"`
 	Retry    helper.RetryConfig `json:"retry" yaml:"retry" mapstructure:"retry"`
 }
 
-func (h *HealthConfig) Validate() error {
+// metrics contains the metric collectors for the Health check
+type metrics struct {
+	*prometheus.GaugeVec
+}
+
+func (h *Config) Validate() error {
 	return nil
 }
 
-func (h *HealthConfig) For() string {
-	return HealthCheckName
-}
-
-// healthMetrics contains the metric collectors for the Health check
-type healthMetrics struct {
-	*prometheus.GaugeVec
+func (h *Config) For() string {
+	return CheckName
 }
 
 // Run starts the health check
@@ -101,69 +104,69 @@ func (h *Health) Run(ctx context.Context) error {
 		case <-ctx.Done():
 			log.Error("Context canceled", "err", ctx.Err())
 			return ctx.Err()
-		case <-h.done:
+		case <-h.Done:
 			log.Debug("Soft shut down")
 			return nil
 		case <-time.After(h.config.Interval):
 			res := h.check(ctx)
 			errval := ""
-			r := Result{
+			r := checks.Result{
 				Data:      res,
 				Err:       errval,
 				Timestamp: time.Now(),
 			}
 
-			h.cResult <- r
+			h.CResult <- r
 			log.Debug("Successfully finished health check run")
 		}
 	}
 }
 
 // Startup is called once when the health check is registered
-func (h *Health) Startup(ctx context.Context, cResult chan<- Result) error {
+func (h *Health) Startup(ctx context.Context, cResult chan<- checks.Result) error {
 	log := logger.FromContext(ctx).WithGroup("health")
 	log.Debug("Initializing health check")
 
-	h.cResult = cResult
+	h.CResult = cResult
 	return nil
 }
 
 // Shutdown is called once when the check is unregistered or sparrow shuts down
 func (h *Health) Shutdown(_ context.Context) error {
-	h.done <- true
-	close(h.done)
+	h.Done <- true
+	close(h.Done)
 
 	return nil
 }
 
 // SetConfig sets the configuration for the health check
-func (h *Health) SetConfig(cfg Config) error {
-	if c, ok := cfg.(*HealthConfig); ok {
-		h.mu.Lock()
-		defer h.mu.Unlock()
+func (h *Health) SetConfig(cfg checks.Runtime) error {
+	if c, ok := cfg.(*Config); ok {
+		h.Mu.Lock()
+		defer h.Mu.Unlock()
 		h.config = *c
 		return nil
 	}
 
-	return ErrNoAvailableConfig
+	return errors.ErrNoAvailableConfig
 }
 
 // GetConfig returns the current configuration of the check
-func (h *Health) GetConfig() Config {
-	h.mu.Lock()
-	defer h.mu.Unlock()
+func (h *Health) GetConfig() checks.Runtime {
+	h.Mu.Lock()
+	defer h.Mu.Unlock()
 	return &h.config
 }
 
 // Name returns the name of the check
 func (h *Health) Name() string {
-	return HealthCheckName
+	return CheckName
 }
 
 // Schema provides the schema of the data that will be provided
 // by the health check
 func (h *Health) Schema() (*openapi3.SchemaRef, error) {
-	return OpenapiFromPerfData[map[string]string](map[string]string{})
+	return checks.OpenapiFromPerfData[map[string]string](map[string]string{})
 }
 
 // RegisterHandler dynamically registers a server handler
@@ -182,9 +185,9 @@ func (h *Health) DeregisterHandler(_ context.Context, router *api.RoutingTree) {
 	router.Remove(http.MethodGet, h.route)
 }
 
-// NewHealthMetrics initializes metric collectors of the health check
-func newHealthMetrics() healthMetrics {
-	return healthMetrics{
+// newMetrics initializes metric collectors of the health check
+func newMetrics() metrics {
+	return metrics{
 		GaugeVec: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
 				Name: "sparrow_health_up",

@@ -1,5 +1,5 @@
 // sparrow
-// (C) 2023, Deutsche Telekom IT GmbH
+// (C) 2024, Deutsche Telekom IT GmbH
 //
 // Deutsche Telekom IT GmbH and all other contributors /
 // copyright owners license this file to you under the Apache
@@ -16,7 +16,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package checks
+package latency
 
 import (
 	"context"
@@ -25,6 +25,9 @@ import (
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/caas-team/sparrow/pkg/checks"
+	"github.com/caas-team/sparrow/pkg/checks/errors"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/prometheus/client_golang/prometheus"
@@ -35,59 +38,59 @@ import (
 )
 
 var (
-	_ Check  = (*Latency)(nil)
-	_ Config = (*LatencyConfig)(nil)
+	_ checks.Check   = (*Latency)(nil)
+	_ checks.Runtime = (*Config)(nil)
 )
 
-const LatencyName = "latency"
+const CheckName = "latency"
 
 // Latency is a check that measures the latency to an endpoint
 type Latency struct {
-	CheckBase
-	config  LatencyConfig
-	metrics latencyMetrics
+	checks.CheckBase
+	config  Config
+	metrics metrics
 }
 
-// NewLatencyCheck creates a new instance of the latency check
-func NewLatencyCheck() Check {
+// NewCheck creates a new instance of the latency check
+func NewCheck() checks.Check {
 	return &Latency{
-		CheckBase: CheckBase{
-			mu:      sync.Mutex{},
-			cResult: nil,
-			done:    make(chan bool, 1),
+		CheckBase: checks.CheckBase{
+			Mu:      sync.Mutex{},
+			CResult: nil,
+			Done:    make(chan bool, 1),
 		},
-		config: LatencyConfig{
-			Retry: DefaultRetry,
+		config: Config{
+			Retry: checks.DefaultRetry,
 		},
-		metrics: newLatencyMetrics(),
+		metrics: newMetrics(),
 	}
 }
 
-// LatencyConfig defines the configuration parameters for a latency check
-type LatencyConfig struct {
+// Config defines the configuration parameters for a latency check
+type Config struct {
 	Targets  []string           `json:"targets,omitempty" yaml:"targets,omitempty" mapstructure:"targets"`
 	Interval time.Duration      `json:"interval" yaml:"interval" mapstructure:"interval"`
 	Timeout  time.Duration      `json:"timeout" yaml:"timeout" mapstructure:"timeout"`
 	Retry    helper.RetryConfig `json:"retry" yaml:"retry" mapstructure:"retry"`
 }
 
-func (l *LatencyConfig) Validate() error {
+func (l *Config) Validate() error {
 	return nil
 }
 
-func (l *LatencyConfig) For() string {
-	return LatencyName
+func (l *Config) For() string {
+	return CheckName
 }
 
-// LatencyResult represents the result of a single latency check for a specific target
-type LatencyResult struct {
+// result represents the result of a single latency check for a specific target
+type result struct {
 	Code  int     `json:"code"`
 	Error *string `json:"error"`
 	Total float64 `json:"total"`
 }
 
-// Defined metric collectors of latency check
-type latencyMetrics struct {
+// metrics defines the metric collectors of the latency check
+type metrics struct {
 	duration  *prometheus.GaugeVec
 	count     *prometheus.CounterVec
 	histogram *prometheus.HistogramVec
@@ -105,66 +108,66 @@ func (l *Latency) Run(ctx context.Context) error {
 		case <-ctx.Done():
 			log.Error("Context canceled", "err", ctx.Err())
 			return ctx.Err()
-		case <-l.done:
+		case <-l.Done:
 			return nil
 		case <-time.After(l.config.Interval):
 			res := l.check(ctx)
 			errval := ""
-			r := Result{
+			r := checks.Result{
 				Data:      res,
 				Err:       errval,
 				Timestamp: time.Now(),
 			}
 
-			l.cResult <- r
+			l.CResult <- r
 			log.Debug("Successfully finished latency check run")
 		}
 	}
 }
 
-func (l *Latency) Startup(ctx context.Context, cResult chan<- Result) error {
+func (l *Latency) Startup(ctx context.Context, cResult chan<- checks.Result) error {
 	log := logger.FromContext(ctx)
 	log.Debug("Initializing latency check")
 
-	l.cResult = cResult
+	l.CResult = cResult
 	return nil
 }
 
 func (l *Latency) Shutdown(_ context.Context) error {
-	l.done <- true
-	close(l.done)
+	l.Done <- true
+	close(l.Done)
 
 	return nil
 }
 
 // SetConfig sets the configuration for the latency check
-func (l *Latency) SetConfig(cfg Config) error {
-	if c, ok := cfg.(*LatencyConfig); ok {
-		l.mu.Lock()
-		defer l.mu.Unlock()
+func (l *Latency) SetConfig(cfg checks.Runtime) error {
+	if c, ok := cfg.(*Config); ok {
+		l.Mu.Lock()
+		defer l.Mu.Unlock()
 		l.config = *c
 		return nil
 	}
 
-	return ErrNoAvailableConfig
+	return errors.ErrNoAvailableConfig
 }
 
 // GetConfig returns the current configuration of the latency Check
-func (l *Latency) GetConfig() Config {
-	l.mu.Lock()
-	defer l.mu.Unlock()
+func (l *Latency) GetConfig() checks.Runtime {
+	l.Mu.Lock()
+	defer l.Mu.Unlock()
 	return &l.config
 }
 
 // Name returns the name of the check
 func (l *Latency) Name() string {
-	return LatencyName
+	return CheckName
 }
 
 // Schema provides the schema of the data that will be provided
 // by the latency check
 func (l *Latency) Schema() (*openapi3.SchemaRef, error) {
-	return OpenapiFromPerfData(make(map[string]LatencyResult))
+	return checks.OpenapiFromPerfData[map[string]result](make(map[string]result))
 }
 
 // RegisterHandler registers a server handler
@@ -182,9 +185,9 @@ func (l *Latency) Handler(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-// NewLatencyMetrics initializes metric collectors of the latency check
-func newLatencyMetrics() latencyMetrics {
-	return latencyMetrics{
+// newMetrics initializes metric collectors of the latency check
+func newMetrics() metrics {
+	return metrics{
 		duration: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
 				Name: "sparrow_latency_duration_seconds",
@@ -227,18 +230,18 @@ func (l *Latency) GetMetricCollectors() []prometheus.Collector {
 
 // check performs a latency check using a retry function
 // to get the latency to all targets
-func (l *Latency) check(ctx context.Context) map[string]LatencyResult {
+func (l *Latency) check(ctx context.Context) map[string]result {
 	log := logger.FromContext(ctx)
 	log.Debug("Checking latency")
 	if len(l.config.Targets) == 0 {
 		log.Debug("No targets defined")
-		return map[string]LatencyResult{}
+		return map[string]result{}
 	}
 	log.Debug("Getting latency status for each target in separate routine", "amount", len(l.config.Targets))
 
 	var mu sync.Mutex
 	var wg sync.WaitGroup
-	results := map[string]LatencyResult{}
+	results := map[string]result{}
 
 	client := &http.Client{
 		Timeout: l.config.Timeout,
@@ -282,9 +285,9 @@ func (l *Latency) check(ctx context.Context) map[string]LatencyResult {
 }
 
 // getLatency performs an HTTP get request and returns ok if request succeeds
-func getLatency(ctx context.Context, c *http.Client, url string) LatencyResult {
+func getLatency(ctx context.Context, c *http.Client, url string) result {
 	log := logger.FromContext(ctx).With("url", url)
-	var res LatencyResult
+	var res result
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 	if err != nil {

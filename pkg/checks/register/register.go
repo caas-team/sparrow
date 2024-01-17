@@ -1,5 +1,5 @@
 // sparrow
-// (C) 2023, Deutsche Telekom IT GmbH
+// (C) 2024, Deutsche Telekom IT GmbH
 //
 // Deutsche Telekom IT GmbH and all other contributors /
 // copyright owners license this file to you under the Apache
@@ -16,24 +16,4 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package config
-
-import (
-	"context"
-
-	"github.com/caas-team/sparrow/pkg/checks/types"
-)
-
-type Loader interface {
-	Run(context.Context) error
-}
-
-// NewLoader Get a new typed runtime configuration loader
-func NewLoader(cfg *Config, cCfgChecks chan<- types.RuntimeConfig) Loader {
-	switch cfg.Loader.Type {
-	case "http":
-		return NewHttpLoader(cfg, cCfgChecks)
-	default:
-		return NewFileLoader(cfg, cCfgChecks)
-	}
-}
+package register

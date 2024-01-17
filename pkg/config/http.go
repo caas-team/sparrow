@@ -25,7 +25,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/caas-team/sparrow/pkg/checks"
+	"github.com/caas-team/sparrow/pkg/checks/types"
 
 	"github.com/caas-team/sparrow/internal/helper"
 	"github.com/caas-team/sparrow/internal/logger"
@@ -34,11 +34,11 @@ import (
 
 type HttpLoader struct {
 	cfg         *Config
-	cConfigCfgs chan<- checks.RuntimeConfig
+	cConfigCfgs chan<- types.RuntimeConfig
 	client      *http.Client
 }
 
-func NewHttpLoader(cfg *Config, cCfgChecks chan<- checks.RuntimeConfig) *HttpLoader {
+func NewHttpLoader(cfg *Config, cCfgChecks chan<- types.RuntimeConfig) *HttpLoader {
 	return &HttpLoader{
 		cfg:         cfg,
 		cConfigCfgs: cCfgChecks,
@@ -57,7 +57,7 @@ func (hl *HttpLoader) Run(ctx context.Context) error {
 	ctx, cancel := logger.NewContextWithLogger(ctx)
 	defer cancel()
 	log := logger.FromContext(ctx)
-	var runtimeCfg *checks.RuntimeConfig
+	var runtimeCfg *types.RuntimeConfig
 
 	for {
 		select {
@@ -81,7 +81,7 @@ func (hl *HttpLoader) Run(ctx context.Context) error {
 }
 
 // GetRuntimeConfig gets the remote runtime configuration
-func (hl *HttpLoader) GetRuntimeConfig(ctx context.Context) (*checks.RuntimeConfig, error) {
+func (hl *HttpLoader) GetRuntimeConfig(ctx context.Context) (*types.RuntimeConfig, error) {
 	log := logger.FromContext(ctx).With("url", hl.cfg.Loader.Http.Url)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, hl.cfg.Loader.Http.Url, http.NoBody)
@@ -117,7 +117,7 @@ func (hl *HttpLoader) GetRuntimeConfig(ctx context.Context) (*checks.RuntimeConf
 	}
 	log.Debug("Successfully got response")
 
-	runtimeCfg := &checks.RuntimeConfig{}
+	runtimeCfg := &types.RuntimeConfig{}
 	if err := yaml.Unmarshal(body, &runtimeCfg); err != nil {
 		log.Error("Could not unmarshal response", "error", err.Error())
 		return nil, err
