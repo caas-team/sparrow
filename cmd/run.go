@@ -69,7 +69,7 @@ func run() func(cmd *cobra.Command, args []string) error {
 
 		var cfg config.Config
 
-		err := viper.Unmarshal(cfg)
+		err := viper.Unmarshal(&cfg)
 		if err != nil {
 			return fmt.Errorf("failed to parse config: %w", err)
 		}

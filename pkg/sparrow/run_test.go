@@ -24,10 +24,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/caas-team/sparrow/pkg/checks/factory"
 	"github.com/caas-team/sparrow/pkg/checks/runtime"
 
-	checks2 "github.com/caas-team/sparrow/pkg/checks"
+	"github.com/caas-team/sparrow/pkg/checks"
 	"github.com/caas-team/sparrow/pkg/checks/health"
 	"github.com/caas-team/sparrow/pkg/checks/latency"
 
@@ -48,13 +47,13 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 	rtcfg := &runtime.Config{}
 	tests := []struct {
 		name            string
-		checks          map[string]checks2.Check
+		checks          map[string]checks.Check
 		newChecksConfig runtime.Config
 	}{
 		{
 			name: "no checks registered yet but register one",
 
-			checks: map[string]checks2.Check{},
+			checks: map[string]checks.Check{},
 
 			newChecksConfig: runtime.Config{Checks: runtime.Checks{Health: &health.Config{
 				Targets: []string{"https://gitlab.com"},
@@ -63,8 +62,8 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 		{
 			name: "one healtcheck registered, register latency check",
 
-			checks: map[string]checks2.Check{
-				health.CheckName: factory.RegisteredChecks[health.CheckName](),
+			checks: map[string]checks.Check{
+				health.CheckName: health.NewCheck(),
 			},
 
 			newChecksConfig: runtime.Config{Checks: runtime.Checks{
@@ -79,8 +78,8 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 		{
 			name: "no checks registered but unregister all",
 
-			checks: map[string]checks2.Check{
-				health.CheckName: factory.RegisteredChecks[health.CheckName](),
+			checks: map[string]checks.Check{
+				health.CheckName: health.NewCheck(),
 			},
 
 			newChecksConfig: *rtcfg,
@@ -88,8 +87,8 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 		{
 			name: "one health check registered, register latency and unregister health",
 
-			checks: map[string]checks2.Check{
-				health.CheckName: factory.RegisteredChecks[health.CheckName](),
+			checks: map[string]checks.Check{
+				health.CheckName: health.NewCheck(),
 			},
 
 			newChecksConfig: runtime.Config{
@@ -105,7 +104,7 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &Sparrow{
 				checks:      tt.checks,
-				resultFanIn: make(map[string]chan checks2.Result),
+				resultFanIn: make(map[string]chan checks.Result),
 				cCfgChecks:  make(chan runtime.Config, 1),
 				routingTree: api.NewRoutingTree(),
 				metrics:     NewMetrics(),
@@ -121,12 +120,12 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 }
 
 func Test_fanInResults(t *testing.T) {
-	checkChan := make(chan checks2.Result, 1)
-	cResult := make(chan checks2.ResultDTO, 1)
+	checkChan := make(chan checks.Result, 1)
+	cResult := make(chan checks.ResultDTO, 1)
 	name := "check"
 	go fanInResults(checkChan, cResult, name)
 
-	result := checks2.Result{
+	result := checks.Result{
 		Timestamp: time.Time{},
 		Err:       "",
 		Data:      0,
@@ -135,7 +134,7 @@ func Test_fanInResults(t *testing.T) {
 	checkChan <- result
 	output := <-cResult
 
-	want := checks2.ResultDTO{
+	want := checks.ResultDTO{
 		Name:   name,
 		Result: &result,
 	}
@@ -222,7 +221,7 @@ func TestSparrow_Run_ContextCancel(t *testing.T) {
 func TestSparrow_enrichTargets(t *testing.T) {
 	now := time.Now()
 	testTarget := "https://localhost.de"
-	gt := []checks2.GlobalTarget{
+	gt := []checks.GlobalTarget{
 		{
 			Url:      testTarget,
 			LastSeen: now,
@@ -231,7 +230,7 @@ func TestSparrow_enrichTargets(t *testing.T) {
 	tests := []struct {
 		name          string
 		config        runtime.Config
-		globalTargets []checks2.GlobalTarget
+		globalTargets []checks.GlobalTarget
 		expected      runtime.Config
 	}{
 		{
@@ -339,7 +338,7 @@ func TestSparrow_enrichTargets(t *testing.T) {
 					},
 				},
 			},
-			globalTargets: append(gt, checks2.GlobalTarget{
+			globalTargets: append(gt, checks.GlobalTarget{
 				Url:      "https://sparrow.com",
 				LastSeen: now,
 			}),

@@ -29,10 +29,14 @@ import (
 
 // New creates a new check instance from the given name
 func New(cfg checks.Runtime) (checks.Check, error) {
-	if f, ok := RegisteredChecks[cfg.For()]; ok {
+	if cfg == nil {
+		return nil, errors.New("config is nil")
+	}
+
+	if f, ok := registry[cfg.For()]; ok {
 		c := f()
 		err := c.SetConfig(cfg)
-		return f(), err
+		return c, err
 	}
 	return nil, errors.New("unknown check type")
 }
@@ -50,10 +54,8 @@ func NewChecksFromConfig(cfg runtime.Config) (map[string]checks.Check, error) {
 	return result, nil
 }
 
-// RegisteredChecks will be registered in this map
-// The key is the name of the Check
-// The name needs to map the configuration item key
-var RegisteredChecks = map[string]func() checks.Check{
+// registry is a convenience map to create new checks
+var registry = map[string]func() checks.Check{
 	"health":  health.NewCheck,
 	"latency": latency.NewCheck,
 }
