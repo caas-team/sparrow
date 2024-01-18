@@ -43,7 +43,7 @@ A Helm chart to install Sparrow
 | podSecurityContext.supplementalGroups[0] | int | `1000` |  |
 | replicaCount | int | `1` |  |
 | resources | object | `{}` |  |
-| runtimeConfig | object | `{"health":{"interval":"20s","retry":{"count":3,"delay":"1s"},"targets":["https://www.example.com/","https://www.google.com/"],"timeout":"10s"},"latency":{"interval":"1s","retry":{"count":3,"delay":"1s"},"targets":["https://example.com/","https://google.com/"],"timeout":"3s"}}` | runtime configuration of the Sparrow see: https://github.com/caas-team/sparrow#runtime |
+| runtimeConfig | object | `{}` | runtime configuration of the Sparrow see: https://github.com/caas-team/sparrow#runtime |
 | securityContext.allowPrivilegeEscalation | bool | `false` |  |
 | securityContext.capabilities.drop[0] | string | `"ALL"` |  |
 | securityContext.privileged | bool | `false` |  |
