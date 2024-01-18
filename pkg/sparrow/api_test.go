@@ -32,6 +32,7 @@ import (
 
 	"github.com/caas-team/sparrow/pkg/api"
 	"github.com/caas-team/sparrow/pkg/checks"
+	"github.com/caas-team/sparrow/pkg/checks/types"
 	"github.com/caas-team/sparrow/pkg/config"
 	"github.com/caas-team/sparrow/pkg/db"
 	"github.com/getkin/kin-openapi/openapi3"
@@ -83,8 +84,8 @@ func TestSparrow_api_shutdownWhenContextCanceled(t *testing.T) {
 
 func testDb() *db.InMemory {
 	d := db.NewInMemory()
-	d.Save(checks.ResultDTO{Name: "alpha", Result: &checks.Result{Timestamp: time.Now(), Err: "", Data: 1}})
-	d.Save(checks.ResultDTO{Name: "beta", Result: &checks.Result{Timestamp: time.Now(), Err: "", Data: 1}})
+	d.Save(types.ResultDTO{Name: "alpha", Result: &types.Result{Timestamp: time.Now(), Err: "", Data: 1}})
+	d.Save(types.ResultDTO{Name: "beta", Result: &types.Result{Timestamp: time.Now(), Err: "", Data: 1}})
 
 	return d
 }
@@ -101,8 +102,8 @@ func TestSparrow_getCheckMetrics(t *testing.T) {
 	type fields struct {
 		checks      map[string]checks.Check
 		routingTree *api.RoutingTree
-		resultFanIn map[string]chan checks.Result
-		cResult     chan checks.ResultDTO
+		resultFanIn map[string]chan types.Result
+		cResult     chan types.ResultDTO
 		loader      config.Loader
 		cfg         *config.Config
 		cCfgChecks  chan map[string]any
@@ -146,8 +147,8 @@ func TestSparrow_getCheckMetrics(t *testing.T) {
 				if tt.wantCode != resp.StatusCode {
 					t.Errorf("Sparrow.getCheckMetrics() = %v, want %v", resp.StatusCode, tt.wantCode)
 				}
-				var got checks.ResultDTO
-				var want checks.ResultDTO
+				var got types.ResultDTO
+				var want types.ResultDTO
 				err := json.Unmarshal(body, &got)
 				if err != nil {
 					t.Error("Expected valid json")
@@ -190,8 +191,8 @@ func TestSparrow_handleChecks(t *testing.T) {
 	type fields struct {
 		checks      map[string]checks.Check
 		routingTree *api.RoutingTree
-		resultFanIn map[string]chan checks.Result
-		cResult     chan checks.ResultDTO
+		resultFanIn map[string]chan types.Result
+		cResult     chan types.ResultDTO
 		loader      config.Loader
 		cfg         *config.Config
 		cCfgChecks  chan map[string]any
