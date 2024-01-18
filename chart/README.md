@@ -22,7 +22,7 @@ A Helm chart to install Sparrow
 | affinity | object | `{}` |  |
 | checksConfig | object | `{}` |  |
 | env | object | `{}` |  |
-| envFromSecrets | list | `[]` |  |
+| envFromSecrets | list | `[]` | extra environment variables Allows you to set environment variables through secrets you defined outside of the helm chart Useful for sensitive information like the http loader token |
 | extraArgs | object | `{}` | extra command line start parameters see: https://github.com/caas-team/sparrow/blob/main/docs/sparrow_run.md |
 | fullnameOverride | string | `""` |  |
 | image.pullPolicy | string | `"IfNotPresent"` |  |
