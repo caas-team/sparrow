@@ -60,6 +60,7 @@ jobs:
           --set config.name=the-sparrow.com \
           --set config.loader.type=file \
           --set config.loader.file.path=/config/.sparrow.yaml \
+          --set config.checks.health.interval=1s \
           ./chart
 
     - name: Check Pods
