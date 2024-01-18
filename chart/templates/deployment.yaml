@@ -12,7 +12,7 @@ spec:
   template:
     metadata:
       annotations:
-        checksum/config: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        checksum/config: {{ include (print $.Template.BasePath "/sparrowConfig.yaml") . | sha256sum }}
       {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
       {{- end }}
@@ -30,12 +30,12 @@ spec:
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
-        {{- if or .Values.extraArgs .Values.startupConfig }}
         - args:
-        {{- end }}
-          {{- if .Values.startupConfig}}
             - --config
-            - /startupconfig/.sparrow.yaml
+            - /config/.sparrow.yaml
+          {{- if .Values.checksConfig }}
+            - --loaderFilePath
+            - /config/checks.yaml
           {{- end }}
           {{- if .Values.extraArgs }}
           {{- range $key, $value := .Values.extraArgs }}
@@ -43,12 +43,21 @@ spec:
             - {{ $value }}
           {{- end }}
           {{- end }}
-          {{- if .Values.env }}
+          {{- if or .Values.env .Values.envFromSecrets }}
           env:
           {{- range $key, $val := .Values.env }}
             - name: {{ $key }}
               value: {{ $val | quote }}
           {{- end }}
+          {{- if .Values.envFromSecrets }}
+          {{- range $i,$s := .Values.envFromSecrets }}
+            - name: {{ $s.name }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $s.valueFrom.secretName }}
+                  key: {{ $s.valueFrom.key }}
+          {{ end -}}
+          {{ end -}}
           {{- end }}
           name: {{ .Chart.Name }}
           securityContext:
@@ -63,30 +72,13 @@ spec:
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           {{- end }}
-          {{- if or .Values.runtimeConfig .Values.startupConfig}}
           volumeMounts:
-          {{- end }}
-          {{- if .Values.startupConfig}}
-            - name: startup
-              mountPath: /startupconfig
-          {{- end }}
-          {{- if .Values.runtimeConfig}}
-            - name: runtime
-              mountPath: /runconfig
-          {{- end }}
-      {{- if or .Values.runtimeConfig .Values.startupConfig}}
+            - name: sparrow-config
+              mountPath: /config/
       volumes:
-      {{- end }}
-      {{- if .Values.startupConfig}}
-        - name: startup
-          secret:
-            secretName: {{ include "sparrow.fullname" . }}
-      {{- end }}
-      {{- if .Values.runtimeConfig}}
-        - name: runtime
+        - name: sparrow-config
           configMap:
-            name: {{ include "sparrow.fullname" . }}
-      {{- end }}
+            name: {{ include "sparrow.sparrowConfigName" . }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

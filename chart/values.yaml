@@ -93,13 +93,21 @@ affinity: {}
 
 # -- extra command line start parameters
 # see: https://github.com/caas-team/sparrow/blob/main/docs/sparrow_run.md
-extraArgs:
-  loaderFilePath: /runconfig/checks.yaml
-  loaderType: file
+extraArgs: {}
+
+# -- extra environment variables
+# Allows you to set environment variables through secrets you defined outside of the helm chart
+# Useful for sensitive information like the http loader token
+envFromSecrets:
+  []
+  # - name: SPARROW_LOADER_HTTP_TOKEN
+  #   valueFrom:
+  #     secretName: sparrow-auth
+  #     key: SPARROW_LOADER_HTTP_TOKEN
 
 # -- startup configuration of the Sparrow
 # see: https://github.com/caas-team/sparrow/blob/main/docs/sparrow_run.md
-startupConfig: {}
+sparrowConfig: {}
 # name: the-sparrow.com
 # api:
 #   address:
@@ -122,28 +130,26 @@ startupConfig: {}
 #     token: ""
 #     baseUrl: https://gitlab.com
 #     projectId: ""
-
-# -- runtime configuration of the Sparrow
-# see: https://github.com/caas-team/sparrow#runtime
-runtimeConfig: {}
-  # health:
-  #   interval: 20s
-  #   timeout: 10s
-  #   retry:
-  #     count: 3
-  #     delay: 1s
-  #   targets:
-  #     - "https://www.example.com/"
-  #     - "https://www.google.com/"
-  # latency:
-  #   interval: 1s
-  #   timeout: 3s
-  #   retry:
-  #     count: 3
-  #     delay: 1s
-  #   targets:
-  #     - https://example.com/
-  #     - https://google.com/
+checksConfig: {}
+# checks:
+#   health:
+#     interval: 20s
+#     timeout: 10s
+#     retry:
+#       count: 3
+#       delay: 1s
+#     targets:
+#       - "https://www.example.com/"
+#       - "https://www.google.com/"
+#   latency:
+#     interval: 1s
+#     timeout: 3s
+#     retry:
+#       count: 3
+#       delay: 1s
+#     targets:
+#       - https://example.com/
+#       - https://google.com/
 
 # -- Configure a service monitor for prometheus-operator
 serviceMonitor:
