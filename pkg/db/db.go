@@ -21,13 +21,13 @@ package db
 import (
 	"sync"
 
-	"github.com/caas-team/sparrow/pkg/checks"
+	"github.com/caas-team/sparrow/pkg/checks/types"
 )
 
 type DB interface {
-	Save(result checks.ResultDTO)
-	Get(check string) (result checks.Result, ok bool)
-	List() map[string]checks.Result
+	Save(result types.ResultDTO)
+	Get(check string) (result types.Result, ok bool)
+	List() map[string]types.Result
 }
 
 var _ DB = (*InMemory)(nil)
@@ -47,28 +47,28 @@ func NewInMemory() *InMemory {
 	}
 }
 
-func (i *InMemory) Save(result checks.ResultDTO) {
+func (i *InMemory) Save(result types.ResultDTO) {
 	i.data.Store(result.Name, result.Result)
 }
 
-func (i *InMemory) Get(check string) (checks.Result, bool) {
+func (i *InMemory) Get(check string) (types.Result, bool) {
 	tmp, ok := i.data.Load(check)
 	if !ok {
-		return checks.Result{}, false
+		return types.Result{}, false
 	}
 	// this should not fail, otherwise this will panic
-	result := tmp.(*checks.Result)
+	result := tmp.(*types.Result)
 
 	return *result, true
 }
 
 // List returns a copy of the map
-func (i *InMemory) List() map[string]checks.Result {
-	results := make(map[string]checks.Result)
+func (i *InMemory) List() map[string]types.Result {
+	results := make(map[string]types.Result)
 	i.data.Range(func(key, value any) bool {
 		// this assertion should not fail, unless we have a bug somewhere
 		check := key.(string)
-		result := value.(*checks.Result)
+		result := value.(*types.Result)
 
 		results[check] = *result
 		return true

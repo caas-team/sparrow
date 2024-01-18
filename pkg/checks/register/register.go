@@ -1,5 +1,5 @@
 // sparrow
-// (C) 2023, Deutsche Telekom IT GmbH
+// (C) 2024, Deutsche Telekom IT GmbH
 //
 // Deutsche Telekom IT GmbH and all other contributors /
 // copyright owners license this file to you under the Apache
@@ -16,23 +16,18 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package targets
+package register
 
 import (
-	"context"
-
-	"github.com/caas-team/sparrow/pkg/checks/types"
+	"github.com/caas-team/sparrow/pkg/checks"
+	"github.com/caas-team/sparrow/pkg/checks/health"
+	"github.com/caas-team/sparrow/pkg/checks/latency"
 )
 
-// TargetManager handles the management of globalTargets for
-// a Sparrow instance
-type TargetManager interface {
-	// Reconcile fetches the global targets from the configured
-	// endpoint and updates the local state
-	Reconcile(ctx context.Context) error
-	// GetTargets returns the current global targets
-	GetTargets() []types.GlobalTarget
-	// Shutdown shuts down the target manager
-	// and unregisters the instance as a global target
-	Shutdown(ctx context.Context) error
+// RegisteredChecks will be registered in this map
+// The key is the name of the Check
+// The name needs to map the configuration item key
+var RegisteredChecks = map[string]func() checks.Check{
+	"health":  health.NewCheck,
+	"latency": latency.NewCheck,
 }
