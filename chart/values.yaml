@@ -95,8 +95,9 @@ affinity: {}
 # see: https://github.com/caas-team/sparrow/blob/main/docs/sparrow_run.md
 extraArgs: {}
 
-#
-
+# -- extra environment variables
+# Allows you to set environment variables through secrets you defined outside of the helm chart
+# Useful for sensitive information like the http loader token
 envFromSecrets:
   []
   # - name: SPARROW_LOADER_HTTP_TOKEN
