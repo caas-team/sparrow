@@ -185,10 +185,9 @@ func (s *Sparrow) ReconcileChecks(ctx context.Context, cfg runtime.Config) {
 }
 
 // enrichTargets updates the targets of the sparrow's checks with the
-// global targets.
-// Per default, the two target lists are merged.
+// global targets. Per default, the two target lists are merged.
 func (s *Sparrow) enrichTargets(cfg runtime.Config) runtime.Config {
-	if cfg.Empty() {
+	if cfg.Empty() || s.tarMan == nil {
 		return cfg
 	}
 
