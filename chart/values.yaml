@@ -133,7 +133,7 @@ sparrowConfig: {}
 checksConfig: {}
 # checks:
 #   health:
-#     interval: 20s
+#     interval: 15s
 #     timeout: 10s
 #     retry:
 #       count: 3
@@ -142,11 +142,11 @@ checksConfig: {}
 #       - "https://www.example.com/"
 #       - "https://www.google.com/"
 #   latency:
-#     interval: 1s
-#     timeout: 3s
+#     interval: 15s
+#     timeout: 30s
 #     retry:
 #       count: 3
-#       delay: 1s
+#       delay: 2s
 #     targets:
 #       - https://example.com/
 #       - https://google.com/
