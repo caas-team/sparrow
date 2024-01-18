@@ -20,8 +20,9 @@ A Helm chart to install Sparrow
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | affinity | object | `{}` |  |
+| config | object | `{}` | startup configuration of the Sparrow see: https://github.com/caas-team/sparrow/blob/main/docs/sparrow_run.md |
 | env | object | `{}` |  |
-| extraArgs | object | `{"loaderFilePath":"/runconfig/checks.yaml","loaderType":"file"}` | extra command line start parameters see: https://github.com/caas-team/sparrow/blob/main/docs/sparrow_run.md |
+| extraArgs | object | `{}` | extra command line start parameters see: https://github.com/caas-team/sparrow/blob/main/docs/sparrow_run.md |
 | fullnameOverride | string | `""` |  |
 | image.pullPolicy | string | `"IfNotPresent"` |  |
 | image.repository | string | `"ghcr.io/caas-team/sparrow"` |  |
@@ -43,7 +44,6 @@ A Helm chart to install Sparrow
 | podSecurityContext.supplementalGroups[0] | int | `1000` |  |
 | replicaCount | int | `1` |  |
 | resources | object | `{}` |  |
-| runtimeConfig | object | `{}` | runtime configuration of the Sparrow see: https://github.com/caas-team/sparrow#runtime |
 | securityContext.allowPrivilegeEscalation | bool | `false` |  |
 | securityContext.capabilities.drop[0] | string | `"ALL"` |  |
 | securityContext.privileged | bool | `false` |  |
@@ -61,6 +61,5 @@ A Helm chart to install Sparrow
 | serviceMonitor.interval | string | `"30s"` | Sets the scrape interval |
 | serviceMonitor.labels | object | `{}` | Additional label added to the service Monitor |
 | serviceMonitor.scrapeTimeout | string | `"5s"` | Sets the scrape timeout |
-| startupConfig | object | `{}` | startup configuration of the Sparrow see: https://github.com/caas-team/sparrow/blob/main/docs/sparrow_run.md |
 | tolerations | list | `[]` |  |
 

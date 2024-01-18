@@ -30,13 +30,9 @@ spec:
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
-        {{- if or .Values.extraArgs .Values.startupConfig }}
         - args:
-        {{- end }}
-          {{- if .Values.startupConfig}}
             - --config
-            - /startupconfig/.sparrow.yaml
-          {{- end }}
+            - /config/.sparrow.yaml
           {{- if .Values.extraArgs }}
           {{- range $key, $value := .Values.extraArgs }}
             - --{{ $key }}
@@ -63,30 +59,13 @@ spec:
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           {{- end }}
-          {{- if or .Values.runtimeConfig .Values.startupConfig}}
           volumeMounts:
-          {{- end }}
-          {{- if .Values.startupConfig}}
-            - name: startup
-              mountPath: /startupconfig
-          {{- end }}
-          {{- if .Values.runtimeConfig}}
-            - name: runtime
-              mountPath: /runconfig
-          {{- end }}
-      {{- if or .Values.runtimeConfig .Values.startupConfig}}
+            - name: config
+              mountPath: /config
       volumes:
-      {{- end }}
-      {{- if .Values.startupConfig}}
-        - name: startup
-          secret:
-            secretName: {{ include "sparrow.fullname" . }}
-      {{- end }}
-      {{- if .Values.runtimeConfig}}
-        - name: runtime
+        - name: config
           configMap:
             name: {{ include "sparrow.fullname" . }}
-      {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
