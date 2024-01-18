@@ -24,15 +24,17 @@ import (
 	"testing"
 	"time"
 
+	"github.com/caas-team/sparrow/pkg/api"
+	"github.com/caas-team/sparrow/pkg/checks"
 	gitlabmock "github.com/caas-team/sparrow/pkg/sparrow/targets/test"
-
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/stretchr/testify/assert"
 
 	"github.com/caas-team/sparrow/internal/logger"
-	"github.com/caas-team/sparrow/pkg/api"
-	"github.com/caas-team/sparrow/pkg/checks"
+	"github.com/caas-team/sparrow/pkg/checks/register"
+	"github.com/caas-team/sparrow/pkg/checks/types"
 	"github.com/caas-team/sparrow/pkg/config"
 	"github.com/caas-team/sparrow/pkg/db"
 )
@@ -54,7 +56,7 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 		ShutdownFunc: func(ctx context.Context) error {
 			return nil
 		},
-		StartupFunc: func(ctx context.Context, cResult chan<- checks.Result) error {
+		StartupFunc: func(ctx context.Context, cResult chan<- types.Result) error {
 			return nil
 		},
 		RegisterHandlerFunc:   func(ctx context.Context, router *api.RoutingTree) {},
@@ -64,7 +66,7 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 		},
 	}
 
-	checks.RegisteredChecks = map[string]func() checks.Check{
+	register.RegisteredChecks = map[string]func() checks.Check{
 		"alpha": func() checks.Check { return &mockCheck },
 		"beta":  func() checks.Check { return &mockCheck },
 		"gamma": func() checks.Check { return &mockCheck },
@@ -72,9 +74,9 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 
 	type fields struct {
 		checks      map[string]checks.Check
-		resultFanIn map[string]chan checks.Result
+		resultFanIn map[string]chan types.Result
 
-		cResult    chan checks.ResultDTO
+		cResult    chan types.ResultDTO
 		loader     config.Loader
 		cfg        *config.Config
 		cCfgChecks chan map[string]any
@@ -92,7 +94,7 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 				checks:      map[string]checks.Check{},
 				cfg:         &config.Config{},
 				cCfgChecks:  make(chan map[string]any, 1),
-				resultFanIn: make(map[string]chan checks.Result),
+				resultFanIn: make(map[string]chan types.Result),
 			},
 			newChecksConfig: map[string]any{
 				"alpha": "I like sparrows",
@@ -102,11 +104,11 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 			name: "on checks registered and register another",
 			fields: fields{
 				checks: map[string]checks.Check{
-					"alpha": checks.RegisteredChecks["alpha"](),
+					"alpha": register.RegisteredChecks["alpha"](),
 				},
 				cfg:         &config.Config{},
 				cCfgChecks:  make(chan map[string]any, 1),
-				resultFanIn: make(map[string]chan checks.Result),
+				resultFanIn: make(map[string]chan types.Result),
 			},
 			newChecksConfig: map[string]any{
 				"alpha": "I like sparrows",
@@ -117,11 +119,11 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 			name: "on checks registered but unregister all",
 			fields: fields{
 				checks: map[string]checks.Check{
-					"alpha": checks.RegisteredChecks["alpha"](),
+					"alpha": register.RegisteredChecks["alpha"](),
 				},
 				cfg:         &config.Config{},
 				cCfgChecks:  make(chan map[string]any, 1),
-				resultFanIn: make(map[string]chan checks.Result),
+				resultFanIn: make(map[string]chan types.Result),
 			},
 			newChecksConfig: map[string]any{},
 		},
@@ -129,12 +131,12 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 			name: "two checks registered, register another and unregister one",
 			fields: fields{
 				checks: map[string]checks.Check{
-					"alpha": checks.RegisteredChecks["alpha"](),
-					"gamma": checks.RegisteredChecks["alpha"](),
+					"alpha": register.RegisteredChecks["alpha"](),
+					"gamma": register.RegisteredChecks["alpha"](),
 				},
 				cfg:         &config.Config{},
 				cCfgChecks:  make(chan map[string]any, 1),
-				resultFanIn: make(map[string]chan checks.Result),
+				resultFanIn: make(map[string]chan types.Result),
 			},
 			newChecksConfig: map[string]any{
 				"alpha": "I like sparrows",
@@ -161,7 +163,7 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 			s.ReconcileChecks(ctx)
 
 			for newChecksConfigName := range tt.newChecksConfig {
-				check := checks.RegisteredChecks[newChecksConfigName]()
+				check := register.RegisteredChecks[newChecksConfigName]()
 				assert.Equal(t, check, s.checks[newChecksConfigName])
 			}
 		})
@@ -169,12 +171,12 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 }
 
 func Test_fanInResults(t *testing.T) {
-	checkChan := make(chan checks.Result, 1)
-	cResult := make(chan checks.ResultDTO, 1)
+	checkChan := make(chan types.Result, 1)
+	cResult := make(chan types.ResultDTO, 1)
 	name := "check"
 	go fanInResults(checkChan, cResult, name)
 
-	result := checks.Result{
+	result := types.Result{
 		Timestamp: time.Time{},
 		Err:       "",
 		Data:      0,
@@ -183,7 +185,7 @@ func Test_fanInResults(t *testing.T) {
 	checkChan <- result
 	output := <-cResult
 
-	want := checks.ResultDTO{
+	want := types.ResultDTO{
 		Name:   name,
 		Result: &result,
 	}
@@ -269,7 +271,7 @@ func TestSparrow_Run_ContextCancel(t *testing.T) {
 // updates the check targets, if they exist in the config of the checks.
 func TestSparrow_updateCheckTargets(t *testing.T) {
 	now := time.Now()
-	gt := []checks.GlobalTarget{
+	gt := []types.GlobalTarget{
 		{
 			Url:      "https://localhost.de",
 			LastSeen: now,
@@ -278,7 +280,7 @@ func TestSparrow_updateCheckTargets(t *testing.T) {
 	tests := []struct {
 		name          string
 		config        any
-		globalTargets []checks.GlobalTarget
+		globalTargets []types.GlobalTarget
 		expected      any
 	}{
 		{
@@ -362,7 +364,7 @@ func TestSparrow_updateCheckTargets(t *testing.T) {
 			config: map[string]any{
 				"targets": []any{"https://localhost.de"},
 			},
-			globalTargets: append(gt, checks.GlobalTarget{
+			globalTargets: append(gt, types.GlobalTarget{
 				Url: "https://wonderhost.usa",
 			}),
 			expected: map[string]any{

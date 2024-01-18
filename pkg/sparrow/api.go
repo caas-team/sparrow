@@ -56,7 +56,7 @@ func (s *Sparrow) register(ctx context.Context) {
 	s.router.HandleFunc("/checks/*", s.handleChecks)
 
 	// Handles requests with simple http ok
-	// Required for global tarMan in checks
+	// Required for global targets in checks
 	s.router.Handle("/", okHandler(ctx))
 
 	// Handles prometheus metrics

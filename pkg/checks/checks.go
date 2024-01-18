@@ -1,5 +1,5 @@
 // sparrow
-// (C) 2023, Deutsche Telekom IT GmbH
+// (C) 2024, Deutsche Telekom IT GmbH
 //
 // Deutsche Telekom IT GmbH and all other contributors /
 // copyright owners license this file to you under the Apache
@@ -20,29 +20,12 @@ package checks
 
 import (
 	"context"
-	"sync"
-	"time"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/caas-team/sparrow/internal/helper"
 	"github.com/caas-team/sparrow/pkg/api"
-)
-
-var (
-	// RegisteredChecks will be registered in this map
-	// The key is the name of the Check
-	// The name needs to map the configuration item key
-	RegisteredChecks = map[string]func() Check{
-		"health":  NewHealthCheck,
-		"latency": NewLatencyCheck,
-	}
-	// DefaultRetry provides a default configuration for the retry mechanism
-	DefaultRetry = helper.RetryConfig{
-		Count: 3,
-		Delay: time.Second,
-	}
+	"github.com/caas-team/sparrow/pkg/checks/types"
 )
 
 // Check implementations are expected to perform specific monitoring tasks and report results.
@@ -56,7 +39,7 @@ type Check interface {
 	// Startup is called once when the check is registered
 	// In the Run() method, the check should send results to the cResult channel
 	// this will cause sparrow to update its data store with the results
-	Startup(ctx context.Context, cResult chan<- Result) error
+	Startup(ctx context.Context, cResult chan<- types.Result) error
 	// Shutdown is called once when the check is unregistered or sparrow shuts down
 	Shutdown(ctx context.Context) error
 	// SetConfig is called once when the check is registered
@@ -71,39 +54,4 @@ type Check interface {
 	DeregisterHandler(ctx context.Context, router *api.RoutingTree)
 	// GetMetricCollectors allows the check to provide prometheus metric collectors
 	GetMetricCollectors() []prometheus.Collector
-}
-
-// CheckBase is a struct providing common fields used by implementations of the Check interface.
-// It serves as a foundational structure that should be embedded in specific check implementations.
-type CheckBase struct {
-	// Mutex for thread-safe access to shared resources within the check implementation
-	mu sync.Mutex
-	// Essential for passing check results back to the Sparrow; must be utilized by Check implementations
-	cResult chan<- Result
-	// Signal channel used to notify about shutdown of a check
-	done chan bool
-}
-
-// Result encapsulates the outcome of a check run.
-type Result struct {
-	// data contains performance metrics about the check run
-	Data any `json:"data"`
-	// Timestamp is the UTC time the check was run
-	Timestamp time.Time `json:"timestamp"`
-	// Err should be nil if the check ran successfully indicating the check is "healthy"
-	// if the check failed, this should be an error message that will be logged and returned to an API user
-	Err string `json:"error"`
-}
-
-// GlobalTarget includes the basic information regarding
-// other Sparrow instances, which this Sparrow can communicate with.
-type GlobalTarget struct {
-	Url      string    `json:"url"`
-	LastSeen time.Time `json:"lastSeen"`
-}
-
-// ResultDTO is a data transfer object used to associate a check's name with its result.
-type ResultDTO struct {
-	Name   string
-	Result *Result
 }
