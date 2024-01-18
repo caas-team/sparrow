@@ -95,6 +95,15 @@ affinity: {}
 # see: https://github.com/caas-team/sparrow/blob/main/docs/sparrow_run.md
 extraArgs: {}
 
+#
+
+envFromSecrets:
+  []
+  # - name: SPARROW_LOADER_HTTP_TOKEN
+  #   valueFrom:
+  #     secretName: sparrow-auth
+  #     key: SPARROW_LOADER_HTTP_TOKEN
+
 # -- startup configuration of the Sparrow
 # see: https://github.com/caas-team/sparrow/blob/main/docs/sparrow_run.md
 sparrowConfig: {}

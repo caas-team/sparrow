@@ -43,12 +43,21 @@ spec:
             - {{ $value }}
           {{- end }}
           {{- end }}
-          {{- if .Values.env }}
+          {{- if or .Values.env .Values.envFromSecrets }}
           env:
           {{- range $key, $val := .Values.env }}
             - name: {{ $key }}
               value: {{ $val | quote }}
           {{- end }}
+          {{- if .Values.envFromSecrets }}
+          {{- range $i,$s := .Values.envFromSecrets }}
+            - name: {{ $s.name }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $s.valueFrom.secretName }}
+                  key: {{ $s.valueFrom.key }}
+          {{ end -}}
+          {{ end -}}
           {{- end }}
           name: {{ .Chart.Name }}
           securityContext:
