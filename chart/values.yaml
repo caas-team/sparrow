@@ -95,8 +95,8 @@ affinity: {}
 # see: https://github.com/caas-team/sparrow/blob/main/docs/sparrow_run.md
 extraArgs: {}
 
-#
-
+# -- extra environment variables which can be
+# used to provide authorization tokens to the sparrow
 envFromSecrets:
   []
   # - name: SPARROW_LOADER_HTTP_TOKEN
