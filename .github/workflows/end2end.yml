@@ -57,10 +57,10 @@ jobs:
           --atomic \
           --timeout 300s \
           --set image.tag=${{ steps.version.outputs.value }}  \
-          --set config.name=the-sparrow.com \
-          --set config.loader.type=file \
-          --set config.loader.file.path=/config/.sparrow.yaml \
-          --set config.checks.health.interval=1s \
+          --set sparrowConfig.name=the-sparrow.com \
+          --set sparrowConfig.loader.type=file \
+          --set sparrowConfig.loader.file.path=/config/.sparrow.yaml \
+          --set checksConfig.checks.health.interval=1s \
           ./chart
 
     - name: Check Pods
