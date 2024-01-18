@@ -53,7 +53,7 @@ jobs:
       run: echo "value=commit-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
     - name: Install Sparrow
       run: |
-        helm upgrade -i sparrow -n sparrow \
+        helm upgrade -i sparrow \
           --atomic \
           --timeout 300s \
           --set image.tag=${{ steps.version.outputs.value }}  \
