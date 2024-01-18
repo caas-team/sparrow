@@ -60,3 +60,11 @@ Create the name of the service account to use
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}
 {{- end }}
+
+{{- define "sparrow.checksConfigName"}}
+{{- include "sparrow.fullname" . }}-checks
+{{- end }}
+
+{{- define "sparrow.sparrowConfigName"}}
+{{- include "sparrow.fullname" . }}-config
+{{- end }}

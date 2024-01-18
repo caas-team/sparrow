@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "sparrow.sparrowConfigName" . }}
+  labels:
+    {{- include "sparrow.labels" . | nindent 4 }}
+data:
+  .sparrow.yaml: |
+	{{- .Values.sparrowConfig | toYaml | nindent 4 }}
+  {{- if .Values.checksConfig }}
+  checks.yaml: |
+	{{- .Values.checksConfig | toYaml | nindent 4 }}
+  {{- end }}
