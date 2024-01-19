@@ -56,19 +56,18 @@ Please see the [release notes](https://github.com/caas-team/sparrow/releases) fo
 
 ### Binary
 
-The binary is available for several distributions. Currently, the binary needs to be installed from a provided bundle or
-source.
+The binary is available for several distributions. To install the binary, use a provided bundle or source. Replace `${RELEASE_VERSION}` with the desired release version:
 
 ```sh
 curl https://github.com/caas-team/sparrow/releases/download/v${RELEASE_VERSION}/sparrow_${RELEASE_VERSION}_linux_amd64.tar.gz -Lo sparrow.tar.gz
 curl https://github.com/caas-team/sparrow/releases/download/v${RELEASE_VERSION}/sparrow_${RELEASE_VERSION}_checksums.txt -Lo checksums.txt
 ```
 
-For example release `v0.0.1`:
+For example, for release `v0.3.0`:
 
 ```sh
-curl https://github.com/caas-team/sparrow/releases/download/v0.0.1/sparrow_0.0.1_linux_amd64.tar.gz -Lo sparrow.tar.gz
-curl https://github.com/caas-team/sparrow/releases/download/v0.0.1/sparrow_0.0.1_checksums.txt -Lo checksums.txt
+curl https://github.com/caas-team/sparrow/releases/download/v0.3.0/sparrow_0.3.0_linux_amd64.tar.gz -Lo sparrow.tar.gz
+curl https://github.com/caas-team/sparrow/releases/download/v0.3.0/sparrow_0.3.0_checksums.txt -Lo checksums.txt
 ```
 
 Extract the binary:
