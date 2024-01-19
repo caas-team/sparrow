@@ -20,8 +20,10 @@
   - [Runtime](#runtime)
   - [Target Manager](#target-manager)
   - [Check: Health](#check-health)
+    - [Example configuration](#example-configuration-1)
     - [Health Metrics](#health-metrics)
   - [Check: Latency](#check-latency)
+    - [Example configuration](#example-configuration-2)
     - [Latency Metrics](#latency-metrics)
 - [API](#api)
 - [Metrics](#metrics)
@@ -300,7 +302,8 @@ Available configuration options:
       another `sparrow` instance. Automatically used when target manager is activated otherwise use the health endpoint of
       the remote sparrow, e.g. `https://sparrow-dns.telekom.de/checks/health`.
       
-Example configuration:
+#### Example configuration
+
 ```yaml
 checks:
   health:
@@ -336,7 +339,8 @@ Available configuration options:
       another `sparrow` instance. Automatically used when the target manager is enabled otherwise
       use latency endpoint, e.g. `https://sparrow-dns.telekom.de/checks/latency`.
       
-Example configuration:
+#### Example configuration
+
 ```yaml
 checks:
   latency:
