@@ -82,7 +82,7 @@ func initConfig(cfgFile string) {
 
 	viper.SetEnvPrefix("sparrow")
 	dotreplacer := strings.NewReplacer(".", "_")
-	viper.EnvKeyReplacer(dotreplacer)
+	viper.SetEnvKeyReplacer(dotreplacer)
 	viper.AutomaticEnv()
 
 	if err := viper.ReadInConfig(); err == nil {

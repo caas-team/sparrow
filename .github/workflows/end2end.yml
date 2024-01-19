@@ -56,11 +56,13 @@ jobs:
         helm upgrade -i sparrow \
           --atomic \
           --timeout 300s \
-          --set extraArgs.loaderType=file \
-          --set extraArgs.loaderFilePath=/runconfig/checks.yaml \
-          --set image.tag=${{ steps.version.outputs.value }} \
-          --set startupConfig.name=the-sparrow.com \
-          chart
+          --set image.tag=${{ steps.version.outputs.value }}  \
+          --set sparrowConfig.name=the-sparrow.com \
+          --set sparrowConfig.loader.type=file \
+          --set sparrowConfig.loader.file.path=/config/.sparrow.yaml \
+          --set checksConfig.checks.health.interval=1s \
+          ./chart
+
     - name: Check Pods
       run: |
         kubectl get pods
