@@ -297,7 +297,7 @@ Available configuration options:
     - `timeout` (duration): Timeout for the health check.
     - `retry`
       - `count` (integer): Number of retries for the health check.
-      - `delay` (duration): Delay between retries for the health check.
+      - `delay` (duration): Initial delay between retries for the health check.
     - `targets` (list of strings): List of targets to send health probe. Needs to be a valid url. Can be
       another `sparrow` instance. Automatically used when target manager is activated otherwise use the health endpoint of
       the remote sparrow, e.g. `https://sparrow-dns.telekom.de/checks/health`.
@@ -334,7 +334,7 @@ Available configuration options:
     - `timeout` (duration): Timeout for the latency check.
     - `retry`
       - `count` (integer): Number of retries for the latency check.
-      - `delay` (duration): Delay between retries for the latency check.
+      - `delay` (duration): Initial delay between retries for the latency check.
     - `targets` (list of strings): List of targets to send latency probe. Needs to be a valid url. Can be
       another `sparrow` instance. Automatically used when the target manager is enabled otherwise
       use latency endpoint, e.g. `https://sparrow-dns.telekom.de/checks/latency`.
