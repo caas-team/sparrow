@@ -83,14 +83,13 @@ dedicated [release](https://github.com/caas-team/sparrow/releases) can be found 
 
 ### Helm
 
-Sparrow can be installed via Helm Chart. The chart is provided in the GitHub registry:
+Sparrow can be installed via Helm Chart. The chart is available in the GitHub registry:
 
 ```sh
 helm -n sparrow upgrade -i sparrow oci://ghcr.io/caas-team/charts/sparrow --version 1.0.0 --create-namespace
 ```
 
-The default settings are fine for a local running configuration. With the default Helm values, the sparrow loader uses a
-checks configuration that is provided in a ConfigMap (the `file` loader is used). The ConfigMap can be set by defining the `checksConfig` section.
+The default settings are suitable for a local configuration. With the default Helm values, the sparrow loader uses a checks configuration provided in a ConfigMap (the `file` loader is used). Define the `checksConfig` section to set the ConfigMap.
 
 To be able to load the checks configuration during the runtime dynamically, the sparrow loader needs to be set to type `http`.
 
