@@ -230,17 +230,15 @@ targetManager:
 
 #### Loader
 
-The loader component of the `sparrow` will load the [checks](#checks) configuration dynamically during runtime.
+The loader component of the `sparrow` dynamically loads the [checks](#checks) configuration during runtime.
 
-The loader can be selected by specifying the `loaderType` configuration parameter.
+The loader can be configured by specifying the `loaderType` parameter.
 
-The default type of the loader is `http`, which is able to get the checks' configuration from a remote endpoint during runtime.
+Available loaders:
 
-Available loader:
+- `http` (default): Retrieves the checks' configuration from a remote endpoint during runtime. Additional configuration parameters are set in the `loader.http` section.
 
-- `http` (default): Loads configuration from a remote endpoint. Token authentication is available. Additional
-  configuration parameters will be set in the `loader.http` section.
-- `file` (experimental): Loads configuration once from a local file. Additional configuration parameters will be set in the `loader.file` section. This is just for development purposes. The local configuration is loaded once at startup. The target manager is currently not functional in combination with this loader type.
+- `file` (experimental): Intended for development, it loads the configuration once from a local file and does not refresh after the first load. The target manager is currently not functional in combination with this loader type.
 
 ### Checks
 
