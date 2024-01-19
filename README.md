@@ -140,7 +140,7 @@ The configuration is divided into two parts. The startup configuration and the c
 configuration is a technical configuration to configure the `sparrow` instance itself.
 
 The checks configuration will be
-loaded during the runtime by the `loader` from a remote endpoint. The `loader` can be used to get the configuration local as well (type: `file`).
+loaded during runtime by the `loader` from a remote endpoint. The `loader` can be used to get the configuration local as well (type: `file`).
 This configuration consists of the checks' configuration.
 
 ### Startup
@@ -233,17 +233,17 @@ targetManager:
 
 #### Loader
 
-The loader component of the `sparrow` will load the [checks](#checks) configuration dynamically during the runtime.
+The loader component of the `sparrow` will load the [checks](#checks) configuration dynamically during runtime.
 
 The loader can be selected by specifying the `loaderType` configuration parameter.
 
-The default loader is an `http` loader that is able to get the checks configuration from a remote endpoint during the runtime.
+The default loader is an `http` loader that is able to get the checks configuration from a remote endpoint during runtime.
 
 Available loader:
 
-- `http`: The default. Loads configuration from a remote endpoint. Token authentication is available. Additional
+- `http` (default): Loads configuration from a remote endpoint. Token authentication is available. Additional
   configuration parameters will be set in the `loader.http` section.
-- `file` (experimental): Loads configuration once from a local file. Additional configuration parameters will be set in the `loader.file` section. This is just for development purposes & is currently read just once. The target manager is not supported for this setup!
+- `file` (experimental): Loads configuration once from a local file. Additional configuration parameters will be set in the `loader.file` section. This is just for development purposes. The local configuration is loaded once at startup. The target manager is currently not functional in combination with this loader type.
 
 ### Checks
 
