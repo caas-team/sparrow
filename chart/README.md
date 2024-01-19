@@ -62,6 +62,6 @@ A Helm chart to install Sparrow
 | serviceMonitor.interval | string | `"30s"` | Sets the scrape interval |
 | serviceMonitor.labels | object | `{}` | Additional label added to the service Monitor |
 | serviceMonitor.scrapeTimeout | string | `"5s"` | Sets the scrape timeout |
-| sparrowConfig | object | `{}` | startup configuration of the Sparrow see: https://github.com/caas-team/sparrow/blob/main/docs/sparrow_run.md |
+| sparrowConfig | object | `{"loader":{"path":"/config/checksConfig.yaml","type":"file"},"name":"sparrow.com"}` | startup configuration of the Sparrow see: https://github.com/caas-team/sparrow/blob/main/docs/sparrow_run.md |
 | tolerations | list | `[]` |  |
 

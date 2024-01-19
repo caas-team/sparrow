@@ -107,7 +107,11 @@ envFromSecrets:
 
 # -- startup configuration of the Sparrow
 # see: https://github.com/caas-team/sparrow/blob/main/docs/sparrow_run.md
-sparrowConfig: {}
+sparrowConfig:
+  name: sparrow.com
+  loader:
+    type: file
+    path: /config/checksConfig.yaml
 # name: the-sparrow.com
 # api:
 #   address:
