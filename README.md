@@ -52,7 +52,7 @@ The following checks are available:
 
 The `sparrow` is provided as a small binary & a container image.
 
-Please see the [release notes](https://github.com/caas-team/sparrow/releases) for to get the latest version.
+Please refer to the [release notes](https://github.com/caas-team/sparrow/releases) to get the latest version.
 
 ### Binary
 
