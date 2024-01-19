@@ -377,13 +377,11 @@ checks:
 
 ## API
 
-The `sparrow` exposes an API that does provide access to the check results. Each check will register its own endpoint
-at `/v1/metrics/{check-name}`. The API definition will be exposed at `/openapi`
+The `sparrow` exposes an API for accessing the results of various checks. Each check registers its own endpoint at `/v1/metrics/{check-name}`. The API's definition is available at `/openapi`.
 
 ## Metrics
 
-The `sparrow` is providing a `/metrics` endpoint to expose application metrics. Besides metrics about runtime
-information the sparrow is also provided `Check` specific metrics. See the Checks section for more information.
+The `sparrow` provides a `/metrics` endpoint to expose application metrics. In addition to runtime information, the sparrow provides specific metrics for each check. Refer to the [Checks](#checks) section for more detailed information.
 
 ## Code of Conduct
 
