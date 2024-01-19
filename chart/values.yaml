@@ -107,7 +107,11 @@ envFromSecrets:
 
 # -- startup configuration of the Sparrow
 # see: https://github.com/caas-team/sparrow/blob/main/docs/sparrow_run.md
-sparrowConfig: {}
+sparrowConfig:
+  name: sparrow.com
+  loader:
+    type: file
+    path: /config/checksConfig.yaml
 # name: the-sparrow.com
 # api:
 #   address:
@@ -130,10 +134,11 @@ sparrowConfig: {}
 #     token: ""
 #     baseUrl: https://gitlab.com
 #     projectId: ""
-checksConfig: {}
+checksConfig:
+  checks: {}
 # checks:
 #   health:
-#     interval: 20s
+#     interval: 15s
 #     timeout: 10s
 #     retry:
 #       count: 3
@@ -142,11 +147,11 @@ checksConfig: {}
 #       - "https://www.example.com/"
 #       - "https://www.google.com/"
 #   latency:
-#     interval: 1s
-#     timeout: 3s
+#     interval: 15s
+#     timeout: 30s
 #     retry:
 #       count: 3
-#       delay: 1s
+#       delay: 2s
 #     targets:
 #       - https://example.com/
 #       - https://google.com/
