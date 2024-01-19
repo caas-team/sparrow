@@ -261,27 +261,21 @@ checks:
 
 ### Target Manager
 
-The `sparrow` is able to manage the targets for the checks and register the `sparrow` as target on a (remote) backend.
-This is done via a `TargetManager` interface, which can be configured on startup. The available configuration options
-are listed below and can be set in the startup YAML configuration file, as shown in
-the [example configuration](#example-configuration).
+The `sparrow` can optionally manage targets for checks and register itself as a target on a (remote) backend through the `TargetManager` interface. This feature is optional; if the startup configuration does not include the `targetManager`, it will not be used. When configured, it offers various settings, detailed below, which can be set in the startup YAML configuration file as shown in the [example configuration](#example-startup-configuration).
 
-| Type                                 | Description                                                                   | Default              |
-| ------------------------------------ | ----------------------------------------------------------------------------- | -------------------- |
-| `targetManager.checkInterval`        | The interval in seconds to check for new targets.                             | `300s`               |
-| `targetManager.unhealthyThreshold`   | The threshold in seconds to mark a target as unhealthy and remove it from the |
-| state.                               | `600s`                                                                        |
-| `targetManager.registrationInterval` | The interval in seconds to register the current sparrow at the targets        |
-| backend.                             | `300s`                                                                        |
-| `targetManager.gitlab.token`         | The token to authenticate against the gitlab instance.                        | `""`                 |
-| `targetManager.gitlab.baseUrl`       | The base URL of the gitlab instance.                                          | `https://gitlab.com` |
-| `targetManager.gitlab.projectId`     | The project ID of the gitlab project to use as a remote state                 |
-| backend.                             | `""`                                                                          |
+| Type                                 | Description                                                         | Default Value        |
+| ------------------------------------ | ------------------------------------------------------------------- | -------------------- |
+| `targetManager.checkInterval`        | Interval for checking new targets.                                  | `300s`               |
+| `targetManager.unhealthyThreshold`   | Threshold for marking a target as unhealthy.                        | `600s`               |
+| `targetManager.registrationInterval` | Interval for registering the current sparrow at the target backend. | `300s`               |
+| `targetManager.gitlab.token`         | Token for authenticating with the GitLab instance.                  | `""`                 |
+| `targetManager.gitlab.baseUrl`       | Base URL of the GitLab instance.                                    | `https://gitlab.com` |
+| `targetManager.gitlab.projectId`     | Project ID for the GitLab project used as a remote state backend.   | `""`                 |
 
 Currently, only one target manager exists: the Gitlab target manager. It uses a gitlab project as the remote state
-backend. The various `sparrow` instances will
-register themselves as targets in the project. The `sparrow` instances will also check the project for new targets and
-add them to the local state. The registration is done by committing a "state" file in the main branch of the repository,
+backend. The various `sparrow` instances will register themselves as targets in the project.
+The `sparrow` instances will also check the project for new targets and add them to the local state.
+The registration is done by committing a "state" file in the main branch of the repository,
 which is named after the DNS name of the `sparrow`. The state file contains the following information:
 
 ```json
