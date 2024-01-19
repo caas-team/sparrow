@@ -134,7 +134,8 @@ sparrowConfig:
 #     token: ""
 #     baseUrl: https://gitlab.com
 #     projectId: ""
-checksConfig: {}
+checksConfig:
+  checks: {}
 # checks:
 #   health:
 #     interval: 15s
