@@ -236,7 +236,7 @@ The loader component of the `sparrow` will load the [checks](#checks) configurat
 
 The loader can be selected by specifying the `loaderType` configuration parameter.
 
-The default type of the loader is `http`, which is able to get the checks configuration from a remote endpoint during runtime.
+The default type of the loader is `http`, which is able to get the checks' configuration from a remote endpoint during runtime.
 
 Available loader:
 
