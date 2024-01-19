@@ -15,6 +15,7 @@
   - [Image](#image)
 - [Configuration](#configuration)
   - [Startup](#startup)
+    - [Example configuration](#example-configuration)
     - [Loader](#loader)
   - [Runtime](#runtime)
   - [Target Manager](#target-manager)
@@ -148,7 +149,7 @@ Every value in the config file can be set through environment variables.
 You can set a token for the http loader:
 
 ```bash
-export SPARROW_LOADER_HTTP_TOKEN="Bearer xxxxxx"
+export SPARROW_LOADER_HTTP_TOKEN="xxxxxx"
 ```
 
 Or for any other config attribute:
@@ -260,16 +261,16 @@ are listed below and can be set in the startup YAML configuration file, as shown
 the [example configuration](#example-configuration).
 
 | Type                                 | Description                                                                   | Default              |
-|--------------------------------------|-------------------------------------------------------------------------------|----------------------|
+| ------------------------------------ | ----------------------------------------------------------------------------- | -------------------- |
 | `targetManager.checkInterval`        | The interval in seconds to check for new targets.                             | `300s`               |
-| `targetManager.unhealthyThreshold`   | The threshold in seconds to mark a target as unhealthy and remove it from the 
- state.                               | `600s`                                                                        |
-| `targetManager.registrationInterval` | The interval in seconds to register the current sparrow at the targets        
- backend.                             | `300s`                                                                        |
+| `targetManager.unhealthyThreshold`   | The threshold in seconds to mark a target as unhealthy and remove it from the |
+| state.                               | `600s`                                                                        |
+| `targetManager.registrationInterval` | The interval in seconds to register the current sparrow at the targets        |
+| backend.                             | `300s`                                                                        |
 | `targetManager.gitlab.token`         | The token to authenticate against the gitlab instance.                        | `""`                 |
 | `targetManager.gitlab.baseUrl`       | The base URL of the gitlab instance.                                          | `https://gitlab.com` |
-| `targetManager.gitlab.projectId`     | The project ID of the gitlab project to use as a remote state                 
- backend.                             | `""`                                                                          |
+| `targetManager.gitlab.projectId`     | The project ID of the gitlab project to use as a remote state                 |
+| backend.                             | `""`                                                                          |
 
 Currently, only one target manager exists: the Gitlab target manager. It uses a gitlab project as the remote state
 backend. The various `sparrow` instances will
@@ -288,17 +289,29 @@ which is named after the DNS name of the `sparrow`. The state file contains the 
 
 Available configuration options:
 
-- `checks.health.targets` (list of strings): List of targets to send health probe. Needs to be a valid url. Can be
-  another `sparrow` instance. Automatically used when target manager is activated otherwise use the health endpoint of
-  the remote sparrow, e.g. `https://sparrow-dns.telekom.de/checks/health`.
-
+- `checks`
+  - `health`
+    - `interval` (duration): Interval to perform the health check.
+    - `timeout` (duration): Timeout for the health check.
+    - `retry`
+      - `count` (integer): Number of retries for the health check.
+      - `delay` (duration): Delay between retries for the health check.
+    - `targets` (list of strings): List of targets to send health probe. Needs to be a valid url. Can be
+      another `sparrow` instance. Automatically used when target manager is activated otherwise use the health endpoint of
+      the remote sparrow, e.g. `https://sparrow-dns.telekom.de/checks/health`.
+      
 Example configuration:
-
-```YAML
+```yaml
 checks:
   health:
+    interval: 10s
+    timeout: 30s
+    retry:
+      count: 3
+      delay: 1s
     targets:
-      - "https://gitlab.devops.telekom.de"
+      - https://example.com/
+      - https://google.com/
 ```
 
 #### Health Metrics
@@ -322,15 +335,13 @@ Available configuration options:
     - `targets` (list of strings): List of targets to send latency probe. Needs to be a valid url. Can be
       another `sparrow` instance. Automatically used when the target manager is enabled otherwise
       use latency endpoint, e.g. `https://sparrow-dns.telekom.de/checks/latency`.
-    - `latencyEndpoint` (boolean): Needs to be activated when the `sparrow` should expose its own latency endpoint.
-      Mandatory if another `sparrow` instance wants to perform a latency check.
-      Example configuration:
-
+      
+Example configuration:
 ```yaml
 checks:
   latency:
-    interval: 1s
-    timeout: 3s
+    interval: 10s
+    timeout: 30s
     retry:
       count: 3
       delay: 1s
@@ -386,7 +397,7 @@ The application itself and all end-user facing content will be made available in
 The following channels are available for discussions, feedback, and support requests:
 
 | Type       | Channel                                                                                                                                                |
-|------------|--------------------------------------------------------------------------------------------------------------------------------------------------------|
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Issues** | <a href="/../../issues/new/choose" title="General Discussion"><img src="https://img.shields.io/github/issues/caas-team/sparrow?style=flat-square"></a> |
 
 ## How to Contribute
