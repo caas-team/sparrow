@@ -15,15 +15,15 @@
   - [Image](#image)
 - [Configuration](#configuration)
   - [Startup](#startup)
-    - [Example configuration](#example-configuration)
+    - [Example startup configuration](#example-startup-configuration)
     - [Loader](#loader)
-  - [Runtime](#runtime)
+  - [Checks](#checks)
   - [Target Manager](#target-manager)
   - [Check: Health](#check-health)
-    - [Example configuration](#example-configuration-1)
+    - [Example configuration](#example-configuration)
     - [Health Metrics](#health-metrics)
   - [Check: Latency](#check-latency)
-    - [Example configuration](#example-configuration-2)
+    - [Example configuration](#example-configuration-1)
     - [Latency Metrics](#latency-metrics)
 - [API](#api)
 - [Metrics](#metrics)
@@ -91,19 +91,26 @@ helm -n sparrow upgrade -i sparrow oci://ghcr.io/caas-team/charts/sparrow --vers
 ```
 
 The default settings are fine for a local running configuration. With the default Helm values, the sparrow loader uses a
-runtime configuration that is provided in a ConfigMap. The ConfigMap can be set by defining the `runtimeConfig` section.
+checks configuration that is provided in a ConfigMap (the `file` loader is used). The ConfigMap can be set by defining the `checksConfig` section.
 
-To be able to load the configuration during the runtime dynamically, the sparrow loader needs to be set to type `http`.
+To be able to load the checks configuration during the runtime dynamically, the sparrow loader needs to be set to type `http`.
 
 Use the following configuration values to use a runtime configuration by the `http` loader:
 
 ```yaml
 startupConfig:
-  loaderType: http
-  loaderHttpUrl: https://url-to-runtime-config.de/api/config%2Eyaml
+  ...
+  loader:
+    type: http
+    http:
+      url: https://url-to-checks-config.de/api/config%2Eyaml
 
-runtimeConfig: { }
+checksConfig: {}
 ```
+
+Sensitive data like the token used by the `http` loader (`loader.http.token`) should not be created in the values section. A secret needs to be created manually with a defined environment variable `SPARROW_LOADER_HTTP_TOKEN`. Use the `envFromSecrets` in the `values.yaml` to make the secret accessible by the sparrow container.
+
+The same applies to the target manager token. Use the `SPARROW_TARGETMANAGER_GITLAB_TOKEN` in a secret and bind it with the `envFromSecrets` in the `values.yaml`.
 
 For all available value options see [Chart README](./chart/README.md).
 
@@ -129,9 +136,12 @@ e.g. `docker run -v /config:/config  ghcr.io/caas-team/sparrow --config /config/
 
 ## Configuration
 
-The configuration is divided into two parts. The startup configuration and the runtime configuration. The startup
-configuration is a technical configuration to configure the `sparrow` instance itself. The runtime configuration will be
-loaded by the `loader` from a remote endpoint. This configuration consists of the checks' configuration.
+The configuration is divided into two parts. The startup configuration and the checks configuration. The startup
+configuration is a technical configuration to configure the `sparrow` instance itself.
+
+The checks configuration will be
+loaded during the runtime by the `loader` from a remote endpoint. The `loader` can be used to get the configuration local as well (type: `file`).
+This configuration consists of the checks' configuration.
 
 ### Startup
 
@@ -162,12 +172,12 @@ export SPARROW_ANY_OTHER_OPTION="Some value"
 
 Just write out the path to the attribute, delimited by `_`.
 
-#### Example configuration
+#### Example startup configuration
 
 ```yaml
 # DNS sparrow is exposed on 
 name: sparrow.example.com
-# Selects and configures a loader for continuosly fetching the configuration at runtime
+# Selects and configures a loader for continuously fetching the checks configuration at runtime
 loader:
   # defines which loader to use. Options: "file | http" 
   type: http
@@ -191,7 +201,7 @@ loader:
   # The file loader is not intended for production use and does 
   # not refresh the config after reading it the first time
   file:
-    # where to read the runtime config from
+    # where to read the checks config from locally
     path: ./config.yaml
 
 # Configures the api
@@ -199,7 +209,7 @@ api:
   # Which address to expose sparrows rest api on
   address: :8080
 
-# Configures the targetmanager
+# Configures the target manager
 targetManager:
   # time between checking for new targets
   checkInterval: 1m
@@ -223,20 +233,19 @@ targetManager:
 
 #### Loader
 
-The loader component of the `sparrow` will load the [Runtime](#runtime) configuration dynamically.
+The loader component of the `sparrow` will load the [checks](#checks) configuration dynamically during the runtime.
 
 The loader can be selected by specifying the `loaderType` configuration parameter.
 
-The default loader is an `http` loader that is able to get the runtime configuration from a remote endpoint.
+The default loader is an `http` loader that is able to get the checks configuration from a remote endpoint during the runtime.
 
 Available loader:
 
 - `http`: The default. Loads configuration from a remote endpoint. Token authentication is available. Additional
-  configuration parameters have the prefix `loaderHttp`.
-- `file` (experimental): Loads configuration once from a local file. Additional configuration parameters have the
-  prefix `loaderFile`. This is just for development purposes.
+  configuration parameters will be set in the `loader.http` section.
+- `file` (experimental): Loads configuration once from a local file. Additional configuration parameters will be set in the `loader.file` section. This is just for development purposes & is currently read just once. The target manager is not supported for this setup!
 
-### Runtime
+### Checks
 
 In addition to the technical startup configuration, the `sparrow` checks' configuration can be dynamically loaded from
 an HTTP endpoint during runtime. The `loader` is capable of dynamically loading and configuring checks. You can enable,
@@ -245,7 +254,7 @@ disable, and configure checks as needed.
 For detailed information on available loader configuration options, please refer
 to [this documentation](docs/sparrow_run.md).
 
-Example format of a runtime configuration:
+Example format of a checks configuration:
 
 ```YAML
 apiVersion: 0.0.1
@@ -301,7 +310,7 @@ Available configuration options:
     - `targets` (list of strings): List of targets to send health probe. Needs to be a valid url. Can be
       another `sparrow` instance. Automatically used when target manager is activated otherwise use the health endpoint of
       the remote sparrow, e.g. `https://sparrow-dns.telekom.de/checks/health`.
-      
+
 #### Example configuration
 
 ```yaml
@@ -338,7 +347,7 @@ Available configuration options:
     - `targets` (list of strings): List of targets to send latency probe. Needs to be a valid url. Can be
       another `sparrow` instance. Automatically used when the target manager is enabled otherwise
       use latency endpoint, e.g. `https://sparrow-dns.telekom.de/checks/latency`.
-      
+
 #### Example configuration
 
 ```yaml
