@@ -134,6 +134,9 @@ sparrowConfig:
 #     token: ""
 #     baseUrl: https://gitlab.com
 #     projectId: ""
+
+# -- runtime configuration of the Sparrow
+# see: https://github.com/caas-team/sparrow?tab=readme-ov-file#runtime
 checksConfig:
   checks: {}
 # checks:
