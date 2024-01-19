@@ -108,7 +108,7 @@ startupConfig:
 checksConfig: {}
 ```
 
-Sensitive data like the token used by the `http` loader (`loader.http.token`) should not be created in the values section. A secret needs to be created manually with a defined environment variable `SPARROW_LOADER_HTTP_TOKEN`. Use the `envFromSecrets` in the `values.yaml` to make the secret accessible by the sparrow container.
+To provide the sparrow container with the token, manually create a secret containing the `SPARROW_LOADER_HTTP_TOKEN` environment variable. Utilize the `envFromSecrets` in the `values.yaml` to enable access to this secret by the sparrow container. Avoid adding sensitive data like the token used by the `http` loader (`loader.http.token`) directly in the values section.
 
 The same applies to the target manager token. Use the `SPARROW_TARGETMANAGER_GITLAB_TOKEN` in a secret and bind it with the `envFromSecrets` in the `values.yaml`.
 
@@ -139,8 +139,7 @@ e.g. `docker run -v /config:/config  ghcr.io/caas-team/sparrow --config /config/
 The configuration is divided into two parts. The startup configuration and the checks configuration. The startup
 configuration is a technical configuration to configure the `sparrow` instance itself.
 
-The checks configuration will be
-loaded during runtime by the `loader` from a remote endpoint. The `loader` can be used to get the configuration local as well (type: `file`).
+The `loader` fetches the checks configuration during runtime from a remote endpoint. For local use, you may directly load the configuration using a `file` loader.
 This configuration consists of the checks' configuration.
 
 ### Startup
@@ -237,7 +236,7 @@ The loader component of the `sparrow` will load the [checks](#checks) configurat
 
 The loader can be selected by specifying the `loaderType` configuration parameter.
 
-The default loader is a `http` loader that is able to get the checks configuration from a remote endpoint during runtime.
+The default type of the loader is `http`, which is able to get the checks configuration from a remote endpoint during runtime.
 
 Available loader:
 
