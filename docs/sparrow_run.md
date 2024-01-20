@@ -30,6 +30,7 @@ sparrow run [flags]
 
 ```
       --config string   config file (default is $HOME/.sparrow.yaml)
+  -v, --verbosity       Enable verbose logging for enhanced visibility and troubleshooting
 ```
 
 ### SEE ALSO

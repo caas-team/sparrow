@@ -36,7 +36,7 @@ func NewLogger(h ...slog.Handler) *slog.Logger {
 	if len(h) > 0 {
 		handler = h[0]
 	} else {
-		handler = slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{
+		handler = slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 			AddSource: true,
 		})
 	}

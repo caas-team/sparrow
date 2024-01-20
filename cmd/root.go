@@ -44,6 +44,7 @@ func NewCmdRoot(version string) *cobra.Command {
 	})
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.sparrow.yaml)")
+	rootCmd.PersistentFlags().BoolP("verbosity", "v", false, "Enable verbose logging for enhanced visibility and troubleshooting")
 
 	return rootCmd
 }

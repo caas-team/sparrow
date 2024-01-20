@@ -21,6 +21,8 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"log/slog"
+	"os"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -64,7 +66,14 @@ func NewCmdRun() *cobra.Command {
 // run is the entry point to start the sparrow
 func run() func(cmd *cobra.Command, args []string) error {
 	return func(cmd *cobra.Command, args []string) error {
+		v, _ := cmd.Flags().GetBool("verbosity")
 		log := logger.NewLogger()
+		if v {
+			log = logger.NewLogger(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+				AddSource: true,
+				Level:     slog.LevelDebug,
+			}))
+		}
 		ctx := logger.IntoContext(context.Background(), log)
 
 		cfg := config.NewConfig()
