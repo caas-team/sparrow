@@ -136,7 +136,7 @@ sparrowConfig:
 #     projectId: ""
 
 # -- Check configuration of the Sparrow read on runtime
-# see: https://github.com/caas-team/sparrow?tab=readme-ov-file#runtime
+# see: https://github.com/caas-team/sparrow?tab=readme-ov-file#checks
 checksConfig:
   checks: {}
 # checks:
