@@ -89,9 +89,7 @@ Sparrow can be installed via Helm Chart. The chart is available in the GitHub re
 helm -n sparrow upgrade -i sparrow oci://ghcr.io/caas-team/charts/sparrow --version 1.0.0 --create-namespace
 ```
 
-The default settings are suitable for a local configuration. With the default Helm values, the sparrow loader uses a checks configuration provided in a ConfigMap (the `file` loader is used). Define the `checksConfig` section to set the ConfigMap.
-
-To be able to load the checks configuration during the runtime dynamically, the sparrow loader needs to be set to type `http`.
+The default settings are suitable for a local configuration. With the default Helm values, the sparrow loader uses a checks' configuration provided in a ConfigMap (the `file` loader is used). Define the `checksConfig` section to set the ConfigMap.
 
 Use the following configuration values to use a runtime configuration by the `http` loader:
 
@@ -134,11 +132,8 @@ e.g. `docker run -v /config:/config  ghcr.io/caas-team/sparrow --config /config/
 
 ## Configuration
 
-The configuration is divided into two parts. The startup configuration and the checks configuration. The startup
+The configuration is divided into two parts. The startup configuration and the checks' configuration. The startup
 configuration is a technical configuration to configure the `sparrow` instance itself.
-
-The `loader` fetches the checks configuration during runtime from a remote endpoint. For local use, you may directly load the configuration using a `file` loader.
-This configuration consists of the checks' configuration.
 
 ### Startup
 
@@ -174,7 +169,7 @@ Just write out the path to the attribute, delimited by `_`.
 ```yaml
 # DNS sparrow is exposed on 
 name: sparrow.example.com
-# Selects and configures a loader for continuously fetching the checks configuration at runtime
+# Selects and configures a loader to continuously fetch the checks' configuration at runtime
 loader:
   # defines which loader to use. Options: "file | http" 
   type: http
@@ -198,7 +193,7 @@ loader:
   # The file loader is not intended for production use and does 
   # not refresh the config after reading it the first time
   file:
-    # where to read the checks config from locally
+    # location of the file in the local filesystem
     path: ./config.yaml
 
 # Configures the api
@@ -230,9 +225,9 @@ targetManager:
 
 #### Loader
 
-The loader component of the `sparrow` dynamically loads the [checks](#checks) configuration during runtime.
+The loader component of the `sparrow` dynamically loads the [checks](#checks)' configuration during runtime.
 
-The loader can be configured by specifying the `loaderType` parameter.
+You select which loader is used by setting the `loaderType` parameter.
 
 Available loaders:
 
@@ -242,14 +237,13 @@ Available loaders:
 
 ### Checks
 
-In addition to the technical startup configuration, the `sparrow` checks' configuration can be dynamically loaded from
-an HTTP endpoint during runtime. The `loader` is capable of dynamically loading and configuring checks. You can enable,
-disable, and configure checks as needed.
+In addition to the technical startup configuration, the `sparrow` checks' configuration can be dynamically loaded from an HTTP endpoint during runtime.
+For local use, you may directly load the configuration using a `file` loader. The `loader` is capable of dynamically loading and configuring checks.
 
 For detailed information on available loader configuration options, please refer
 to [this documentation](docs/sparrow_run.md).
 
-Example format of a checks configuration:
+Example format of a configuration file for the checks:
 
 ```YAML
 apiVersion: 0.0.1
@@ -297,8 +291,7 @@ Available configuration options:
       - `count` (integer): Number of retries for the health check.
       - `delay` (duration): Initial delay between retries for the health check.
     - `targets` (list of strings): List of targets to send health probe. Needs to be a valid url. Can be
-      another `sparrow` instance. Automatically used when target manager is activated otherwise use the health endpoint of
-      the remote sparrow, e.g. `https://sparrow-dns.telekom.de/checks/health`.
+      another `sparrow` instance. Automatically updated when a targetManager is configured.
 
 #### Example configuration
 
@@ -334,8 +327,7 @@ Available configuration options:
       - `count` (integer): Number of retries for the latency check.
       - `delay` (duration): Initial delay between retries for the latency check.
     - `targets` (list of strings): List of targets to send latency probe. Needs to be a valid url. Can be
-      another `sparrow` instance. Automatically used when the target manager is enabled otherwise
-      use latency endpoint, e.g. `https://sparrow-dns.telekom.de/checks/latency`.
+      another `sparrow` instance. Automatically updated when a targetManager is configured.
 
 #### Example configuration
 
