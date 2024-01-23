@@ -290,7 +290,7 @@ Available configuration options:
     - `retry`
       - `count` (integer): Number of retries for the health check.
       - `delay` (duration): Initial delay between retries for the health check.
-    - `targets` (list of strings): List of targets to send health probe. Needs to be a valid url. Can be
+    - `targets` (list of strings): List of targets to send health probe. Needs to be a valid URL. Can be
       another `sparrow` instance. Automatically updated when a targetManager is configured.
 
 #### Example configuration
