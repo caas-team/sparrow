@@ -32,7 +32,7 @@ type RetryConfig struct {
 	Delay time.Duration `yaml:"delay"`
 }
 
-// Effector will be the function that is called by the Retry function
+// Effector will be the function called by the Retry function
 type Effector func(context.Context) error
 
 // Retry will retry the run the effector function in an exponential backoff

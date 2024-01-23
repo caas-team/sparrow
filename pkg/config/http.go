@@ -91,7 +91,6 @@ func (hl *HttpLoader) Run(ctx context.Context) error {
 // GetRuntimeConfig gets the remote runtime configuration
 func (hl *HttpLoader) GetRuntimeConfig(ctx context.Context) (*RuntimeConfig, error) {
 	log := logger.FromContext(ctx).With("url", hl.cfg.Loader.Http.Url)
-
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, hl.cfg.Loader.Http.Url, http.NoBody)
 	if err != nil {
 		log.Error("Could not create http GET request", "error", err.Error())

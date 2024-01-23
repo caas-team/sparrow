@@ -257,3 +257,144 @@ func TestHttpLoader_Run(t *testing.T) {
 		})
 	}
 }
+
+func TestHttpLoader_Shutdown(t *testing.T) {
+	tests := []struct {
+		name string
+	}{
+		{
+			name: "shutdown",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			hl := &HttpLoader{
+				done: make(chan struct{}, 1),
+			}
+			hl.Shutdown(context.Background())
+
+			// check if the signal is sent
+			select {
+			case <-hl.done:
+				t.Log("Shutdown signal received")
+			default:
+				t.Error("Shutdown signal not received")
+			}
+		})
+	}
+}
+
+// TestHttpLoader_Run_config_sent_to_channel tests if the config is sent to the channel
+// when the Run method is called and the remote endpoint returns a valid response
+func TestHttpLoader_Run_config_sent_to_channel(t *testing.T) {
+	httpmock.Activate()
+
+	expected := map[string]any{
+		"testCheck1": map[string]any{
+			"enabled": true,
+		},
+	}
+	resp, err := httpmock.NewJsonResponder(200, &RuntimeConfig{
+		Checks: expected,
+	})
+	if err != nil {
+		t.Fatalf("Failed creating json responder: %v", err)
+	}
+
+	httpmock.RegisterResponder("GET", "https://api.test.com/test", resp)
+
+	cCfgChecks := make(chan map[string]any, 1)
+
+	hl := &HttpLoader{
+		cfg: &Config{
+			Loader: LoaderConfig{
+				Type:     "http",
+				Interval: time.Millisecond * 500,
+				Http: HttpLoaderConfig{
+					Url: "https://api.test.com/test",
+					RetryCfg: helper.RetryConfig{
+						Count: 2,
+						Delay: 100 * time.Millisecond,
+					},
+				},
+			},
+		},
+		cCfgChecks: cCfgChecks,
+		client:     http.DefaultClient,
+		done:       make(chan struct{}, 1),
+	}
+
+	ctx := context.Background()
+	go func() {
+		err := hl.Run(ctx)
+		if err != nil {
+			t.Errorf("HttpLoader.Run() error = %v", err)
+		}
+	}()
+
+	// check if the config is sent to the channel
+	select {
+	case <-time.After(time.Second):
+		t.Error("Config not sent to channel")
+	case c := <-cCfgChecks:
+		if !reflect.DeepEqual(c, expected) {
+			t.Errorf("Config sent to channel is not equal to expected config: got %v, want %v", c, expected)
+		}
+	}
+
+	hl.Shutdown(ctx)
+	httpmock.DeactivateAndReset()
+}
+
+// TestHttpLoader_Run_config_not_sent_to_channel tests if the config is not sent to the channel
+// when the Run method is called and the remote endpoint returns an invalid response
+func TestHttpLoader_Run_config_not_sent_to_channel(t *testing.T) {
+	httpmock.Activate()
+
+	resp, err := httpmock.NewJsonResponder(500, nil)
+	if err != nil {
+		t.Fatalf("Failed creating json responder: %v", err)
+	}
+
+	httpmock.RegisterResponder("GET", "https://api.test.com/test", resp)
+
+	cCfgChecks := make(chan map[string]any, 1)
+
+	hl := &HttpLoader{
+		cfg: &Config{
+			Loader: LoaderConfig{
+				Type:     "http",
+				Interval: time.Millisecond * 500,
+				Http: HttpLoaderConfig{
+					Url: "https://api.test.com/test",
+					RetryCfg: helper.RetryConfig{
+						Count: 2,
+						Delay: 100 * time.Millisecond,
+					},
+				},
+			},
+		},
+		cCfgChecks: cCfgChecks,
+		client:     http.DefaultClient,
+		done:       make(chan struct{}, 1),
+	}
+
+	ctx := context.Background()
+	go func() {
+		err := hl.Run(ctx)
+		if err != nil {
+			t.Errorf("HttpLoader.Run() error = %v", err)
+		}
+	}()
+
+	// check if the config is sent to the channel
+	select {
+	case <-time.After(time.Second):
+		t.Log("Config not sent to channel")
+	case c := <-cCfgChecks:
+		t.Errorf("Config sent to channel: %v", c)
+	}
+
+	hl.Shutdown(ctx)
+	httpmock.DeactivateAndReset()
+}
