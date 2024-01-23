@@ -40,6 +40,8 @@ type TargetManagerConfig struct {
 type Config struct {
 	// SparrowName is the DNS name of the sparrow
 	SparrowName string `yaml:"name" mapstructure:"name"`
+	// Verbosity toggles verbose logging
+	Verbosity bool `yaml:"verbosity" mapstructure:"verbosity"`
 	// Checks is a map of configurations for the checks
 	Checks        map[string]any      `yaml:"checks" mapstructure:"checks"`
 	Loader        LoaderConfig        `yaml:"loader" mapstructure:"loader"`

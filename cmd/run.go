@@ -51,6 +51,7 @@ func NewCmdRun() *cobra.Command {
 
 	NewFlag("api.address", "apiAddress").String().Bind(cmd, ":8080", "api: The address the server is listening on")
 	NewFlag("name", "sparrowName").String().Bind(cmd, "", "The DNS name of the sparrow")
+	NewFlag("verbosity", "verbosity").BoolP("v").Bind(cmd, false, "Enable verbose logging for enhanced visibility and troubleshooting")
 	NewFlag("loader.type", "loaderType").StringP("l").Bind(cmd, "http", "Defines the loader type that will load the checks configuration during the runtime. The fallback is the fileLoader")
 	NewFlag("loader.interval", "loaderInterval").Duration().Bind(cmd, defaultLoaderInterval, "defines the interval the loader reloads the configuration in seconds")
 	NewFlag("loader.http.url", "loaderHttpUrl").String().Bind(cmd, "", "http loader: The url where to get the remote configuration")
@@ -66,22 +67,20 @@ func NewCmdRun() *cobra.Command {
 // run is the entry point to start the sparrow
 func run() func(cmd *cobra.Command, args []string) error {
 	return func(cmd *cobra.Command, args []string) error {
-		v, _ := cmd.Flags().GetBool("verbosity")
+		cfg := config.NewConfig()
+		err := viper.Unmarshal(cfg)
+		if err != nil {
+			return fmt.Errorf("failed to parse config: %w", err)
+		}
+
 		log := logger.NewLogger()
-		if v {
+		if cfg.Verbosity {
 			log = logger.NewLogger(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 				AddSource: true,
 				Level:     slog.LevelDebug,
 			}))
 		}
 		ctx := logger.IntoContext(context.Background(), log)
-
-		cfg := config.NewConfig()
-
-		err := viper.Unmarshal(cfg)
-		if err != nil {
-			return fmt.Errorf("failed to parse config: %w", err)
-		}
 
 		if err = cfg.Validate(ctx); err != nil {
 			return fmt.Errorf("error while validating the config: %w", err)

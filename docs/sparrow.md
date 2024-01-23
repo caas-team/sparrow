@@ -12,7 +12,6 @@ The check results are exposed via an API.
 ```
       --config string   config file (default is $HOME/.sparrow.yaml)
   -h, --help            help for sparrow
-  -v, --verbosity       Enable verbose logging for enhanced visibility and troubleshooting
 ```
 
 ### SEE ALSO
