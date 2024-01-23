@@ -33,6 +33,7 @@ var _ Loader = (*FileLoader)(nil)
 type FileLoader struct {
 	path string
 	c    chan<- map[string]any
+	done chan struct{}
 }
 
 func NewFileLoader(cfg *Config, cCfgChecks chan<- map[string]any) *FileLoader {
@@ -61,4 +62,13 @@ func (f *FileLoader) Run(ctx context.Context) error {
 
 	f.c <- cfg.Checks
 	return nil
+}
+
+func (f *FileLoader) Shutdown(ctx context.Context) {
+	log := logger.FromContext(ctx)
+	select {
+	case f.done <- struct{}{}:
+		log.Debug("Sending signal to shut down file loader")
+	default:
+	}
 }

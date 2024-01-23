@@ -25,8 +25,11 @@ import (
 	"net/http"
 	"os"
 	"reflect"
+	"sync"
 	"testing"
 	"time"
+
+	"github.com/caas-team/sparrow/internal/helper"
 
 	"github.com/caas-team/sparrow/internal/logger"
 	"github.com/jarcoal/httpmock"
@@ -157,6 +160,99 @@ func TestHttpLoader_GetRuntimeConfig(t *testing.T) {
 			}
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("HttpLoader.GetRuntimeConfig() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+// TestHttpLoader_Run tests the Run method of the HttpLoader
+// The test runs the Run method for a while
+// and then shuts it down via a goroutine
+func TestHttpLoader_Run(t *testing.T) {
+	tests := []struct {
+		name     string
+		response *RuntimeConfig
+		code     int
+		wantErr  bool
+	}{
+		{
+			name:     "non-200 response",
+			response: nil,
+			code:     500,
+			wantErr:  false,
+		},
+		{
+			name: "nil checks",
+			response: &RuntimeConfig{
+				Checks: nil,
+			},
+			code: 200,
+		},
+		{
+			name: "empty config",
+			response: &RuntimeConfig{
+				Checks: map[string]any{},
+			},
+			code: 200,
+		},
+		{
+			name: "config with checks",
+			response: &RuntimeConfig{
+				Checks: map[string]any{
+					"testCheck1": map[string]any{
+						"enabled": true,
+					},
+				},
+			},
+			code: 200,
+		},
+	}
+
+	httpmock.Activate()
+	t.Cleanup(httpmock.DeactivateAndReset)
+
+	for _, tt := range tests {
+		resp, err := httpmock.NewJsonResponder(tt.code, tt.response)
+		if err != nil {
+			t.Fatalf("Failed creating json responder: %v", err)
+		}
+
+		httpmock.RegisterResponder("GET", "https://api.test.com/test", resp)
+
+		t.Run(tt.name, func(t *testing.T) {
+			hl := &HttpLoader{
+				cfg: &Config{
+					Loader: LoaderConfig{
+						Type:     "http",
+						Interval: time.Millisecond * 500,
+						Http: HttpLoaderConfig{
+							Url: "https://api.test.com/test",
+							RetryCfg: helper.RetryConfig{
+								Count: 3,
+								Delay: 100 * time.Millisecond,
+							},
+						},
+					},
+				},
+				cCfgChecks: make(chan<- map[string]any, 1),
+				client:     http.DefaultClient,
+				done:       make(chan struct{}, 1),
+			}
+
+			// shutdown routine
+			ctx := context.Background()
+			var wg sync.WaitGroup
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				time.Sleep(time.Millisecond * 600)
+				t.Log("Shutting down the Run method")
+				hl.Shutdown(ctx)
+			}()
+
+			err := hl.Run(ctx)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("HttpLoader.Run() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}
