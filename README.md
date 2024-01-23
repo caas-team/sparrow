@@ -164,6 +164,8 @@ export SPARROW_ANY_OTHER_OPTION="Some value"
 
 Just write out the path to the attribute, delimited by `_`.
 
+To be able to load the configuration for the [checks](#checks) during runtime dynamically, the sparrow loader needs to be set to type `http`.
+
 #### Example startup configuration
 
 ```yaml
