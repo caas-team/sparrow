@@ -65,6 +65,8 @@ func (f *FileLoader) Run(ctx context.Context) error {
 }
 
 func (f *FileLoader) Shutdown(ctx context.Context) {
+	// proper implementation must still be done
+	// https://github.com/caas-team/sparrow/issues/85
 	log := logger.FromContext(ctx)
 	select {
 	case f.done <- struct{}{}:
