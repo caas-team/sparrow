@@ -91,7 +91,7 @@ tolerations: []
 
 affinity: {}
 
-# -- extra command line start parameters
+# -- Extra command line start parameters
 # see: https://github.com/caas-team/sparrow/blob/main/docs/sparrow_run.md
 extraArgs: {}
 
@@ -105,7 +105,7 @@ envFromSecrets:
   #     secretName: sparrow-auth
   #     key: SPARROW_LOADER_HTTP_TOKEN
 
-# -- startup configuration of the Sparrow
+# -- Sparrow configuration read on startup
 # see: https://github.com/caas-team/sparrow/blob/main/docs/sparrow_run.md
 sparrowConfig:
   name: sparrow.com
@@ -134,6 +134,9 @@ sparrowConfig:
 #     token: ""
 #     baseUrl: https://gitlab.com
 #     projectId: ""
+
+# -- Check configuration of the Sparrow read on runtime
+# see: https://github.com/caas-team/sparrow?tab=readme-ov-file#checks
 checksConfig:
   checks: {}
 # checks:
