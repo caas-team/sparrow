@@ -20,10 +20,10 @@ A Helm chart to install Sparrow
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | affinity | object | `{}` |  |
-| checksConfig.checks | object | `{}` |  |
+| checksConfig | object | `{"checks":{}}` | Check configuration of the Sparrow read on runtime see: https://github.com/caas-team/sparrow?tab=readme-ov-file#checks |
 | env | object | `{}` |  |
 | envFromSecrets | list | `[]` | extra environment variables Allows you to set environment variables through secrets you defined outside of the helm chart Useful for sensitive information like the http loader token |
-| extraArgs | object | `{}` | extra command line start parameters see: https://github.com/caas-team/sparrow/blob/main/docs/sparrow_run.md |
+| extraArgs | object | `{}` | Extra command line start parameters see: https://github.com/caas-team/sparrow/blob/main/docs/sparrow_run.md |
 | fullnameOverride | string | `""` |  |
 | image.pullPolicy | string | `"IfNotPresent"` |  |
 | image.repository | string | `"ghcr.io/caas-team/sparrow"` |  |
@@ -62,6 +62,6 @@ A Helm chart to install Sparrow
 | serviceMonitor.interval | string | `"30s"` | Sets the scrape interval |
 | serviceMonitor.labels | object | `{}` | Additional label added to the service Monitor |
 | serviceMonitor.scrapeTimeout | string | `"5s"` | Sets the scrape timeout |
-| sparrowConfig | object | `{"loader":{"path":"/config/checksConfig.yaml","type":"file"},"name":"sparrow.com"}` | startup configuration of the Sparrow see: https://github.com/caas-team/sparrow/blob/main/docs/sparrow_run.md |
+| sparrowConfig | object | `{"loader":{"path":"/config/checksConfig.yaml","type":"file"},"name":"sparrow.com"}` | Sparrow configuration read on startup see: https://github.com/caas-team/sparrow/blob/main/docs/sparrow_run.md |
 | tolerations | list | `[]` |  |
 

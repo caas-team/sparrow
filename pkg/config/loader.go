@@ -23,7 +23,14 @@ import (
 )
 
 type Loader interface {
+	// Run starts the loader routine.
+	// The loader should be able
+	// to handle all errors by itself and retry if necessary.
+	// If the context is canceled,
+	// the Run method returns an error.
 	Run(context.Context) error
+	// Shutdown stops the loader routine.
+	Shutdown(context.Context)
 }
 
 // NewLoader Get a new typed runtime configuration loader

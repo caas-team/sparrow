@@ -33,6 +33,7 @@ import (
 type HttpLoader struct {
 	cfg        *Config
 	cCfgChecks chan<- map[string]any
+	done       chan struct{}
 	client     *http.Client
 }
 
@@ -56,12 +57,18 @@ func (hl *HttpLoader) Run(ctx context.Context) error {
 	defer cancel()
 	log := logger.FromContext(ctx)
 	var runtimeCfg *RuntimeConfig
+	tick := time.NewTicker(hl.cfg.Loader.Interval)
+	defer tick.Stop()
 
 	for {
 		select {
+		case <-hl.done:
+			log.Info("HTTP Loader terminated")
+			return nil
+
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-time.After(hl.cfg.Loader.Interval):
+		case <-tick.C:
 			getConfigRetry := helper.Retry(func(ctx context.Context) error {
 				var err error
 				runtimeCfg, err = hl.GetRuntimeConfig(ctx)
@@ -70,9 +77,12 @@ func (hl *HttpLoader) Run(ctx context.Context) error {
 
 			if err := getConfigRetry(ctx); err != nil {
 				log.Warn("Could not get remote runtime configuration", "error", err)
+				tick.Reset(hl.cfg.Loader.Interval)
+				continue
 			}
 
 			log.Info("Successfully got remote runtime configuration")
+			tick.Reset(hl.cfg.Loader.Interval)
 			hl.cCfgChecks <- runtimeCfg.Checks
 		}
 	}
@@ -81,7 +91,6 @@ func (hl *HttpLoader) Run(ctx context.Context) error {
 // GetRuntimeConfig gets the remote runtime configuration
 func (hl *HttpLoader) GetRuntimeConfig(ctx context.Context) (*RuntimeConfig, error) {
 	log := logger.FromContext(ctx).With("url", hl.cfg.Loader.Http.Url)
-
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, hl.cfg.Loader.Http.Url, http.NoBody)
 	if err != nil {
 		log.Error("Could not create http GET request", "error", err.Error())
@@ -122,4 +131,15 @@ func (hl *HttpLoader) GetRuntimeConfig(ctx context.Context) (*RuntimeConfig, err
 	}
 
 	return runtimeCfg, nil
+}
+
+// Shutdown stops the loader
+func (hl *HttpLoader) Shutdown(ctx context.Context) {
+	log := logger.FromContext(ctx)
+	// make sure that only one shutdown is processed
+	select {
+	case hl.done <- struct{}{}:
+		log.Info("Sent shutdown signal")
+	default:
+	}
 }

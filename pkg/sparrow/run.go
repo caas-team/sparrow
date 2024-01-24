@@ -322,6 +322,7 @@ func (s *Sparrow) shutdown(ctx context.Context) {
 			errS = s.tarMan.Shutdown(ctx)
 		}
 		errA := s.shutdownAPI(ctx)
+		s.loader.Shutdown(ctx)
 		if errS != nil || errA != nil {
 			log.Error("Failed to shutdown gracefully", "contextError", errC, "apiError", errA, "targetError", errS)
 		}

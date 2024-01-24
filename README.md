@@ -15,12 +15,15 @@
   - [Image](#image)
 - [Configuration](#configuration)
   - [Startup](#startup)
+    - [Example startup configuration](#example-startup-configuration)
     - [Loader](#loader)
-  - [Runtime](#runtime)
+  - [Checks](#checks)
   - [Target Manager](#target-manager)
   - [Check: Health](#check-health)
+    - [Example configuration](#example-configuration)
     - [Health Metrics](#health-metrics)
   - [Check: Latency](#check-latency)
+    - [Example configuration](#example-configuration-1)
     - [Latency Metrics](#latency-metrics)
 - [API](#api)
 - [Metrics](#metrics)
@@ -49,23 +52,22 @@ The following checks are available:
 
 The `sparrow` is provided as a small binary & a container image.
 
-Please see the [release notes](https://github.com/caas-team/sparrow/releases) for to get the latest version.
+Please refer to the [release notes](https://github.com/caas-team/sparrow/releases) to get the latest version.
 
 ### Binary
 
-The binary is available for several distributions. Currently, the binary needs to be installed from a provided bundle or
-source.
+The binary is available for several distributions. To install the binary, use a provided bundle or source. Replace `${RELEASE_VERSION}` with the desired release version:
 
 ```sh
 curl https://github.com/caas-team/sparrow/releases/download/v${RELEASE_VERSION}/sparrow_${RELEASE_VERSION}_linux_amd64.tar.gz -Lo sparrow.tar.gz
 curl https://github.com/caas-team/sparrow/releases/download/v${RELEASE_VERSION}/sparrow_${RELEASE_VERSION}_checksums.txt -Lo checksums.txt
 ```
 
-For example release `v0.0.1`:
+For example, for release `v0.3.0`:
 
 ```sh
-curl https://github.com/caas-team/sparrow/releases/download/v0.0.1/sparrow_0.0.1_linux_amd64.tar.gz -Lo sparrow.tar.gz
-curl https://github.com/caas-team/sparrow/releases/download/v0.0.1/sparrow_0.0.1_checksums.txt -Lo checksums.txt
+curl https://github.com/caas-team/sparrow/releases/download/v0.3.0/sparrow_0.3.0_linux_amd64.tar.gz -Lo sparrow.tar.gz
+curl https://github.com/caas-team/sparrow/releases/download/v0.3.0/sparrow_0.3.0_checksums.txt -Lo checksums.txt
 ```
 
 Extract the binary:
@@ -81,26 +83,30 @@ dedicated [release](https://github.com/caas-team/sparrow/releases) can be found 
 
 ### Helm
 
-Sparrow can be installed via Helm Chart. The chart is provided in the GitHub registry:
+Sparrow can be installed via Helm Chart. The chart is available in the GitHub registry:
 
 ```sh
 helm -n sparrow upgrade -i sparrow oci://ghcr.io/caas-team/charts/sparrow --version 1.0.0 --create-namespace
 ```
 
-The default settings are fine for a local running configuration. With the default Helm values, the sparrow loader uses a
-runtime configuration that is provided in a ConfigMap. The ConfigMap can be set by defining the `runtimeConfig` section.
-
-To be able to load the configuration during the runtime dynamically, the sparrow loader needs to be set to type `http`.
+The default settings are suitable for a local configuration. With the default Helm values, the sparrow loader uses a checks' configuration provided in a ConfigMap (the `file` loader is used). Define the `checksConfig` section to set the ConfigMap.
 
 Use the following configuration values to use a runtime configuration by the `http` loader:
 
 ```yaml
 startupConfig:
-  loaderType: http
-  loaderHttpUrl: https://url-to-runtime-config.de/api/config%2Eyaml
+  ...
+  loader:
+    type: http
+    http:
+      url: https://url-to-checks-config.de/api/config%2Eyaml
 
-runtimeConfig: { }
+checksConfig: {}
 ```
+
+To provide the sparrow container with the token, manually create a secret containing the `SPARROW_LOADER_HTTP_TOKEN` environment variable. Utilize the `envFromSecrets` in the `values.yaml` to enable access to this secret by the sparrow container. Avoid adding sensitive data like the token used by the `http` loader (`loader.http.token`) directly in the values section.
+
+The same applies to the target manager token. Use the `SPARROW_TARGETMANAGER_GITLAB_TOKEN` in a secret and bind it with the `envFromSecrets` in the `values.yaml`.
 
 For all available value options see [Chart README](./chart/README.md).
 
@@ -126,9 +132,8 @@ e.g. `docker run -v /config:/config  ghcr.io/caas-team/sparrow --config /config/
 
 ## Configuration
 
-The configuration is divided into two parts. The startup configuration and the runtime configuration. The startup
-configuration is a technical configuration to configure the `sparrow` instance itself. The runtime configuration will be
-loaded by the `loader` from a remote endpoint. This configuration consists of the checks' configuration.
+The configuration is divided into two parts. The startup configuration and the checks' configuration. The startup
+configuration is a technical configuration to configure the `sparrow` instance itself.
 
 ### Startup
 
@@ -148,7 +153,7 @@ Every value in the config file can be set through environment variables.
 You can set a token for the http loader:
 
 ```bash
-export SPARROW_LOADER_HTTP_TOKEN="Bearer xxxxxx"
+export SPARROW_LOADER_HTTP_TOKEN="xxxxxx"
 ```
 
 Or for any other config attribute:
@@ -159,12 +164,14 @@ export SPARROW_ANY_OTHER_OPTION="Some value"
 
 Just write out the path to the attribute, delimited by `_`.
 
-#### Example configuration
+To be able to load the configuration for the [checks](#checks) during runtime dynamically, the sparrow loader needs to be set to type `http`.
+
+#### Example startup configuration
 
 ```yaml
 # DNS sparrow is exposed on 
 name: sparrow.example.com
-# Selects and configures a loader for continuosly fetching the configuration at runtime
+# Selects and configures a loader to continuously fetch the checks' configuration at runtime
 loader:
   # defines which loader to use. Options: "file | http" 
   type: http
@@ -188,7 +195,7 @@ loader:
   # The file loader is not intended for production use and does 
   # not refresh the config after reading it the first time
   file:
-    # where to read the runtime config from
+    # location of the file in the local filesystem
     path: ./config.yaml
 
 # Configures the api
@@ -196,7 +203,7 @@ api:
   # Which address to expose sparrows rest api on
   address: :8080
 
-# Configures the targetmanager
+# Configures the target manager
 targetManager:
   # time between checking for new targets
   checkInterval: 1m
@@ -220,29 +227,25 @@ targetManager:
 
 #### Loader
 
-The loader component of the `sparrow` will load the [Runtime](#runtime) configuration dynamically.
+The loader component of the `sparrow` dynamically loads the [checks](#checks)' configuration during runtime.
 
-The loader can be selected by specifying the `loaderType` configuration parameter.
+You select which loader is used by setting the `loaderType` parameter.
 
-The default loader is an `http` loader that is able to get the runtime configuration from a remote endpoint.
+Available loaders:
 
-Available loader:
+- `http` (default): Retrieves the checks' configuration from a remote endpoint during runtime. Additional configuration parameters are set in the `loader.http` section.
 
-- `http`: The default. Loads configuration from a remote endpoint. Token authentication is available. Additional
-  configuration parameters have the prefix `loaderHttp`.
-- `file` (experimental): Loads configuration once from a local file. Additional configuration parameters have the
-  prefix `loaderFile`. This is just for development purposes.
+- `file` (experimental): Intended for development, it loads the configuration once from a local file and does not refresh after the first load. The target manager is currently not functional in combination with this loader type.
 
-### Runtime
+### Checks
 
-In addition to the technical startup configuration, the `sparrow` checks' configuration can be dynamically loaded from
-an HTTP endpoint during runtime. The `loader` is capable of dynamically loading and configuring checks. You can enable,
-disable, and configure checks as needed.
+In addition to the technical startup configuration, the `sparrow` checks' configuration can be dynamically loaded from an HTTP endpoint during runtime.
+For local use, you may directly load the configuration using a `file` loader. The `loader` is capable of dynamically loading and configuring checks.
 
 For detailed information on available loader configuration options, please refer
 to [this documentation](docs/sparrow_run.md).
 
-Example format of a runtime configuration:
+Example format of a configuration file for the checks:
 
 ```YAML
 apiVersion: 0.0.1
@@ -254,27 +257,21 @@ checks:
 
 ### Target Manager
 
-The `sparrow` is able to manage the targets for the checks and register the `sparrow` as target on a (remote) backend.
-This is done via a `TargetManager` interface, which can be configured on startup. The available configuration options
-are listed below and can be set in the startup YAML configuration file, as shown in
-the [example configuration](#example-configuration).
+The `sparrow` can optionally manage targets for checks and register itself as a target on a (remote) backend through the `TargetManager` interface. This feature is optional; if the startup configuration does not include the `targetManager`, it will not be used. When configured, it offers various settings, detailed below, which can be set in the startup YAML configuration file as shown in the [example configuration](#example-startup-configuration).
 
-| Type                                 | Description                                                                   | Default              |
-|--------------------------------------|-------------------------------------------------------------------------------|----------------------|
-| `targetManager.checkInterval`        | The interval in seconds to check for new targets.                             | `300s`               |
-| `targetManager.unhealthyThreshold`   | The threshold in seconds to mark a target as unhealthy and remove it from the 
- state.                               | `600s`                                                                        |
-| `targetManager.registrationInterval` | The interval in seconds to register the current sparrow at the targets        
- backend.                             | `300s`                                                                        |
-| `targetManager.gitlab.token`         | The token to authenticate against the gitlab instance.                        | `""`                 |
-| `targetManager.gitlab.baseUrl`       | The base URL of the gitlab instance.                                          | `https://gitlab.com` |
-| `targetManager.gitlab.projectId`     | The project ID of the gitlab project to use as a remote state                 
- backend.                             | `""`                                                                          |
+| Type                                 | Description                                                         | Default Value        |
+| ------------------------------------ | ------------------------------------------------------------------- | -------------------- |
+| `targetManager.checkInterval`        | Interval for checking new targets.                                  | `300s`               |
+| `targetManager.unhealthyThreshold`   | Threshold for marking a target as unhealthy.                        | `600s`               |
+| `targetManager.registrationInterval` | Interval for registering the current sparrow at the target backend. | `300s`               |
+| `targetManager.gitlab.token`         | Token for authenticating with the GitLab instance.                  | `""`                 |
+| `targetManager.gitlab.baseUrl`       | Base URL of the GitLab instance.                                    | `https://gitlab.com` |
+| `targetManager.gitlab.projectId`     | Project ID for the GitLab project used as a remote state backend.   | `""`                 |
 
 Currently, only one target manager exists: the Gitlab target manager. It uses a gitlab project as the remote state
-backend. The various `sparrow` instances will
-register themselves as targets in the project. The `sparrow` instances will also check the project for new targets and
-add them to the local state. The registration is done by committing a "state" file in the main branch of the repository,
+backend. The various `sparrow` instances will register themselves as targets in the project.
+The `sparrow` instances will also check the project for new targets and add them to the local state.
+The registration is done by committing a "state" file in the main branch of the repository,
 which is named after the DNS name of the `sparrow`. The state file contains the following information:
 
 ```json
@@ -288,17 +285,29 @@ which is named after the DNS name of the `sparrow`. The state file contains the 
 
 Available configuration options:
 
-- `checks.health.targets` (list of strings): List of targets to send health probe. Needs to be a valid url. Can be
-  another `sparrow` instance. Automatically used when target manager is activated otherwise use the health endpoint of
-  the remote sparrow, e.g. `https://sparrow-dns.telekom.de/checks/health`.
+- `checks`
+  - `health`
+    - `interval` (duration): Interval to perform the health check.
+    - `timeout` (duration): Timeout for the health check.
+    - `retry`
+      - `count` (integer): Number of retries for the health check.
+      - `delay` (duration): Initial delay between retries for the health check.
+    - `targets` (list of strings): List of targets to send health probe. Needs to be a valid URL. Can be
+      another `sparrow` instance. Automatically updated when a targetManager is configured.
 
-Example configuration:
+#### Example configuration
 
-```YAML
+```yaml
 checks:
   health:
+    interval: 10s
+    timeout: 30s
+    retry:
+      count: 3
+      delay: 1s
     targets:
-      - "https://gitlab.devops.telekom.de"
+      - https://example.com/
+      - https://google.com/
 ```
 
 #### Health Metrics
@@ -318,19 +327,17 @@ Available configuration options:
     - `timeout` (duration): Timeout for the latency check.
     - `retry`
       - `count` (integer): Number of retries for the latency check.
-      - `delay` (duration): Delay between retries for the latency check.
-    - `targets` (list of strings): List of targets to send latency probe. Needs to be a valid url. Can be
-      another `sparrow` instance. Automatically used when the target manager is enabled otherwise
-      use latency endpoint, e.g. `https://sparrow-dns.telekom.de/checks/latency`.
-    - `latencyEndpoint` (boolean): Needs to be activated when the `sparrow` should expose its own latency endpoint.
-      Mandatory if another `sparrow` instance wants to perform a latency check.
-      Example configuration:
+      - `delay` (duration): Initial delay between retries for the latency check.
+    - `targets` (list of strings): List of targets to send latency probe. Needs to be a valid URL. Can be
+      another `sparrow` instance. Automatically updated when a targetManager is configured.
+
+#### Example configuration
 
 ```yaml
 checks:
   latency:
-    interval: 1s
-    timeout: 3s
+    interval: 10s
+    timeout: 30s
     retry:
       count: 3
       delay: 1s
@@ -358,13 +365,11 @@ checks:
 
 ## API
 
-The `sparrow` exposes an API that does provide access to the check results. Each check will register its own endpoint
-at `/v1/metrics/{check-name}`. The API definition will be exposed at `/openapi`
+The `sparrow` exposes an API for accessing the results of various checks. Each check registers its own endpoint at `/v1/metrics/{check-name}`. The API's definition is available at `/openapi`.
 
 ## Metrics
 
-The `sparrow` is providing a `/metrics` endpoint to expose application metrics. Besides metrics about runtime
-information the sparrow is also provided `Check` specific metrics. See the Checks section for more information.
+The `sparrow` provides a `/metrics` endpoint to expose application metrics. In addition to runtime information, the sparrow provides specific metrics for each check. Refer to the [Checks](#checks) section for more detailed information.
 
 ## Code of Conduct
 
@@ -386,7 +391,7 @@ The application itself and all end-user facing content will be made available in
 The following channels are available for discussions, feedback, and support requests:
 
 | Type       | Channel                                                                                                                                                |
-|------------|--------------------------------------------------------------------------------------------------------------------------------------------------------|
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Issues** | <a href="/../../issues/new/choose" title="General Discussion"><img src="https://img.shields.io/github/issues/caas-team/sparrow?style=flat-square"></a> |
 
 ## How to Contribute
