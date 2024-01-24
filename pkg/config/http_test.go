@@ -256,6 +256,8 @@ func TestHttpLoader_Run(t *testing.T) {
 			if (err != nil) != tt.wantErr {
 				t.Errorf("HttpLoader.Run() error = %v, wantErr %v", err, tt.wantErr)
 			}
+
+			httpmock.Reset()
 		})
 	}
 }
