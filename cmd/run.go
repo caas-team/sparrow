@@ -21,8 +21,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"log/slog"
-	"os"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -51,7 +49,6 @@ func NewCmdRun() *cobra.Command {
 
 	NewFlag("api.address", "apiAddress").String().Bind(cmd, ":8080", "api: The address the server is listening on")
 	NewFlag("name", "sparrowName").String().Bind(cmd, "", "The DNS name of the sparrow")
-	NewFlag("verbosity", "verbosity").BoolP("v").Bind(cmd, false, "Enable verbose logging for enhanced visibility and troubleshooting")
 	NewFlag("loader.type", "loaderType").StringP("l").Bind(cmd, "http", "Defines the loader type that will load the checks configuration during the runtime. The fallback is the fileLoader")
 	NewFlag("loader.interval", "loaderInterval").Duration().Bind(cmd, defaultLoaderInterval, "defines the interval the loader reloads the configuration in seconds")
 	NewFlag("loader.http.url", "loaderHttpUrl").String().Bind(cmd, "", "http loader: The url where to get the remote configuration")
@@ -74,12 +71,6 @@ func run() func(cmd *cobra.Command, args []string) error {
 		}
 
 		log := logger.NewLogger()
-		if cfg.Verbosity {
-			log = logger.NewLogger(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
-				AddSource: true,
-				Level:     slog.LevelDebug,
-			}))
-		}
 		ctx := logger.IntoContext(context.Background(), log)
 
 		if err = cfg.Validate(ctx); err != nil {

@@ -24,7 +24,6 @@ sparrow run [flags]
       --loaderInterval duration         defines the interval the loader reloads the configuration in seconds (default 5m0s)
   -l, --loaderType string               Defines the loader type that will load the checks configuration during the runtime. The fallback is the fileLoader (default "http")
       --sparrowName string              The DNS name of the sparrow
-  -v, --verbosity                       Enable verbose logging for enhanced visibility and troubleshooting
 ```
 
 ### Options inherited from parent commands

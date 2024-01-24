@@ -29,11 +29,6 @@ type StringPFlag struct {
 	sh string
 }
 
-type BoolPFlag struct {
-	*Flag
-	sh string
-}
-
 // Bind registers the flag with the command and binds it to the config
 func (f *StringFlag) Bind(cmd *cobra.Command, value, usage string) {
 	cmd.PersistentFlags().String(f.Cli, value, usage)
@@ -85,21 +80,6 @@ func (f *StringPFlag) Bind(cmd *cobra.Command, value, usage string) {
 
 func (f *Flag) StringP(shorthand string) *StringPFlag {
 	return &StringPFlag{
-		Flag: f,
-		sh:   shorthand,
-	}
-}
-
-// Bind registers the flag with the command and binds it to the config
-func (f *BoolPFlag) Bind(cmd *cobra.Command, value bool, usage string) {
-	cmd.PersistentFlags().BoolP(f.Cli, f.sh, value, usage)
-	if err := viper.BindPFlag(f.Config, cmd.PersistentFlags().Lookup(f.Cli)); err != nil {
-		panic(err)
-	}
-}
-
-func (f *Flag) BoolP(shorthand string) *BoolPFlag {
-	return &BoolPFlag{
 		Flag: f,
 		sh:   shorthand,
 	}

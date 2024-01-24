@@ -23,6 +23,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"strings"
 )
 
 type logger struct{}
@@ -36,8 +37,9 @@ func NewLogger(h ...slog.Handler) *slog.Logger {
 	if len(h) > 0 {
 		handler = h[0]
 	} else {
-		handler = slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		handler = slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{
 			AddSource: true,
+			Level:     getLevel(os.Getenv("LOG_LEVEL")),
 		})
 	}
 	return slog.New(handler)
@@ -77,5 +79,20 @@ func Middleware(ctx context.Context) func(http.Handler) http.Handler {
 			reqCtx := IntoContext(r.Context(), log)
 			next.ServeHTTP(w, r.WithContext(reqCtx))
 		})
+	}
+}
+
+func getLevel(level string) slog.Level {
+	switch strings.ToUpper(level) {
+	case "DEBUG":
+		return slog.LevelDebug
+	case "INFO":
+		return slog.LevelInfo
+	case "WARN", "WARNING":
+		return slog.LevelWarn
+	case "ERROR":
+		return slog.LevelError
+	default:
+		return slog.LevelInfo
 	}
 }
