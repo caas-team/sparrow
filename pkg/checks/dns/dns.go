@@ -42,6 +42,7 @@ type DNS struct {
 	types.CheckBase
 	config  config
 	metrics metrics
+	client  Resolver
 }
 
 // NewCheck creates a new instance of the dns check
@@ -56,6 +57,7 @@ func NewCheck() checks.Check {
 			Retry: types.DefaultRetry,
 		},
 		metrics: newMetrics(),
+		client:  NewResolver(),
 	}
 }
 
@@ -167,7 +169,29 @@ func (d *DNS) Handler(w http.ResponseWriter, _ *http.Request) {
 
 // newMetrics initializes metric collectors of the dns check
 func newMetrics() metrics {
-	return metrics{}
+	return metrics{
+		duration: prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Name: "sparrow_dns_duration_seconds",
+				Help: "Duration of DNS resolution attempts in seconds.",
+			},
+			[]string{"target"},
+		),
+		count: prometheus.NewCounterVec(
+			prometheus.CounterOpts{
+				Name: "sparrow_dns_check_count",
+				Help: "Total number of DNS checks performed.",
+			},
+			[]string{"target", "status"},
+		),
+		histogram: prometheus.NewHistogramVec(
+			prometheus.HistogramOpts{
+				Name: "sparrow_dns_response_time_seconds",
+				Help: "Histogram of response times for DNS checks in seconds.",
+			},
+			[]string{"target"},
+		),
+	}
 }
 
 // GetMetricCollectors returns all metric collectors of check
@@ -194,25 +218,24 @@ func (d *DNS) check(ctx context.Context) map[string]Result {
 	var wg sync.WaitGroup
 	results := map[string]Result{}
 
-	client := &net.Resolver{
-		Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
-			dialer := net.Dialer{
-				Timeout: d.config.Timeout,
-			}
+	d.client.SetDialer(&net.Dialer{
+		Timeout: d.config.Timeout,
+	})
 
-			return dialer.DialContext(ctx, network, address)
-		},
-	}
 	for _, t := range d.config.Targets {
 		target := t
 		wg.Add(1)
 		lo := log.With("target", target)
 
 		getDNSRetry := helper.Retry(func(ctx context.Context) error {
-			res := getDNS(ctx, client, target)
+			res := getDNS(ctx, d.client, target)
 			mu.Lock()
 			defer mu.Unlock()
 			results[target] = res
+
+			d.metrics.duration.WithLabelValues(target).Set(results[target].Total)
+			d.metrics.histogram.WithLabelValues(target).Observe(results[target].Total)
+			d.metrics.count.WithLabelValues(target, "success").Inc()
 
 			return nil
 		}, d.config.Retry)
@@ -223,14 +246,9 @@ func (d *DNS) check(ctx context.Context) map[string]Result {
 			lo.Debug("Starting retry routine to get dns status")
 			if err := getDNSRetry(ctx); err != nil {
 				lo.Error("Error while checking dns", "error", err)
+				d.metrics.count.WithLabelValues(target, "failure").Inc()
 			}
-
 			lo.Debug("Successfully got dns status of target")
-			mu.Lock()
-			defer mu.Unlock()
-			d.metrics.duration.WithLabelValues(target).Set(results[target].Total)
-			d.metrics.histogram.WithLabelValues(target).Observe(results[target].Total)
-			d.metrics.count.WithLabelValues(target).Inc()
 		}()
 	}
 
@@ -245,7 +263,7 @@ func (d *DNS) check(ctx context.Context) map[string]Result {
 // If the address is an IP address, LookupAddr is used to perform a reverse DNS lookup.
 // If the address is a hostname, LookupHost is used to find its IP addresses.
 // Returns a Result struct containing the outcome of the DNS query.
-func getDNS(ctx context.Context, c *net.Resolver, address string) Result {
+func getDNS(ctx context.Context, c Resolver, address string) Result {
 	log := logger.FromContext(ctx).With("url", address)
 	var res Result
 

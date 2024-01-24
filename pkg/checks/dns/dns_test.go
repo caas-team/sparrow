@@ -1,0 +1,310 @@
+package dns
+
+import (
+	"context"
+	"fmt"
+	"net"
+	"net/http"
+	"net/http/httptest"
+	"reflect"
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/caas-team/sparrow/pkg/api"
+	"github.com/caas-team/sparrow/pkg/checks/types"
+	"github.com/stretchr/testify/assert"
+)
+
+const (
+	exampleURL = "www.example.com"
+	sparrowURL = "www.sparrow.com"
+	exampleIP  = "1.2.3.4"
+	sparrowIP  = "4.3.2.1"
+)
+
+func TestDNS_Run(t *testing.T) {
+	tests := []struct {
+		name      string
+		mockSetup func() *DNS
+		targets   []string
+		ctx       context.Context
+		want      types.Result
+	}{
+		{
+			name: "success with no targets",
+			mockSetup: func() *DNS {
+				return &DNS{
+					CheckBase: types.CheckBase{
+						Mu:   sync.Mutex{},
+						Done: make(chan bool, 1),
+					},
+				}
+			},
+			targets: []string{},
+			ctx:     context.Background(),
+			want: types.Result{
+				Data: map[string]Result{},
+			},
+		},
+		{
+			name: "success with one target lookup",
+			mockSetup: func() *DNS {
+				c := newCommonDNS()
+				c.client = &ResolverMock{
+					LookupHostFunc: func(ctx context.Context, addr string) ([]string, error) {
+						return []string{exampleIP}, nil
+					},
+					SetDialerFunc: func(d *net.Dialer) {},
+				}
+				return c
+			},
+			targets: []string{exampleURL},
+			ctx:     context.Background(),
+			want: types.Result{
+				Data: map[string]Result{
+					exampleURL: {Resolved: []string{exampleIP}},
+				},
+			},
+		},
+		{ //nolint:dupl // normal lookup
+			name: "success with multiple target lookups",
+			mockSetup: func() *DNS {
+				c := newCommonDNS()
+				c.client = &ResolverMock{
+					LookupHostFunc: func(ctx context.Context, addr string) ([]string, error) {
+						return []string{exampleIP, sparrowIP}, nil
+					},
+					SetDialerFunc: func(d *net.Dialer) {},
+				}
+				return c
+			},
+			targets: []string{exampleURL, sparrowURL},
+			ctx:     context.Background(),
+			want: types.Result{
+				Data: map[string]Result{
+					exampleURL: {Resolved: []string{exampleIP, sparrowIP}},
+					sparrowURL: {Resolved: []string{exampleIP, sparrowIP}},
+				},
+			},
+		},
+		{ //nolint:dupl // reverse lookup
+			name: "success with multiple target reverse lookups",
+			mockSetup: func() *DNS {
+				c := newCommonDNS()
+				c.client = &ResolverMock{
+					LookupAddrFunc: func(ctx context.Context, addr string) ([]string, error) {
+						return []string{exampleURL, sparrowURL}, nil
+					},
+					SetDialerFunc: func(d *net.Dialer) {},
+				}
+				return c
+			},
+			targets: []string{exampleIP, sparrowIP},
+			ctx:     context.Background(),
+			want: types.Result{
+				Data: map[string]Result{
+					exampleIP: {Resolved: []string{exampleURL, sparrowURL}},
+					sparrowIP: {Resolved: []string{exampleURL, sparrowURL}},
+				},
+			},
+		},
+		{
+			name: "error - lookup failure for a target",
+			mockSetup: func() *DNS {
+				c := newCommonDNS()
+				c.client = &ResolverMock{
+					LookupHostFunc: func(ctx context.Context, addr string) ([]string, error) {
+						return nil, fmt.Errorf("lookup failed")
+					},
+					SetDialerFunc: func(d *net.Dialer) {},
+				}
+				return c
+			},
+			targets: []string{exampleURL},
+			ctx:     context.Background(),
+			want: types.Result{
+				Data: map[string]Result{
+					exampleURL: {Error: stringPointer("lookup failed")},
+				},
+			},
+		},
+		{
+			name: "error - timeout scenario for a target",
+			mockSetup: func() *DNS {
+				c := newCommonDNS()
+				c.client = &ResolverMock{
+					LookupHostFunc: func(ctx context.Context, addr string) ([]string, error) {
+						time.Sleep(6 * time.Second)
+						return nil, nil
+					},
+					SetDialerFunc: func(d *net.Dialer) {},
+				}
+				return c
+			},
+			targets: []string{exampleURL},
+			ctx:     context.Background(),
+			want: types.Result{
+				Data: map[string]Result{
+					exampleURL: {Resolved: nil, Error: stringPointer("context deadline exceeded")},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := tt.mockSetup()
+
+			results := make(chan types.Result, 1)
+			err := c.Startup(tt.ctx, results)
+			if err != nil {
+				t.Fatalf("DNS.Startup() error = %v", err)
+			}
+
+			err = c.SetConfig(tt.ctx, map[string]any{
+				"targets":  tt.targets,
+				"interval": "1s",
+				"timeout":  "5s",
+			})
+			if err != nil {
+				t.Fatalf("DNS.SetConfig() error = %v", err)
+			}
+
+			go func() {
+				err := c.Run(tt.ctx)
+				if err != nil {
+					t.Errorf("DNS.Run() error = %v", err)
+					return
+				}
+			}()
+			defer func() {
+				err := c.Shutdown(tt.ctx)
+				if err != nil {
+					t.Errorf("DNS.Shutdown() error = %v", err)
+					return
+				}
+			}()
+
+			result := <-results
+
+			assert.IsType(t, tt.want.Data, result.Data)
+
+			got := result.Data.(map[string]Result)
+			want := tt.want.Data.(map[string]Result)
+			if len(got) != len(want) {
+				t.Errorf("Length of DNS.Run() result set (%v) does not match length of expected result set (%v)", len(got), len(want))
+			}
+
+			for target, result := range got {
+				if !reflect.DeepEqual(want[target].Resolved, result.Resolved) {
+					t.Errorf("Result Resolved of %v = %v, want %v", target, result.Resolved, want[target].Resolved)
+				}
+				if want[target].Error != nil && result.Error != nil {
+					if *want[target].Error != *result.Error {
+						t.Errorf("Result Error of %q = %v, want %v", target, result.Error, want[target].Error)
+					}
+				}
+			}
+
+			if result.Err != tt.want.Err {
+				t.Errorf("DNS.Run() = %v, want %v", result.Err, tt.want.Err)
+			}
+		})
+	}
+}
+
+func TestLatency_Startup(t *testing.T) {
+	c := DNS{}
+
+	if err := c.Startup(context.Background(), make(chan<- types.Result, 1)); err != nil {
+		t.Errorf("Startup() error = %v", err)
+	}
+}
+
+func TestLatency_Shutdown(t *testing.T) {
+	cDone := make(chan bool, 1)
+	c := DNS{
+		CheckBase: types.CheckBase{
+			Done: cDone,
+		},
+	}
+	err := c.Shutdown(context.Background())
+	if err != nil {
+		t.Errorf("Shutdown() error = %v", err)
+	}
+
+	if !<-cDone {
+		t.Error("Shutdown() should be ok")
+	}
+}
+
+func TestLatency_SetConfig(t *testing.T) {
+	c := DNS{}
+	wantCfg := config{
+		Targets: []string{"http://localhost:9090"},
+	}
+
+	err := c.SetConfig(context.Background(), wantCfg)
+	if err != nil {
+		t.Errorf("SetConfig() error = %v", err)
+	}
+	if !reflect.DeepEqual(c.config, wantCfg) {
+		t.Errorf("SetConfig() = %v, want %v", c.config, wantCfg)
+	}
+}
+
+func TestLatency_RegisterHandler(t *testing.T) {
+	c := DNS{}
+
+	rt := api.NewRoutingTree()
+	c.RegisterHandler(context.Background(), rt)
+
+	h, ok := rt.Get(http.MethodGet, "dns")
+
+	if !ok {
+		t.Error("RegisterHandler() should be ok")
+	}
+	if h == nil {
+		t.Error("RegisterHandler() should not be nil")
+	}
+	c.DeregisterHandler(context.Background(), rt)
+	h, ok = rt.Get(http.MethodGet, "dns")
+
+	if ok {
+		t.Error("DeregisterHandler() should not be ok")
+	}
+
+	if h != nil {
+		t.Error("DeregisterHandler() should be nil")
+	}
+}
+
+func TestLatency_Handler(t *testing.T) {
+	c := DNS{}
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/dns", http.NoBody)
+
+	c.Handler(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("Handler() should be ok, got %d", rec.Code)
+	}
+}
+
+func TestNewLatencyCheck(t *testing.T) {
+	c := NewCheck()
+	if c == nil {
+		t.Error("NewLatencyCheck() should not be nil")
+	}
+}
+
+func stringPointer(s string) *string {
+	return &s
+}
+
+func newCommonDNS() *DNS {
+	return &DNS{
+		CheckBase: types.CheckBase{Mu: sync.Mutex{}, Done: make(chan bool, 1)},
+		metrics:   newMetrics(),
+	}
+}
