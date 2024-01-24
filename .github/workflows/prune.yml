@@ -49,4 +49,4 @@ jobs:
           keep-last: 2
           prune-untagged: true
           prune-tags-regexes: |
-            'commit-*$'
+            '(?<=:\s*).*\bcommit\b.*'
