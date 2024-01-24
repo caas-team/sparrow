@@ -35,6 +35,7 @@ var _ Loader = (*FileLoader)(nil)
 type FileLoader struct {
 	path string
 	c    chan<- runtime.Config
+	done chan struct{}
 }
 
 func NewFileLoader(cfg *Config, cCfgChecks chan<- runtime.Config) *FileLoader {
@@ -63,4 +64,15 @@ func (f *FileLoader) Run(ctx context.Context) error {
 
 	f.c <- cfg
 	return nil
+}
+
+func (f *FileLoader) Shutdown(ctx context.Context) {
+	// proper implementation must still be done
+	// https://github.com/caas-team/sparrow/issues/85
+	log := logger.FromContext(ctx)
+	select {
+	case f.done <- struct{}{}:
+		log.Debug("Sending signal to shut down file loader")
+	default:
+	}
 }
