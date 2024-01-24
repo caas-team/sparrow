@@ -24,6 +24,9 @@ import (
 	"github.com/caas-team/sparrow/pkg/checks/latency"
 )
 
+// Config holds the runtime configuration
+// for the various checks
+// the sparrow supports
 type Config struct {
 	Checks Checks `yaml:"checks" json:"checks"`
 }
@@ -51,7 +54,8 @@ func (c Checks) Iter() []checks.Runtime {
 	return configs
 }
 
-// Validate validates the checks configuration
+// Validate validates the checks'
+// configuration
 func (c Checks) Validate() error {
 	if c.Health != nil {
 		if err := c.Health.Validate(); err != nil {
