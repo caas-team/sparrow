@@ -20,6 +20,7 @@ package register
 
 import (
 	"github.com/caas-team/sparrow/pkg/checks"
+	"github.com/caas-team/sparrow/pkg/checks/dns"
 	"github.com/caas-team/sparrow/pkg/checks/health"
 	"github.com/caas-team/sparrow/pkg/checks/latency"
 )
@@ -30,4 +31,5 @@ import (
 var RegisteredChecks = map[string]func() checks.Check{
 	"health":  health.NewCheck,
 	"latency": latency.NewCheck,
+	"dns":     dns.NewCheck,
 }
