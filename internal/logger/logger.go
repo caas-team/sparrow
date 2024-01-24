@@ -82,6 +82,8 @@ func Middleware(ctx context.Context) func(http.Handler) http.Handler {
 	}
 }
 
+// getLevel takes a level string and maps it to the corresponding slog.Level
+// Returns the level if no mapped level is found it returns info level
 func getLevel(level string) slog.Level {
 	switch strings.ToUpper(level) {
 	case "DEBUG":
