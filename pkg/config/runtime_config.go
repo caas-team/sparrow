@@ -19,5 +19,5 @@
 package config
 
 type RuntimeConfig struct {
-	Checks map[string]any `yaml:"checks" json:"checks"`
+	Checks map[string]any `yaml:"checks"`
 }

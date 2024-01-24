@@ -29,6 +29,8 @@ import (
 	"testing"
 	"time"
 
+	"gopkg.in/yaml.v3"
+
 	"github.com/caas-team/sparrow/internal/helper"
 
 	"github.com/caas-team/sparrow/internal/logger"
@@ -212,11 +214,11 @@ func TestHttpLoader_Run(t *testing.T) {
 	t.Cleanup(httpmock.DeactivateAndReset)
 
 	for _, tt := range tests {
-		resp, err := httpmock.NewJsonResponder(tt.code, tt.response)
+		body, err := yaml.Marshal(tt.response)
 		if err != nil {
-			t.Fatalf("Failed creating json responder: %v", err)
+			t.Fatalf("Failed marshaling response to bytes: %v", err)
 		}
-
+		resp := httpmock.NewBytesResponder(tt.code, body)
 		httpmock.RegisterResponder("GET", "https://api.test.com/test", resp)
 
 		t.Run(tt.name, func(t *testing.T) {
@@ -295,13 +297,11 @@ func TestHttpLoader_Run_config_sent_to_channel(t *testing.T) {
 			"enabled": true,
 		},
 	}
-	resp, err := httpmock.NewJsonResponder(200, &RuntimeConfig{
-		Checks: expected,
-	})
+	body, err := yaml.Marshal(RuntimeConfig{Checks: expected})
 	if err != nil {
-		t.Fatalf("Failed creating json responder: %v", err)
+		t.Fatalf("Failed marshaling yaml: %v", err)
 	}
-
+	resp := httpmock.NewBytesResponder(200, body)
 	httpmock.RegisterResponder("GET", "https://api.test.com/test", resp)
 
 	cCfgChecks := make(chan map[string]any, 1)
@@ -346,9 +346,10 @@ func TestHttpLoader_Run_config_sent_to_channel(t *testing.T) {
 	hl.Shutdown(ctx)
 }
 
-// TestHttpLoader_Run_config_not_sent_to_channel tests if the config is not sent to the channel
-// when the Run method is called and the remote endpoint returns an invalid response
-func TestHttpLoader_Run_config_not_sent_to_channel(t *testing.T) {
+// TestHttpLoader_Run_config_not_sent_to_channel_500 tests if the config is not sent to the channel
+// when the Run method is called
+// and the remote endpoint returns a non-200 response
+func TestHttpLoader_Run_config_not_sent_to_channel_500(t *testing.T) {
 	httpmock.Activate()
 	t.Cleanup(httpmock.DeactivateAndReset)
 
@@ -357,6 +358,57 @@ func TestHttpLoader_Run_config_not_sent_to_channel(t *testing.T) {
 		t.Fatalf("Failed creating json responder: %v", err)
 	}
 
+	httpmock.RegisterResponder("GET", "https://api.test.com/test", resp)
+
+	cCfgChecks := make(chan map[string]any, 1)
+
+	hl := &HttpLoader{
+		cfg: &Config{
+			Loader: LoaderConfig{
+				Type:     "http",
+				Interval: time.Millisecond * 500,
+				Http: HttpLoaderConfig{
+					Url: "https://api.test.com/test",
+					RetryCfg: helper.RetryConfig{
+						Count: 2,
+						Delay: 100 * time.Millisecond,
+					},
+				},
+			},
+		},
+		cCfgChecks: cCfgChecks,
+		client:     http.DefaultClient,
+		done:       make(chan struct{}, 1),
+	}
+
+	ctx := context.Background()
+	go func() {
+		err := hl.Run(ctx)
+		if err != nil {
+			t.Errorf("HttpLoader.Run() error = %v", err)
+		}
+	}()
+
+	// check if the config is sent to the channel
+	select {
+	// make sure you wait for at least an interval
+	case <-time.After(time.Second):
+		t.Log("Config not sent to channel")
+	case c := <-cCfgChecks:
+		t.Errorf("Config sent to channel: %v", c)
+	}
+
+	hl.Shutdown(ctx)
+}
+
+// TestHttpLoader_Run_config_not_sent_to_channel_client_error tests if the config is not sent to the channel
+// when the Run method is called
+// and the client can't execute the requests
+func TestHttpLoader_Run_config_not_sent_to_channel_client_error(t *testing.T) {
+	httpmock.Activate()
+	t.Cleanup(httpmock.DeactivateAndReset)
+
+	resp := httpmock.NewErrorResponder(fmt.Errorf("client error"))
 	httpmock.RegisterResponder("GET", "https://api.test.com/test", resp)
 
 	cCfgChecks := make(chan map[string]any, 1)
