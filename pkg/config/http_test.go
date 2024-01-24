@@ -288,6 +288,7 @@ func TestHttpLoader_Shutdown(t *testing.T) {
 // when the Run method is called and the remote endpoint returns a valid response
 func TestHttpLoader_Run_config_sent_to_channel(t *testing.T) {
 	httpmock.Activate()
+	t.Cleanup(httpmock.DeactivateAndReset)
 
 	expected := map[string]any{
 		"testCheck1": map[string]any{
@@ -343,13 +344,13 @@ func TestHttpLoader_Run_config_sent_to_channel(t *testing.T) {
 	}
 
 	hl.Shutdown(ctx)
-	httpmock.DeactivateAndReset()
 }
 
 // TestHttpLoader_Run_config_not_sent_to_channel tests if the config is not sent to the channel
 // when the Run method is called and the remote endpoint returns an invalid response
 func TestHttpLoader_Run_config_not_sent_to_channel(t *testing.T) {
 	httpmock.Activate()
+	t.Cleanup(httpmock.DeactivateAndReset)
 
 	resp, err := httpmock.NewJsonResponder(500, nil)
 	if err != nil {
@@ -389,6 +390,7 @@ func TestHttpLoader_Run_config_not_sent_to_channel(t *testing.T) {
 
 	// check if the config is sent to the channel
 	select {
+	// make sure you wait for at least an interval
 	case <-time.After(time.Second):
 		t.Log("Config not sent to channel")
 	case c := <-cCfgChecks:
@@ -396,5 +398,4 @@ func TestHttpLoader_Run_config_not_sent_to_channel(t *testing.T) {
 	}
 
 	hl.Shutdown(ctx)
-	httpmock.DeactivateAndReset()
 }
