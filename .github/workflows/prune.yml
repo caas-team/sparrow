@@ -48,8 +48,6 @@ jobs:
           keep-younger-than: 7 # days
           keep-last: 2
           prune-untagged: true
-          keep-tags: |
-            0.0.1
-            0.0.2
-            0.0.3
-            0.0.4
+          prune-tags-regexes: |
+            ^0.2.2-commit
+            ^0.3.0-commit
