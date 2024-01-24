@@ -45,7 +45,7 @@ jobs:
           organization: caas-team
           container: charts/sparrow # Package name
           dry-run: true # Dry-run first, then change to `false`
-          keep-younger-than: 7 # days
+          #keep-younger-than: 7 # days
           keep-last: 2
           prune-untagged: true
           prune-tags-regexes: |
