@@ -230,15 +230,13 @@ func (d *DNS) check(ctx context.Context) map[string]Result {
 		lo := log.With("target", target)
 
 		getDNSRetry := helper.Retry(func(ctx context.Context) error {
-			res := getDNS(ctx, d.client, target)
+			res, err := getDNS(ctx, d.client, target)
 			mu.Lock()
 			defer mu.Unlock()
 			results[target] = res
-
-			d.metrics.duration.WithLabelValues(target).Set(results[target].Total)
-			d.metrics.histogram.WithLabelValues(target).Observe(results[target].Total)
-			d.metrics.count.WithLabelValues(target, "success").Inc()
-
+			if err != nil {
+				return err
+			}
 			return nil
 		}, d.config.Retry)
 
@@ -265,7 +263,7 @@ func (d *DNS) check(ctx context.Context) map[string]Result {
 // If the address is an IP address, LookupAddr is used to perform a reverse DNS lookup.
 // If the address is a hostname, LookupHost is used to find its IP addresses.
 // Returns a Result struct containing the outcome of the DNS query.
-func getDNS(ctx context.Context, c Resolver, address string) Result {
+func getDNS(ctx context.Context, c Resolver, address string) (Result, error) {
 	log := logger.FromContext(ctx).With("url", address)
 	var res Result
 
@@ -283,12 +281,12 @@ func getDNS(ctx context.Context, c Resolver, address string) Result {
 		log.Error("Error while checking dns", "error", err)
 		errval := err.Error()
 		res.Error = &errval
-		return res
+		return res, err
 	}
 	rtt := time.Since(start).Seconds()
 
 	res.Resolved = resp
 	res.Total = rtt
 
-	return res
+	return res, nil
 }
