@@ -172,7 +172,6 @@ func (d *DNS) check(ctx context.Context) map[string]Result {
 		log.Debug("No targets defined")
 		return map[string]Result{}
 	}
-	log.Debug("Getting dns status for each target in separate routine", "amount", len(d.config.Targets))
 
 	var mu sync.Mutex
 	var wg sync.WaitGroup
@@ -182,6 +181,7 @@ func (d *DNS) check(ctx context.Context) map[string]Result {
 		Timeout: d.config.Timeout,
 	})
 
+	log.Debug("Getting dns status for each target in separate routine", "amount", len(d.config.Targets))
 	for _, t := range d.config.Targets {
 		target := t
 		wg.Add(1)
@@ -205,7 +205,7 @@ func (d *DNS) check(ctx context.Context) map[string]Result {
 			lo.Debug("Starting retry routine to get dns status")
 			if err := getDNSRetry(ctx); err != nil {
 				status = 0
-				lo.Warn("Error while checking dns", "error", err)
+				lo.Warn("Error while looking up address", "error", err)
 			}
 			lo.Debug("Successfully got dns status of target")
 
@@ -225,7 +225,7 @@ func (d *DNS) check(ctx context.Context) map[string]Result {
 // If the address is a hostname, LookupHost is used to find its IP addresses.
 // Returns a Result struct containing the outcome of the DNS query.
 func getDNS(ctx context.Context, c Resolver, address string) (Result, error) {
-	log := logger.FromContext(ctx).With("url", address)
+	log := logger.FromContext(ctx).With("address", address)
 	var res Result
 
 	var lookupFunc func(context.Context, string) ([]string, error)
@@ -239,7 +239,7 @@ func getDNS(ctx context.Context, c Resolver, address string) (Result, error) {
 	start := time.Now()
 	resp, err := lookupFunc(ctx, address)
 	if err != nil {
-		log.Error("Error while checking dns", "error", err)
+		log.Error("Error while looking up address", "error", err)
 		errval := err.Error()
 		res.Error = &errval
 		return res, err
