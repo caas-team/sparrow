@@ -154,7 +154,7 @@ func TestDNS_Run(t *testing.T) {
 				c.client = &ResolverMock{
 					LookupHostFunc: func(ctx context.Context, addr string) ([]string, error) {
 						time.Sleep(6 * time.Second)
-						return nil, nil
+						return nil, fmt.Errorf("context deadline exceeded")
 					},
 					SetDialerFunc: func(d *net.Dialer) {},
 				}
@@ -215,11 +215,11 @@ func TestDNS_Run(t *testing.T) {
 
 			for target, result := range got {
 				if !reflect.DeepEqual(want[target].Resolved, result.Resolved) {
-					t.Errorf("Result Resolved of %v = %v, want %v", target, result.Resolved, want[target].Resolved)
+					t.Errorf("Result Resolved of %s = %v, want %v", target, result.Resolved, want[target].Resolved)
 				}
-				if want[target].Error != nil && result.Error != nil {
-					if *want[target].Error != *result.Error {
-						t.Errorf("Result Error of %q = %v, want %v", target, result.Error, want[target].Error)
+				if want[target].Error != nil {
+					if result.Error == nil {
+						t.Errorf("Result Error of %s = %v, want %v", target, result.Error, *want[target].Error)
 					}
 				}
 			}
@@ -229,6 +229,28 @@ func TestDNS_Run(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestDNS_Run_Context_Done(t *testing.T) {
+	c := NewCheck()
+	ctx, cancel := context.WithCancel(context.Background())
+	_ = c.SetConfig(ctx, config{
+		Interval: time.Second,
+	})
+	go func() {
+		err := c.Run(ctx)
+		t.Logf("DNS.Run() exited with error: %v", err)
+		if err == nil {
+			t.Error("DNS.Run() should have errored out, no error received")
+		}
+	}()
+
+	t.Log("Running dns check for 10ms")
+	time.Sleep(time.Millisecond * 10)
+
+	t.Log("Canceling context and waiting for shutdown")
+	cancel()
+	time.Sleep(time.Millisecond * 30)
 }
 
 func TestLatency_Startup(t *testing.T) {
