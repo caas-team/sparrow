@@ -78,16 +78,6 @@ type Result struct {
 	Total    float64
 }
 
-// metrics defines the metric collectors of the DNS check
-type metrics struct {
-	// GaugeVec for tracking the duration of each DNS resolution
-	duration *prometheus.GaugeVec
-	// CounterVec for counting the total number of DNS checks
-	count *prometheus.CounterVec
-	// HistogramVec for detailed distribution of resolution times
-	histogram *prometheus.HistogramVec
-}
-
 // Run starts the dns check
 func (d *DNS) Run(ctx context.Context) error {
 	ctx, cancel := logger.NewContextWithLogger(ctx)
@@ -169,40 +159,8 @@ func (d *DNS) Handler(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-// newMetrics initializes metric collectors of the dns check
-func newMetrics() metrics {
-	return metrics{
-		duration: prometheus.NewGaugeVec(
-			prometheus.GaugeOpts{
-				Name: "sparrow_dns_duration_seconds",
-				Help: "Duration of DNS resolution attempts in seconds.",
-			},
-			[]string{"target"},
-		),
-		count: prometheus.NewCounterVec(
-			prometheus.CounterOpts{
-				Name: "sparrow_dns_check_count",
-				Help: "Total number of DNS checks performed.",
-			},
-			[]string{"target", "status"},
-		),
-		histogram: prometheus.NewHistogramVec(
-			prometheus.HistogramOpts{
-				Name: "sparrow_dns_response_time_seconds",
-				Help: "Histogram of response times for DNS checks in seconds.",
-			},
-			[]string{"target"},
-		),
-	}
-}
-
-// GetMetricCollectors returns all metric collectors of check
 func (d *DNS) GetMetricCollectors() []prometheus.Collector {
-	return []prometheus.Collector{
-		d.metrics.duration,
-		d.metrics.count,
-		d.metrics.histogram,
-	}
+	return d.metrics.GetCollectors()
 }
 
 // check performs DNS checks for all configured targets using a custom net.Resolver.
@@ -242,17 +200,20 @@ func (d *DNS) check(ctx context.Context) map[string]Result {
 
 		go func() {
 			defer wg.Done()
+			status := 1
 
 			lo.Debug("Starting retry routine to get dns status")
 			if err := getDNSRetry(ctx); err != nil {
-				lo.Error("Error while checking dns", "error", err)
-				d.metrics.count.WithLabelValues(target, "failure").Inc()
+				status = 0
+				lo.Warn("Error while checking dns", "error", err)
 			}
 			lo.Debug("Successfully got dns status of target")
+
+			mu.Lock()
+			defer mu.Unlock()
+			d.metrics.Set(target, results, float64(status))
 		}()
 	}
-
-	log.Debug("Waiting for all routines to finish")
 	wg.Wait()
 
 	log.Debug("Successfully resolved names/addresses from all targets")
