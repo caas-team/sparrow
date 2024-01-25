@@ -231,11 +231,13 @@ func (l *Latency) check(ctx context.Context) map[string]Result {
 		lo := log.With("target", target)
 
 		getLatencyRetry := helper.Retry(func(ctx context.Context) error {
-			res := getLatency(ctx, client, target)
+			res, err := getLatency(ctx, client, target)
 			mu.Lock()
 			defer mu.Unlock()
 			results[target] = res
-
+			if err != nil {
+				return err
+			}
 			return nil
 		}, l.config.Retry)
 
@@ -264,7 +266,7 @@ func (l *Latency) check(ctx context.Context) map[string]Result {
 }
 
 // getLatency performs an HTTP get request and returns ok if request succeeds
-func getLatency(ctx context.Context, c *http.Client, url string) Result {
+func getLatency(ctx context.Context, c *http.Client, url string) (Result, error) {
 	log := logger.FromContext(ctx).With("url", url)
 	var res Result
 
@@ -273,7 +275,7 @@ func getLatency(ctx context.Context, c *http.Client, url string) Result {
 		log.Error("Error while creating request", "error", err)
 		errval := err.Error()
 		res.Error = &errval
-		return res
+		return res, err
 	}
 
 	start := time.Now()
@@ -282,7 +284,7 @@ func getLatency(ctx context.Context, c *http.Client, url string) Result {
 		log.Error("Error while checking latency", "error", err)
 		errval := err.Error()
 		res.Error = &errval
-		return res
+		return res, err
 	}
 	end := time.Now()
 
@@ -292,5 +294,5 @@ func getLatency(ctx context.Context, c *http.Client, url string) Result {
 	}(resp.Body)
 
 	res.Total = end.Sub(start).Seconds()
-	return res
+	return res, nil
 }
