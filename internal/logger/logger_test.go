@@ -59,21 +59,21 @@ func TestNewLogger(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Setenv("LOG_LEVEL", tt.logLevelEnv)
 
-			logger := NewLogger(tt.handlers...)
+			log := NewLogger(tt.handlers...)
 
-			if (logger == nil) != tt.expectedErr {
-				t.Errorf("NewLogger() error = %v, expectedErr %v", logger == nil, tt.expectedErr)
+			if (log == nil) != tt.expectedErr {
+				t.Errorf("NewLogger() error = %v, expectedErr %v", log == nil, tt.expectedErr)
 			}
 
 			if tt.logLevelEnv != "" {
 				want := getLevel(tt.logLevelEnv)
-				got := logger.Enabled(context.Background(), want)
+				got := log.Enabled(context.Background(), want)
 				if !got {
 					t.Errorf("Expected log level: %v", want)
 				}
 			}
 
-			if len(tt.handlers) > 0 && !reflect.DeepEqual(logger.Handler(), tt.handlers[0]) {
+			if len(tt.handlers) > 0 && !reflect.DeepEqual(log.Handler(), tt.handlers[0]) {
 				t.Errorf("Handler not set correctly")
 			}
 		})
