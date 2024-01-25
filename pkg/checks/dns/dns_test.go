@@ -277,7 +277,7 @@ func TestLatency_RegisterHandler(t *testing.T) {
 	rt := api.NewRoutingTree()
 	c.RegisterHandler(context.Background(), rt)
 
-	h, ok := rt.Get(http.MethodGet, "dns")
+	h, ok := rt.Get(http.MethodGet, route)
 
 	if !ok {
 		t.Error("RegisterHandler() should be ok")
@@ -300,7 +300,7 @@ func TestLatency_RegisterHandler(t *testing.T) {
 func TestLatency_Handler(t *testing.T) {
 	c := DNS{}
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/dns", http.NoBody)
+	req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/%s", route), http.NoBody)
 
 	c.Handler(rec, req)
 

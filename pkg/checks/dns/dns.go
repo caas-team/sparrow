@@ -35,6 +35,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
+const route = "dns"
+
 var _ checks.Check = (*DNS)(nil)
 
 // DNS is a check that resolves the names and addresses
@@ -154,12 +156,12 @@ func (d *DNS) Schema() (*openapi3.SchemaRef, error) {
 
 // RegisterHandler registers a server handler
 func (d *DNS) RegisterHandler(_ context.Context, router *api.RoutingTree) {
-	router.Add(http.MethodGet, "dns", d.Handler)
+	router.Add(http.MethodGet, route, d.Handler)
 }
 
 // DeregisterHandler deletes the server handler
 func (d *DNS) DeregisterHandler(_ context.Context, router *api.RoutingTree) {
-	router.Remove(http.MethodGet, "dns")
+	router.Remove(http.MethodGet, route)
 }
 
 // Handler defines the server handler for the dns check
