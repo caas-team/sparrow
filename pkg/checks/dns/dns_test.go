@@ -253,7 +253,7 @@ func TestDNS_Run_Context_Done(t *testing.T) {
 	time.Sleep(time.Millisecond * 30)
 }
 
-func TestLatency_Startup(t *testing.T) {
+func TestDNS_Startup(t *testing.T) {
 	c := DNS{}
 
 	if err := c.Startup(context.Background(), make(chan<- types.Result, 1)); err != nil {
@@ -261,7 +261,7 @@ func TestLatency_Startup(t *testing.T) {
 	}
 }
 
-func TestLatency_Shutdown(t *testing.T) {
+func TestDNS_Shutdown(t *testing.T) {
 	cDone := make(chan bool, 1)
 	c := DNS{
 		CheckBase: types.CheckBase{
@@ -278,7 +278,7 @@ func TestLatency_Shutdown(t *testing.T) {
 	}
 }
 
-func TestLatency_SetConfig(t *testing.T) {
+func TestDNS_SetConfig(t *testing.T) {
 	c := DNS{}
 	wantCfg := config{
 		Targets: []string{"http://localhost:9090"},
@@ -293,7 +293,7 @@ func TestLatency_SetConfig(t *testing.T) {
 	}
 }
 
-func TestLatency_RegisterHandler(t *testing.T) {
+func TestDNS_RegisterHandler(t *testing.T) {
 	c := DNS{}
 
 	rt := api.NewRoutingTree()
@@ -319,7 +319,7 @@ func TestLatency_RegisterHandler(t *testing.T) {
 	}
 }
 
-func TestLatency_Handler(t *testing.T) {
+func TestDNS_Handler(t *testing.T) {
 	c := DNS{}
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/%s", route), http.NoBody)
@@ -331,7 +331,7 @@ func TestLatency_Handler(t *testing.T) {
 	}
 }
 
-func TestNewLatencyCheck(t *testing.T) {
+func TestNewCheck(t *testing.T) {
 	c := NewCheck()
 	if c == nil {
 		t.Error("NewLatencyCheck() should not be nil")
