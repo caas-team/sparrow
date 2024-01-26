@@ -42,7 +42,7 @@ func newMetrics() metrics {
 		),
 		duration: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
-				Name: "sparrow_dns_duration_seconds",
+				Name: "sparrow_dns_duration",
 				Help: "Duration of DNS resolution attempts in seconds.",
 			},
 			[]string{"target"},
@@ -52,11 +52,11 @@ func newMetrics() metrics {
 				Name: "sparrow_dns_check_count",
 				Help: "Total number of DNS checks performed on the target and if they were successful.",
 			},
-			[]string{"target", "status"},
+			[]string{"target"},
 		),
 		histogram: prometheus.NewHistogramVec(
 			prometheus.HistogramOpts{
-				Name: "sparrow_dns_response_time_seconds",
+				Name: "sparrow_dns_duration",
 				Help: "Histogram of response times for DNS checks in seconds.",
 			},
 			[]string{"target"},
@@ -74,13 +74,10 @@ func (m *metrics) GetCollectors() []prometheus.Collector {
 	}
 }
 
+// Set sets the metrics of one lookup target result
 func (m *metrics) Set(target string, results map[string]Result, status float64) {
 	m.duration.WithLabelValues(target).Set(results[target].Total)
 	m.histogram.WithLabelValues(target).Observe(results[target].Total)
 	m.status.WithLabelValues(target).Set(status)
-	if status == 0 {
-		m.count.WithLabelValues(target, "failure").Inc()
-		return
-	}
-	m.count.WithLabelValues(target, "success").Inc()
+	m.count.WithLabelValues(target).Inc()
 }

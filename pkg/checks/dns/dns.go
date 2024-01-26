@@ -194,7 +194,7 @@ func (d *DNS) check(ctx context.Context) map[string]Result {
 				status = 0
 				lo.Warn("Error while looking up address", "error", err)
 			}
-			lo.Debug("Successfully got dns status of target")
+			lo.Debug("DNS check completed for target")
 
 			mu.Lock()
 			defer mu.Unlock()
