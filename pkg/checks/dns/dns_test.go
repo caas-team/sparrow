@@ -43,7 +43,6 @@ func TestDNS_Run(t *testing.T) {
 		name      string
 		mockSetup func() *DNS
 		targets   []string
-		ctx       context.Context
 		want      types.Result
 	}{
 		{
@@ -57,7 +56,6 @@ func TestDNS_Run(t *testing.T) {
 				}
 			},
 			targets: []string{},
-			ctx:     context.Background(),
 			want: types.Result{
 				Data: map[string]Result{},
 			},
@@ -75,7 +73,6 @@ func TestDNS_Run(t *testing.T) {
 				return c
 			},
 			targets: []string{exampleURL},
-			ctx:     context.Background(),
 			want: types.Result{
 				Data: map[string]Result{
 					exampleURL: {Resolved: []string{exampleIP}},
@@ -95,7 +92,6 @@ func TestDNS_Run(t *testing.T) {
 				return c
 			},
 			targets: []string{exampleURL, sparrowURL},
-			ctx:     context.Background(),
 			want: types.Result{
 				Data: map[string]Result{
 					exampleURL: {Resolved: []string{exampleIP, sparrowIP}},
@@ -116,7 +112,6 @@ func TestDNS_Run(t *testing.T) {
 				return c
 			},
 			targets: []string{exampleIP, sparrowIP},
-			ctx:     context.Background(),
 			want: types.Result{
 				Data: map[string]Result{
 					exampleIP: {Resolved: []string{exampleURL, sparrowURL}},
@@ -137,7 +132,6 @@ func TestDNS_Run(t *testing.T) {
 				return c
 			},
 			targets: []string{exampleURL},
-			ctx:     context.Background(),
 			want: types.Result{
 				Data: map[string]Result{
 					exampleURL: {Error: stringPointer("lookup failed")},
@@ -150,7 +144,6 @@ func TestDNS_Run(t *testing.T) {
 				c := newCommonDNS()
 				c.client = &ResolverMock{
 					LookupHostFunc: func(ctx context.Context, addr string) ([]string, error) {
-						time.Sleep(6 * time.Second)
 						return nil, fmt.Errorf("context deadline exceeded")
 					},
 					SetDialerFunc: func(d *net.Dialer) {},
@@ -158,7 +151,6 @@ func TestDNS_Run(t *testing.T) {
 				return c
 			},
 			targets: []string{exampleURL},
-			ctx:     context.Background(),
 			want: types.Result{
 				Data: map[string]Result{
 					exampleURL: {Resolved: nil, Error: stringPointer("context deadline exceeded")},
@@ -168,32 +160,33 @@ func TestDNS_Run(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
 			c := tt.mockSetup()
 
 			results := make(chan types.Result, 1)
-			err := c.Startup(tt.ctx, results)
+			err := c.Startup(ctx, results)
 			if err != nil {
 				t.Fatalf("DNS.Startup() error = %v", err)
 			}
 
-			err = c.SetConfig(tt.ctx, map[string]any{
+			err = c.SetConfig(ctx, map[string]any{
 				"targets":  tt.targets,
 				"interval": "1s",
-				"timeout":  "5s",
+				"timeout":  "5ms",
 			})
 			if err != nil {
 				t.Fatalf("DNS.SetConfig() error = %v", err)
 			}
 
 			go func() {
-				err := c.Run(tt.ctx)
+				err := c.Run(ctx)
 				if err != nil {
 					t.Errorf("DNS.Run() error = %v", err)
 					return
 				}
 			}()
 			defer func() {
-				err := c.Shutdown(tt.ctx)
+				err := c.Shutdown(ctx)
 				if err != nil {
 					t.Errorf("DNS.Shutdown() error = %v", err)
 					return
