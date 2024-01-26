@@ -269,17 +269,73 @@ func TestDNS_Shutdown(t *testing.T) {
 }
 
 func TestDNS_SetConfig(t *testing.T) {
-	c := DNS{}
-	wantCfg := config{
-		Targets: []string{"http://localhost:9090"},
+	tests := []struct {
+		name    string
+		input   any
+		want    config
+		wantErr bool
+	}{
+		{
+			name: "simple config",
+			input: map[string]any{
+				"targets": []any{
+					exampleURL,
+					sparrowURL,
+				},
+				"interval": "10s",
+				"timeout":  "30s",
+			},
+			want: config{
+				Targets:  []string{exampleURL, sparrowURL},
+				Interval: 10 * time.Second,
+				Timeout:  30 * time.Second,
+			},
+			wantErr: false,
+		},
+		{
+			name: "config with injected global targets",
+			input: map[string]any{
+				"targets": []any{
+					exampleURL,
+					sparrowURL,
+					"https://www.google.com",
+				},
+				"interval": "10s",
+				"timeout":  "30s",
+			},
+			want: config{
+				Targets:  []string{exampleURL, sparrowURL, "www.google.com"},
+				Interval: 10 * time.Second,
+				Timeout:  30 * time.Second,
+			},
+			wantErr: false,
+		},
+		{
+			name:  "missing config field",
+			input: map[string]any{},
+			want: config{
+				Targets: nil,
+			},
+			wantErr: false,
+		},
+		{
+			name: "wrong type",
+			input: map[string]any{
+				"target": struct{ name string }{name: "bla"},
+			},
+			want:    config{},
+			wantErr: false,
+		},
 	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &DNS{}
 
-	err := c.SetConfig(context.Background(), wantCfg)
-	if err != nil {
-		t.Errorf("SetConfig() error = %v", err)
-	}
-	if !reflect.DeepEqual(c.config, wantCfg) {
-		t.Errorf("SetConfig() = %v, want %v", c.config, wantCfg)
+			if err := c.SetConfig(context.Background(), tt.input); (err != nil) != tt.wantErr {
+				t.Errorf("DNS.SetConfig() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			assert.Equal(t, tt.want, c.config, "Config is not equal")
+		})
 	}
 }
 
