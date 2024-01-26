@@ -22,14 +22,11 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"net/http"
-	"net/http/httptest"
 	"reflect"
 	"sync"
 	"testing"
 	"time"
 
-	"github.com/caas-team/sparrow/pkg/api"
 	"github.com/caas-team/sparrow/pkg/checks/types"
 	"github.com/stretchr/testify/assert"
 )
@@ -290,44 +287,6 @@ func TestDNS_SetConfig(t *testing.T) {
 	}
 	if !reflect.DeepEqual(c.config, wantCfg) {
 		t.Errorf("SetConfig() = %v, want %v", c.config, wantCfg)
-	}
-}
-
-func TestDNS_RegisterHandler(t *testing.T) {
-	c := DNS{}
-
-	rt := api.NewRoutingTree()
-	c.RegisterHandler(context.Background(), rt)
-
-	h, ok := rt.Get(http.MethodGet, route)
-
-	if !ok {
-		t.Error("RegisterHandler() should be ok")
-	}
-	if h == nil {
-		t.Error("RegisterHandler() should not be nil")
-	}
-	c.DeregisterHandler(context.Background(), rt)
-	h, ok = rt.Get(http.MethodGet, "dns")
-
-	if ok {
-		t.Error("DeregisterHandler() should not be ok")
-	}
-
-	if h != nil {
-		t.Error("DeregisterHandler() should be nil")
-	}
-}
-
-func TestDNS_Handler(t *testing.T) {
-	c := DNS{}
-	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/%s", route), http.NoBody)
-
-	c.Handler(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Errorf("Handler() should be ok, got %d", rec.Code)
 	}
 }
 

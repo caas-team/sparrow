@@ -21,21 +21,17 @@ package dns
 import (
 	"context"
 	"net"
-	"net/http"
 	"sync"
 	"time"
 
 	"github.com/caas-team/sparrow/internal/helper"
 	"github.com/caas-team/sparrow/internal/logger"
-	"github.com/caas-team/sparrow/pkg/api"
 	"github.com/caas-team/sparrow/pkg/checks"
 	"github.com/caas-team/sparrow/pkg/checks/errors"
 	"github.com/caas-team/sparrow/pkg/checks/types"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/prometheus/client_golang/prometheus"
 )
-
-const route = "dns"
 
 var _ checks.Check = (*DNS)(nil)
 
@@ -142,21 +138,6 @@ func (d *DNS) SetConfig(ctx context.Context, conf any) error {
 // by the dns check
 func (d *DNS) Schema() (*openapi3.SchemaRef, error) {
 	return checks.OpenapiFromPerfData(make(map[string]Result))
-}
-
-// RegisterHandler registers a server handler
-func (d *DNS) RegisterHandler(_ context.Context, router *api.RoutingTree) {
-	router.Add(http.MethodGet, route, d.Handler)
-}
-
-// DeregisterHandler deletes the server handler
-func (d *DNS) DeregisterHandler(_ context.Context, router *api.RoutingTree) {
-	router.Remove(http.MethodGet, route)
-}
-
-// Handler defines the server handler for the dns check
-func (d *DNS) Handler(w http.ResponseWriter, _ *http.Request) {
-	w.WriteHeader(http.StatusOK)
 }
 
 func (d *DNS) GetMetricCollectors() []prometheus.Collector {

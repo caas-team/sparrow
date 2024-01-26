@@ -250,7 +250,6 @@ func (s *Sparrow) registerCheck(ctx context.Context, name string, checkCfg any) 
 		close(checkChan)
 		return
 	}
-	check.RegisterHandler(ctx, s.routingTree)
 
 	// Add prometheus collectors of check to registry
 	for _, collector := range check.GetMetricCollectors() {
@@ -270,8 +269,6 @@ func (s *Sparrow) registerCheck(ctx context.Context, name string, checkCfg any) 
 // UnregisterCheck removes the check from sparrow and performs a soft shutdown for the check
 func (s *Sparrow) unregisterCheck(ctx context.Context, name string, check checks.Check) {
 	log := logger.FromContext(ctx).With("name", name)
-	// Check has been removed from config; shutdown and remove
-	check.DeregisterHandler(ctx, s.routingTree)
 
 	// Remove prometheus collectors of check from registry
 	for _, metricsCollector := range check.GetMetricCollectors() {
