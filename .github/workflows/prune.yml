@@ -29,7 +29,6 @@ jobs:
           container: sparrow # Package name
           dry-run: true # Dry-run first, then change to `false` or remove
           keep-younger-than: 7 # days
-          keep-last: 2
           prune-untagged: true
           prune-tags-regexes: |
             ^commit-
@@ -43,7 +42,6 @@ jobs:
           container: charts/sparrow # Package name
           dry-run: true # Dry-run first, then change to `false` or remove
           keep-younger-than: 7 # days
-          keep-last: 2
           prune-untagged: true
           prune-tags-regexes: |
             commit-.*$
