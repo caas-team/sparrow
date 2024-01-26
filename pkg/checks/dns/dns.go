@@ -21,6 +21,7 @@ package dns
 import (
 	"context"
 	"net"
+	"strings"
 	"sync"
 	"time"
 
@@ -125,6 +126,11 @@ func (d *DNS) SetConfig(ctx context.Context, conf any) error {
 	if err != nil {
 		log.Error("Failed to decode dns config", "error", err)
 		return errors.ErrInvalidConfig
+	}
+
+	// To be able to lookup global targets injected to config targets
+	for k, v := range c.Targets {
+		c.Targets[k], _ = strings.CutPrefix(v, "https://")
 	}
 
 	d.Mu.Lock()
