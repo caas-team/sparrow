@@ -51,9 +51,6 @@ func (s *Sparrow) register(ctx context.Context) {
 	s.router.Get("/openapi", s.getOpenapi)
 	// Handles public user facing json api
 	s.router.Get(fmt.Sprintf("/v1/metrics/{%s}", urlParamCheckName), s.getCheckMetrics)
-	// Handles internal api
-	// handlers are (de)registered by the checks themselves
-	s.router.HandleFunc("/checks/*", s.handleChecks)
 
 	// Handles requests with simple http ok
 	// Required for global targets in checks
@@ -250,25 +247,4 @@ func (s *Sparrow) getOpenapi(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-}
-
-// handleChecks handles all requests to /checks/*
-// It delegates the request to the corresponding check handler
-// Returns a 404 if no handler is registered for the request
-func (s *Sparrow) handleChecks(w http.ResponseWriter, r *http.Request) {
-	method := r.Method
-	path := chi.URLParam(r, "*")
-	log := logger.FromContext(r.Context())
-
-	handler, ok := s.routingTree.Get(method, path)
-	if !ok {
-		w.WriteHeader(http.StatusNotFound)
-		_, err := w.Write([]byte(http.StatusText(http.StatusNotFound)))
-		if err != nil {
-			log.Error("Failed to write response", "error", err)
-		}
-		return
-	}
-
-	handler(w, r)
 }

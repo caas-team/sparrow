@@ -49,7 +49,7 @@ func TestSparrow_register(t *testing.T) {
 
 	s.register(context.Background())
 
-	expectedRoutes := []string{"/openapi.yaml", "/v1/metrics/{checkName}", "/checks/*", "/metrics", "/"}
+	expectedRoutes := []string{"/openapi.yaml", "/v1/metrics/{checkName}", "/metrics", "/"}
 	routes := r.Routes()
 	for _, route := range expectedRoutes {
 		found := 0
@@ -168,78 +168,6 @@ func TestSparrow_getCheckMetrics(t *testing.T) {
 				if !reflect.DeepEqual(body, tt.want) {
 					t.Errorf("Sparrow.getCheckMetrics() = %v, want %v", body, tt.want)
 				}
-			}
-		})
-	}
-}
-
-func addRouteParams(r *http.Request, values map[string]string) *http.Request {
-	rctx := chi.NewRouteContext()
-	for k, v := range values {
-		rctx.URLParams.Add(k, v)
-	}
-
-	return r.WithContext(context.WithValue(r.Context(), chi.RouteCtxKey, rctx))
-}
-
-func TestSparrow_handleChecks(t *testing.T) {
-	type route struct {
-		Method  string
-		Path    string
-		Handler http.HandlerFunc
-	}
-	type fields struct {
-		checks      map[string]checks.Check
-		routingTree *api.RoutingTree
-		resultFanIn map[string]chan types.Result
-		cResult     chan types.ResultDTO
-		loader      config.Loader
-		cfg         *config.Config
-		cCfgChecks  chan map[string]any
-		router      chi.Router
-		routes      []route
-		db          db.DB
-	}
-	type args struct {
-		w *httptest.ResponseRecorder
-		r *http.Request
-	}
-	tests := []struct {
-		name     string
-		fields   fields
-		args     args
-		want     []byte
-		wantCode int
-	}{
-		{name: "no check handlers", fields: fields{routingTree: api.NewRoutingTree()}, args: args{w: httptest.NewRecorder(), r: httptest.NewRequest(http.MethodGet, "/v1/notfound", bytes.NewBuffer([]byte{}))}, wantCode: http.StatusNotFound, want: []byte(http.StatusText(http.StatusNotFound))},
-		{name: "has check handlers", fields: fields{routingTree: api.NewRoutingTree(), routes: []route{{Method: http.MethodGet, Path: "/v1/test", Handler: func(w http.ResponseWriter, r *http.Request) { w.Write([]byte("test")) }}}}, args: args{w: httptest.NewRecorder(), r: addRouteParams(httptest.NewRequest(http.MethodGet, "/v1/test", bytes.NewBuffer([]byte{})), map[string]string{"*": "/v1/test"})}, wantCode: http.StatusOK, want: []byte("test")}, //nolint:errcheck
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			s := &Sparrow{
-				checks:      tt.fields.checks,
-				routingTree: tt.fields.routingTree,
-				resultFanIn: tt.fields.resultFanIn,
-				cResult:     tt.fields.cResult,
-				loader:      tt.fields.loader,
-				cfg:         tt.fields.cfg,
-				cCfgChecks:  tt.fields.cCfgChecks,
-				router:      tt.fields.router,
-				db:          tt.fields.db,
-			}
-
-			for _, route := range tt.fields.routes {
-				s.routingTree.Add(route.Method, route.Path, route.Handler)
-			}
-			s.handleChecks(tt.args.w, tt.args.r)
-			resp := tt.args.w.Result() //nolint:bodyclose
-			body, _ := io.ReadAll(resp.Body)
-
-			if tt.wantCode != resp.StatusCode {
-				t.Errorf("Sparrow.handleChecks() = %v, want %v", resp.StatusCode, tt.wantCode)
-			}
-			if !reflect.DeepEqual(body, tt.want) {
-				t.Errorf("Sparrow.handleChecks() = %v, want %v", body, tt.want)
 			}
 		})
 	}
