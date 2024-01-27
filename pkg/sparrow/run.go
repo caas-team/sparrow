@@ -143,7 +143,7 @@ func (s *Sparrow) Run(ctx context.Context) error {
 func (s *Sparrow) ReconcileChecks(ctx context.Context, cfg runtime.Config) {
 	// generate checks from configuration
 	s.enrichTargets(cfg)
-	ck, err := factory.NewChecksFromConfig(cfg)
+	fChecks, err := factory.NewChecksFromConfig(cfg)
 	if err != nil {
 		logger.FromContext(ctx).ErrorContext(ctx, "Failed to create checks from config", "error", err)
 		return
@@ -151,7 +151,7 @@ func (s *Sparrow) ReconcileChecks(ctx context.Context, cfg runtime.Config) {
 
 	// if checks are empty, register all checks
 	if len(s.checks) == 0 {
-		for _, c := range ck {
+		for _, c := range fChecks {
 			err = s.registerCheck(ctx, c)
 			if err != nil {
 				logger.FromContext(ctx).ErrorContext(ctx, "Failed to register check", "error", err)
@@ -168,7 +168,7 @@ func (s *Sparrow) ReconcileChecks(ctx context.Context, cfg runtime.Config) {
 	}
 
 	// register / update checks that are in the new config
-	for _, c := range ck {
+	for _, c := range fChecks {
 		if _, ok := s.checks[c.Name()]; !ok {
 			err = s.registerCheck(ctx, c)
 			if err != nil {

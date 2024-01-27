@@ -71,10 +71,6 @@ type Config struct {
 	Retry    helper.RetryConfig `json:"retry" yaml:"retry"`
 }
 
-func (l *Config) Validate() error {
-	return nil
-}
-
 func (l *Config) For() string {
 	return CheckName
 }
@@ -146,7 +142,7 @@ func (l *Latency) SetConfig(cfg checks.Runtime) error {
 		return nil
 	}
 
-	return checks.ErrNoAvailableConfig
+	return checks.ConfigMismatch
 }
 
 // GetConfig returns the current configuration of the latency Check

@@ -81,10 +81,6 @@ type Config struct {
 	Retry    helper.RetryConfig `json:"retry" yaml:"retry"`
 }
 
-func (c Config) Validate() error {
-	return nil
-}
-
 func (c Config) For() string {
 	return CheckName
 }
@@ -151,7 +147,7 @@ func (d *DNS) SetConfig(cfg checks.Runtime) error {
 		return nil
 	}
 
-	return checks.ErrNoAvailableConfig
+	return checks.ConfigMismatch
 }
 
 // Schema provides the schema of the data that will be provided

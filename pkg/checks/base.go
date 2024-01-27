@@ -57,8 +57,6 @@ type CheckBase struct {
 
 // Runtime is the interface that all check configurations must implement
 type Runtime interface {
-	// Validate validates the check's configuration
-	Validate() error
 	// For returns the name of the check being configured
 	For() string
 }

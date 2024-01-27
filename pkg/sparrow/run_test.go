@@ -111,8 +111,17 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 
 			s.ReconcileChecks(ctx, tt.newChecksConfig)
 
-			// assert the currently registered checks are the ones in the new config
-			assert.Equal(t, tt.newChecksConfig.Size(), len(s.checks))
+			// iterate of the sparrow's checks and check if they are configured
+			for _, c := range s.checks {
+				cfg := c.GetConfig()
+				assert.NotNil(t, cfg)
+				if cfg.For() == health.CheckName {
+					assert.Equal(t, tt.newChecksConfig.Health, cfg)
+				}
+				if cfg.For() == latency.CheckName {
+					assert.Equal(t, tt.newChecksConfig.Latency, cfg)
+				}
+			}
 		})
 	}
 }

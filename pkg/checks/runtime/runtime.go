@@ -36,7 +36,7 @@ type Config struct {
 
 // Empty returns true if no checks are configured
 func (c Config) Empty() bool {
-	return c.Size() == 0
+	return c.size() == 0
 }
 
 // Iter returns configured checks in an iterable format
@@ -54,29 +54,8 @@ func (c Config) Iter() []checks.Runtime {
 	return configs
 }
 
-// Validate validates the checks'
-// configuration
-func (c Config) Validate() error {
-	if c.Health != nil {
-		if err := c.Health.Validate(); err != nil {
-			return err
-		}
-	}
-	if c.Latency != nil {
-		if err := c.Latency.Validate(); err != nil {
-			return err
-		}
-	}
-	if c.Dns != nil {
-		if err := c.Dns.Validate(); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// Size returns the number of checks configured
-func (c Config) Size() int {
+// size returns the number of checks configured
+func (c Config) size() int {
 	size := 0
 	if c.Health != nil {
 		size++

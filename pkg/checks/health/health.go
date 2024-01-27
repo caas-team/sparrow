@@ -81,10 +81,6 @@ type metrics struct {
 	*prometheus.GaugeVec
 }
 
-func (h *Config) Validate() error {
-	return nil
-}
-
 func (h *Config) For() string {
 	return CheckName
 }
@@ -145,7 +141,7 @@ func (h *Health) SetConfig(cfg checks.Runtime) error {
 		return nil
 	}
 
-	return checks.ErrNoAvailableConfig
+	return checks.ConfigMismatch
 }
 
 // GetConfig returns the current configuration of the check

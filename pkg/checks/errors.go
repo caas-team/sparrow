@@ -20,4 +20,4 @@ package checks
 
 import "errors"
 
-var ErrNoAvailableConfig = errors.New("no available config")
+var ConfigMismatch = errors.New("the given config does not match the check's type")
