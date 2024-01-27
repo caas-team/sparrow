@@ -25,6 +25,9 @@
   - [Check: Latency](#check-latency)
     - [Example configuration](#example-configuration-1)
     - [Latency Metrics](#latency-metrics)
+  - [Check: DNS](#check-dns)
+    - [Example configuration](#example-configuration-2)
+    - [DNS Metrics](#dns-metrics)
 - [API](#api)
 - [Metrics](#metrics)
 - [Code of Conduct](#code-of-conduct)
@@ -363,6 +366,57 @@ checks:
 - `sparrow_latency_duration`
   - Type: Histogram
   - Description: Latency of targets in seconds
+  - Labelled with `target`
+
+### Check: DNS
+
+Available configuration options:
+
+- `checks`
+  - `dns`
+    - `interval` (duration): Interval to perform the DNS check.
+    - `timeout` (duration): Timeout for the DNS check.
+    - `retry`
+      - `count` (integer): Number of retries for the DNS check.
+      - `delay` (duration): Initial delay between retries for the DNS check.
+    - `targets` (list of strings): List of targets to lookup. Needs to be a valid domain or IP. Can be
+      another `sparrow` instance. Automatically updated when a targetManager is configured.
+
+#### Example configuration
+
+```yaml
+checks:
+  dns:
+    interval: 10s
+    timeout: 30s
+    retry:
+      count: 3
+      delay: 1s
+    targets:
+      - www.example.com
+      - www.google.com
+```
+
+#### DNS Metrics
+
+- `sparrow_dns_status`
+  - Type: Gauge
+  - Description: Lookup status of targets
+  - Labelled with `target`
+
+- `sparrow_dns_check_count`
+  - Type: Counter
+  - Description: Count of DNS checks done
+  - Labelled with `target`
+
+- `sparrow_dns_duration`
+  - Type: Gauge
+  - Description: Duration of DNS resolution attempts
+  - Labelled with `target`
+
+- `sparrow_dns_duration`
+  - Type: Histogram
+  - Description: Histogram of response times for DNS checks
   - Labelled with `target`
 
 ## API
