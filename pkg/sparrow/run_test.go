@@ -103,7 +103,7 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 			s := &Sparrow{
 				checks:      tt.checks,
 				resultFanIn: make(map[string]chan checks.Result),
-				cCfgChecks:  make(chan runtime.Config, 1),
+				cRuntime:    make(chan runtime.Config, 1),
 				routingTree: api.NewRoutingTree(),
 				metrics:     NewMetrics(),
 				tarMan:      &gitlabmock.MockTargetManager{},

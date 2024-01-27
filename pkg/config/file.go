@@ -33,15 +33,15 @@ import (
 var _ Loader = (*FileLoader)(nil)
 
 type FileLoader struct {
-	path string
-	c    chan<- runtime.Config
-	done chan struct{}
+	path     string
+	cRuntime chan<- runtime.Config
+	done     chan struct{}
 }
 
-func NewFileLoader(cfg *Config, cCfgChecks chan<- runtime.Config) *FileLoader {
+func NewFileLoader(cfg *Config, cRuntime chan<- runtime.Config) *FileLoader {
 	return &FileLoader{
-		path: cfg.Loader.File.Path,
-		c:    cCfgChecks,
+		path:     cfg.Loader.File.Path,
+		cRuntime: cRuntime,
 	}
 }
 
@@ -62,7 +62,7 @@ func (f *FileLoader) Run(ctx context.Context) error {
 		return fmt.Errorf("failed to parse config file: %w", err)
 	}
 
-	f.c <- cfg
+	f.cRuntime <- cfg
 	return nil
 }
 

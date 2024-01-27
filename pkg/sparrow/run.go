@@ -55,8 +55,8 @@ type Sparrow struct {
 
 	cfg *config.Config
 
-	// cCfgChecks is the channel where the loader sends the checkCfg configuration of the checks
-	cCfgChecks chan runtime.Config
+	// cRuntime is the channel where the loader sends the checkCfg configuration of the checks
+	cRuntime chan runtime.Config
 	// cResult is the channel where the checks send their results to
 	cResult chan checks.ResultDTO
 	// cErr is used to handle non-recoverable errors of the sparrow components
@@ -82,7 +82,7 @@ func New(cfg *config.Config) *Sparrow {
 		resultFanIn: make(map[string]chan checks.Result),
 		cResult:     make(chan checks.ResultDTO, 1),
 		cfg:         cfg,
-		cCfgChecks:  make(chan runtime.Config, 1),
+		cRuntime:    make(chan runtime.Config, 1),
 		routingTree: api.NewRoutingTree(),
 		router:      chi.NewRouter(),
 		cErr:        make(chan error, 1),
@@ -96,7 +96,7 @@ func New(cfg *config.Config) *Sparrow {
 		sparrow.tarMan = gm
 	}
 
-	sparrow.loader = config.NewLoader(cfg, sparrow.cCfgChecks)
+	sparrow.loader = config.NewLoader(cfg, sparrow.cRuntime)
 	sparrow.db = db.NewInMemory()
 	return sparrow
 }
@@ -123,7 +123,7 @@ func (s *Sparrow) Run(ctx context.Context) error {
 		select {
 		case result := <-s.cResult:
 			go s.db.Save(result)
-		case cfg := <-s.cCfgChecks:
+		case cfg := <-s.cRuntime:
 			s.ReconcileChecks(ctx, cfg)
 		case <-ctx.Done():
 			s.shutdown(ctx)

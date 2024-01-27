@@ -134,8 +134,8 @@ func TestHttpLoader_GetRuntimeConfig(t *testing.T) {
 			defer cancel()
 
 			gl := &HttpLoader{
-				cfg:         tt.cfg,
-				cConfigCfgs: make(chan<- runtime.Config, 1),
+				cfg:      tt.cfg,
+				cRuntime: make(chan<- runtime.Config, 1),
 				client: &http.Client{
 					Timeout: tt.cfg.Loader.Http.Timeout,
 				},
@@ -213,9 +213,9 @@ func TestHttpLoader_Run(t *testing.T) {
 						},
 					},
 				},
-				cConfigCfgs: make(chan<- runtime.Config, 1),
-				client:      http.DefaultClient,
-				done:        make(chan struct{}, 1),
+				cRuntime: make(chan<- runtime.Config, 1),
+				client:   http.DefaultClient,
+				done:     make(chan struct{}, 1),
 			}
 
 			// shutdown routine
@@ -284,7 +284,7 @@ func TestHttpLoader_Run_config_sent_to_channel(t *testing.T) {
 	resp := httpmock.NewBytesResponder(200, body)
 	httpmock.RegisterResponder("GET", "https://api.test.com/test", resp)
 
-	cCfgChecks := make(chan runtime.Config, 1)
+	cRuntime := make(chan runtime.Config, 1)
 
 	hl := &HttpLoader{
 		cfg: &Config{
@@ -300,9 +300,9 @@ func TestHttpLoader_Run_config_sent_to_channel(t *testing.T) {
 				},
 			},
 		},
-		cConfigCfgs: cCfgChecks,
-		client:      http.DefaultClient,
-		done:        make(chan struct{}, 1),
+		cRuntime: cRuntime,
+		client:   http.DefaultClient,
+		done:     make(chan struct{}, 1),
 	}
 
 	ctx := context.Background()
@@ -317,7 +317,7 @@ func TestHttpLoader_Run_config_sent_to_channel(t *testing.T) {
 	select {
 	case <-time.After(time.Second):
 		t.Error("Config not sent to channel")
-	case c := <-cCfgChecks:
+	case c := <-cRuntime:
 		if !reflect.DeepEqual(c, expected) {
 			t.Errorf("Config sent to channel is not equal to expected config: got %v, want %v", c, expected)
 		}
@@ -340,7 +340,7 @@ func TestHttpLoader_Run_config_not_sent_to_channel_500(t *testing.T) {
 
 	httpmock.RegisterResponder("GET", "https://api.test.com/test", resp)
 
-	cCfgChecks := make(chan runtime.Config, 1)
+	cRuntime := make(chan runtime.Config, 1)
 
 	hl := &HttpLoader{
 		cfg: &Config{
@@ -356,9 +356,9 @@ func TestHttpLoader_Run_config_not_sent_to_channel_500(t *testing.T) {
 				},
 			},
 		},
-		cConfigCfgs: cCfgChecks,
-		client:      http.DefaultClient,
-		done:        make(chan struct{}, 1),
+		cRuntime: cRuntime,
+		client:   http.DefaultClient,
+		done:     make(chan struct{}, 1),
 	}
 
 	ctx := context.Background()
@@ -374,7 +374,7 @@ func TestHttpLoader_Run_config_not_sent_to_channel_500(t *testing.T) {
 	// make sure you wait for at least an interval
 	case <-time.After(time.Second):
 		t.Log("Config not sent to channel")
-	case c := <-cCfgChecks:
+	case c := <-cRuntime:
 		t.Errorf("Config sent to channel: %v", c)
 	}
 
@@ -391,7 +391,7 @@ func TestHttpLoader_Run_config_not_sent_to_channel_client_error(t *testing.T) {
 	resp := httpmock.NewErrorResponder(fmt.Errorf("client error"))
 	httpmock.RegisterResponder("GET", "https://api.test.com/test", resp)
 
-	cCfgChecks := make(chan runtime.Config, 1)
+	cRuntime := make(chan runtime.Config, 1)
 
 	hl := &HttpLoader{
 		cfg: &Config{
@@ -407,9 +407,9 @@ func TestHttpLoader_Run_config_not_sent_to_channel_client_error(t *testing.T) {
 				},
 			},
 		},
-		cConfigCfgs: cCfgChecks,
-		client:      http.DefaultClient,
-		done:        make(chan struct{}, 1),
+		cRuntime: cRuntime,
+		client:   http.DefaultClient,
+		done:     make(chan struct{}, 1),
 	}
 
 	ctx := context.Background()
@@ -425,7 +425,7 @@ func TestHttpLoader_Run_config_not_sent_to_channel_client_error(t *testing.T) {
 	// make sure you wait for at least an interval
 	case <-time.After(time.Second):
 		t.Log("Config not sent to channel")
-	case c := <-cCfgChecks:
+	case c := <-cRuntime:
 		t.Errorf("Config sent to channel: %v", c)
 	}
 

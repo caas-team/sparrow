@@ -35,7 +35,7 @@ func TestNewFileLoader(t *testing.T) {
 	if l.path != "config.yaml" {
 		t.Errorf("Expected path to be config.yaml, got %s", l.path)
 	}
-	if l.c == nil {
+	if l.cRuntime == nil {
 		t.Errorf("Expected channel to be not nil")
 	}
 }
@@ -76,8 +76,8 @@ func TestFileLoader_Run(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			f := &FileLoader{
-				path: tt.fields.path,
-				c:    tt.fields.c,
+				path:     tt.fields.path,
+				cRuntime: tt.fields.c,
 			}
 			go func() {
 				err := f.Run(*tt.args.ctx)
