@@ -29,23 +29,18 @@ import (
 // for the various checks
 // the sparrow supports
 type Config struct {
-	Checks Checks `yaml:"checks" json:"checks"`
-}
-
-// Empty returns true if no checks are configured
-func (c Config) Empty() bool {
-	return c.Checks.Empty()
-}
-
-// Checks holds the available check configurations
-type Checks struct {
 	Health  *health.Config  `yaml:"health" json:"health"`
 	Latency *latency.Config `yaml:"latency" json:"latency"`
 	Dns     *dns.Config     `yaml:"dns" json:"dns"`
 }
 
+// Empty returns true if no checks are configured
+func (c Config) Empty() bool {
+	return c.Size() == 0
+}
+
 // Iter returns configured checks in an iterable format
-func (c Checks) Iter() []checks.Runtime {
+func (c Config) Iter() []checks.Runtime {
 	var configs []checks.Runtime
 	if c.Health != nil {
 		configs = append(configs, c.Health)
@@ -61,7 +56,7 @@ func (c Checks) Iter() []checks.Runtime {
 
 // Validate validates the checks'
 // configuration
-func (c Checks) Validate() error {
+func (c Config) Validate() error {
 	if c.Health != nil {
 		if err := c.Health.Validate(); err != nil {
 			return err
@@ -80,13 +75,8 @@ func (c Checks) Validate() error {
 	return nil
 }
 
-// Empty returns true if no checks are configured
-func (c Checks) Empty() bool {
-	return c.Size() == 0
-}
-
 // Size returns the number of checks configured
-func (c Checks) Size() int {
+func (c Config) Size() int {
 	size := 0
 	if c.Health != nil {
 		size++
@@ -101,22 +91,22 @@ func (c Checks) Size() int {
 }
 
 // HasHealthCheck returns true if the check has a health check configured
-func (c Checks) HasHealthCheck() bool {
+func (c Config) HasHealthCheck() bool {
 	return c.Health != nil
 }
 
 // HasLatencyCheck returns true if the check has a latency check configured
-func (c Checks) HasLatencyCheck() bool {
+func (c Config) HasLatencyCheck() bool {
 	return c.Latency != nil
 }
 
 // HasDNSCheck returns true if the check has a dns check configured
-func (c Checks) HasDNSCheck() bool {
+func (c Config) HasDNSCheck() bool {
 	return c.Dns != nil
 }
 
 // HasCheck returns true if the check has a check with the given name configured
-func (c Checks) HasCheck(name string) bool {
+func (c Config) HasCheck(name string) bool {
 	switch name {
 	case health.CheckName:
 		return c.HasHealthCheck()

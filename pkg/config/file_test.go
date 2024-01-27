@@ -64,12 +64,10 @@ func TestFileLoader_Run(t *testing.T) {
 				return args{ctx: &ctx, cancel: &cancel}
 			}(),
 			want: runtime.Config{
-				Checks: runtime.Checks{
-					Health: &health.Config{
-						Targets:  []string{"http://localhost:8080/health"},
-						Interval: 1 * time.Second,
-						Timeout:  1 * time.Second,
-					},
+				Health: &health.Config{
+					Targets:  []string{"http://localhost:8080/health"},
+					Interval: 1 * time.Second,
+					Timeout:  1 * time.Second,
 				},
 			},
 		},

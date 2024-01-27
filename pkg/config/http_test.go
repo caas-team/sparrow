@@ -69,12 +69,10 @@ func TestHttpLoader_GetRuntimeConfig(t *testing.T) {
 				response:   httpmock.File("testdata/config.yaml").String(),
 			},
 			want: &runtime.Config{
-				Checks: runtime.Checks{
-					Health: &health.Config{
-						Targets:  []string{"http://localhost:8080/health"},
-						Interval: 1 * time.Second,
-						Timeout:  1 * time.Second,
-					},
+				Health: &health.Config{
+					Targets:  []string{"http://localhost:8080/health"},
+					Interval: 1 * time.Second,
+					Timeout:  1 * time.Second,
 				},
 			},
 		},
@@ -94,12 +92,10 @@ func TestHttpLoader_GetRuntimeConfig(t *testing.T) {
 				response:   httpmock.File("testdata/config.yaml").String(),
 			},
 			want: &runtime.Config{
-				Checks: runtime.Checks{
-					Health: &health.Config{
-						Targets:  []string{"http://localhost:8080/health"},
-						Interval: 1 * time.Second,
-						Timeout:  1 * time.Second,
-					},
+				Health: &health.Config{
+					Targets:  []string{"http://localhost:8080/health"},
+					Interval: 1 * time.Second,
+					Timeout:  1 * time.Second,
 				},
 			},
 		},
@@ -175,20 +171,16 @@ func TestHttpLoader_Run(t *testing.T) {
 			wantErr:  false,
 		},
 		{
-			name: "empty checks",
-			response: &runtime.Config{
-				Checks: runtime.Checks{},
-			},
-			code: 200,
+			name:     "empty checks' configuration",
+			response: &runtime.Config{},
+			code:     200,
 		},
 		{
 			name: "config with health check",
 			response: &runtime.Config{
-				Checks: runtime.Checks{
-					Health: &health.Config{
-						Targets:  []string{"http://localhost:8080/health"},
-						Interval: 1 * time.Second,
-					},
+				Health: &health.Config{
+					Targets:  []string{"http://localhost:8080/health"},
+					Interval: 1 * time.Second,
 				},
 			},
 			code: 200,
@@ -279,13 +271,13 @@ func TestHttpLoader_Run_config_sent_to_channel(t *testing.T) {
 	httpmock.Activate()
 	t.Cleanup(httpmock.DeactivateAndReset)
 
-	expected := runtime.Checks{
+	expected := runtime.Config{
 		Health: &health.Config{
 			Targets:  []string{"http://localhost:8080/health"},
 			Interval: 1 * time.Second,
 		},
 	}
-	body, err := yaml.Marshal(runtime.Config{Checks: expected})
+	body, err := yaml.Marshal(expected)
 	if err != nil {
 		t.Fatalf("Failed marshaling yaml: %v", err)
 	}
@@ -326,8 +318,8 @@ func TestHttpLoader_Run_config_sent_to_channel(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Error("Config not sent to channel")
 	case c := <-cCfgChecks:
-		if !reflect.DeepEqual(c.Checks, expected) {
-			t.Errorf("Config sent to channel is not equal to expected config: got %v, want %v", c.Checks, expected)
+		if !reflect.DeepEqual(c, expected) {
+			t.Errorf("Config sent to channel is not equal to expected config: got %v, want %v", c, expected)
 		}
 	}
 

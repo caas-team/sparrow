@@ -55,9 +55,9 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 
 			checks: map[string]checks.Check{},
 
-			newChecksConfig: runtime.Config{Checks: runtime.Checks{Health: &health.Config{
+			newChecksConfig: runtime.Config{Health: &health.Config{
 				Targets: []string{"https://gitlab.com"},
-			}}},
+			}},
 		},
 		{
 			name: "one healtcheck registered, register latency check",
@@ -66,14 +66,14 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 				health.CheckName: health.NewCheck(),
 			},
 
-			newChecksConfig: runtime.Config{Checks: runtime.Checks{
+			newChecksConfig: runtime.Config{
 				Latency: &latency.Config{
 					Targets: []string{"https://gitlab.com"},
 				},
 				Health: &health.Config{
 					Targets: []string{"https://gitlab.com"},
 				},
-			}},
+			},
 		},
 		{
 			name: "no checks registered but unregister all",
@@ -92,10 +92,8 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 			},
 
 			newChecksConfig: runtime.Config{
-				Checks: runtime.Checks{
-					Latency: &latency.Config{
-						Targets: []string{"https://gitlab.com"},
-					},
+				Latency: &latency.Config{
+					Targets: []string{"https://gitlab.com"},
 				},
 			},
 		},
@@ -114,7 +112,7 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 			s.ReconcileChecks(ctx, tt.newChecksConfig)
 
 			// assert the currently registered checks are the ones in the new config
-			assert.Equal(t, tt.newChecksConfig.Checks.Size(), len(s.checks))
+			assert.Equal(t, tt.newChecksConfig.Size(), len(s.checks))
 		})
 	}
 }
@@ -242,100 +240,82 @@ func TestSparrow_enrichTargets(t *testing.T) {
 		{
 			name: "config with no targets",
 			config: runtime.Config{
-				Checks: runtime.Checks{
-					Health: &health.Config{
-						Targets: nil,
-					},
-					Latency: &latency.Config{
-						Targets: nil,
-					},
+				Health: &health.Config{
+					Targets: nil,
+				},
+				Latency: &latency.Config{
+					Targets: nil,
 				},
 			},
 			globalTargets: gt,
 			expected: runtime.Config{
-				Checks: runtime.Checks{
-					Health: &health.Config{
-						Targets: []string{testTarget},
-					},
-					Latency: &latency.Config{
-						Targets: []string{testTarget},
-					},
+				Health: &health.Config{
+					Targets: []string{testTarget},
+				},
+				Latency: &latency.Config{
+					Targets: []string{testTarget},
 				},
 			},
 		},
 		{
 			name: "config with empty targets",
 			config: runtime.Config{
-				Checks: runtime.Checks{
-					Health: &health.Config{
-						Targets: nil,
-					},
-					Latency: &latency.Config{
-						Targets: nil,
-					},
+				Health: &health.Config{
+					Targets: nil,
+				},
+				Latency: &latency.Config{
+					Targets: nil,
 				},
 			},
 			globalTargets: gt,
 			expected: runtime.Config{
-				Checks: runtime.Checks{
-					Health: &health.Config{
-						Targets: []string{testTarget},
-					},
-					Latency: &latency.Config{
-						Targets: []string{testTarget},
-					},
+				Health: &health.Config{
+					Targets: []string{testTarget},
+				},
+				Latency: &latency.Config{
+					Targets: []string{testTarget},
 				},
 			},
 		},
 		{
 			name: "config with targets",
 			config: runtime.Config{
-				Checks: runtime.Checks{
-					Health: &health.Config{
-						Targets: []string{"https://gitlab.com"},
-					},
-					Latency: &latency.Config{
-						Targets: []string{"https://gitlab.com"},
-					},
+				Health: &health.Config{
+					Targets: []string{"https://gitlab.com"},
+				},
+				Latency: &latency.Config{
+					Targets: []string{"https://gitlab.com"},
 				},
 			},
 			globalTargets: gt,
 			expected: runtime.Config{
-				Checks: runtime.Checks{
-					Health: &health.Config{
-						Targets: []string{"https://gitlab.com", testTarget},
-					},
-					Latency: &latency.Config{
-						Targets: []string{"https://gitlab.com", testTarget},
-					},
+				Health: &health.Config{
+					Targets: []string{"https://gitlab.com", testTarget},
+				},
+				Latency: &latency.Config{
+					Targets: []string{"https://gitlab.com", testTarget},
 				},
 			},
 		},
 		{
 			name: "config has a target already present in global targets - no duplicates",
 			config: runtime.Config{
-				Checks: runtime.Checks{
-					Health: &health.Config{
-						Targets: []string{testTarget},
-					},
+				Health: &health.Config{
+					Targets: []string{testTarget},
 				},
 			},
 			globalTargets: gt,
 			expected: runtime.Config{
-				Checks: runtime.Checks{
-					Health: &health.Config{
-						Targets: []string{testTarget},
-					},
+				Health: &health.Config{
+					Targets: []string{testTarget},
 				},
 			},
 		},
 		{
 			name: "global targets contains self - do not add to config",
 			config: runtime.Config{
-				Checks: runtime.Checks{
-					Health: &health.Config{
-						Targets: []string{testTarget},
-					},
+				Health: &health.Config{
+					Targets: []string{testTarget},
 				},
 			},
 			globalTargets: append(gt, checks.GlobalTarget{
@@ -343,10 +323,8 @@ func TestSparrow_enrichTargets(t *testing.T) {
 				LastSeen: now,
 			}),
 			expected: runtime.Config{
-				Checks: runtime.Checks{
-					Health: &health.Config{
-						Targets: []string{testTarget},
-					},
+				Health: &health.Config{
+					Targets: []string{testTarget},
 				},
 			},
 		},

@@ -39,10 +39,9 @@ func TestNewChecksFromConfig(t *testing.T) {
 		{
 			name: "healthcheck",
 			cfg: runtime.Config{
-				Checks: runtime.Checks{
-					Health: healthCfg,
-				},
+				Health: healthCfg,
 			},
+
 			want: map[string]checks.Check{
 				"health": newHealthCheck(),
 			},
@@ -50,10 +49,9 @@ func TestNewChecksFromConfig(t *testing.T) {
 		{
 			name: "latency",
 			cfg: runtime.Config{
-				Checks: runtime.Checks{
-					Latency: latencyCfg,
-				},
+				Latency: latencyCfg,
 			},
+
 			want: map[string]checks.Check{
 				"latency": newLatencyCheck(),
 			},
@@ -61,11 +59,10 @@ func TestNewChecksFromConfig(t *testing.T) {
 		{
 			name: "multiple checks",
 			cfg: runtime.Config{
-				Checks: runtime.Checks{
-					Health:  healthCfg,
-					Latency: latencyCfg,
-				},
+				Health:  healthCfg,
+				Latency: latencyCfg,
 			},
+
 			want: map[string]checks.Check{
 				"health":  newHealthCheck(),
 				"latency": newLatencyCheck(),

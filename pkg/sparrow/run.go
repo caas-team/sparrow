@@ -162,7 +162,7 @@ func (s *Sparrow) ReconcileChecks(ctx context.Context, cfg runtime.Config) {
 
 	// unregister checks that are not in the new config
 	for name, check := range s.checks {
-		if !cfg.Checks.HasCheck(name) {
+		if !cfg.HasCheck(name) {
 			s.unregisterCheck(ctx, check)
 		}
 	}
@@ -199,11 +199,11 @@ func (s *Sparrow) enrichTargets(cfg runtime.Config) runtime.Config {
 		if gt.Url == fmt.Sprintf("https://%s", s.cfg.SparrowName) {
 			continue
 		}
-		if cfg.Checks.HasHealthCheck() && !slices.Contains(cfg.Checks.Health.Targets, gt.Url) {
-			cfg.Checks.Health.Targets = append(cfg.Checks.Health.Targets, gt.Url)
+		if cfg.HasHealthCheck() && !slices.Contains(cfg.Health.Targets, gt.Url) {
+			cfg.Health.Targets = append(cfg.Health.Targets, gt.Url)
 		}
-		if cfg.Checks.HasLatencyCheck() && !slices.Contains(cfg.Checks.Latency.Targets, gt.Url) {
-			cfg.Checks.Latency.Targets = append(cfg.Checks.Latency.Targets, gt.Url)
+		if cfg.HasLatencyCheck() && !slices.Contains(cfg.Latency.Targets, gt.Url) {
+			cfg.Latency.Targets = append(cfg.Latency.Targets, gt.Url)
 		}
 	}
 
