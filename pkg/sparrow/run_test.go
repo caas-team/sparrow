@@ -223,8 +223,8 @@ func TestSparrow_Run_ContextCancel(t *testing.T) {
 	time.Sleep(time.Millisecond * 30)
 }
 
-// TestSparrow_enrichHealthTargets tests that the enrichTargets method
-// updates the HealthCheck targets, if they exist in the config of the checks.
+// TestSparrow_enrichTargets tests that the enrichTargets method
+// updates the targets of the configured checks.
 func TestSparrow_enrichTargets(t *testing.T) {
 	now := time.Now()
 	testTarget := "https://localhost.de"
