@@ -30,7 +30,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/caas-team/sparrow/pkg/api"
 	"github.com/caas-team/sparrow/pkg/checks"
 	"github.com/caas-team/sparrow/pkg/checks/types"
 	"github.com/caas-team/sparrow/pkg/config"
@@ -101,7 +100,6 @@ func chiRequest(r *http.Request, value string) *http.Request {
 func TestSparrow_getCheckMetrics(t *testing.T) {
 	type fields struct {
 		checks      map[string]checks.Check
-		routingTree *api.RoutingTree
 		resultFanIn map[string]chan types.Result
 		cResult     chan types.ResultDTO
 		loader      config.Loader
@@ -130,7 +128,6 @@ func TestSparrow_getCheckMetrics(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &Sparrow{
 				checks:      tt.fields.checks,
-				routingTree: tt.fields.routingTree,
 				resultFanIn: tt.fields.resultFanIn,
 				cResult:     tt.fields.cResult,
 				loader:      tt.fields.loader,

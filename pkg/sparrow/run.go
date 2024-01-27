@@ -30,7 +30,6 @@ import (
 	"github.com/caas-team/sparrow/pkg/sparrow/targets"
 
 	"github.com/caas-team/sparrow/internal/logger"
-	"github.com/caas-team/sparrow/pkg/api"
 	"github.com/caas-team/sparrow/pkg/checks/register"
 	"github.com/caas-team/sparrow/pkg/checks/types"
 	"github.com/caas-team/sparrow/pkg/config"
@@ -65,8 +64,7 @@ type Sparrow struct {
 	loader config.Loader
 	tarMan targets.TargetManager
 
-	routingTree *api.RoutingTree
-	router      chi.Router
+	router chi.Router
 }
 
 // New creates a new sparrow from a given configfile
@@ -79,7 +77,6 @@ func New(cfg *config.Config) *Sparrow {
 		cResult:     make(chan types.ResultDTO, 1),
 		cfg:         cfg,
 		cCfgChecks:  make(chan map[string]any, 1),
-		routingTree: api.NewRoutingTree(),
 		router:      chi.NewRouter(),
 		cErr:        make(chan error, 1),
 		cDone:       make(chan struct{}, 1),
