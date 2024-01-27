@@ -21,6 +21,8 @@ package factory
 import (
 	"errors"
 
+	"github.com/caas-team/sparrow/pkg/checks/dns"
+
 	"github.com/caas-team/sparrow/pkg/checks"
 	"github.com/caas-team/sparrow/pkg/checks/health"
 	"github.com/caas-team/sparrow/pkg/checks/latency"
@@ -56,6 +58,7 @@ func NewChecksFromConfig(cfg runtime.Config) (map[string]checks.Check, error) {
 
 // registry is a convenience map to create new checks
 var registry = map[string]func() checks.Check{
-	"health":  health.NewCheck,
-	"latency": latency.NewCheck,
+	health.CheckName:  health.NewCheck,
+	latency.CheckName: latency.NewCheck,
+	dns.CheckName:     dns.NewCheck,
 }

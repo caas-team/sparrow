@@ -20,6 +20,7 @@ package runtime
 
 import (
 	"github.com/caas-team/sparrow/pkg/checks"
+	"github.com/caas-team/sparrow/pkg/checks/dns"
 	"github.com/caas-team/sparrow/pkg/checks/health"
 	"github.com/caas-team/sparrow/pkg/checks/latency"
 )
@@ -40,6 +41,7 @@ func (c Config) Empty() bool {
 type Checks struct {
 	Health  *health.Config  `yaml:"health" json:"health"`
 	Latency *latency.Config `yaml:"latency" json:"latency"`
+	Dns     *dns.Config     `yaml:"dns" json:"dns"`
 }
 
 // Iter returns configured checks in an iterable format
@@ -50,6 +52,9 @@ func (c Checks) Iter() []checks.Runtime {
 	}
 	if c.Latency != nil {
 		configs = append(configs, c.Latency)
+	}
+	if c.Dns != nil {
+		configs = append(configs, c.Dns)
 	}
 	return configs
 }
@@ -64,6 +69,11 @@ func (c Checks) Validate() error {
 	}
 	if c.Latency != nil {
 		if err := c.Latency.Validate(); err != nil {
+			return err
+		}
+	}
+	if c.Dns != nil {
+		if err := c.Dns.Validate(); err != nil {
 			return err
 		}
 	}
@@ -84,6 +94,9 @@ func (c Checks) Size() int {
 	if c.Latency != nil {
 		size++
 	}
+	if c.Dns != nil {
+		size++
+	}
 	return size
 }
 
@@ -97,13 +110,20 @@ func (c Checks) HasLatencyCheck() bool {
 	return c.Latency != nil
 }
 
+// HasDNSCheck returns true if the check has a dns check configured
+func (c Checks) HasDNSCheck() bool {
+	return c.Dns != nil
+}
+
 // HasCheck returns true if the check has a check with the given name configured
 func (c Checks) HasCheck(name string) bool {
 	switch name {
-	case "health":
+	case health.CheckName:
 		return c.HasHealthCheck()
-	case "latency":
+	case latency.CheckName:
 		return c.HasLatencyCheck()
+	case dns.CheckName:
+		return c.HasDNSCheck()
 	default:
 		return false
 	}

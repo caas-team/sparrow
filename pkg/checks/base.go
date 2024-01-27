@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/caas-team/sparrow/internal/helper"
-	"github.com/caas-team/sparrow/pkg/api"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -41,10 +40,6 @@ type Check interface {
 	Name() string
 	// Schema returns an openapi3.SchemaRef of the result type returned by the check
 	Schema() (*openapi3.SchemaRef, error)
-	// RegisterHandler Allows the check to register a handler on sparrows http server at runtime
-	RegisterHandler(ctx context.Context, router *api.RoutingTree)
-	// DeregisterHandler allows the check to deregister a handler on sparrows http server at runtime
-	DeregisterHandler(ctx context.Context, router *api.RoutingTree)
 	// GetMetricCollectors allows the check to provide prometheus metric collectors
 	GetMetricCollectors() []prometheus.Collector
 }

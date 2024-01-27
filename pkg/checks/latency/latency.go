@@ -32,7 +32,6 @@ import (
 
 	"github.com/caas-team/sparrow/internal/helper"
 	"github.com/caas-team/sparrow/internal/logger"
-	"github.com/caas-team/sparrow/pkg/api"
 )
 
 var (
@@ -66,10 +65,10 @@ func NewCheck() checks.Check {
 
 // Config defines the configuration parameters for a latency check
 type Config struct {
-	Targets  []string           `json:"targets,omitempty" yaml:"targets,omitempty" mapstructure:"targets"`
-	Interval time.Duration      `json:"interval" yaml:"interval" mapstructure:"interval"`
-	Timeout  time.Duration      `json:"timeout" yaml:"timeout" mapstructure:"timeout"`
-	Retry    helper.RetryConfig `json:"retry" yaml:"retry" mapstructure:"retry"`
+	Targets  []string           `json:"targets,omitempty" yaml:"targets,omitempty"`
+	Interval time.Duration      `json:"interval" yaml:"interval"`
+	Timeout  time.Duration      `json:"timeout" yaml:"timeout"`
+	Retry    helper.RetryConfig `json:"retry" yaml:"retry"`
 }
 
 func (l *Config) Validate() error {
@@ -168,21 +167,6 @@ func (l *Latency) Schema() (*openapi3.SchemaRef, error) {
 	return checks.OpenapiFromPerfData[map[string]result](make(map[string]result))
 }
 
-// RegisterHandler registers a server handler
-func (l *Latency) RegisterHandler(_ context.Context, router *api.RoutingTree) {
-	router.Add(http.MethodGet, "v1alpha1/latency", l.Handler)
-}
-
-// DeregisterHandler deletes the server handler
-func (l *Latency) DeregisterHandler(_ context.Context, router *api.RoutingTree) {
-	router.Remove(http.MethodGet, "v1alpha1/latency")
-}
-
-// Handler defines the server handler for the latency check
-func (l *Latency) Handler(w http.ResponseWriter, _ *http.Request) {
-	w.WriteHeader(http.StatusOK)
-}
-
 // newMetrics initializes metric collectors of the latency check
 func newMetrics() metrics {
 	return metrics{
@@ -250,11 +234,13 @@ func (l *Latency) check(ctx context.Context) map[string]result {
 		lo := log.With("target", target)
 
 		getLatencyRetry := helper.Retry(func(ctx context.Context) error {
-			res := getLatency(ctx, client, target)
+			res, err := getLatency(ctx, client, target)
 			mu.Lock()
 			defer mu.Unlock()
 			results[target] = res
-
+			if err != nil {
+				return err
+			}
 			return nil
 		}, l.config.Retry)
 
@@ -283,7 +269,7 @@ func (l *Latency) check(ctx context.Context) map[string]result {
 }
 
 // getLatency performs an HTTP get request and returns ok if request succeeds
-func getLatency(ctx context.Context, c *http.Client, url string) result {
+func getLatency(ctx context.Context, c *http.Client, url string) (result, error) {
 	log := logger.FromContext(ctx).With("url", url)
 	var res result
 
@@ -292,7 +278,7 @@ func getLatency(ctx context.Context, c *http.Client, url string) result {
 		log.Error("Error while creating request", "error", err)
 		errval := err.Error()
 		res.Error = &errval
-		return res
+		return res, err
 	}
 
 	start := time.Now()
@@ -301,7 +287,7 @@ func getLatency(ctx context.Context, c *http.Client, url string) result {
 		log.Error("Error while checking latency", "error", err)
 		errval := err.Error()
 		res.Error = &errval
-		return res
+		return res, err
 	}
 	end := time.Now()
 
@@ -311,5 +297,5 @@ func getLatency(ctx context.Context, c *http.Client, url string) result {
 	}(resp.Body)
 
 	res.Total = end.Sub(start).Seconds()
-	return res
+	return res, nil
 }

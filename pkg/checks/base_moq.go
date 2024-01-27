@@ -5,7 +5,6 @@ package checks
 
 import (
 	"context"
-	"github.com/caas-team/sparrow/pkg/api"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/prometheus/client_golang/prometheus"
 	"sync"
@@ -21,9 +20,6 @@ var _ Check = &CheckMock{}
 //
 //		// make and configure a mocked Check
 //		mockedCheck := &CheckMock{
-//			DeregisterHandlerFunc: func(ctx context.Context, router *api.RoutingTree)  {
-//				panic("mock out the DeregisterHandler method")
-//			},
 //			GetConfigFunc: func() Runtime {
 //				panic("mock out the GetConfig method")
 //			},
@@ -32,9 +28,6 @@ var _ Check = &CheckMock{}
 //			},
 //			NameFunc: func() string {
 //				panic("mock out the Name method")
-//			},
-//			RegisterHandlerFunc: func(ctx context.Context, router *api.RoutingTree)  {
-//				panic("mock out the RegisterHandler method")
 //			},
 //			RunFunc: func(ctx context.Context) error {
 //				panic("mock out the Run method")
@@ -58,9 +51,6 @@ var _ Check = &CheckMock{}
 //
 //	}
 type CheckMock struct {
-	// DeregisterHandlerFunc mocks the DeregisterHandler method.
-	DeregisterHandlerFunc func(ctx context.Context, router *api.RoutingTree)
-
 	// GetConfigFunc mocks the GetConfig method.
 	GetConfigFunc func() Runtime
 
@@ -69,9 +59,6 @@ type CheckMock struct {
 
 	// NameFunc mocks the Name method.
 	NameFunc func() string
-
-	// RegisterHandlerFunc mocks the RegisterHandler method.
-	RegisterHandlerFunc func(ctx context.Context, router *api.RoutingTree)
 
 	// RunFunc mocks the Run method.
 	RunFunc func(ctx context.Context) error
@@ -90,13 +77,6 @@ type CheckMock struct {
 
 	// calls tracks calls to the methods.
 	calls struct {
-		// DeregisterHandler holds details about calls to the DeregisterHandler method.
-		DeregisterHandler []struct {
-			// Ctx is the ctx argument value.
-			Ctx context.Context
-			// Router is the router argument value.
-			Router *api.RoutingTree
-		}
 		// GetConfig holds details about calls to the GetConfig method.
 		GetConfig []struct {
 		}
@@ -105,13 +85,6 @@ type CheckMock struct {
 		}
 		// Name holds details about calls to the Name method.
 		Name []struct {
-		}
-		// RegisterHandler holds details about calls to the RegisterHandler method.
-		RegisterHandler []struct {
-			// Ctx is the ctx argument value.
-			Ctx context.Context
-			// Router is the router argument value.
-			Router *api.RoutingTree
 		}
 		// Run holds details about calls to the Run method.
 		Run []struct {
@@ -139,52 +112,14 @@ type CheckMock struct {
 			CResult chan<- Result
 		}
 	}
-	lockDeregisterHandler   sync.RWMutex
 	lockGetConfig           sync.RWMutex
 	lockGetMetricCollectors sync.RWMutex
 	lockName                sync.RWMutex
-	lockRegisterHandler     sync.RWMutex
 	lockRun                 sync.RWMutex
 	lockSchema              sync.RWMutex
 	lockSetConfig           sync.RWMutex
 	lockShutdown            sync.RWMutex
 	lockStartup             sync.RWMutex
-}
-
-// DeregisterHandler calls DeregisterHandlerFunc.
-func (mock *CheckMock) DeregisterHandler(ctx context.Context, router *api.RoutingTree) {
-	if mock.DeregisterHandlerFunc == nil {
-		panic("CheckMock.DeregisterHandlerFunc: method is nil but Check.DeregisterHandler was just called")
-	}
-	callInfo := struct {
-		Ctx    context.Context
-		Router *api.RoutingTree
-	}{
-		Ctx:    ctx,
-		Router: router,
-	}
-	mock.lockDeregisterHandler.Lock()
-	mock.calls.DeregisterHandler = append(mock.calls.DeregisterHandler, callInfo)
-	mock.lockDeregisterHandler.Unlock()
-	mock.DeregisterHandlerFunc(ctx, router)
-}
-
-// DeregisterHandlerCalls gets all the calls that were made to DeregisterHandler.
-// Check the length with:
-//
-//	len(mockedCheck.DeregisterHandlerCalls())
-func (mock *CheckMock) DeregisterHandlerCalls() []struct {
-	Ctx    context.Context
-	Router *api.RoutingTree
-} {
-	var calls []struct {
-		Ctx    context.Context
-		Router *api.RoutingTree
-	}
-	mock.lockDeregisterHandler.RLock()
-	calls = mock.calls.DeregisterHandler
-	mock.lockDeregisterHandler.RUnlock()
-	return calls
 }
 
 // GetConfig calls GetConfigFunc.
@@ -265,42 +200,6 @@ func (mock *CheckMock) NameCalls() []struct {
 	mock.lockName.RLock()
 	calls = mock.calls.Name
 	mock.lockName.RUnlock()
-	return calls
-}
-
-// RegisterHandler calls RegisterHandlerFunc.
-func (mock *CheckMock) RegisterHandler(ctx context.Context, router *api.RoutingTree) {
-	if mock.RegisterHandlerFunc == nil {
-		panic("CheckMock.RegisterHandlerFunc: method is nil but Check.RegisterHandler was just called")
-	}
-	callInfo := struct {
-		Ctx    context.Context
-		Router *api.RoutingTree
-	}{
-		Ctx:    ctx,
-		Router: router,
-	}
-	mock.lockRegisterHandler.Lock()
-	mock.calls.RegisterHandler = append(mock.calls.RegisterHandler, callInfo)
-	mock.lockRegisterHandler.Unlock()
-	mock.RegisterHandlerFunc(ctx, router)
-}
-
-// RegisterHandlerCalls gets all the calls that were made to RegisterHandler.
-// Check the length with:
-//
-//	len(mockedCheck.RegisterHandlerCalls())
-func (mock *CheckMock) RegisterHandlerCalls() []struct {
-	Ctx    context.Context
-	Router *api.RoutingTree
-} {
-	var calls []struct {
-		Ctx    context.Context
-		Router *api.RoutingTree
-	}
-	mock.lockRegisterHandler.RLock()
-	calls = mock.calls.RegisterHandler
-	mock.lockRegisterHandler.RUnlock()
 	return calls
 }
 

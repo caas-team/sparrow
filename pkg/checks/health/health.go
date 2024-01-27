@@ -28,7 +28,6 @@ import (
 
 	"github.com/caas-team/sparrow/internal/helper"
 	"github.com/caas-team/sparrow/internal/logger"
-	"github.com/caas-team/sparrow/pkg/api"
 	"github.com/caas-team/sparrow/pkg/checks"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/prometheus/client_golang/prometheus"
@@ -165,22 +164,6 @@ func (h *Health) Name() string {
 // by the health check
 func (h *Health) Schema() (*openapi3.SchemaRef, error) {
 	return checks.OpenapiFromPerfData[map[string]string](map[string]string{})
-}
-
-// RegisterHandler dynamically registers a server handler
-func (h *Health) RegisterHandler(ctx context.Context, router *api.RoutingTree) {
-	log := logger.FromContext(ctx)
-	router.Add(http.MethodGet, h.route, func(w http.ResponseWriter, _ *http.Request) {
-		_, err := w.Write([]byte("ok"))
-		if err != nil {
-			log.Error("Could not write response", "error", err)
-		}
-	})
-}
-
-// DeregisterHandler dynamically deletes the server handler
-func (h *Health) DeregisterHandler(_ context.Context, router *api.RoutingTree) {
-	router.Remove(http.MethodGet, h.route)
 }
 
 // newMetrics initializes metric collectors of the health check

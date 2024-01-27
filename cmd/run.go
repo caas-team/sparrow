@@ -64,15 +64,14 @@ func NewCmdRun() *cobra.Command {
 // run is the entry point to start the sparrow
 func run() func(cmd *cobra.Command, args []string) error {
 	return func(cmd *cobra.Command, args []string) error {
-		log := logger.NewLogger()
-		ctx := logger.IntoContext(context.Background(), log)
-
 		var cfg config.Config
-
-		err := viper.Unmarshal(&cfg)
+		err := viper.Unmarshal(cfg)
 		if err != nil {
 			return fmt.Errorf("failed to parse config: %w", err)
 		}
+
+		log := logger.NewLogger()
+		ctx := logger.IntoContext(context.Background(), log)
 
 		if err = cfg.Validate(ctx); err != nil {
 			return fmt.Errorf("error while validating the config: %w", err)

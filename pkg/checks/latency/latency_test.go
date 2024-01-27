@@ -22,14 +22,12 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"net/http/httptest"
 	"reflect"
 	"testing"
 	"time"
 
 	"github.com/caas-team/sparrow/pkg/checks"
 
-	"github.com/caas-team/sparrow/pkg/api"
 	"github.com/jarcoal/httpmock"
 	"github.com/stretchr/testify/assert"
 )
@@ -359,44 +357,6 @@ func TestLatency_SetConfig(t *testing.T) {
 	}
 	if !reflect.DeepEqual(c.config, wantCfg) {
 		t.Errorf("SetConfig() = %v, want %v", c.config, wantCfg)
-	}
-}
-
-func TestLatency_RegisterHandler(t *testing.T) {
-	c := Latency{}
-
-	rt := api.NewRoutingTree()
-	c.RegisterHandler(context.Background(), rt)
-
-	h, ok := rt.Get(http.MethodGet, "v1alpha1/latency")
-
-	if !ok {
-		t.Error("RegisterHandler() should be ok")
-	}
-	if h == nil {
-		t.Error("RegisterHandler() should not be nil")
-	}
-	c.DeregisterHandler(context.Background(), rt)
-	h, ok = rt.Get(http.MethodGet, "v1alpha1/latency")
-
-	if ok {
-		t.Error("DeregisterHandler() should not be ok")
-	}
-
-	if h != nil {
-		t.Error("DeregisterHandler() should be nil")
-	}
-}
-
-func TestLatency_Handler(t *testing.T) {
-	c := Latency{}
-	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/v1alpha1/latency", http.NoBody)
-
-	c.Handler(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Errorf("Handler() should be ok, got %d", rec.Code)
 	}
 }
 
