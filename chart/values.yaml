@@ -137,10 +137,8 @@ sparrowConfig:
 
 # -- Check configuration of the Sparrow read on runtime
 # see: https://github.com/caas-team/sparrow?tab=readme-ov-file#checks
-checksConfig:
-  checks: {}
-# checks:
-#   health:
+checksConfig: {}
+#  health:
 #     interval: 15s
 #     timeout: 10s
 #     retry:
@@ -149,7 +147,7 @@ checksConfig:
 #     targets:
 #       - "https://www.example.com/"
 #       - "https://www.google.com/"
-#   latency:
+#  latency:
 #     interval: 15s
 #     timeout: 30s
 #     retry:

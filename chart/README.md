@@ -20,7 +20,7 @@ A Helm chart to install Sparrow
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | affinity | object | `{}` |  |
-| checksConfig | object | `{"checks":{}}` | Check configuration of the Sparrow read on runtime see: https://github.com/caas-team/sparrow?tab=readme-ov-file#checks |
+| checksConfig | object | `{}` | Check configuration of the Sparrow read on runtime see: https://github.com/caas-team/sparrow?tab=readme-ov-file#checks |
 | env | object | `{}` |  |
 | envFromSecrets | list | `[]` | extra environment variables Allows you to set environment variables through secrets you defined outside of the helm chart Useful for sensitive information like the http loader token |
 | extraArgs | object | `{}` | Extra command line start parameters see: https://github.com/caas-team/sparrow/blob/main/docs/sparrow_run.md |
