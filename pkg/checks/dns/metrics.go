@@ -64,7 +64,7 @@ func newMetrics() metrics {
 	}
 }
 
-// GetCollectors returns all metric collectors of check
+// GetCollectors returns all metric collectors
 func (m *metrics) GetCollectors() []prometheus.Collector {
 	return []prometheus.Collector{
 		m.status,

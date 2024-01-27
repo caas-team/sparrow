@@ -156,6 +156,7 @@ func (d *DNS) Schema() (*openapi3.SchemaRef, error) {
 	return checks.OpenapiFromPerfData(make(map[string]result))
 }
 
+// GetMetricCollectors returns all metric collectors of check
 func (d *DNS) GetMetricCollectors() []prometheus.Collector {
 	return d.metrics.GetCollectors()
 }
