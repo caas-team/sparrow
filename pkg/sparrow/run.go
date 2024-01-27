@@ -26,9 +26,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/caas-team/sparrow/pkg/factory"
+
 	"github.com/caas-team/sparrow/pkg/checks"
 
-	"github.com/caas-team/sparrow/pkg/checks/factory"
 	"github.com/caas-team/sparrow/pkg/checks/runtime"
 
 	"github.com/caas-team/sparrow/pkg/sparrow/targets"
