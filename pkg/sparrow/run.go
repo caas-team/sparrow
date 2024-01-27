@@ -192,10 +192,7 @@ func (s *Sparrow) enrichTargets(cfg runtime.Config) runtime.Config {
 		return cfg
 	}
 
-	gt := s.tarMan.GetTargets()
-
-	// merge global targets with health check targets
-	for _, gt := range gt {
+	for _, gt := range s.tarMan.GetTargets() {
 		if gt.Url == fmt.Sprintf("https://%s", s.cfg.SparrowName) {
 			continue
 		}
