@@ -1,5 +1,5 @@
 // sparrow
-// (C) 2023, Deutsche Telekom IT GmbH
+// (C) 2024, Deutsche Telekom IT GmbH
 //
 // Deutsche Telekom IT GmbH and all other contributors /
 // copyright owners license this file to you under the Apache
@@ -16,67 +16,53 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package sparrow
+package api
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/caas-team/sparrow/internal/logger"
+	"github.com/caas-team/sparrow/pkg/checks"
+	"github.com/caas-team/sparrow/pkg/config"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/go-chi/chi/v5"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"gopkg.in/yaml.v3"
 )
 
-type encoder interface {
-	Encode(v any) error
+type API struct {
+	server *http.Server
+	router chi.Router
 }
 
 const (
-	urlParamCheckName = "checkName"
-	readHeaderTimeout = time.Second * 5
+	readHeaderTimeout = 5 * time.Second
+	shutdownTimeout   = 30 * time.Second
 )
 
 var ErrCreateOpenapiSchema = errors.New("failed to get schema for check")
 
-func (s *Sparrow) register(ctx context.Context) {
-	s.router.Use(logger.Middleware(ctx))
-
-	// Handles OpenApi spec
-	s.router.Get("/openapi", s.getOpenapi)
-	// Handles public user facing json api
-	s.router.Get(fmt.Sprintf("/v1/metrics/{%s}", urlParamCheckName), s.getCheckMetrics)
-
-	// Handles requests with simple http ok
-	// Required for global targets in checks
-	s.router.Handle("/", okHandler(ctx))
-
-	// Handles prometheus metrics
-	s.router.Handle("/metrics",
-		promhttp.HandlerFor(
-			s.metrics.GetRegistry(),
-			promhttp.HandlerOpts{Registry: s.metrics.GetRegistry()},
-		))
+func New(cfg *config.ApiConfig) *API {
+	r := chi.NewRouter()
+	return &API{
+		server: &http.Server{Addr: cfg.ListeningAddress, Handler: r, ReadHeaderTimeout: readHeaderTimeout},
+		router: r,
+	}
 }
 
-// Serves the data api.
-//
+// Run serves the data api
 // Blocks until context is done
-func (s *Sparrow) api(ctx context.Context) error {
+func (a *API) Run(ctx context.Context) error {
 	log := logger.FromContext(ctx)
 	cErr := make(chan error, 1)
-	s.register(ctx)
 
 	// run http server in goroutine
 	go func(cErr chan error) {
 		defer close(cErr)
-		log.Info("Serving Api", "addr", s.cfg.Api.ListeningAddress)
-		if err := s.server.ListenAndServe(); err != nil {
+		log.Info("Serving Api", "addr", a.server.Addr)
+		if err := a.server.ListenAndServe(); err != nil {
 			log.Error("Failed to serve api", "error", err)
 			cErr <- err
 		}
@@ -95,20 +81,56 @@ func (s *Sparrow) api(ctx context.Context) error {
 	}
 }
 
-// shutdownAPI gracefully shuts down the api server
+// Shutdown gracefully shuts down the api server
 // Returns an error if an error is present in the context
 // or if the server cannot be shut down
-func (s *Sparrow) shutdownAPI(ctx context.Context) error {
+func (a *API) Shutdown(ctx context.Context) error {
 	errC := ctx.Err()
 	log := logger.FromContext(ctx)
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 	defer cancel()
-	err := s.server.Shutdown(shutdownCtx)
+	err := a.server.Shutdown(shutdownCtx)
 	if err != nil {
 		log.Error("Failed to shutdown api server", "error", err)
 		return fmt.Errorf("failed shutting down API: %w", errors.Join(errC, err))
 	}
 	return errC
+}
+
+type Route struct {
+	Path    string
+	Method  string
+	Handler http.HandlerFunc
+}
+
+func (a *API) RegisterRoutes(ctx context.Context, routes ...Route) error {
+	a.router.Use(logger.Middleware(ctx))
+	for _, route := range routes {
+		switch route.Method {
+		case http.MethodGet:
+			a.router.Get(route.Path, route.Handler)
+		case http.MethodPost:
+			a.router.Post(route.Path, route.Handler)
+		case http.MethodPut:
+			a.router.Put(route.Path, route.Handler)
+		case http.MethodDelete:
+			a.router.Delete(route.Path, route.Handler)
+		case http.MethodPatch:
+			a.router.Patch(route.Path, route.Handler)
+		case "Handle":
+			a.router.Handle(route.Path, route.Handler)
+		case "HandleFunc":
+			a.router.HandleFunc(route.Path, route.Handler)
+		default:
+			return fmt.Errorf("unsupported method: %s", route.Method)
+		}
+	}
+
+	// Handles requests with simple http ok
+	// Required for global tarMan in checks
+	a.router.Handle("/", okHandler(ctx))
+
+	return nil
 }
 
 // okHandler returns a handler that will serve status ok
@@ -144,10 +166,10 @@ var oapiBoilerplate = openapi3.T{
 	Servers: openapi3.Servers{},
 }
 
-func (s *Sparrow) Openapi(ctx context.Context) (openapi3.T, error) {
+func OpenAPI(ctx context.Context, cks map[string]checks.Check) (openapi3.T, error) {
 	log := logger.FromContext(ctx)
 	doc := oapiBoilerplate
-	for name, c := range s.checks {
+	for name, c := range cks {
 		ref, err := c.Schema()
 		if err != nil {
 			log.Error("failed to get schema for check", "error", err)
@@ -174,77 +196,4 @@ func (s *Sparrow) Openapi(ctx context.Context) (openapi3.T, error) {
 	}
 
 	return doc, nil
-}
-
-func (s *Sparrow) getCheckMetrics(w http.ResponseWriter, r *http.Request) {
-	log := logger.FromContext(r.Context())
-	name := chi.URLParam(r, urlParamCheckName)
-	if name == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		_, err := w.Write([]byte(http.StatusText(http.StatusBadRequest)))
-		if err != nil {
-			log.Error("Failed to write response", "error", err)
-		}
-		return
-	}
-	res, ok := s.db.Get(name)
-	if !ok {
-		w.WriteHeader(http.StatusNotFound)
-		_, err := w.Write([]byte(http.StatusText(http.StatusNotFound)))
-		if err != nil {
-			log.Error("Failed to write response", "error", err)
-		}
-		return
-	}
-
-	enc := json.NewEncoder(w)
-	enc.SetIndent("", "  ")
-
-	if err := enc.Encode(res); err != nil {
-		log.Error("failed to encode response", "error", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		_, err = w.Write([]byte(http.StatusText(http.StatusInternalServerError)))
-		if err != nil {
-			log.Error("Failed to write response", "error", err)
-		}
-		return
-	}
-	w.Header().Add("Content-Type", "application/json")
-}
-
-func (s *Sparrow) getOpenapi(w http.ResponseWriter, r *http.Request) {
-	log := logger.FromContext(r.Context())
-	oapi, err := s.Openapi(r.Context())
-	if err != nil {
-		log.Error("failed to create openapi", "error", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		_, err = w.Write([]byte(http.StatusText(http.StatusInternalServerError)))
-		if err != nil {
-			log.Error("Failed to write response", "error", err)
-		}
-		return
-	}
-
-	mime := r.Header.Get("Accept")
-
-	var marshaler encoder
-	switch mime {
-	case "application/json":
-		marshaler = json.NewEncoder(w)
-		w.Header().Add("Content-Type", "application/json")
-	default:
-		marshaler = yaml.NewEncoder(w)
-		w.Header().Add("Content-Type", "text/yaml")
-	}
-
-	err = marshaler.Encode(oapi)
-	if err != nil {
-		log.Error("failed to marshal openapi", "error", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		_, err = w.Write([]byte(http.StatusText(http.StatusInternalServerError)))
-		if err != nil {
-			log.Error("Failed to write response", "error", err)
-		}
-		return
-	}
 }

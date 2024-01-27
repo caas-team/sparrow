@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/caas-team/sparrow/pkg/checks"
+	"github.com/caas-team/sparrow/pkg/metrics"
 	gitlabmock "github.com/caas-team/sparrow/pkg/sparrow/targets/test"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/prometheus/client_golang/prometheus"
@@ -144,18 +145,20 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &Sparrow{
-				checks:      tt.fields.checks,
-				resultFanIn: tt.fields.resultFanIn,
-				cResult:     tt.fields.cResult,
-				loader:      tt.fields.loader,
-				cfg:         tt.fields.cfg,
-				cCfgChecks:  tt.fields.cCfgChecks,
-				db:          tt.fields.db,
-				metrics:     NewMetrics(),
+				config:  tt.fields.cfg,
+				db:      tt.fields.db,
+				loader:  tt.fields.loader,
+				metrics: metrics.NewMetrics(),
+				checksImpl: checksImpl{
+					checks:      tt.fields.checks,
+					resultFanIn: tt.fields.resultFanIn,
+					cCfgChecks:  tt.fields.cCfgChecks,
+					cResult:     tt.fields.cResult,
+				},
 			}
 
 			// Send new config to channel
-			s.cfg.Checks = tt.newChecksConfig
+			s.config.Checks = tt.newChecksConfig
 
 			s.ReconcileChecks(ctx)
 
@@ -376,7 +379,7 @@ func TestSparrow_updateCheckTargets(t *testing.T) {
 				tarMan: &gitlabmock.MockTargetManager{
 					Targets: tt.globalTargets,
 				},
-				cfg: &config.Config{
+				config: &config.Config{
 					SparrowName: "wonderhost.usa",
 				},
 			}

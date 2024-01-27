@@ -26,63 +26,70 @@ import (
 	"sync"
 	"time"
 
+	"github.com/caas-team/sparrow/pkg/api"
 	"github.com/caas-team/sparrow/pkg/checks"
+	"github.com/caas-team/sparrow/pkg/metrics"
 	"github.com/caas-team/sparrow/pkg/sparrow/targets"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/caas-team/sparrow/internal/logger"
 	"github.com/caas-team/sparrow/pkg/checks/register"
 	"github.com/caas-team/sparrow/pkg/checks/types"
 	"github.com/caas-team/sparrow/pkg/config"
 	"github.com/caas-team/sparrow/pkg/db"
-	"github.com/go-chi/chi/v5"
 )
 
 const shutdownTimeout = time.Second * 90
 
 type Sparrow struct {
-	db db.DB
+	config  *config.Config
+	db      db.DB
+	api     *api.API
+	loader  config.Loader
+	tarMan  targets.TargetManager
+	metrics metrics.Metrics
+	errHandlers
+	checksImpl
+}
+
+type checksImpl struct {
 	// the existing checks
-	checks map[string]checks.Check
-	server *http.Server
-
-	metrics Metrics
-
+	checks      map[string]checks.Check
 	resultFanIn map[string]chan types.Result
-
-	cfg *config.Config
-
+	// cCfgChecks is the channel where the loader sends the runtime configuration of the checks
 	cCfgChecks chan map[string]any
 	// cResult is the channel where the checks send their results to
 	cResult chan types.ResultDTO
+}
+
+type errHandlers struct {
 	// cErr is used to handle non-recoverable errors of the sparrow components
 	cErr chan error
 	// cDone is used to signal that the sparrow was shut down because of an error
 	cDone chan struct{}
 	// shutOnce is used to ensure that the shutdown function is only called once
 	shutOnce sync.Once
-
-	loader config.Loader
-	tarMan targets.TargetManager
-
-	router chi.Router
 }
 
 // New creates a new sparrow from a given configfile
 func New(cfg *config.Config) *Sparrow {
 	sparrow := &Sparrow{
-		db:          db.NewInMemory(),
-		checks:      make(map[string]checks.Check),
-		metrics:     NewMetrics(),
-		resultFanIn: make(map[string]chan types.Result),
-		cResult:     make(chan types.ResultDTO, 1),
-		cfg:         cfg,
-		cCfgChecks:  make(chan map[string]any, 1),
-		router:      chi.NewRouter(),
-		cErr:        make(chan error, 1),
-		cDone:       make(chan struct{}, 1),
+		config:  cfg,
+		db:      db.NewInMemory(),
+		api:     api.New(&cfg.Api),
+		metrics: metrics.NewMetrics(),
+		errHandlers: errHandlers{
+			cErr:     make(chan error, 1),
+			cDone:    make(chan struct{}, 1),
+			shutOnce: sync.Once{},
+		},
+		checksImpl: checksImpl{
+			checks:      make(map[string]checks.Check),
+			resultFanIn: make(map[string]chan types.Result),
+			cCfgChecks:  make(chan map[string]any, 1),
+			cResult:     make(chan types.ResultDTO, 1),
+		},
 	}
-
-	sparrow.server = &http.Server{Addr: cfg.Api.ListeningAddress, Handler: sparrow.router, ReadHeaderTimeout: readHeaderTimeout}
 
 	if cfg.HasTargetManager() {
 		gm := targets.NewGitlabManager(cfg.SparrowName, cfg.TargetManager)
@@ -90,7 +97,6 @@ func New(cfg *config.Config) *Sparrow {
 	}
 
 	sparrow.loader = config.NewLoader(cfg, sparrow.cCfgChecks)
-	sparrow.db = db.NewInMemory()
 	return sparrow
 }
 
@@ -108,8 +114,30 @@ func (s *Sparrow) Run(ctx context.Context) error {
 			s.cErr <- s.tarMan.Reconcile(ctx)
 		}
 	}()
+
 	go func() {
-		s.cErr <- s.api(ctx)
+		routes := []api.Route{
+			{
+				Path: "/openapi", Method: http.MethodGet,
+				Handler: s.handleOpenAPI,
+			},
+			{
+				Path: fmt.Sprintf("/v1/metrics/{%s}", urlParamCheckName), Method: http.MethodGet,
+				Handler: s.handleCheckMetrics,
+			},
+			{
+				Path: "/metrics", Method: "",
+				Handler: promhttp.HandlerFor(
+					s.metrics.GetRegistry(),
+					promhttp.HandlerOpts{Registry: s.metrics.GetRegistry()},
+				).ServeHTTP,
+			},
+		}
+		err := s.api.RegisterRoutes(ctx, routes...)
+		if err != nil {
+			s.cErr <- err
+		}
+		s.cErr <- s.api.Run(ctx)
 	}()
 
 	for {
@@ -117,7 +145,7 @@ func (s *Sparrow) Run(ctx context.Context) error {
 		case result := <-s.cResult:
 			go s.db.Save(result)
 		case configChecks := <-s.cCfgChecks:
-			s.cfg.Checks = configChecks
+			s.config.Checks = configChecks
 			s.ReconcileChecks(ctx)
 		case <-ctx.Done():
 			s.shutdown(ctx)
@@ -135,7 +163,7 @@ func (s *Sparrow) Run(ctx context.Context) error {
 // ReconcileChecks registers new Checks, unregisters removed Checks,
 // resets the Configs of Checks and starts running the checks
 func (s *Sparrow) ReconcileChecks(ctx context.Context) {
-	for name, checkCfg := range s.cfg.Checks {
+	for name, checkCfg := range s.config.Checks {
 		name := name
 		log := logger.FromContext(ctx).With("name", name)
 
@@ -154,7 +182,7 @@ func (s *Sparrow) ReconcileChecks(ctx context.Context) {
 	}
 
 	for existingCheckName, existingCheck := range s.checks {
-		if _, ok := s.cfg.Checks[existingCheckName]; ok {
+		if _, ok := s.config.Checks[existingCheckName]; ok {
 			// Check is known check
 			continue
 		}
@@ -210,7 +238,7 @@ func (s *Sparrow) updateCheckTargets(cfg any) any {
 		if slices.Contains(actual, t.Url) {
 			continue
 		}
-		if t.Url == fmt.Sprintf("https://%s", s.cfg.SparrowName) {
+		if t.Url == fmt.Sprintf("https://%s", s.config.SparrowName) {
 			continue
 		}
 		urls = append(urls, t.Url)
@@ -315,7 +343,7 @@ func (s *Sparrow) shutdown(ctx context.Context) {
 		if s.tarMan != nil {
 			errS = s.tarMan.Shutdown(ctx)
 		}
-		errA := s.shutdownAPI(ctx)
+		errA := s.api.Shutdown(ctx)
 		s.loader.Shutdown(ctx)
 		if errS != nil || errA != nil {
 			log.Error("Failed to shutdown gracefully", "contextError", errC, "apiError", errA, "targetError", errS)
