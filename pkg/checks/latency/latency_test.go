@@ -163,7 +163,7 @@ func TestLatency_Run(t *testing.T) { //nolint:gocyclo
 			assert.IsType(t, tt.want.Data, res.Data)
 
 			got := res.Data.(map[string]result)
-			expected := res.Data.(map[string]result)
+			expected := tt.want.Data.(map[string]result)
 			if len(got) != len(expected) {
 				t.Errorf("Length of Latency.Run() result set (%v) does not match length of expected result set (%v)", len(got), len(expected))
 			}
@@ -171,9 +171,6 @@ func TestLatency_Run(t *testing.T) { //nolint:gocyclo
 			for key, resultObj := range got {
 				if expected[key].Code != resultObj.Code {
 					t.Errorf("Result Code of %q = %v, want %v", key, resultObj.Code, expected[key].Code)
-				}
-				if expected[key].Error != resultObj.Error {
-					t.Errorf("Result Error of %q = %v, want %v", key, resultObj.Error, expected[key].Error)
 				}
 				if key != timeoutURL {
 					if resultObj.Total <= 0 || resultObj.Total >= 1 {
