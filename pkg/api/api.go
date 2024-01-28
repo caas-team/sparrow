@@ -50,6 +50,7 @@ const (
 
 var ErrCreateOpenapiSchema = errors.New("failed to get schema for check")
 
+// New creates a new api
 func New(cfg config.ApiConfig) API {
 	r := chi.NewRouter()
 	return &api{
@@ -82,7 +83,7 @@ func (a *api) Run(ctx context.Context) error {
 			log.Info("Api server closed")
 			return nil
 		}
-		log.Error("failed serving API", "error", err)
+		log.Error("Failed serving API", "error", err)
 		return fmt.Errorf("failed serving API: %w", err)
 	}
 }
@@ -109,6 +110,7 @@ type Route struct {
 	Handler http.HandlerFunc
 }
 
+// RegisterRoutes sets up all endpoint handlers for the given routes
 func (a *api) RegisterRoutes(ctx context.Context, routes ...Route) error {
 	a.router.Use(logger.Middleware(ctx))
 	for _, route := range routes {
@@ -172,7 +174,9 @@ var oapiBoilerplate = openapi3.T{
 	Servers: openapi3.Servers{},
 }
 
-func OpenAPI(ctx context.Context, cks map[string]checks.Check) (openapi3.T, error) {
+// GenerateCheckSpecs generates the OpenAPI specifications for the given checks
+// Returns the complete OpenAPI specification for all checks
+func GenerateCheckSpecs(ctx context.Context, cks map[string]checks.Check) (openapi3.T, error) {
 	log := logger.FromContext(ctx)
 	doc := oapiBoilerplate
 	for name, c := range cks {

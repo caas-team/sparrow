@@ -36,7 +36,7 @@ const urlParamCheckName = "checkName"
 
 func (s *Sparrow) handleOpenAPI(w http.ResponseWriter, r *http.Request) {
 	log := logger.FromContext(r.Context())
-	oapi, err := api.OpenAPI(r.Context(), s.checks)
+	oapi, err := api.GenerateCheckSpecs(r.Context(), s.checks)
 	if err != nil {
 		log.Error("failed to create openapi", "error", err)
 		w.WriteHeader(http.StatusInternalServerError)
