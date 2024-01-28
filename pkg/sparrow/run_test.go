@@ -149,7 +149,7 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 				db:      tt.fields.db,
 				loader:  tt.fields.loader,
 				metrics: metrics.NewMetrics(),
-				checksImpl: checksImpl{
+				checkCoordinator: checkCoordinator{
 					checks:      tt.fields.checks,
 					resultFanIn: tt.fields.resultFanIn,
 					cCfgChecks:  tt.fields.cCfgChecks,

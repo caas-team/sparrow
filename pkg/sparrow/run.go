@@ -48,11 +48,11 @@ type Sparrow struct {
 	loader  config.Loader
 	tarMan  targets.TargetManager
 	metrics metrics.Metrics
-	errHandlers
-	checksImpl
+	errorHandler
+	checkCoordinator
 }
 
-type checksImpl struct {
+type checkCoordinator struct {
 	// the existing checks
 	checks      map[string]checks.Check
 	resultFanIn map[string]chan types.Result
@@ -62,7 +62,7 @@ type checksImpl struct {
 	cResult chan types.ResultDTO
 }
 
-type errHandlers struct {
+type errorHandler struct {
 	// cErr is used to handle non-recoverable errors of the sparrow components
 	cErr chan error
 	// cDone is used to signal that the sparrow was shut down because of an error
@@ -78,12 +78,12 @@ func New(cfg *config.Config) *Sparrow {
 		db:      db.NewInMemory(),
 		api:     api.New(cfg.Api),
 		metrics: metrics.NewMetrics(),
-		errHandlers: errHandlers{
+		errorHandler: errorHandler{
 			cErr:     make(chan error, 1),
 			cDone:    make(chan struct{}, 1),
 			shutOnce: sync.Once{},
 		},
-		checksImpl: checksImpl{
+		checkCoordinator: checkCoordinator{
 			checks:      make(map[string]checks.Check),
 			resultFanIn: make(map[string]chan types.Result),
 			cCfgChecks:  make(chan map[string]any, 1),

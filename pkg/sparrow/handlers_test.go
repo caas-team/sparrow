@@ -122,7 +122,7 @@ func TestSparrow_handleCheckMetrics(t *testing.T) {
 				db:     tt.fields.db,
 				api:    tt.fields.api,
 				loader: tt.fields.loader,
-				checksImpl: checksImpl{
+				checkCoordinator: checkCoordinator{
 					checks:      tt.fields.checks,
 					resultFanIn: tt.fields.resultFanIn,
 					cCfgChecks:  tt.fields.cCfgChecks,
