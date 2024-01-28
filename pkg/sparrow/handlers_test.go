@@ -96,7 +96,7 @@ func TestSparrow_handleCheckMetrics(t *testing.T) {
 		loader      config.Loader
 		cfg         *config.Config
 		cCfgChecks  chan map[string]any
-		api         *api.API
+		api         api.API
 		db          db.DB
 	}
 

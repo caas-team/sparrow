@@ -32,7 +32,13 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-type API struct {
+type API interface {
+	Run(ctx context.Context) error
+	Shutdown(ctx context.Context) error
+	RegisterRoutes(ctx context.Context, routes ...Route) error
+}
+
+type api struct {
 	server *http.Server
 	router chi.Router
 }
@@ -44,9 +50,9 @@ const (
 
 var ErrCreateOpenapiSchema = errors.New("failed to get schema for check")
 
-func New(cfg *config.ApiConfig) *API {
+func New(cfg config.ApiConfig) API {
 	r := chi.NewRouter()
-	return &API{
+	return &api{
 		server: &http.Server{Addr: cfg.ListeningAddress, Handler: r, ReadHeaderTimeout: readHeaderTimeout},
 		router: r,
 	}
@@ -54,7 +60,7 @@ func New(cfg *config.ApiConfig) *API {
 
 // Run serves the data api
 // Blocks until context is done
-func (a *API) Run(ctx context.Context) error {
+func (a *api) Run(ctx context.Context) error {
 	log := logger.FromContext(ctx)
 	cErr := make(chan error, 1)
 
@@ -84,7 +90,7 @@ func (a *API) Run(ctx context.Context) error {
 // Shutdown gracefully shuts down the api server
 // Returns an error if an error is present in the context
 // or if the server cannot be shut down
-func (a *API) Shutdown(ctx context.Context) error {
+func (a *api) Shutdown(ctx context.Context) error {
 	errC := ctx.Err()
 	log := logger.FromContext(ctx)
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
@@ -103,7 +109,7 @@ type Route struct {
 	Handler http.HandlerFunc
 }
 
-func (a *API) RegisterRoutes(ctx context.Context, routes ...Route) error {
+func (a *api) RegisterRoutes(ctx context.Context, routes ...Route) error {
 	a.router.Use(logger.Middleware(ctx))
 	for _, route := range routes {
 		switch route.Method {

@@ -44,7 +44,7 @@ const shutdownTimeout = time.Second * 90
 type Sparrow struct {
 	config  *config.Config
 	db      db.DB
-	api     *api.API
+	api     api.API
 	loader  config.Loader
 	tarMan  targets.TargetManager
 	metrics metrics.Metrics
@@ -76,7 +76,7 @@ func New(cfg *config.Config) *Sparrow {
 	sparrow := &Sparrow{
 		config:  cfg,
 		db:      db.NewInMemory(),
-		api:     api.New(&cfg.Api),
+		api:     api.New(cfg.Api),
 		metrics: metrics.NewMetrics(),
 		errHandlers: errHandlers{
 			cErr:     make(chan error, 1),

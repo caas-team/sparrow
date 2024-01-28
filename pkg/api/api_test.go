@@ -28,11 +28,112 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-func TestAPI_RegisterRoutes(_ *testing.T) {
+func TestAPI_RegisterRoutes(t *testing.T) {
+	tests := []struct {
+		name   string
+		routes []Route
+		want   []struct {
+			method string
+			path   string
+			status int
+		}
+		wantErr bool
+	}{
+		{
+			name: "Register one route",
+			routes: []Route{
+				{Path: "/get", Method: http.MethodGet, Handler: func(w http.ResponseWriter, r *http.Request) {
+					w.WriteHeader(http.StatusOK)
+				}},
+			},
+			want: []struct {
+				method string
+				path   string
+				status int
+			}{
+				{method: http.MethodGet, path: "/get", status: http.StatusOK},
+			},
+			wantErr: false,
+		},
+		{
+			name: "Register multiple routes",
+			routes: []Route{
+				{Path: "/get", Method: http.MethodGet, Handler: func(w http.ResponseWriter, r *http.Request) {
+					w.WriteHeader(http.StatusOK)
+				}},
+				{Path: "/post", Method: http.MethodPost, Handler: func(w http.ResponseWriter, r *http.Request) {
+					w.WriteHeader(http.StatusCreated)
+				}},
+				{Path: "/put", Method: http.MethodPut, Handler: func(w http.ResponseWriter, r *http.Request) {
+					w.WriteHeader(http.StatusOK)
+				}},
+				{Path: "/delete", Method: http.MethodDelete, Handler: func(w http.ResponseWriter, r *http.Request) {
+					w.WriteHeader(http.StatusNoContent)
+				}},
+				{Path: "/patch", Method: http.MethodPatch, Handler: func(w http.ResponseWriter, r *http.Request) {
+					w.WriteHeader(http.StatusOK)
+				}},
+				{Path: "/handle", Method: "Handle", Handler: func(w http.ResponseWriter, r *http.Request) {
+					w.WriteHeader(http.StatusOK)
+				}},
+				{Path: "/handlefunc", Method: "HandleFunc", Handler: func(w http.ResponseWriter, r *http.Request) {
+					w.WriteHeader(http.StatusOK)
+				}},
+			},
+			want: []struct {
+				method string
+				path   string
+				status int
+			}{
+				{method: http.MethodGet, path: "/get", status: http.StatusOK},
+				{method: http.MethodPost, path: "/post", status: http.StatusCreated},
+				{method: http.MethodPut, path: "/put", status: http.StatusOK},
+				{method: http.MethodDelete, path: "/delete", status: http.StatusNoContent},
+				{method: http.MethodPatch, path: "/patch", status: http.StatusOK},
+				{method: http.MethodGet, path: "/handle", status: http.StatusOK},
+				{method: http.MethodGet, path: "/handlefunc", status: http.StatusOK},
+			},
+			wantErr: false,
+		},
+		{
+			name: "Unsupported Method",
+			routes: []Route{
+				{Path: "/unknown", Method: "unknown", Handler: func(w http.ResponseWriter, r *http.Request) {}},
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			a := api{
+				server: &http.Server{}, //nolint:gosec
+				router: chi.NewRouter(),
+			}
+
+			err := a.RegisterRoutes(context.Background(), tt.routes...)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("RegisterRoutes() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if !tt.wantErr {
+				for _, req := range tt.want {
+					request := httptest.NewRequest(req.method, req.path, http.NoBody)
+					recorder := httptest.NewRecorder()
+
+					a.router.ServeHTTP(recorder, request)
+
+					if recorder.Code != req.status {
+						t.Errorf("Unexpected status code for %s %s. Got %d, wanted %d", req.method, req.path, recorder.Code, req.status)
+					}
+				}
+			}
+		})
+	}
 }
 
-func TestAPI_shutdownWhenContextCanceled(t *testing.T) {
-	a := API{
+func TestAPI_ShutdownWhenContextCanceled(t *testing.T) {
+	a := api{
 		router: chi.NewRouter(),
 		server: &http.Server{}, //nolint:gosec
 	}
