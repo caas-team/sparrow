@@ -122,7 +122,7 @@ func (a *API) RegisterRoutes(ctx context.Context, routes ...Route) error {
 		case "HandleFunc":
 			a.router.HandleFunc(route.Path, route.Handler)
 		default:
-			return fmt.Errorf("unsupported method: %s", route.Method)
+			return fmt.Errorf("unsupported method for %s: %s", route.Path, route.Method)
 		}
 	}
 

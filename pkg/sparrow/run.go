@@ -126,7 +126,7 @@ func (s *Sparrow) Run(ctx context.Context) error {
 				Handler: s.handleCheckMetrics,
 			},
 			{
-				Path: "/metrics", Method: "",
+				Path: "/metrics", Method: "Handle",
 				Handler: promhttp.HandlerFor(
 					s.metrics.GetRegistry(),
 					promhttp.HandlerOpts{Registry: s.metrics.GetRegistry()},
@@ -135,6 +135,7 @@ func (s *Sparrow) Run(ctx context.Context) error {
 		}
 		err := s.api.RegisterRoutes(ctx, routes...)
 		if err != nil {
+			log.Error("Error while registering routes", "error", err)
 			s.cErr <- err
 		}
 		s.cErr <- s.api.Run(ctx)
