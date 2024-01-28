@@ -111,7 +111,7 @@ sparrowConfig:
   name: sparrow.com
   loader:
     type: file
-    path: /config/checksConfig.yaml
+    path: /config/checks.yaml
 # name: the-sparrow.com
 # api:
 #   address:
