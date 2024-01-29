@@ -14,11 +14,6 @@ jobs:
     name: Prune old sparrow images
     runs-on: ubuntu-latest
 
-    permissions:
-      contents: write
-      packages: write
-      security-events: write
-
     steps:
     
       - name: Prune Images
