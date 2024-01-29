@@ -26,7 +26,6 @@ jobs:
           prune-untagged: true
           prune-tags-regexes: |
             ^commit-
-            SNAPSHOT-.*$
 
       - name: Prune Charts
         uses: vlaurin/action-ghcr-prune@v0.5.0
