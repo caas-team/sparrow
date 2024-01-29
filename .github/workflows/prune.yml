@@ -22,7 +22,6 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           organization: caas-team
           container: sparrow
-          dry-run: true
           keep-younger-than: 7 # days
           prune-untagged: true
           prune-tags-regexes: |
@@ -35,7 +34,6 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           organization: caas-team
           container: charts/sparrow
-          dry-run: true
           keep-younger-than: 7 # days
           prune-untagged: true
           prune-tags-regexes: |
