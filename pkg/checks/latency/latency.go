@@ -31,7 +31,6 @@ import (
 
 	"github.com/caas-team/sparrow/internal/helper"
 	"github.com/caas-team/sparrow/internal/logger"
-	"github.com/caas-team/sparrow/pkg/api"
 	"github.com/caas-team/sparrow/pkg/checks"
 	"github.com/caas-team/sparrow/pkg/checks/errors"
 	"github.com/caas-team/sparrow/pkg/checks/types"
@@ -147,21 +146,6 @@ func (l *Latency) SetConfig(ctx context.Context, conf any) error {
 // by the latency check
 func (l *Latency) Schema() (*openapi3.SchemaRef, error) {
 	return checks.OpenapiFromPerfData(make(map[string]Result))
-}
-
-// RegisterHandler registers a server handler
-func (l *Latency) RegisterHandler(_ context.Context, router *api.RoutingTree) {
-	router.Add(http.MethodGet, "v1alpha1/latency", l.Handler)
-}
-
-// DeregisterHandler deletes the server handler
-func (l *Latency) DeregisterHandler(_ context.Context, router *api.RoutingTree) {
-	router.Remove(http.MethodGet, "v1alpha1/latency")
-}
-
-// Handler defines the server handler for the latency check
-func (l *Latency) Handler(w http.ResponseWriter, _ *http.Request) {
-	w.WriteHeader(http.StatusOK)
 }
 
 // newMetrics initializes metric collectors of the latency check

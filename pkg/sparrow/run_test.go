@@ -24,7 +24,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/caas-team/sparrow/pkg/api"
 	"github.com/caas-team/sparrow/pkg/checks"
 	gitlabmock "github.com/caas-team/sparrow/pkg/sparrow/targets/test"
 	"github.com/getkin/kin-openapi/openapi3"
@@ -59,8 +58,6 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 		StartupFunc: func(ctx context.Context, cResult chan<- types.Result) error {
 			return nil
 		},
-		RegisterHandlerFunc:   func(ctx context.Context, router *api.RoutingTree) {},
-		DeregisterHandlerFunc: func(ctx context.Context, router *api.RoutingTree) {},
 		GetMetricCollectorsFunc: func() []prometheus.Collector {
 			return []prometheus.Collector{}
 		},
