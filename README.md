@@ -41,15 +41,15 @@ executed periodically.
 
 ## About this component
 
-The `sparrow` performs several checks to monitor the health of the infrastructure and network from its point of view.
-The following checks are available:
+The `sparrow` performs several checks to monitor the health of the infrastructure and network from its point of view. The following checks are available:
 
-1. Health check - `health`: The `sparrow` is able to perform an HTTP-based (HTTP/1.1) health check to the provided
-   endpoints.
-   The `sparrow` will expose its own health check endpoint as well.
+1. [Health check](#check-health) - `health`: The `sparrow` is able to perform an HTTP-based (HTTP/1.1) health check to the provided endpoints. The `sparrow` will expose its own health check endpoint as well.
 
-2. Latency check - `latency`: The `sparrow` is able to communicate with other `sparrow` instances to calculate the time
-   a request takes to the target and back. The check is http (HTTP/1.1) based as well.
+2. [Latency check](#check-latency) - `latency`: The `sparrow` is able to communicate with other `sparrow` instances to calculate the time a request takes to the target and back. The check is http (HTTP/1.1) based as well.
+
+3. [DNS check](#check-dns) - `dns`: The `sparrow` is able to perform DNS resolution checks to monitor domain name system performance and reliability. The check has the ability to target specific domains or IPs for monitoring.
+
+Each check is designed to provide comprehensive insights into the various aspects of network and service health, ensuring robust monitoring and quick detection of potential issues.
 
 ## Installation
 
