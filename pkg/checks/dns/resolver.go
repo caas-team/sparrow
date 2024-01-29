@@ -36,7 +36,10 @@ type resolver struct {
 
 func NewResolver() Resolver {
 	return &resolver{
-		Resolver: &net.Resolver{},
+		Resolver: &net.Resolver{
+			// We need to set this so the custom dialer is used
+			PreferGo: true,
+		},
 	}
 }
 
