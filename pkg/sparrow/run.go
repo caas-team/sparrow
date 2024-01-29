@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -201,6 +202,10 @@ func (s *Sparrow) enrichTargets(cfg runtime.Config) runtime.Config {
 		}
 		if cfg.HasLatencyCheck() && !slices.Contains(cfg.Latency.Targets, gt.Url) {
 			cfg.Latency.Targets = append(cfg.Latency.Targets, gt.Url)
+		}
+		if cfg.HasDNSCheck() && !slices.Contains(cfg.Dns.Targets, gt.Url) {
+			t, _ := strings.CutPrefix(gt.Url, "https://")
+			cfg.Dns.Targets = append(cfg.Dns.Targets, t)
 		}
 	}
 

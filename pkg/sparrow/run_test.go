@@ -24,6 +24,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/caas-team/sparrow/pkg/checks/dns"
+
 	"github.com/caas-team/sparrow/pkg/checks/runtime"
 
 	"github.com/caas-team/sparrow/pkg/checks"
@@ -287,7 +289,7 @@ func TestSparrow_enrichTargets(t *testing.T) {
 			},
 		},
 		{
-			name: "config with targets",
+			name: "config with targets (health + latency)",
 			config: runtime.Config{
 				Health: &health.Config{
 					Targets: []string{"https://gitlab.com"},
@@ -303,6 +305,20 @@ func TestSparrow_enrichTargets(t *testing.T) {
 				},
 				Latency: &latency.Config{
 					Targets: []string{"https://gitlab.com", testTarget},
+				},
+			},
+		},
+		{
+			name: "config with targets (dns)",
+			config: runtime.Config{
+				Dns: &dns.Config{
+					Targets: []string{"gitlab.com"},
+				},
+			},
+			globalTargets: gt,
+			expected: runtime.Config{
+				Dns: &dns.Config{
+					Targets: []string{"gitlab.com", "localhost.de"},
 				},
 			},
 		},

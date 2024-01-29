@@ -179,9 +179,6 @@ func TestDNS_Run(t *testing.T) {
 			if err != nil {
 				t.Fatalf("DNS.SetConfig() error = %v", err)
 			}
-			if err != nil {
-				t.Fatalf("DNS.SetConfig() error = %v", err)
-			}
 
 			go func() {
 				err := c.Run(ctx)
@@ -293,24 +290,6 @@ func TestDNS_SetConfig(t *testing.T) {
 			},
 			want: Config{
 				Targets:  []string{exampleURL, sparrowURL},
-				Interval: 10 * time.Second,
-				Timeout:  30 * time.Second,
-			},
-			wantErr: false,
-		},
-		{
-			name: "config with injected global targets",
-			input: &Config{
-				Targets: []string{
-					exampleURL,
-					sparrowURL,
-					"https://www.google.com",
-				},
-				Interval: 10 * time.Second,
-				Timeout:  30 * time.Second,
-			},
-			want: Config{
-				Targets:  []string{exampleURL, sparrowURL, "www.google.com"},
 				Interval: 10 * time.Second,
 				Timeout:  30 * time.Second,
 			},
