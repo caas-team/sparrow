@@ -111,7 +111,7 @@ sparrowConfig:
   name: sparrow.com
   loader:
     type: file
-    path: /config/checksConfig.yaml
+    path: /config/checks.yaml
 # name: the-sparrow.com
 # api:
 #   address:
@@ -156,6 +156,15 @@ checksConfig: {}
 #     targets:
 #       - https://example.com/
 #       - https://google.com/
+#   dns:
+#     interval: 10s
+#     timeout: 30s
+#     retry:
+#       count: 5
+#       delay: 1s
+#     targets:
+#       - www.example.com
+#       - www.google.com
 
 # -- Configure a service monitor for prometheus-operator
 serviceMonitor:

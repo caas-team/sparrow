@@ -42,7 +42,7 @@ func newMetrics() metrics {
 		),
 		duration: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
-				Name: "sparrow_dns_duration",
+				Name: "sparrow_dns_duration_seconds",
 				Help: "Duration of DNS resolution attempts in seconds.",
 			},
 			[]string{"target"},
