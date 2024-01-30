@@ -26,7 +26,6 @@ import (
 	"time"
 
 	"github.com/caas-team/sparrow/pkg/checks/dns"
-	"github.com/caas-team/sparrow/pkg/metrics"
 
 	"github.com/caas-team/sparrow/pkg/checks/runtime"
 
@@ -108,7 +107,7 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 				api:     nil,
 				loader:  nil,
 				tarMan:  &gitlabmock.MockTargetManager{},
-				metrics: metrics.NewMetrics(),
+				metrics: NewMetrics(),
 				errorHandler: errorHandler{
 					cErr:     make(chan error),
 					cDone:    make(chan struct{}),

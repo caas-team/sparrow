@@ -30,7 +30,6 @@ import (
 	"github.com/caas-team/sparrow/pkg/api"
 	"github.com/caas-team/sparrow/pkg/checks"
 	"github.com/caas-team/sparrow/pkg/factory"
-	"github.com/caas-team/sparrow/pkg/metrics"
 
 	"github.com/caas-team/sparrow/pkg/checks/runtime"
 
@@ -50,7 +49,7 @@ type Sparrow struct {
 	api     api.API
 	loader  config.Loader
 	tarMan  targets.TargetManager
-	metrics metrics.Metrics
+	metrics Metrics
 	errorHandler
 	checkCoordinator
 }
@@ -80,7 +79,7 @@ func New(cfg *config.Config) *Sparrow {
 		config:  cfg,
 		db:      db.NewInMemory(),
 		api:     api.New(cfg.Api),
-		metrics: metrics.NewMetrics(),
+		metrics: NewMetrics(),
 		errorHandler: errorHandler{
 			cErr:     make(chan error, 1),
 			cDone:    make(chan struct{}, 1),
