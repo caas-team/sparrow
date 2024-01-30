@@ -18,6 +18,15 @@
 
 package checks
 
-import "errors"
+import (
+	"fmt"
+)
 
-var ConfigMismatch = errors.New("the given config does not match the check's type")
+type ErrConfigMismatch struct {
+	Expected string
+	Current  string
+}
+
+func (e ErrConfigMismatch) Error() string {
+	return fmt.Sprintf("config mismatch: expected type %v, got %v", e.Expected, e.Current)
+}

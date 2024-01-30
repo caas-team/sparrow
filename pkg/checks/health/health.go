@@ -141,7 +141,10 @@ func (h *Health) SetConfig(cfg checks.Runtime) error {
 		return nil
 	}
 
-	return checks.ConfigMismatch
+	return checks.ErrConfigMismatch{
+		Expected: CheckName,
+		Current:  cfg.For(),
+	}
 }
 
 // GetConfig returns the current configuration of the check

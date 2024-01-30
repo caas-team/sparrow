@@ -55,8 +55,8 @@ type Sparrow struct {
 
 	cfg *config.Config
 
-	// cCfgChecks is the channel where the loader sends the checkCfg configuration of the checks
-	cCfgChecks chan runtime.Config
+	// cRuntimeConfig is the channel where the loader sends the checkCfg configuration of the checks
+	cRuntimeConfig chan runtime.Config
 	// cResult is the channel where the checks send their results to
 	cResult chan checks.ResultDTO
 	// cErr is used to handle non-recoverable errors of the sparrow components
@@ -76,17 +76,17 @@ type Sparrow struct {
 // New creates a new sparrow from a given configfile
 func New(cfg *config.Config) *Sparrow {
 	sparrow := &Sparrow{
-		db:          db.NewInMemory(),
-		checks:      make(map[string]checks.Check),
-		metrics:     NewMetrics(),
-		resultFanIn: make(map[string]chan checks.Result),
-		cResult:     make(chan checks.ResultDTO, 1),
-		cfg:         cfg,
-		cCfgChecks:  make(chan runtime.Config, 1),
-		routingTree: api.NewRoutingTree(),
-		router:      chi.NewRouter(),
-		cErr:        make(chan error, 1),
-		cDone:       make(chan struct{}, 1),
+		db:             db.NewInMemory(),
+		checks:         make(map[string]checks.Check),
+		metrics:        NewMetrics(),
+		resultFanIn:    make(map[string]chan checks.Result),
+		cResult:        make(chan checks.ResultDTO, 1),
+		cfg:            cfg,
+		cRuntimeConfig: make(chan runtime.Config, 1),
+		routingTree:    api.NewRoutingTree(),
+		router:         chi.NewRouter(),
+		cErr:           make(chan error, 1),
+		cDone:          make(chan struct{}, 1),
 	}
 
 	sparrow.server = &http.Server{Addr: cfg.Api.ListeningAddress, Handler: sparrow.router, ReadHeaderTimeout: readHeaderTimeout}
@@ -96,7 +96,7 @@ func New(cfg *config.Config) *Sparrow {
 		sparrow.tarMan = gm
 	}
 
-	sparrow.loader = config.NewLoader(cfg, sparrow.cCfgChecks)
+	sparrow.loader = config.NewLoader(cfg, sparrow.cRuntimeConfig)
 	sparrow.db = db.NewInMemory()
 	return sparrow
 }
@@ -123,7 +123,7 @@ func (s *Sparrow) Run(ctx context.Context) error {
 		select {
 		case result := <-s.cResult:
 			go s.db.Save(result)
-		case cfg := <-s.cCfgChecks:
+		case cfg := <-s.cRuntimeConfig:
 			s.ReconcileChecks(ctx, cfg)
 		case <-ctx.Done():
 			s.shutdown(ctx)

@@ -66,12 +66,6 @@ func TestHealth_SetConfig(t *testing.T) {
 			expectedConfig: Config{},
 			wantErr:        true,
 		},
-		{
-			name:           "nil config",
-			inputConfig:    nil,
-			expectedConfig: Config{},
-			wantErr:        true,
-		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -147,7 +147,10 @@ func (d *DNS) SetConfig(cfg checks.Runtime) error {
 		return nil
 	}
 
-	return checks.ConfigMismatch
+	return checks.ErrConfigMismatch{
+		Expected: CheckName,
+		Current:  cfg.For(),
+	}
 }
 
 // Schema provides the schema of the data that will be provided
