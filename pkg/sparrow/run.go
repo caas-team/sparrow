@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -55,8 +56,8 @@ type Sparrow struct {
 
 	cfg *config.Config
 
-	// cRuntimeConfig is the channel where the loader sends the checkCfg configuration of the checks
-	cRuntimeConfig chan runtime.Config
+	// cRuntime is the channel where the loader sends the checkCfg configuration of the checks
+	cRuntime chan runtime.Config
 	// cResult is the channel where the checks send their results to
 	cResult chan checks.ResultDTO
 	// cErr is used to handle non-recoverable errors of the sparrow components
@@ -76,17 +77,17 @@ type Sparrow struct {
 // New creates a new sparrow from a given configfile
 func New(cfg *config.Config) *Sparrow {
 	sparrow := &Sparrow{
-		db:             db.NewInMemory(),
-		checks:         make(map[string]checks.Check),
-		metrics:        NewMetrics(),
-		resultFanIn:    make(map[string]chan checks.Result),
-		cResult:        make(chan checks.ResultDTO, 1),
-		cfg:            cfg,
-		cRuntimeConfig: make(chan runtime.Config, 1),
-		routingTree:    api.NewRoutingTree(),
-		router:         chi.NewRouter(),
-		cErr:           make(chan error, 1),
-		cDone:          make(chan struct{}, 1),
+		db:          db.NewInMemory(),
+		checks:      make(map[string]checks.Check),
+		metrics:     NewMetrics(),
+		resultFanIn: make(map[string]chan checks.Result),
+		cResult:     make(chan checks.ResultDTO, 1),
+		cfg:         cfg,
+		cRuntime:    make(chan runtime.Config, 1),
+		routingTree: api.NewRoutingTree(),
+		router:      chi.NewRouter(),
+		cErr:        make(chan error, 1),
+		cDone:       make(chan struct{}, 1),
 	}
 
 	sparrow.server = &http.Server{Addr: cfg.Api.ListeningAddress, Handler: sparrow.router, ReadHeaderTimeout: readHeaderTimeout}
@@ -96,7 +97,7 @@ func New(cfg *config.Config) *Sparrow {
 		sparrow.tarMan = gm
 	}
 
-	sparrow.loader = config.NewLoader(cfg, sparrow.cRuntimeConfig)
+	sparrow.loader = config.NewLoader(cfg, sparrow.cRuntime)
 	sparrow.db = db.NewInMemory()
 	return sparrow
 }
@@ -123,7 +124,7 @@ func (s *Sparrow) Run(ctx context.Context) error {
 		select {
 		case result := <-s.cResult:
 			go s.db.Save(result)
-		case cfg := <-s.cRuntimeConfig:
+		case cfg := <-s.cRuntime:
 			s.ReconcileChecks(ctx, cfg)
 		case <-ctx.Done():
 			s.shutdown(ctx)
@@ -142,7 +143,7 @@ func (s *Sparrow) Run(ctx context.Context) error {
 // resets the Configs of Checks and starts running the checks
 func (s *Sparrow) ReconcileChecks(ctx context.Context, cfg runtime.Config) {
 	// generate checks from configuration
-	s.enrichTargets(cfg)
+	cfg = s.enrichTargets(cfg)
 	fChecks, err := factory.NewChecksFromConfig(cfg)
 	if err != nil {
 		logger.FromContext(ctx).ErrorContext(ctx, "Failed to create checks from config", "error", err)
@@ -192,10 +193,7 @@ func (s *Sparrow) enrichTargets(cfg runtime.Config) runtime.Config {
 		return cfg
 	}
 
-	gt := s.tarMan.GetTargets()
-
-	// merge global targets with health check targets
-	for _, gt := range gt {
+	for _, gt := range s.tarMan.GetTargets() {
 		if gt.Url == fmt.Sprintf("https://%s", s.cfg.SparrowName) {
 			continue
 		}
@@ -204,6 +202,10 @@ func (s *Sparrow) enrichTargets(cfg runtime.Config) runtime.Config {
 		}
 		if cfg.HasLatencyCheck() && !slices.Contains(cfg.Latency.Targets, gt.Url) {
 			cfg.Latency.Targets = append(cfg.Latency.Targets, gt.Url)
+		}
+		if cfg.HasDNSCheck() && !slices.Contains(cfg.Dns.Targets, gt.Url) {
+			t, _ := strings.CutPrefix(gt.Url, "https://")
+			cfg.Dns.Targets = append(cfg.Dns.Targets, t)
 		}
 	}
 

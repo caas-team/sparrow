@@ -42,7 +42,7 @@ func newMetrics() metrics {
 		),
 		duration: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
-				Name: "sparrow_dns_duration",
+				Name: "sparrow_dns_duration_seconds",
 				Help: "Duration of DNS resolution attempts in seconds.",
 			},
 			[]string{"target"},
@@ -64,7 +64,7 @@ func newMetrics() metrics {
 	}
 }
 
-// GetCollectors returns all metric collectors of check
+// GetCollectors returns all metric collectors
 func (m *metrics) GetCollectors() []prometheus.Collector {
 	return []prometheus.Collector{
 		m.status,

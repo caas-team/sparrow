@@ -21,7 +21,6 @@ package dns
 import (
 	"context"
 	"net"
-	"strings"
 	"sync"
 	"time"
 
@@ -138,9 +137,6 @@ func (d *DNS) Shutdown(_ context.Context) error {
 
 func (d *DNS) SetConfig(cfg checks.Runtime) error {
 	if c, ok := cfg.(*Config); ok {
-		for k, v := range c.Targets {
-			c.Targets[k], _ = strings.CutPrefix(v, "https://")
-		}
 		d.Mu.Lock()
 		defer d.Mu.Unlock()
 		d.config = *c
@@ -159,6 +155,7 @@ func (d *DNS) Schema() (*openapi3.SchemaRef, error) {
 	return checks.OpenapiFromPerfData(make(map[string]result))
 }
 
+// GetMetricCollectors returns all metric collectors of check
 func (d *DNS) GetMetricCollectors() []prometheus.Collector {
 	return d.metrics.GetCollectors()
 }

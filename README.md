@@ -25,6 +25,9 @@
   - [Check: Latency](#check-latency)
     - [Example configuration](#example-configuration-1)
     - [Latency Metrics](#latency-metrics)
+  - [Check: DNS](#check-dns)
+    - [Example configuration](#example-configuration-2)
+    - [DNS Metrics](#dns-metrics)
 - [API](#api)
 - [Metrics](#metrics)
 - [Code of Conduct](#code-of-conduct)
@@ -38,15 +41,15 @@ executed periodically.
 
 ## About this component
 
-The `sparrow` performs several checks to monitor the health of the infrastructure and network from its point of view.
-The following checks are available:
+The `sparrow` performs several checks to monitor the health of the infrastructure and network from its point of view. The following checks are available:
 
-1. Health check - `health`: The `sparrow` is able to perform an HTTP-based (HTTP/1.1) health check to the provided
-   endpoints.
-   The `sparrow` will expose its own health check endpoint as well.
+1. [Health check](#check-health) - `health`: The `sparrow` is able to perform an HTTP-based (HTTP/1.1) health check to the provided endpoints. The `sparrow` will expose its own health check endpoint as well.
 
-2. Latency check - `latency`: The `sparrow` is able to communicate with other `sparrow` instances to calculate the time
-   a request takes to the target and back. The check is http (HTTP/1.1) based as well.
+2. [Latency check](#check-latency) - `latency`: The `sparrow` is able to communicate with other `sparrow` instances to calculate the time a request takes to the target and back. The check is http (HTTP/1.1) based as well.
+
+3. [DNS check](#check-dns) - `dns`: The `sparrow` is able to perform DNS resolution checks to monitor domain name system performance and reliability. The check has the ability to target specific domains or IPs for monitoring.
+
+Each check is designed to provide comprehensive insights into the various aspects of network and service health, ensuring robust monitoring and quick detection of potential issues.
 
 ## Installation
 
@@ -363,6 +366,57 @@ checks:
 - `sparrow_latency_duration`
   - Type: Histogram
   - Description: Latency of targets in seconds
+  - Labelled with `target`
+
+### Check: DNS
+
+Available configuration options:
+
+- `checks`
+  - `dns`
+    - `interval` (duration): Interval to perform the DNS check.
+    - `timeout` (duration): Timeout for the DNS check.
+    - `retry`
+      - `count` (integer): Number of retries for the DNS check.
+      - `delay` (duration): Initial delay between retries for the DNS check.
+    - `targets` (list of strings): List of targets to lookup. Needs to be a valid domain or IP. Can be
+      another `sparrow` instance. Automatically updated when a targetManager is configured.
+
+#### Example configuration
+
+```yaml
+checks:
+  dns:
+    interval: 10s
+    timeout: 30s
+    retry:
+      count: 3
+      delay: 1s
+    targets:
+      - www.example.com
+      - www.google.com
+```
+
+#### DNS Metrics
+
+- `sparrow_dns_status`
+  - Type: Gauge
+  - Description: Lookup status of targets
+  - Labelled with `target`
+
+- `sparrow_dns_check_count`
+  - Type: Counter
+  - Description: Count of DNS checks done
+  - Labelled with `target`
+
+- `sparrow_dns_duration`
+  - Type: Gauge
+  - Description: Duration of DNS resolution attempts
+  - Labelled with `target`
+
+- `sparrow_dns_duration`
+  - Type: Histogram
+  - Description: Histogram of response times for DNS checks
   - Labelled with `target`
 
 ## API

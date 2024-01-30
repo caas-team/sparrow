@@ -24,6 +24,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/caas-team/sparrow/pkg/checks/dns"
+
 	"github.com/caas-team/sparrow/pkg/checks/runtime"
 
 	"github.com/caas-team/sparrow/pkg/checks"
@@ -46,16 +48,16 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 
 	rtcfg := &runtime.Config{}
 	tests := []struct {
-		name            string
-		checks          map[string]checks.Check
-		newChecksConfig runtime.Config
+		name             string
+		checks           map[string]checks.Check
+		newRuntimeConfig runtime.Config
 	}{
 		{
 			name: "no checks registered yet but register one",
 
 			checks: map[string]checks.Check{},
 
-			newChecksConfig: runtime.Config{Health: &health.Config{
+			newRuntimeConfig: runtime.Config{Health: &health.Config{
 				Targets: []string{"https://gitlab.com"},
 			}},
 		},
@@ -66,7 +68,7 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 				health.CheckName: health.NewCheck(),
 			},
 
-			newChecksConfig: runtime.Config{
+			newRuntimeConfig: runtime.Config{
 				Latency: &latency.Config{
 					Targets: []string{"https://gitlab.com"},
 				},
@@ -82,7 +84,7 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 				health.CheckName: health.NewCheck(),
 			},
 
-			newChecksConfig: *rtcfg,
+			newRuntimeConfig: *rtcfg,
 		},
 		{
 			name: "one health check registered, register latency and unregister health",
@@ -91,7 +93,7 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 				health.CheckName: health.NewCheck(),
 			},
 
-			newChecksConfig: runtime.Config{
+			newRuntimeConfig: runtime.Config{
 				Latency: &latency.Config{
 					Targets: []string{"https://gitlab.com"},
 				},
@@ -101,25 +103,25 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &Sparrow{
-				checks:         tt.checks,
-				resultFanIn:    make(map[string]chan checks.Result),
-				cRuntimeConfig: make(chan runtime.Config, 1),
-				routingTree:    api.NewRoutingTree(),
-				metrics:        NewMetrics(),
-				tarMan:         &gitlabmock.MockTargetManager{},
+				checks:      tt.checks,
+				resultFanIn: make(map[string]chan checks.Result),
+				cRuntime:    make(chan runtime.Config, 1),
+				routingTree: api.NewRoutingTree(),
+				metrics:     NewMetrics(),
+				tarMan:      &gitlabmock.MockTargetManager{},
 			}
 
-			s.ReconcileChecks(ctx, tt.newChecksConfig)
+			s.ReconcileChecks(ctx, tt.newRuntimeConfig)
 
 			// iterate of the sparrow's checks and check if they are configured
 			for _, c := range s.checks {
 				cfg := c.GetConfig()
 				assert.NotNil(t, cfg)
 				if cfg.For() == health.CheckName {
-					assert.Equal(t, tt.newChecksConfig.Health, cfg)
+					assert.Equal(t, tt.newRuntimeConfig.Health, cfg)
 				}
 				if cfg.For() == latency.CheckName {
-					assert.Equal(t, tt.newChecksConfig.Latency, cfg)
+					assert.Equal(t, tt.newRuntimeConfig.Latency, cfg)
 				}
 			}
 		})
@@ -223,8 +225,8 @@ func TestSparrow_Run_ContextCancel(t *testing.T) {
 	time.Sleep(time.Millisecond * 30)
 }
 
-// TestSparrow_enrichHealthTargets tests that the enrichTargets method
-// updates the HealthCheck targets, if they exist in the config of the checks.
+// TestSparrow_enrichTargets tests that the enrichTargets method
+// updates the targets of the configured checks.
 func TestSparrow_enrichTargets(t *testing.T) {
 	now := time.Now()
 	testTarget := "https://localhost.de"
@@ -287,7 +289,7 @@ func TestSparrow_enrichTargets(t *testing.T) {
 			},
 		},
 		{
-			name: "config with targets",
+			name: "config with targets (health + latency)",
 			config: runtime.Config{
 				Health: &health.Config{
 					Targets: []string{"https://gitlab.com"},
@@ -303,6 +305,20 @@ func TestSparrow_enrichTargets(t *testing.T) {
 				},
 				Latency: &latency.Config{
 					Targets: []string{"https://gitlab.com", testTarget},
+				},
+			},
+		},
+		{
+			name: "config with targets (dns)",
+			config: runtime.Config{
+				Dns: &dns.Config{
+					Targets: []string{"gitlab.com"},
+				},
+			},
+			globalTargets: gt,
+			expected: runtime.Config{
+				Dns: &dns.Config{
+					Targets: []string{"gitlab.com", "localhost.de"},
 				},
 			},
 		},

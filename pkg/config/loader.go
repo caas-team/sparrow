@@ -36,11 +36,11 @@ type Loader interface {
 }
 
 // NewLoader Get a new typed runtime configuration loader
-func NewLoader(cfg *Config, cCfgChecks chan<- runtime.Config) Loader {
+func NewLoader(cfg *Config, cRuntime chan<- runtime.Config) Loader {
 	switch cfg.Loader.Type {
 	case "http":
-		return NewHttpLoader(cfg, cCfgChecks)
+		return NewHttpLoader(cfg, cRuntime)
 	default:
-		return NewFileLoader(cfg, cCfgChecks)
+		return NewFileLoader(cfg, cRuntime)
 	}
 }

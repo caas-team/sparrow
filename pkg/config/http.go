@@ -33,16 +33,16 @@ import (
 )
 
 type HttpLoader struct {
-	cfg         *Config
-	cConfigCfgs chan<- runtime.Config
-	done        chan struct{}
-	client      *http.Client
+	cfg      *Config
+	cRuntime chan<- runtime.Config
+	done     chan struct{}
+	client   *http.Client
 }
 
-func NewHttpLoader(cfg *Config, cCfgChecks chan<- runtime.Config) *HttpLoader {
+func NewHttpLoader(cfg *Config, cRuntime chan<- runtime.Config) *HttpLoader {
 	return &HttpLoader{
-		cfg:         cfg,
-		cConfigCfgs: cCfgChecks,
+		cfg:      cfg,
+		cRuntime: cRuntime,
 		client: &http.Client{
 			Timeout: cfg.Loader.Http.Timeout,
 		},
@@ -84,7 +84,7 @@ func (hl *HttpLoader) Run(ctx context.Context) error {
 			}
 
 			log.Info("Successfully got remote runtime configuration")
-			hl.cConfigCfgs <- *runtimeCfg
+			hl.cRuntime <- *runtimeCfg
 			tick.Reset(hl.cfg.Loader.Interval)
 		}
 	}
