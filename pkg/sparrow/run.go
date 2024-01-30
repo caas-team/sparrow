@@ -155,7 +155,7 @@ func (s *Sparrow) ReconcileChecks(ctx context.Context, cfg runtime.Config) {
 		for _, c := range fChecks {
 			err = s.registerCheck(ctx, c)
 			if err != nil {
-				logger.FromContext(ctx).ErrorContext(ctx, "Failed to register check", "error", err)
+				logger.FromContext(ctx).ErrorContext(ctx, "Failed to register check", "check", c.Name(), "error", err)
 			}
 		}
 		return
@@ -173,7 +173,7 @@ func (s *Sparrow) ReconcileChecks(ctx context.Context, cfg runtime.Config) {
 		if _, ok := s.checks[c.Name()]; !ok {
 			err = s.registerCheck(ctx, c)
 			if err != nil {
-				logger.FromContext(ctx).ErrorContext(ctx, "Failed to register check", "error", err)
+				logger.FromContext(ctx).ErrorContext(ctx, "Failed to register check", "check", c.Name(), "error", err)
 			}
 			continue
 		}
@@ -181,7 +181,7 @@ func (s *Sparrow) ReconcileChecks(ctx context.Context, cfg runtime.Config) {
 		// existing config
 		err = s.checks[c.Name()].SetConfig(c.GetConfig())
 		if err != nil {
-			logger.FromContext(ctx).ErrorContext(ctx, "Failed to set config for check", "error", err)
+			logger.FromContext(ctx).ErrorContext(ctx, "Failed to set config for check", "check", c.Name(), "error", err)
 		}
 	}
 }
