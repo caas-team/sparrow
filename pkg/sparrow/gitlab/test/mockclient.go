@@ -21,13 +21,14 @@ package gitlabmock
 import (
 	"context"
 
+	"github.com/caas-team/sparrow/pkg/checks"
+
 	"github.com/caas-team/sparrow/internal/logger"
-	"github.com/caas-team/sparrow/pkg/checks/types"
 	"github.com/caas-team/sparrow/pkg/sparrow/gitlab"
 )
 
 type MockClient struct {
-	targets       []types.GlobalTarget
+	targets       []checks.GlobalTarget
 	fetchFilesErr error
 	putFileErr    error
 	postFileErr   error
@@ -46,7 +47,7 @@ func (m *MockClient) PostFile(ctx context.Context, _ gitlab.File) error { //noli
 	return m.postFileErr
 }
 
-func (m *MockClient) FetchFiles(ctx context.Context) ([]types.GlobalTarget, error) {
+func (m *MockClient) FetchFiles(ctx context.Context) ([]checks.GlobalTarget, error) {
 	log := logger.FromContext(ctx)
 	log.Info("MockFetchFiles called", "targets", len(m.targets), "err", m.fetchFilesErr)
 	return m.targets, m.fetchFilesErr
@@ -79,7 +80,7 @@ func (m *MockClient) SetDeleteFileErr(err error) {
 }
 
 // New creates a new MockClient to mock Gitlab interaction
-func New(targets []types.GlobalTarget) *MockClient {
+func New(targets []checks.GlobalTarget) *MockClient {
 	return &MockClient{
 		targets: targets,
 	}

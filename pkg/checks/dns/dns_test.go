@@ -27,7 +27,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/caas-team/sparrow/pkg/checks/types"
+	"github.com/caas-team/sparrow/pkg/checks"
+	"github.com/caas-team/sparrow/pkg/checks/health"
+
 	"github.com/stretchr/testify/assert"
 )
 
@@ -43,21 +45,21 @@ func TestDNS_Run(t *testing.T) {
 		name      string
 		mockSetup func() *DNS
 		targets   []string
-		want      types.Result
+		want      checks.Result
 	}{
 		{
 			name: "success with no targets",
 			mockSetup: func() *DNS {
 				return &DNS{
-					CheckBase: types.CheckBase{
+					CheckBase: checks.CheckBase{
 						Mu:   sync.Mutex{},
 						Done: make(chan bool, 1),
 					},
 				}
 			},
 			targets: []string{},
-			want: types.Result{
-				Data: map[string]Result{},
+			want: checks.Result{
+				Data: map[string]result{},
 			},
 		},
 		{
@@ -73,8 +75,8 @@ func TestDNS_Run(t *testing.T) {
 				return c
 			},
 			targets: []string{exampleURL},
-			want: types.Result{
-				Data: map[string]Result{
+			want: checks.Result{
+				Data: map[string]result{
 					exampleURL: {Resolved: []string{exampleIP}},
 				},
 			},
@@ -92,8 +94,8 @@ func TestDNS_Run(t *testing.T) {
 				return c
 			},
 			targets: []string{exampleURL, sparrowURL},
-			want: types.Result{
-				Data: map[string]Result{
+			want: checks.Result{
+				Data: map[string]result{
 					exampleURL: {Resolved: []string{exampleIP, sparrowIP}},
 					sparrowURL: {Resolved: []string{exampleIP, sparrowIP}},
 				},
@@ -112,8 +114,8 @@ func TestDNS_Run(t *testing.T) {
 				return c
 			},
 			targets: []string{exampleIP, sparrowIP},
-			want: types.Result{
-				Data: map[string]Result{
+			want: checks.Result{
+				Data: map[string]result{
 					exampleIP: {Resolved: []string{exampleURL, sparrowURL}},
 					sparrowIP: {Resolved: []string{exampleURL, sparrowURL}},
 				},
@@ -132,8 +134,8 @@ func TestDNS_Run(t *testing.T) {
 				return c
 			},
 			targets: []string{exampleURL},
-			want: types.Result{
-				Data: map[string]Result{
+			want: checks.Result{
+				Data: map[string]result{
 					exampleURL: {Error: stringPointer("lookup failed")},
 				},
 			},
@@ -151,8 +153,8 @@ func TestDNS_Run(t *testing.T) {
 				return c
 			},
 			targets: []string{exampleURL},
-			want: types.Result{
-				Data: map[string]Result{
+			want: checks.Result{
+				Data: map[string]result{
 					exampleURL: {Resolved: nil, Error: stringPointer("context deadline exceeded")},
 				},
 			},
@@ -163,16 +165,16 @@ func TestDNS_Run(t *testing.T) {
 			ctx := context.Background()
 			c := tt.mockSetup()
 
-			results := make(chan types.Result, 1)
+			results := make(chan checks.Result, 1)
 			err := c.Startup(ctx, results)
 			if err != nil {
 				t.Fatalf("DNS.Startup() error = %v", err)
 			}
 
-			err = c.SetConfig(ctx, map[string]any{
-				"targets":  tt.targets,
-				"interval": "1s",
-				"timeout":  "5ms",
+			err = c.SetConfig(&Config{
+				Targets:  tt.targets,
+				Interval: 1 * time.Second,
+				Timeout:  5 * time.Millisecond,
 			})
 			if err != nil {
 				t.Fatalf("DNS.SetConfig() error = %v", err)
@@ -193,29 +195,27 @@ func TestDNS_Run(t *testing.T) {
 				}
 			}()
 
-			result := <-results
+			r := <-results
+			if r.Err != tt.want.Err {
+				t.Errorf("DNS.Run() = %v, want %v", r.Err, tt.want.Err)
+			}
+			assert.IsType(t, tt.want.Data, r.Data)
 
-			assert.IsType(t, tt.want.Data, result.Data)
-
-			got := result.Data.(map[string]Result)
-			want := tt.want.Data.(map[string]Result)
+			got := r.Data.(map[string]result)
+			want := tt.want.Data.(map[string]result)
 			if len(got) != len(want) {
 				t.Errorf("Length of DNS.Run() result set (%v) does not match length of expected result set (%v)", len(got), len(want))
 			}
 
-			for target, result := range got {
-				if !reflect.DeepEqual(want[target].Resolved, result.Resolved) {
-					t.Errorf("Result Resolved of %s = %v, want %v", target, result.Resolved, want[target].Resolved)
+			for tar, res := range got {
+				if !reflect.DeepEqual(want[tar].Resolved, res.Resolved) {
+					t.Errorf("Result Resolved of %s = %v, want %v", tar, res.Resolved, want[tar].Resolved)
 				}
-				if want[target].Error != nil {
-					if result.Error == nil {
-						t.Errorf("Result Error of %s = %v, want %v", target, result.Error, *want[target].Error)
+				if want[tar].Error != nil {
+					if res.Error == nil {
+						t.Errorf("Result Error of %s = %v, want %v", tar, res.Error, *want[tar].Error)
 					}
 				}
-			}
-
-			if result.Err != tt.want.Err {
-				t.Errorf("DNS.Run() = %v, want %v", result.Err, tt.want.Err)
 			}
 		})
 	}
@@ -224,9 +224,12 @@ func TestDNS_Run(t *testing.T) {
 func TestDNS_Run_Context_Done(t *testing.T) {
 	c := NewCheck()
 	ctx, cancel := context.WithCancel(context.Background())
-	_ = c.SetConfig(ctx, config{
+	err := c.SetConfig(&Config{
 		Interval: time.Second,
 	})
+	if err != nil {
+		t.Fatalf("DNS.SetConfig() error = %v", err)
+	}
 	go func() {
 		err := c.Run(ctx)
 		t.Logf("DNS.Run() exited with error: %v", err)
@@ -246,7 +249,7 @@ func TestDNS_Run_Context_Done(t *testing.T) {
 func TestDNS_Startup(t *testing.T) {
 	c := DNS{}
 
-	if err := c.Startup(context.Background(), make(chan<- types.Result, 1)); err != nil {
+	if err := c.Startup(context.Background(), make(chan<- checks.Result, 1)); err != nil {
 		t.Errorf("Startup() error = %v", err)
 	}
 }
@@ -254,7 +257,7 @@ func TestDNS_Startup(t *testing.T) {
 func TestDNS_Shutdown(t *testing.T) {
 	cDone := make(chan bool, 1)
 	c := DNS{
-		CheckBase: types.CheckBase{
+		CheckBase: checks.CheckBase{
 			Done: cDone,
 		},
 	}
@@ -271,21 +274,21 @@ func TestDNS_Shutdown(t *testing.T) {
 func TestDNS_SetConfig(t *testing.T) {
 	tests := []struct {
 		name    string
-		input   any
-		want    config
+		input   checks.Runtime
+		want    Config
 		wantErr bool
 	}{
 		{
 			name: "simple config",
-			input: map[string]any{
-				"targets": []any{
+			input: &Config{
+				Targets: []string{
 					exampleURL,
 					sparrowURL,
 				},
-				"interval": "10s",
-				"timeout":  "30s",
+				Interval: 10 * time.Second,
+				Timeout:  30 * time.Second,
 			},
-			want: config{
+			want: Config{
 				Targets:  []string{exampleURL, sparrowURL},
 				Interval: 10 * time.Second,
 				Timeout:  30 * time.Second,
@@ -293,45 +296,27 @@ func TestDNS_SetConfig(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "config with injected global targets",
-			input: map[string]any{
-				"targets": []any{
-					exampleURL,
-					sparrowURL,
-					"https://www.google.com",
-				},
-				"interval": "10s",
-				"timeout":  "30s",
-			},
-			want: config{
-				Targets:  []string{exampleURL, sparrowURL, "www.google.com"},
-				Interval: 10 * time.Second,
-				Timeout:  30 * time.Second,
-			},
-			wantErr: false,
-		},
-		{
-			name:  "missing config field",
-			input: map[string]any{},
-			want: config{
-				Targets: nil,
-			},
+			name:    "empty config",
+			input:   &Config{},
+			want:    Config{},
 			wantErr: false,
 		},
 		{
 			name: "wrong type",
-			input: map[string]any{
-				"target": struct{ name string }{name: "bla"},
+			input: &health.Config{
+				Targets: []string{
+					exampleURL,
+				},
 			},
-			want:    config{},
-			wantErr: false,
+			want:    Config{},
+			wantErr: true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c := &DNS{}
 
-			if err := c.SetConfig(context.Background(), tt.input); (err != nil) != tt.wantErr {
+			if err := c.SetConfig(tt.input); (err != nil) != tt.wantErr {
 				t.Errorf("DNS.SetConfig() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			assert.Equal(t, tt.want, c.config, "Config is not equal")
@@ -352,7 +337,7 @@ func stringPointer(s string) *string {
 
 func newCommonDNS() *DNS {
 	return &DNS{
-		CheckBase: types.CheckBase{Mu: sync.Mutex{}, Done: make(chan bool, 1)},
+		CheckBase: checks.CheckBase{Mu: sync.Mutex{}, Done: make(chan bool, 1)},
 		metrics:   newMetrics(),
 	}
 }

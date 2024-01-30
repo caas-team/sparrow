@@ -29,55 +29,60 @@ import (
 	"github.com/caas-team/sparrow/internal/helper"
 	"github.com/caas-team/sparrow/internal/logger"
 	"github.com/caas-team/sparrow/pkg/checks"
-	"github.com/caas-team/sparrow/pkg/checks/errors"
-	"github.com/caas-team/sparrow/pkg/checks/types"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
 var (
-	_            checks.Check = (*Health)(nil)
-	stateMapping              = map[int]string{
+	_            checks.Check   = (*Health)(nil)
+	_            checks.Runtime = (*Config)(nil)
+	stateMapping                = map[int]string{
 		0: "unhealthy",
 		1: "healthy",
 	}
 )
 
+const CheckName = "health"
+
 // Health is a check that measures the availability of an endpoint
 type Health struct {
-	types.CheckBase
+	checks.CheckBase
 	route   string
-	config  config
+	config  Config
 	metrics metrics
 }
 
 // NewCheck creates a new instance of the health check
 func NewCheck() checks.Check {
 	return &Health{
-		CheckBase: types.CheckBase{
+		CheckBase: checks.CheckBase{
 			Mu:      sync.Mutex{},
 			CResult: nil,
 			Done:    make(chan bool, 1),
 		},
 		route: "health",
-		config: config{
-			Retry: types.DefaultRetry,
+		config: Config{
+			Retry: checks.DefaultRetry,
 		},
 		metrics: newMetrics(),
 	}
 }
 
-// config defines the configuration parameters for a health check
-type config struct {
-	Targets  []string           `json:"targets,omitempty" yaml:"targets,omitempty" mapstructure:"targets"`
-	Interval time.Duration      `json:"interval" yaml:"interval" mapstructure:"interval"`
-	Timeout  time.Duration      `json:"timeout" yaml:"timeout" mapstructure:"timeout"`
-	Retry    helper.RetryConfig `json:"retry" yaml:"retry" mapstructure:"retry"`
+// Config defines the configuration parameters for a health check
+type Config struct {
+	Targets  []string           `json:"targets,omitempty" yaml:"targets,omitempty"`
+	Interval time.Duration      `json:"interval" yaml:"interval"`
+	Timeout  time.Duration      `json:"timeout" yaml:"timeout"`
+	Retry    helper.RetryConfig `json:"retry" yaml:"retry"`
 }
 
 // metrics contains the metric collectors for the Health check
 type metrics struct {
 	*prometheus.GaugeVec
+}
+
+func (h *Config) For() string {
+	return CheckName
 }
 
 // Run starts the health check
@@ -98,7 +103,7 @@ func (h *Health) Run(ctx context.Context) error {
 		case <-time.After(h.config.Interval):
 			res := h.check(ctx)
 			errval := ""
-			r := types.Result{
+			r := checks.Result{
 				Data:      res,
 				Err:       errval,
 				Timestamp: time.Now(),
@@ -111,7 +116,7 @@ func (h *Health) Run(ctx context.Context) error {
 }
 
 // Startup is called once when the health check is registered
-func (h *Health) Startup(ctx context.Context, cResult chan<- types.Result) error {
+func (h *Health) Startup(ctx context.Context, cResult chan<- checks.Result) error {
 	log := logger.FromContext(ctx).WithGroup("health")
 	log.Debug("Initializing health check")
 
@@ -128,20 +133,27 @@ func (h *Health) Shutdown(_ context.Context) error {
 }
 
 // SetConfig sets the configuration for the health check
-func (h *Health) SetConfig(ctx context.Context, conf any) error {
-	log := logger.FromContext(ctx)
-
-	c, err := helper.Decode[config](conf)
-	if err != nil {
-		log.Error("Failed to decode health config", "error", err)
-		return errors.ErrInvalidConfig
+func (h *Health) SetConfig(cfg checks.Runtime) error {
+	if c, ok := cfg.(*Config); ok {
+		h.Mu.Lock()
+		defer h.Mu.Unlock()
+		h.config = *c
+		return nil
 	}
 
+	return checks.ConfigMismatch
+}
+
+// GetConfig returns the current configuration of the check
+func (h *Health) GetConfig() checks.Runtime {
 	h.Mu.Lock()
 	defer h.Mu.Unlock()
-	h.config = c
+	return &h.config
+}
 
-	return nil
+// Name returns the name of the check
+func (h *Health) Name() string {
+	return CheckName
 }
 
 // Schema provides the schema of the data that will be provided

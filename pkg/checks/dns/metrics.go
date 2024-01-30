@@ -75,7 +75,7 @@ func (m *metrics) GetCollectors() []prometheus.Collector {
 }
 
 // Set sets the metrics of one lookup target result
-func (m *metrics) Set(target string, results map[string]Result, status float64) {
+func (m *metrics) Set(target string, results map[string]result, status float64) {
 	m.duration.WithLabelValues(target).Set(results[target].Total)
 	m.histogram.WithLabelValues(target).Observe(results[target].Total)
 	m.status.WithLabelValues(target).Set(status)

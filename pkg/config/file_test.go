@@ -22,15 +22,20 @@ import (
 	"context"
 	"reflect"
 	"testing"
+	"time"
+
+	"github.com/caas-team/sparrow/pkg/checks/runtime"
+
+	"github.com/caas-team/sparrow/pkg/checks/health"
 )
 
 func TestNewFileLoader(t *testing.T) {
-	l := NewFileLoader(&Config{Loader: LoaderConfig{File: FileLoaderConfig{Path: "config.yaml"}}}, make(chan<- map[string]any, 1))
+	l := NewFileLoader(&Config{Loader: LoaderConfig{File: FileLoaderConfig{Path: "config.yaml"}}}, make(chan runtime.Config, 1))
 
 	if l.path != "config.yaml" {
 		t.Errorf("Expected path to be config.yaml, got %s", l.path)
 	}
-	if l.c == nil {
+	if l.cRuntime == nil {
 		t.Errorf("Expected channel to be not nil")
 	}
 }
@@ -38,31 +43,41 @@ func TestNewFileLoader(t *testing.T) {
 func TestFileLoader_Run(t *testing.T) {
 	type fields struct {
 		path string
-		c    chan map[string]any
+		c    chan runtime.Config
 	}
 	type args struct {
 		ctx    *context.Context
 		cancel *context.CancelFunc
 	}
-	type want struct {
-		cfg map[string]any
-	}
+
 	tests := []struct {
 		name   string
 		fields fields
 		args   args
-		want   want
+		want   runtime.Config
 	}{
-		{name: "Loads config from file", fields: fields{path: "testdata/config.yaml", c: make(chan map[string]any, 1)}, args: func() args {
-			ctx, cancel := context.WithCancel(context.Background())
-			return args{ctx: &ctx, cancel: &cancel}
-		}(), want: want{cfg: map[string]any{"testCheck1": map[string]any{"enabled": true}}}},
+		{
+			name:   "Loads config from file",
+			fields: fields{path: "testdata/config.yaml", c: make(chan runtime.Config, 1)},
+			args: func() args {
+				ctx, cancel := context.WithCancel(context.Background())
+				return args{ctx: &ctx, cancel: &cancel}
+			}(),
+			want: runtime.Config{
+				Health: &health.Config{
+					Targets:  []string{"http://localhost:8080/health"},
+					Interval: 1 * time.Second,
+					Timeout:  1 * time.Second,
+				},
+			},
+		},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			f := &FileLoader{
-				path: tt.fields.path,
-				c:    tt.fields.c,
+				path:     tt.fields.path,
+				cRuntime: tt.fields.c,
 			}
 			go func() {
 				err := f.Run(*tt.args.ctx)
@@ -75,8 +90,8 @@ func TestFileLoader_Run(t *testing.T) {
 
 			config := <-tt.fields.c
 
-			if !reflect.DeepEqual(config, tt.want.cfg) {
-				t.Errorf("Expected config to be %v, got %v", tt.want.cfg, config)
+			if !reflect.DeepEqual(config, tt.want) {
+				t.Errorf("Expected config to be %v, got %v", tt.want, config)
 			}
 		})
 	}

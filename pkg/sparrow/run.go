@@ -23,18 +23,21 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/caas-team/sparrow/pkg/api"
 	"github.com/caas-team/sparrow/pkg/checks"
+	"github.com/caas-team/sparrow/pkg/factory"
 	"github.com/caas-team/sparrow/pkg/metrics"
+
+	"github.com/caas-team/sparrow/pkg/checks/runtime"
+
 	"github.com/caas-team/sparrow/pkg/sparrow/targets"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/caas-team/sparrow/internal/logger"
-	"github.com/caas-team/sparrow/pkg/checks/register"
-	"github.com/caas-team/sparrow/pkg/checks/types"
 	"github.com/caas-team/sparrow/pkg/config"
 	"github.com/caas-team/sparrow/pkg/db"
 )
@@ -55,11 +58,11 @@ type Sparrow struct {
 type checkCoordinator struct {
 	// the existing checks
 	checks      map[string]checks.Check
-	resultFanIn map[string]chan types.Result
-	// cCfgChecks is the channel where the loader sends the runtime configuration of the checks
-	cCfgChecks chan map[string]any
+	resultFanIn map[string]chan checks.Result
+	// cRuntime is the channel where the loader sends the checkCfg configuration of the checks
+	cRuntime chan runtime.Config
 	// cResult is the channel where the checks send their results to
-	cResult chan types.ResultDTO
+	cResult chan checks.ResultDTO
 }
 
 type errorHandler struct {
@@ -85,9 +88,9 @@ func New(cfg *config.Config) *Sparrow {
 		},
 		checkCoordinator: checkCoordinator{
 			checks:      make(map[string]checks.Check),
-			resultFanIn: make(map[string]chan types.Result),
-			cCfgChecks:  make(chan map[string]any, 1),
-			cResult:     make(chan types.ResultDTO, 1),
+			resultFanIn: make(map[string]chan checks.Result),
+			cRuntime:    make(chan runtime.Config, 1),
+			cResult:     make(chan checks.ResultDTO, 1),
 		},
 	}
 
@@ -95,8 +98,8 @@ func New(cfg *config.Config) *Sparrow {
 		gm := targets.NewGitlabManager(cfg.SparrowName, cfg.TargetManager)
 		sparrow.tarMan = gm
 	}
+	sparrow.loader = config.NewLoader(cfg, sparrow.cRuntime)
 
-	sparrow.loader = config.NewLoader(cfg, sparrow.cCfgChecks)
 	return sparrow
 }
 
@@ -145,9 +148,8 @@ func (s *Sparrow) Run(ctx context.Context) error {
 		select {
 		case result := <-s.cResult:
 			go s.db.Save(result)
-		case configChecks := <-s.cCfgChecks:
-			s.config.Checks = configChecks
-			s.ReconcileChecks(ctx)
+		case cfg := <-s.cRuntime:
+			s.ReconcileChecks(ctx, cfg)
 		case <-ctx.Done():
 			s.shutdown(ctx)
 		case err := <-s.cErr:
@@ -163,118 +165,93 @@ func (s *Sparrow) Run(ctx context.Context) error {
 
 // ReconcileChecks registers new Checks, unregisters removed Checks,
 // resets the Configs of Checks and starts running the checks
-func (s *Sparrow) ReconcileChecks(ctx context.Context) {
-	for name, checkCfg := range s.config.Checks {
-		name := name
-		log := logger.FromContext(ctx).With("name", name)
+func (s *Sparrow) ReconcileChecks(ctx context.Context, cfg runtime.Config) {
+	// generate checks from configuration
+	s.enrichTargets(cfg)
+	fChecks, err := factory.NewChecksFromConfig(cfg)
+	if err != nil {
+		logger.FromContext(ctx).ErrorContext(ctx, "Failed to create checks from config", "error", err)
+		return
+	}
 
-		c := s.updateCheckTargets(checkCfg)
-		if existingCheck, ok := s.checks[name]; ok {
-			// Check already registered, reset config
-			err := existingCheck.SetConfig(ctx, c)
+	// if checks are empty, register all checks
+	if len(s.checks) == 0 {
+		for _, c := range fChecks {
+			err = s.registerCheck(ctx, c)
 			if err != nil {
-				log.ErrorContext(ctx, "Failed to reset config for check, check will run with last applies config", "error", err)
+				logger.FromContext(ctx).ErrorContext(ctx, "Failed to register check", "error", err)
+			}
+		}
+		return
+	}
+
+	// unregister checks that are not in the new config
+	for name, check := range s.checks {
+		if !cfg.HasCheck(name) {
+			s.unregisterCheck(ctx, check)
+		}
+	}
+
+	// register / update checks that are in the new config
+	for _, c := range fChecks {
+		if _, ok := s.checks[c.Name()]; !ok {
+			err = s.registerCheck(ctx, c)
+			if err != nil {
+				logger.FromContext(ctx).ErrorContext(ctx, "Failed to register check", "error", err)
 			}
 			continue
 		}
 
-		// Check is a new Check and needs to be registered
-		s.registerCheck(ctx, name, c)
-	}
-
-	for existingCheckName, existingCheck := range s.checks {
-		if _, ok := s.config.Checks[existingCheckName]; ok {
-			// Check is known check
-			continue
+		// existing config
+		err = s.checks[c.Name()].SetConfig(c.GetConfig())
+		if err != nil {
+			logger.FromContext(ctx).ErrorContext(ctx, "Failed to set config for check", "error", err)
 		}
-
-		// Check has been removed from config
-		s.unregisterCheck(ctx, existingCheckName, existingCheck)
 	}
 }
 
-// updateCheckTargets updates the targets of a check with the
-// global targets. The targets are merged per default, if found in the
-// passed config.
-func (s *Sparrow) updateCheckTargets(cfg any) any {
-	if cfg == nil {
-		return nil
+// enrichTargets updates the targets of the sparrow's checks with the
+// global targets. Per default, the two target lists are merged.
+func (s *Sparrow) enrichTargets(cfg runtime.Config) runtime.Config {
+	if cfg.Empty() || s.tarMan == nil {
+		return cfg
 	}
 
-	// check if map with targets
-	checkCfg, ok := cfg.(map[string]any)
-	if !ok {
-		return checkCfg
-	}
-	if _, ok = checkCfg["targets"]; !ok {
-		return checkCfg
-	}
-
-	// Check if targets is a slice
-	actuali, ok := checkCfg["targets"].([]any)
-	if !ok {
-		return checkCfg
-	}
-	if len(actuali) == 0 {
-		return checkCfg
-	}
-
-	// convert to string slice
-	var actual []string
-	for _, v := range actuali {
-		if _, ok := v.(string); !ok {
-			return checkCfg
-		}
-		actual = append(actual, v.(string))
-	}
-	var urls []string
-
-	if s.tarMan == nil {
-		return checkCfg
-	}
-	gt := s.tarMan.GetTargets()
-
-	// filter out globalTargets that are already in the config and self
-	for _, t := range gt {
-		if slices.Contains(actual, t.Url) {
+	for _, gt := range s.tarMan.GetTargets() {
+		if gt.Url == fmt.Sprintf("https://%s", s.config.SparrowName) {
 			continue
 		}
-		if t.Url == fmt.Sprintf("https://%s", s.config.SparrowName) {
-			continue
+		if cfg.HasHealthCheck() && !slices.Contains(cfg.Health.Targets, gt.Url) {
+			cfg.Health.Targets = append(cfg.Health.Targets, gt.Url)
 		}
-		urls = append(urls, t.Url)
+		if cfg.HasLatencyCheck() && !slices.Contains(cfg.Latency.Targets, gt.Url) {
+			cfg.Latency.Targets = append(cfg.Latency.Targets, gt.Url)
+		}
+		if cfg.HasDNSCheck() && !slices.Contains(cfg.Dns.Targets, gt.Url) {
+			t, _ := strings.CutPrefix(gt.Url, "https://")
+			cfg.Dns.Targets = append(cfg.Dns.Targets, t)
+		}
 	}
 
-	checkCfg["targets"] = append(actual, urls...)
-	return checkCfg
+	return cfg
 }
 
 // registerCheck registers and executes a new check
-func (s *Sparrow) registerCheck(ctx context.Context, name string, checkCfg any) {
-	log := logger.FromContext(ctx).With("name", name)
+func (s *Sparrow) registerCheck(ctx context.Context, check checks.Check) error {
+	log := logger.FromContext(ctx).With("name", check.Name())
 
-	getRegisteredCheck := register.RegisteredChecks[name]
-	if getRegisteredCheck == nil {
-		log.WarnContext(ctx, "Check is not registered")
-		return
-	}
-	check := getRegisteredCheck()
-	s.checks[name] = check
+	s.checks[check.Name()] = check
 
 	// Create a fan in a channel for the check
-	checkChan := make(chan types.Result, 1)
-	s.resultFanIn[name] = checkChan
+	checkChan := make(chan checks.Result, 1)
+	s.resultFanIn[check.Name()] = checkChan
 
-	err := check.SetConfig(ctx, checkCfg)
-	if err != nil {
-		log.ErrorContext(ctx, "Failed to set config for check", "error", err)
-	}
-	go fanInResults(checkChan, s.cResult, name)
-	err = check.Startup(ctx, checkChan)
+	go fanInResults(checkChan, s.cResult, check.Name())
+	err := check.Startup(ctx, checkChan)
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to startup check", "error", err)
 		close(checkChan)
-		return
+		return err
 	}
 
 	// Add prometheus collectors of check to registry
@@ -290,11 +267,12 @@ func (s *Sparrow) registerCheck(ctx context.Context, name string, checkCfg any) 
 			log.ErrorContext(ctx, "Failed to run check", "error", err)
 		}
 	}()
+	return nil
 }
 
 // UnregisterCheck removes the check from sparrow and performs a soft shutdown for the check
-func (s *Sparrow) unregisterCheck(ctx context.Context, name string, check checks.Check) {
-	log := logger.FromContext(ctx).With("name", name)
+func (s *Sparrow) unregisterCheck(ctx context.Context, check checks.Check) {
+	log := logger.FromContext(ctx).With("name", check.Name())
 
 	// Remove prometheus collectors of check from registry
 	for _, metricsCollector := range check.GetMetricCollectors() {
@@ -307,22 +285,22 @@ func (s *Sparrow) unregisterCheck(ctx context.Context, name string, check checks
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to shutdown check", "error", err)
 	}
-	if c, ok := s.resultFanIn[name]; ok {
+	if c, ok := s.resultFanIn[check.Name()]; ok {
 		// close fan in the channel if it exists
 		close(c)
-		delete(s.resultFanIn, name)
+		delete(s.resultFanIn, check.Name())
 	}
 
-	delete(s.checks, name)
+	delete(s.checks, check.Name())
 }
 
 // This is a fan in for the checks.
 //
 // It allows augmenting the results with the check name which is needed by the db
 // without putting the responsibility of providing the name on every iteration on the check
-func fanInResults(checkChan chan types.Result, cResult chan types.ResultDTO, name string) {
+func fanInResults(checkChan chan checks.Result, cResult chan checks.ResultDTO, name string) {
 	for i := range checkChan {
-		cResult <- types.ResultDTO{
+		cResult <- checks.ResultDTO{
 			Name:   name,
 			Result: &i,
 		}

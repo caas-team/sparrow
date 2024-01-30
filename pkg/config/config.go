@@ -39,9 +39,7 @@ type TargetManagerConfig struct {
 
 type Config struct {
 	// SparrowName is the DNS name of the sparrow
-	SparrowName string `yaml:"name" mapstructure:"name"`
-	// Checks is a map of configurations for the checks
-	Checks        map[string]any      `yaml:"checks" mapstructure:"checks"`
+	SparrowName   string              `yaml:"name" mapstructure:"name"`
 	Loader        LoaderConfig        `yaml:"loader" mapstructure:"loader"`
 	Api           ApiConfig           `yaml:"api" mapstructure:"api"`
 	TargetManager TargetManagerConfig `yaml:"targetManager" mapstructure:"targetManager"`
@@ -71,13 +69,6 @@ type HttpLoaderConfig struct {
 
 type FileLoaderConfig struct {
 	Path string `yaml:"path" mapstructure:"path"`
-}
-
-// NewConfig creates a new Config
-func NewConfig() *Config {
-	return &Config{
-		Checks: map[string]any{},
-	}
 }
 
 // HasTargetManager returns true if the config has a target manager

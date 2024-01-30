@@ -31,7 +31,7 @@ import (
 
 	"github.com/caas-team/sparrow/pkg/api"
 	"github.com/caas-team/sparrow/pkg/checks"
-	"github.com/caas-team/sparrow/pkg/checks/types"
+	"github.com/caas-team/sparrow/pkg/checks/runtime"
 	"github.com/caas-team/sparrow/pkg/config"
 	"github.com/caas-team/sparrow/pkg/db"
 	"github.com/getkin/kin-openapi/openapi3"
@@ -91,11 +91,11 @@ func TestSparrow_getOpenapi(t *testing.T) {
 func TestSparrow_handleCheckMetrics(t *testing.T) {
 	type fields struct {
 		checks      map[string]checks.Check
-		resultFanIn map[string]chan types.Result
-		cResult     chan types.ResultDTO
+		resultFanIn map[string]chan checks.Result
+		cResult     chan checks.ResultDTO
 		loader      config.Loader
 		cfg         *config.Config
-		cCfgChecks  chan map[string]any
+		cRuntime    chan runtime.Config
 		api         api.API
 		db          db.DB
 	}
@@ -125,7 +125,7 @@ func TestSparrow_handleCheckMetrics(t *testing.T) {
 				checkCoordinator: checkCoordinator{
 					checks:      tt.fields.checks,
 					resultFanIn: tt.fields.resultFanIn,
-					cCfgChecks:  tt.fields.cCfgChecks,
+					cRuntime:    tt.fields.cRuntime,
 					cResult:     tt.fields.cResult,
 				},
 			}
@@ -138,8 +138,8 @@ func TestSparrow_handleCheckMetrics(t *testing.T) {
 				if tt.wantCode != resp.StatusCode {
 					t.Errorf("Sparrow.getCheckMetrics() = %v, want %v", resp.StatusCode, tt.wantCode)
 				}
-				var got types.ResultDTO
-				var want types.ResultDTO
+				var got checks.ResultDTO
+				var want checks.ResultDTO
 				err := json.Unmarshal(body, &got)
 				if err != nil {
 					t.Error("Expected valid json")
@@ -174,8 +174,8 @@ func chiRequest(r *http.Request, value string) *http.Request {
 
 func testDb() *db.InMemory {
 	d := db.NewInMemory()
-	d.Save(types.ResultDTO{Name: "alpha", Result: &types.Result{Timestamp: time.Now(), Err: "", Data: 1}})
-	d.Save(types.ResultDTO{Name: "beta", Result: &types.Result{Timestamp: time.Now(), Err: "", Data: 1}})
+	d.Save(checks.ResultDTO{Name: "alpha", Result: &checks.Result{Timestamp: time.Now(), Err: "", Data: 1}})
+	d.Save(checks.ResultDTO{Name: "beta", Result: &checks.Result{Timestamp: time.Now(), Err: "", Data: 1}})
 
 	return d
 }
