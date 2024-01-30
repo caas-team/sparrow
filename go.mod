@@ -13,6 +13,8 @@ require (
 	gopkg.in/yaml.v3 v3.0.1
 )
 
+require github.com/aeden/traceroute v0.0.0-20210211061815-03f5f7cb7908 // indirect
+
 require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
