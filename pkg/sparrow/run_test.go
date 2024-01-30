@@ -62,6 +62,21 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 			}},
 		},
 		{
+			name:   "no checks registered, register multiple new ones",
+			checks: map[string]checks.Check{},
+			newRuntimeConfig: runtime.Config{
+				Health: &health.Config{
+					Targets: []string{"https://gitlab.com"},
+				},
+				Latency: &latency.Config{
+					Targets: []string{"https://gitlab.com"},
+				},
+				Dns: &dns.Config{
+					Targets: []string{"gitlab.com"},
+				},
+			},
+		},
+		{
 			name: "one healtcheck registered, register latency check",
 
 			checks: map[string]checks.Check{
@@ -105,10 +120,17 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 			s := &Sparrow{
 				checks:      tt.checks,
 				resultFanIn: make(map[string]chan checks.Result),
+				cfg:         &config.Config{SparrowName: "sparrow.com"},
 				cRuntime:    make(chan runtime.Config, 1),
 				routingTree: api.NewRoutingTree(),
 				metrics:     NewMetrics(),
-				tarMan:      &gitlabmock.MockTargetManager{},
+				tarMan: &gitlabmock.MockTargetManager{
+					Targets: []checks.GlobalTarget{
+						{
+							Url: "https://gitlab.com",
+						},
+					},
+				},
 			}
 
 			s.ReconcileChecks(ctx, tt.newRuntimeConfig)
@@ -122,6 +144,9 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 				}
 				if cfg.For() == latency.CheckName {
 					assert.Equal(t, tt.newRuntimeConfig.Latency, cfg)
+				}
+				if cfg.For() == dns.CheckName {
+					assert.Equal(t, tt.newRuntimeConfig.Dns, cfg)
 				}
 			}
 		})
