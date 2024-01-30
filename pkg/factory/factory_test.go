@@ -102,7 +102,7 @@ func newLatencyCheck() checks.Check {
 	return res
 }
 
-func TestNew(t *testing.T) {
+func TestNewCheck(t *testing.T) {
 	tests := []struct {
 		name    string
 		cfg     checks.Runtime
@@ -130,9 +130,9 @@ func TestNew(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := New(tt.cfg)
+			got, err := newCheck(tt.cfg)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("New() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("newCheck() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 

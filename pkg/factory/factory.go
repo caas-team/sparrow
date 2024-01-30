@@ -29,8 +29,8 @@ import (
 	"github.com/caas-team/sparrow/pkg/checks/runtime"
 )
 
-// New creates a new check instance from the given name
-func New(cfg checks.Runtime) (checks.Check, error) {
+// newCheck creates a new check instance from the given name
+func newCheck(cfg checks.Runtime) (checks.Check, error) {
 	if cfg == nil {
 		return nil, errors.New("config is nil")
 	}
@@ -47,7 +47,7 @@ func New(cfg checks.Runtime) (checks.Check, error) {
 func NewChecksFromConfig(cfg runtime.Config) (map[string]checks.Check, error) {
 	result := make(map[string]checks.Check)
 	for _, c := range cfg.Iter() {
-		check, err := New(c)
+		check, err := newCheck(c)
 		if err != nil {
 			return nil, err
 		}
