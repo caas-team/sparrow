@@ -65,6 +65,10 @@ func (a *api) Run(ctx context.Context) error {
 	log := logger.FromContext(ctx)
 	cErr := make(chan error, 1)
 
+	if len(a.router.Routes()) == 0 {
+		return fmt.Errorf("failed serving API: no routes initialized")
+	}
+
 	// run http server in goroutine
 	go func(cErr chan error) {
 		defer close(cErr)

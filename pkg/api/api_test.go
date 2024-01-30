@@ -138,6 +138,10 @@ func TestAPI_ShutdownWhenContextCanceled(t *testing.T) {
 		server: &http.Server{}, //nolint:gosec
 	}
 	ctx, cancel := context.WithCancel(context.Background())
+	err := a.RegisterRoutes(ctx)
+	if err != nil {
+		t.Fatalf("Failed to register routes")
+	}
 	cancel()
 
 	if err := a.Run(ctx); !errors.Is(err, context.Canceled) {
