@@ -117,7 +117,7 @@ func TestHttpLoader_GetRuntimeConfig(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			endpoint := "https://api.test.com/test"
-			httpmock.RegisterResponder("GET", endpoint,
+			httpmock.RegisterResponder(http.MethodGet, endpoint,
 				func(req *http.Request) (*http.Response, error) {
 					if tt.cfg.Loader.Http.Token != "" {
 						require.Equal(t, req.Header.Get("Authorization"), fmt.Sprintf("Bearer %s", tt.cfg.Loader.Http.Token))
@@ -196,7 +196,7 @@ func TestHttpLoader_Run(t *testing.T) {
 			t.Fatalf("Failed marshaling response to bytes: %v", err)
 		}
 		resp := httpmock.NewBytesResponder(tt.code, body)
-		httpmock.RegisterResponder("GET", "https://api.test.com/test", resp)
+		httpmock.RegisterResponder(http.MethodGet, "https://api.test.com/test", resp)
 
 		t.Run(tt.name, func(t *testing.T) {
 			hl := &HttpLoader{
@@ -212,8 +212,10 @@ func TestHttpLoader_Run(t *testing.T) {
 					},
 				},
 				cRuntime: make(chan<- runtime.Config, 1),
-				client:   http.DefaultClient,
-				done:     make(chan struct{}, 1),
+				client: &http.Client{
+					Transport: http.DefaultTransport,
+				},
+				done: make(chan struct{}, 1),
 			}
 
 			// shutdown routine
@@ -280,7 +282,7 @@ func TestHttpLoader_Run_config_sent_to_channel(t *testing.T) {
 		t.Fatalf("Failed marshaling yaml: %v", err)
 	}
 	resp := httpmock.NewBytesResponder(200, body)
-	httpmock.RegisterResponder("GET", "https://api.test.com/test", resp)
+	httpmock.RegisterResponder(http.MethodGet, "https://api.test.com/test", resp)
 
 	cRuntime := make(chan runtime.Config, 1)
 
@@ -297,8 +299,10 @@ func TestHttpLoader_Run_config_sent_to_channel(t *testing.T) {
 			},
 		},
 		cRuntime: cRuntime,
-		client:   http.DefaultClient,
-		done:     make(chan struct{}, 1),
+		client: &http.Client{
+			Transport: http.DefaultTransport,
+		},
+		done: make(chan struct{}, 1),
 	}
 
 	ctx := context.Background()
@@ -334,7 +338,7 @@ func TestHttpLoader_Run_config_not_sent_to_channel_500(t *testing.T) {
 		t.Fatalf("Failed creating json responder: %v", err)
 	}
 
-	httpmock.RegisterResponder("GET", "https://api.test.com/test", resp)
+	httpmock.RegisterResponder(http.MethodGet, "https://api.test.com/test", resp)
 
 	cRuntime := make(chan runtime.Config, 1)
 
@@ -351,8 +355,10 @@ func TestHttpLoader_Run_config_not_sent_to_channel_500(t *testing.T) {
 			},
 		},
 		cRuntime: cRuntime,
-		client:   http.DefaultClient,
-		done:     make(chan struct{}, 1),
+		client: &http.Client{
+			Transport: http.DefaultTransport,
+		},
+		done: make(chan struct{}, 1),
 	}
 
 	ctx := context.Background()
@@ -383,7 +389,7 @@ func TestHttpLoader_Run_config_not_sent_to_channel_client_error(t *testing.T) {
 	defer httpmock.DeactivateAndReset()
 
 	resp := httpmock.NewErrorResponder(fmt.Errorf("client error"))
-	httpmock.RegisterResponder("GET", "https://api.test.com/test", resp)
+	httpmock.RegisterResponder(http.MethodGet, "https://api.test.com/test", resp)
 
 	cRuntime := make(chan runtime.Config, 1)
 
@@ -400,8 +406,10 @@ func TestHttpLoader_Run_config_not_sent_to_channel_client_error(t *testing.T) {
 			},
 		},
 		cRuntime: cRuntime,
-		client:   http.DefaultClient,
-		done:     make(chan struct{}, 1),
+		client: &http.Client{
+			Transport: http.DefaultTransport,
+		},
+		done: make(chan struct{}, 1),
 	}
 
 	ctx := context.Background()
