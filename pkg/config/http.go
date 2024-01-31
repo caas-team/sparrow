@@ -43,6 +43,7 @@ func NewHttpLoader(cfg *Config, cRuntime chan<- runtime.Config) *HttpLoader {
 	return &HttpLoader{
 		cfg:      cfg,
 		cRuntime: cRuntime,
+		done:     make(chan struct{}, 1),
 		client: &http.Client{
 			Timeout: cfg.Loader.Http.Timeout,
 		},
