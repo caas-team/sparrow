@@ -76,7 +76,7 @@ func TestHealth_SetConfig(t *testing.T) {
 			if err := h.SetConfig(tt.inputConfig); (err != nil) != tt.wantErr {
 				t.Errorf("Health.SetConfig() error = %v, wantErr %v", err, tt.wantErr)
 			}
-			assert.Equal(t, tt.expectedConfig, h.config, "Runtime is not equal")
+			assert.Equal(t, tt.expectedConfig, h.config, "Runtime config is not equal")
 		})
 	}
 }
