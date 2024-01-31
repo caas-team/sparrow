@@ -41,15 +41,20 @@ executed periodically.
 
 ## About this component
 
-The `sparrow` performs several checks to monitor the health of the infrastructure and network from its point of view. The following checks are available:
+The `sparrow` performs several checks to monitor the health of the infrastructure and network from its point of view.
+The following checks are available:
 
-1. [Health check](#check-health) - `health`: The `sparrow` is able to perform an HTTP-based (HTTP/1.1) health check to the provided endpoints. The `sparrow` will expose its own health check endpoint as well.
+1. [Health check](#check-health) - `health`: The `sparrow` is able to perform an HTTP-based (HTTP/1.1) health check to
+   the provided endpoints. The `sparrow` will expose its own health check endpoint as well.
 
-2. [Latency check](#check-latency) - `latency`: The `sparrow` is able to communicate with other `sparrow` instances to calculate the time a request takes to the target and back. The check is http (HTTP/1.1) based as well.
+2. [Latency check](#check-latency) - `latency`: The `sparrow` is able to communicate with other `sparrow` instances to
+   calculate the time a request takes to the target and back. The check is http (HTTP/1.1) based as well.
 
-3. [DNS check](#check-dns) - `dns`: The `sparrow` is able to perform DNS resolution checks to monitor domain name system performance and reliability. The check has the ability to target specific domains or IPs for monitoring.
+3. [DNS check](#check-dns) - `dns`: The `sparrow` is able to perform DNS resolution checks to monitor domain name system
+   performance and reliability. The check has the ability to target specific domains or IPs for monitoring.
 
-Each check is designed to provide comprehensive insights into the various aspects of network and service health, ensuring robust monitoring and quick detection of potential issues.
+Each check is designed to provide comprehensive insights into the various aspects of network and service health,
+ensuring robust monitoring and quick detection of potential issues.
 
 ## Installation
 
@@ -59,7 +64,8 @@ Please refer to the [release notes](https://github.com/caas-team/sparrow/release
 
 ### Binary
 
-The binary is available for several distributions. To install the binary, use a provided bundle or source. Replace `${RELEASE_VERSION}` with the desired release version:
+The binary is available for several distributions. To install the binary, use a provided bundle or source.
+Replace `${RELEASE_VERSION}` with the desired release version:
 
 ```sh
 curl https://github.com/caas-team/sparrow/releases/download/v${RELEASE_VERSION}/sparrow_${RELEASE_VERSION}_linux_amd64.tar.gz -Lo sparrow.tar.gz
@@ -92,7 +98,9 @@ Sparrow can be installed via Helm Chart. The chart is available in the GitHub re
 helm -n sparrow upgrade -i sparrow oci://ghcr.io/caas-team/charts/sparrow --version 1.0.0 --create-namespace
 ```
 
-The default settings are suitable for a local configuration. With the default Helm values, the sparrow loader uses a checks' configuration provided in a ConfigMap (the `file` loader is used). Define the `checksConfig` section to set the ConfigMap.
+The default settings are suitable for a local configuration. With the default Helm values, the sparrow loader uses a
+checks' configuration provided in a ConfigMap (the `file` loader is used). Define the `checksConfig` section to set the
+ConfigMap.
 
 Use the following configuration values to use a runtime configuration by the `http` loader:
 
@@ -104,12 +112,16 @@ startupConfig:
     http:
       url: https://url-to-checks-config.de/api/config%2Eyaml
 
-checksConfig: {}
+checksConfig: { }
 ```
 
-To provide the sparrow container with the token, manually create a secret containing the `SPARROW_LOADER_HTTP_TOKEN` environment variable. Utilize the `envFromSecrets` in the `values.yaml` to enable access to this secret by the sparrow container. Avoid adding sensitive data like the token used by the `http` loader (`loader.http.token`) directly in the values section.
+To provide the sparrow container with the token, manually create a secret containing the `SPARROW_LOADER_HTTP_TOKEN`
+environment variable. Utilize the `envFromSecrets` in the `values.yaml` to enable access to this secret by the sparrow
+container. Avoid adding sensitive data like the token used by the `http` loader (`loader.http.token`) directly in the
+values section.
 
-The same applies to the target manager token. Use the `SPARROW_TARGETMANAGER_GITLAB_TOKEN` in a secret and bind it with the `envFromSecrets` in the `values.yaml`.
+The same applies to the target manager token. Use the `SPARROW_TARGETMANAGER_GITLAB_TOKEN` in a secret and bind it with
+the `envFromSecrets` in the `values.yaml`.
 
 For all available value options see [Chart README](./chart/README.md).
 
@@ -169,7 +181,8 @@ Just write out the path to the attribute, delimited by `_`.
 
 You can set the `LOG_LEVEL` environment variable to adjust the log level.
 
-To be able to load the configuration for the [checks](#checks) during runtime dynamically, the sparrow loader needs to be set to type `http`.
+To be able to load the configuration for the [checks](#checks) during runtime dynamically, the sparrow loader needs to
+be set to type `http`.
 
 #### Example startup configuration
 
@@ -238,14 +251,18 @@ You select which loader is used by setting the `loaderType` parameter.
 
 Available loaders:
 
-- `http` (default): Retrieves the checks' configuration from a remote endpoint during runtime. Additional configuration parameters are set in the `loader.http` section.
+- `http` (default): Retrieves the checks' configuration from a remote endpoint during runtime. Additional configuration
+  parameters are set in the `loader.http` section.
 
-- `file` (experimental): Intended for development, it loads the configuration once from a local file and does not refresh after the first load. The target manager is currently not functional in combination with this loader type.
+- `file` (experimental): Intended for development, it loads the configuration once from a local file and does not
+  refresh after the first load. The target manager is currently not functional in combination with this loader type.
 
 ### Checks
 
-In addition to the technical startup configuration, the `sparrow` checks' configuration can be dynamically loaded from an HTTP endpoint during runtime.
-For local use, you may directly load the configuration using a `file` loader. The `loader` is capable of dynamically loading and configuring checks.
+In addition to the technical startup configuration, the `sparrow` checks' configuration can be dynamically loaded from
+an HTTP endpoint during runtime.
+For local use, you may directly load the configuration using a `file` loader. The `loader` is capable of dynamically
+loading and configuring checks.
 
 For detailed information on available loader configuration options, please refer
 to [this documentation](docs/sparrow_run.md).
@@ -253,19 +270,19 @@ to [this documentation](docs/sparrow_run.md).
 Example format of a configuration file for the checks:
 
 ```YAML
-apiVersion: 0.0.1
-kind: Config
-checks:
-  health:
-    targets: [ ]
+health:
+  targets: [ ]
 ```
 
 ### Target Manager
 
-The `sparrow` can optionally manage targets for checks and register itself as a target on a (remote) backend through the `TargetManager` interface. This feature is optional; if the startup configuration does not include the `targetManager`, it will not be used. When configured, it offers various settings, detailed below, which can be set in the startup YAML configuration file as shown in the [example configuration](#example-startup-configuration).
+The `sparrow` can optionally manage targets for checks and register itself as a target on a (remote) backend through
+the `TargetManager` interface. This feature is optional; if the startup configuration does not include
+the `targetManager`, it will not be used. When configured, it offers various settings, detailed below, which can be set
+in the startup YAML configuration file as shown in the [example configuration](#example-startup-configuration).
 
 | Type                                 | Description                                                         | Default Value        |
-| ------------------------------------ | ------------------------------------------------------------------- | -------------------- |
+|--------------------------------------|---------------------------------------------------------------------|----------------------|
 | `targetManager.checkInterval`        | Interval for checking new targets.                                  | `300s`               |
 | `targetManager.unhealthyThreshold`   | Threshold for marking a target as unhealthy.                        | `600s`               |
 | `targetManager.registrationInterval` | Interval for registering the current sparrow at the target backend. | `300s`               |
@@ -290,29 +307,26 @@ which is named after the DNS name of the `sparrow`. The state file contains the 
 
 Available configuration options:
 
-- `checks`
-  - `health`
-    - `interval` (duration): Interval to perform the health check.
-    - `timeout` (duration): Timeout for the health check.
-    - `retry`
-      - `count` (integer): Number of retries for the health check.
-      - `delay` (duration): Initial delay between retries for the health check.
-    - `targets` (list of strings): List of targets to send health probe. Needs to be a valid URL. Can be
-      another `sparrow` instance. Automatically updated when a targetManager is configured.
+| Field         | Type              | Description                                                                                                                                                 |
+|---------------|-------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `interval`    | `duration`        | Interval to perform the health check.                                                                                                                       |
+| `timeout`     | `duration`        | Timeout for the health check.                                                                                                                               |
+| `retry.count` | `integer`         | Number of retries for the health check.                                                                                                                     |
+| `retry.delay` | `duration`        | Initial delay between retries for the health check.                                                                                                         |
+| `targets`     | `list of strings` | List of targets to send health probe. Needs to be a valid URL. Can be another `sparrow` instance. Automatically updated when a targetManager is configured. |
 
 #### Example configuration
 
 ```yaml
-checks:
-  health:
-    interval: 10s
-    timeout: 30s
-    retry:
-      count: 3
-      delay: 1s
-    targets:
-      - https://example.com/
-      - https://google.com/
+health:
+  interval: 10s
+  timeout: 30s
+  retry:
+    count: 3
+    delay: 1s
+  targets:
+    - https://example.com/
+    - https://google.com/
 ```
 
 #### Health Metrics
@@ -326,29 +340,26 @@ checks:
 
 Available configuration options:
 
-- `checks`
-  - `latency`
-    - `interval` (duration): Interval to perform the latency check.
-    - `timeout` (duration): Timeout for the latency check.
-    - `retry`
-      - `count` (integer): Number of retries for the latency check.
-      - `delay` (duration): Initial delay between retries for the latency check.
-    - `targets` (list of strings): List of targets to send latency probe. Needs to be a valid URL. Can be
-      another `sparrow` instance. Automatically updated when a targetManager is configured.
+| Field         | Type              | Description                                                                                                                                                  |
+|---------------|-------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `interval`    | `duration`        | Interval to perform the latency check.                                                                                                                       |
+| `timeout`     | `duration`        | Timeout for the latency check.                                                                                                                               |
+| `retry.count` | `integer`         | Number of retries for the latency check.                                                                                                                     |
+| `retry.delay` | `duration`        | Initial delay between retries for the latency check.                                                                                                         |
+| `targets`     | `list of strings` | List of targets to send latency probe. Needs to be a valid URL. Can be another `sparrow` instance. Automatically updated when a targetManager is configured. |
 
 #### Example configuration
 
 ```yaml
-checks:
-  latency:
-    interval: 10s
-    timeout: 30s
-    retry:
-      count: 3
-      delay: 1s
-    targets:
-      - https://example.com/
-      - https://google.com/
+latency:
+  interval: 10s
+  timeout: 30s
+  retry:
+    count: 3
+    delay: 1s
+  targets:
+    - https://example.com/
+    - https://google.com/
 ```
 
 #### Latency Metrics
@@ -372,29 +383,26 @@ checks:
 
 Available configuration options:
 
-- `checks`
-  - `dns`
-    - `interval` (duration): Interval to perform the DNS check.
-    - `timeout` (duration): Timeout for the DNS check.
-    - `retry`
-      - `count` (integer): Number of retries for the DNS check.
-      - `delay` (duration): Initial delay between retries for the DNS check.
-    - `targets` (list of strings): List of targets to lookup. Needs to be a valid domain or IP. Can be
-      another `sparrow` instance. Automatically updated when a targetManager is configured.
+| Field         | Type              | Description                                                                                                                                               |
+|---------------|-------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `interval`    | `duration`        | Interval to perform the DNS check.                                                                                                                        |
+| `timeout`     | `duration`        | Timeout for the DNS check.                                                                                                                                |
+| `retry.count` | `integer`         | Number of retries for the DNS check.                                                                                                                      |
+| `retry.delay` | `duration`        | Initial delay between retries for the DNS check.                                                                                                          |
+| `targets`     | `list of strings` | List of targets to lookup. Needs to be a valid domain or IP. Can be another `sparrow` instance. Automatically updated when a targetManager is configured. |
 
 #### Example configuration
 
 ```yaml
-checks:
-  dns:
-    interval: 10s
-    timeout: 30s
-    retry:
-      count: 3
-      delay: 1s
-    targets:
-      - www.example.com
-      - www.google.com
+dns:
+  interval: 10s
+  timeout: 30s
+  retry:
+    count: 3
+    delay: 1s
+  targets:
+    - www.example.com
+    - www.google.com
 ```
 
 #### DNS Metrics
@@ -421,11 +429,13 @@ checks:
 
 ## API
 
-The `sparrow` exposes an API for accessing the results of various checks. Each check registers its own endpoint at `/v1/metrics/{check-name}`. The API's definition is available at `/openapi`.
+The `sparrow` exposes an API for accessing the results of various checks. Each check registers its own endpoint
+at `/v1/metrics/{check-name}`. The API's definition is available at `/openapi`.
 
 ## Metrics
 
-The `sparrow` provides a `/metrics` endpoint to expose application metrics. In addition to runtime information, the sparrow provides specific metrics for each check. Refer to the [Checks](#checks) section for more detailed information.
+The `sparrow` provides a `/metrics` endpoint to expose application metrics. In addition to runtime information, the
+sparrow provides specific metrics for each check. Refer to the [Checks](#checks) section for more detailed information.
 
 ## Code of Conduct
 
@@ -447,7 +457,7 @@ The application itself and all end-user facing content will be made available in
 The following channels are available for discussions, feedback, and support requests:
 
 | Type       | Channel                                                                                                                                                |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+|------------|--------------------------------------------------------------------------------------------------------------------------------------------------------|
 | **Issues** | <a href="/../../issues/new/choose" title="General Discussion"><img src="https://img.shields.io/github/issues/caas-team/sparrow?style=flat-square"></a> |
 
 ## How to Contribute
