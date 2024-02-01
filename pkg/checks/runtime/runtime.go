@@ -57,13 +57,13 @@ func (c Config) Iter() []checks.Runtime {
 // size returns the number of checks configured
 func (c Config) size() int {
 	size := 0
-	if c.Health != nil {
+	if c.HasHealthCheck() {
 		size++
 	}
-	if c.Latency != nil {
+	if c.HasLatencyCheck() {
 		size++
 	}
-	if c.Dns != nil {
+	if c.HasDNSCheck() {
 		size++
 	}
 	return size

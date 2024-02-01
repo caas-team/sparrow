@@ -25,10 +25,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/caas-team/sparrow/pkg/checks/runtime"
-
 	"github.com/caas-team/sparrow/internal/helper"
 	"github.com/caas-team/sparrow/internal/logger"
+	"github.com/caas-team/sparrow/pkg/checks/runtime"
 	"gopkg.in/yaml.v3"
 )
 
