@@ -75,6 +75,7 @@ func TestFileLoader_Run(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.Background()
 			result := make(chan runtime.Config, 1)
+			defer close(result)
 			f := NewFileLoader(&Config{
 				Loader: tt.config,
 			}, result)
@@ -139,9 +140,11 @@ func TestFileLoader_getRuntimeConfig(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			res := make(chan runtime.Config, 1)
+			defer close(res)
 			f := NewFileLoader(&Config{
 				Loader: tt.config,
-			}, make(chan runtime.Config, 1))
+			}, res)
 			if tt.mockFS != nil {
 				f.fsys = tt.mockFS()
 			}
