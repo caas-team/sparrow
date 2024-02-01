@@ -21,7 +21,6 @@ package sparrow
 import (
 	"context"
 	"reflect"
-	"sync"
 	"testing"
 	"time"
 
@@ -47,18 +46,33 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 
 	rtcfg := &runtime.Config{}
 	tests := []struct {
-		name            string
-		checks          map[string]checks.Check
-		newChecksConfig runtime.Config
+		name             string
+		checks           map[string]checks.Check
+		newRuntimeConfig runtime.Config
 	}{
 		{
 			name: "no checks registered yet but register one",
 
 			checks: map[string]checks.Check{},
 
-			newChecksConfig: runtime.Config{Health: &health.Config{
+			newRuntimeConfig: runtime.Config{Health: &health.Config{
 				Targets: []string{"https://gitlab.com"},
 			}},
+		},
+		{
+			name:   "no checks registered, register multiple new ones",
+			checks: map[string]checks.Check{},
+			newRuntimeConfig: runtime.Config{
+				Health: &health.Config{
+					Targets: []string{"https://gitlab.com"},
+				},
+				Latency: &latency.Config{
+					Targets: []string{"https://gitlab.com"},
+				},
+				Dns: &dns.Config{
+					Targets: []string{"gitlab.com"},
+				},
+			},
 		},
 		{
 			name: "one healtcheck registered, register latency check",
@@ -67,7 +81,7 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 				health.CheckName: health.NewCheck(),
 			},
 
-			newChecksConfig: runtime.Config{
+			newRuntimeConfig: runtime.Config{
 				Latency: &latency.Config{
 					Targets: []string{"https://gitlab.com"},
 				},
@@ -83,7 +97,7 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 				health.CheckName: health.NewCheck(),
 			},
 
-			newChecksConfig: *rtcfg,
+			newRuntimeConfig: *rtcfg,
 		},
 		{
 			name: "one health check registered, register latency and unregister health",
@@ -92,7 +106,7 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 				health.CheckName: health.NewCheck(),
 			},
 
-			newChecksConfig: runtime.Config{
+			newRuntimeConfig: runtime.Config{
 				Latency: &latency.Config{
 					Targets: []string{"https://gitlab.com"},
 				},
@@ -102,17 +116,16 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &Sparrow{
-				config:  &config.Config{},
-				db:      nil,
-				api:     nil,
-				loader:  nil,
-				tarMan:  &gitlabmock.MockTargetManager{},
-				metrics: NewMetrics(),
-				errorHandler: errorHandler{
-					cErr:     make(chan error),
-					cDone:    make(chan struct{}),
-					shutOnce: sync.Once{},
+				config: &config.Config{SparrowName: "sparrow.com"},
+				tarMan: &gitlabmock.MockTargetManager{
+					Targets: []checks.GlobalTarget{
+						{
+							Url: "https://gitlab.com",
+						},
+					},
 				},
+				metrics:      NewMetrics(),
+				errorHandler: errorHandler{},
 				checkCoordinator: checkCoordinator{
 					checks:      tt.checks,
 					resultFanIn: make(map[string]chan checks.Result),
@@ -121,17 +134,20 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 				},
 			}
 
-			s.ReconcileChecks(ctx, tt.newChecksConfig)
+			s.ReconcileChecks(ctx, tt.newRuntimeConfig)
 
 			// iterate of the sparrow's checks and check if they are configured
 			for _, c := range s.checks {
 				cfg := c.GetConfig()
 				assert.NotNil(t, cfg)
 				if cfg.For() == health.CheckName {
-					assert.Equal(t, tt.newChecksConfig.Health, cfg)
+					assert.Equal(t, tt.newRuntimeConfig.Health, cfg)
 				}
 				if cfg.For() == latency.CheckName {
-					assert.Equal(t, tt.newChecksConfig.Latency, cfg)
+					assert.Equal(t, tt.newRuntimeConfig.Latency, cfg)
+				}
+				if cfg.For() == dns.CheckName {
+					assert.Equal(t, tt.newRuntimeConfig.Dns, cfg)
 				}
 			}
 		})

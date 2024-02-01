@@ -23,11 +23,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/caas-team/sparrow/pkg/checks/runtime"
-
-	"gopkg.in/yaml.v3"
-
 	"github.com/caas-team/sparrow/internal/logger"
+	"github.com/caas-team/sparrow/pkg/checks/runtime"
+	"gopkg.in/yaml.v3"
 )
 
 var _ Loader = (*FileLoader)(nil)

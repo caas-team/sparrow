@@ -27,18 +27,15 @@ import (
 	"sync"
 	"time"
 
+	"github.com/caas-team/sparrow/internal/logger"
 	"github.com/caas-team/sparrow/pkg/api"
 	"github.com/caas-team/sparrow/pkg/checks"
-	"github.com/caas-team/sparrow/pkg/factory"
-
 	"github.com/caas-team/sparrow/pkg/checks/runtime"
-
-	"github.com/caas-team/sparrow/pkg/sparrow/targets"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-
-	"github.com/caas-team/sparrow/internal/logger"
 	"github.com/caas-team/sparrow/pkg/config"
 	"github.com/caas-team/sparrow/pkg/db"
+	"github.com/caas-team/sparrow/pkg/factory"
+	"github.com/caas-team/sparrow/pkg/sparrow/targets"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 const shutdownTimeout = time.Second * 90
@@ -166,7 +163,7 @@ func (s *Sparrow) Run(ctx context.Context) error {
 // resets the Configs of Checks and starts running the checks
 func (s *Sparrow) ReconcileChecks(ctx context.Context, cfg runtime.Config) {
 	// generate checks from configuration
-	s.enrichTargets(cfg)
+	cfg = s.enrichTargets(cfg)
 	fChecks, err := factory.NewChecksFromConfig(cfg)
 	if err != nil {
 		logger.FromContext(ctx).ErrorContext(ctx, "Failed to create checks from config", "error", err)
@@ -178,7 +175,7 @@ func (s *Sparrow) ReconcileChecks(ctx context.Context, cfg runtime.Config) {
 		for _, c := range fChecks {
 			err = s.registerCheck(ctx, c)
 			if err != nil {
-				logger.FromContext(ctx).ErrorContext(ctx, "Failed to register check", "error", err)
+				logger.FromContext(ctx).ErrorContext(ctx, "Failed to register check", "check", c.Name(), "error", err)
 			}
 		}
 		return
@@ -196,7 +193,7 @@ func (s *Sparrow) ReconcileChecks(ctx context.Context, cfg runtime.Config) {
 		if _, ok := s.checks[c.Name()]; !ok {
 			err = s.registerCheck(ctx, c)
 			if err != nil {
-				logger.FromContext(ctx).ErrorContext(ctx, "Failed to register check", "error", err)
+				logger.FromContext(ctx).ErrorContext(ctx, "Failed to register check", "check", c.Name(), "error", err)
 			}
 			continue
 		}
@@ -204,7 +201,7 @@ func (s *Sparrow) ReconcileChecks(ctx context.Context, cfg runtime.Config) {
 		// existing config
 		err = s.checks[c.Name()].SetConfig(c.GetConfig())
 		if err != nil {
-			logger.FromContext(ctx).ErrorContext(ctx, "Failed to set config for check", "error", err)
+			logger.FromContext(ctx).ErrorContext(ctx, "Failed to set config for check", "check", c.Name(), "error", err)
 		}
 	}
 }
