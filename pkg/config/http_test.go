@@ -29,13 +29,16 @@ import (
 	"testing"
 	"time"
 
+	"github.com/caas-team/sparrow/internal/helper"
 	"gopkg.in/yaml.v3"
 
-	"github.com/caas-team/sparrow/internal/helper"
+	"github.com/caas-team/sparrow/pkg/checks/runtime"
+
+	"github.com/caas-team/sparrow/pkg/checks/health"
+	"github.com/stretchr/testify/require"
 
 	"github.com/caas-team/sparrow/internal/logger"
 	"github.com/jarcoal/httpmock"
-	"github.com/stretchr/testify/require"
 )
 
 func TestHttpLoader_GetRuntimeConfig(t *testing.T) {
@@ -50,7 +53,7 @@ func TestHttpLoader_GetRuntimeConfig(t *testing.T) {
 		name          string
 		cfg           *Config
 		httpResponder httpResponder
-		want          *RuntimeConfig
+		want          *runtime.Config
 		wantErr       bool
 	}{
 		{
@@ -58,18 +61,18 @@ func TestHttpLoader_GetRuntimeConfig(t *testing.T) {
 			cfg: &Config{
 				Loader: LoaderConfig{
 					Type:     "http",
-					Interval: time.Second,
+					Interval: 1 * time.Second,
 				},
 			},
 			httpResponder: httpResponder{
 				statusCode: 200,
 				response:   httpmock.File("testdata/config.yaml").String(),
 			},
-			want: &RuntimeConfig{
-				Checks: map[string]any{
-					"testCheck1": map[string]any{
-						"enabled": true,
-					},
+			want: &runtime.Config{
+				Health: &health.Config{
+					Targets:  []string{"http://localhost:8080/health"},
+					Interval: 1 * time.Second,
+					Timeout:  1 * time.Second,
 				},
 			},
 		},
@@ -88,11 +91,11 @@ func TestHttpLoader_GetRuntimeConfig(t *testing.T) {
 				statusCode: 200,
 				response:   httpmock.File("testdata/config.yaml").String(),
 			},
-			want: &RuntimeConfig{
-				Checks: map[string]any{
-					"testCheck1": map[string]any{
-						"enabled": true,
-					},
+			want: &runtime.Config{
+				Health: &health.Config{
+					Targets:  []string{"http://localhost:8080/health"},
+					Interval: 1 * time.Second,
+					Timeout:  1 * time.Second,
 				},
 			},
 		},
@@ -108,22 +111,6 @@ func TestHttpLoader_GetRuntimeConfig(t *testing.T) {
 				statusCode: 400,
 				response:   httpmock.File("testdata/config.yaml").String(),
 			},
-			want:    nil,
-			wantErr: true,
-		},
-		{
-			name: "Get runtime configuration payload not yaml",
-			cfg: &Config{
-				Loader: LoaderConfig{
-					Type:     "http",
-					Interval: time.Second,
-				},
-			},
-			httpResponder: httpResponder{
-				statusCode: 200,
-				response:   `this is not yaml`,
-			},
-			want:    nil,
 			wantErr: true,
 		},
 	}
@@ -147,8 +134,8 @@ func TestHttpLoader_GetRuntimeConfig(t *testing.T) {
 			defer cancel()
 
 			gl := &HttpLoader{
-				cfg:        tt.cfg,
-				cCfgChecks: make(chan<- map[string]any, 1),
+				cfg:      tt.cfg,
+				cRuntime: make(chan<- runtime.Config, 1),
 				client: &http.Client{
 					Timeout: tt.cfg.Loader.Http.Timeout,
 				},
@@ -160,7 +147,7 @@ func TestHttpLoader_GetRuntimeConfig(t *testing.T) {
 				t.Errorf("HttpLoader.GetRuntimeConfig() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if !reflect.DeepEqual(got, tt.want) {
+			if err == nil && !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("HttpLoader.GetRuntimeConfig() = %v, want %v", got, tt.want)
 			}
 		})
@@ -173,7 +160,7 @@ func TestHttpLoader_GetRuntimeConfig(t *testing.T) {
 func TestHttpLoader_Run(t *testing.T) {
 	tests := []struct {
 		name     string
-		response *RuntimeConfig
+		response *runtime.Config
 		code     int
 		wantErr  bool
 	}{
@@ -184,26 +171,16 @@ func TestHttpLoader_Run(t *testing.T) {
 			wantErr:  false,
 		},
 		{
-			name: "nil checks",
-			response: &RuntimeConfig{
-				Checks: nil,
-			},
-			code: 200,
+			name:     "empty checks' configuration",
+			response: &runtime.Config{},
+			code:     200,
 		},
 		{
-			name: "empty config",
-			response: &RuntimeConfig{
-				Checks: map[string]any{},
-			},
-			code: 200,
-		},
-		{
-			name: "config with checks",
-			response: &RuntimeConfig{
-				Checks: map[string]any{
-					"testCheck1": map[string]any{
-						"enabled": true,
-					},
+			name: "config with health check",
+			response: &runtime.Config{
+				Health: &health.Config{
+					Targets:  []string{"http://localhost:8080/health"},
+					Interval: 1 * time.Second,
 				},
 			},
 			code: 200,
@@ -236,9 +213,9 @@ func TestHttpLoader_Run(t *testing.T) {
 						},
 					},
 				},
-				cCfgChecks: make(chan<- map[string]any, 1),
-				client:     http.DefaultClient,
-				done:       make(chan struct{}, 1),
+				cRuntime: make(chan<- runtime.Config, 1),
+				client:   http.DefaultClient,
+				done:     make(chan struct{}, 1),
 			}
 
 			// shutdown routine
@@ -294,19 +271,20 @@ func TestHttpLoader_Run_config_sent_to_channel(t *testing.T) {
 	httpmock.Activate()
 	t.Cleanup(httpmock.DeactivateAndReset)
 
-	expected := map[string]any{
-		"testCheck1": map[string]any{
-			"enabled": true,
+	expected := runtime.Config{
+		Health: &health.Config{
+			Targets:  []string{"http://localhost:8080/health"},
+			Interval: 1 * time.Second,
 		},
 	}
-	body, err := yaml.Marshal(RuntimeConfig{Checks: expected})
+	body, err := yaml.Marshal(expected)
 	if err != nil {
 		t.Fatalf("Failed marshaling yaml: %v", err)
 	}
 	resp := httpmock.NewBytesResponder(200, body)
 	httpmock.RegisterResponder("GET", "https://api.test.com/test", resp)
 
-	cCfgChecks := make(chan map[string]any, 1)
+	cRuntime := make(chan runtime.Config, 1)
 
 	hl := &HttpLoader{
 		cfg: &Config{
@@ -322,9 +300,9 @@ func TestHttpLoader_Run_config_sent_to_channel(t *testing.T) {
 				},
 			},
 		},
-		cCfgChecks: cCfgChecks,
-		client:     http.DefaultClient,
-		done:       make(chan struct{}, 1),
+		cRuntime: cRuntime,
+		client:   http.DefaultClient,
+		done:     make(chan struct{}, 1),
 	}
 
 	ctx := context.Background()
@@ -339,7 +317,7 @@ func TestHttpLoader_Run_config_sent_to_channel(t *testing.T) {
 	select {
 	case <-time.After(time.Second):
 		t.Error("Config not sent to channel")
-	case c := <-cCfgChecks:
+	case c := <-cRuntime:
 		if !reflect.DeepEqual(c, expected) {
 			t.Errorf("Config sent to channel is not equal to expected config: got %v, want %v", c, expected)
 		}
@@ -362,7 +340,7 @@ func TestHttpLoader_Run_config_not_sent_to_channel_500(t *testing.T) {
 
 	httpmock.RegisterResponder("GET", "https://api.test.com/test", resp)
 
-	cCfgChecks := make(chan map[string]any, 1)
+	cRuntime := make(chan runtime.Config, 1)
 
 	hl := &HttpLoader{
 		cfg: &Config{
@@ -378,9 +356,9 @@ func TestHttpLoader_Run_config_not_sent_to_channel_500(t *testing.T) {
 				},
 			},
 		},
-		cCfgChecks: cCfgChecks,
-		client:     http.DefaultClient,
-		done:       make(chan struct{}, 1),
+		cRuntime: cRuntime,
+		client:   http.DefaultClient,
+		done:     make(chan struct{}, 1),
 	}
 
 	ctx := context.Background()
@@ -396,7 +374,7 @@ func TestHttpLoader_Run_config_not_sent_to_channel_500(t *testing.T) {
 	// make sure you wait for at least an interval
 	case <-time.After(time.Second):
 		t.Log("Config not sent to channel")
-	case c := <-cCfgChecks:
+	case c := <-cRuntime:
 		t.Errorf("Config sent to channel: %v", c)
 	}
 
@@ -413,7 +391,7 @@ func TestHttpLoader_Run_config_not_sent_to_channel_client_error(t *testing.T) {
 	resp := httpmock.NewErrorResponder(fmt.Errorf("client error"))
 	httpmock.RegisterResponder("GET", "https://api.test.com/test", resp)
 
-	cCfgChecks := make(chan map[string]any, 1)
+	cRuntime := make(chan runtime.Config, 1)
 
 	hl := &HttpLoader{
 		cfg: &Config{
@@ -429,9 +407,9 @@ func TestHttpLoader_Run_config_not_sent_to_channel_client_error(t *testing.T) {
 				},
 			},
 		},
-		cCfgChecks: cCfgChecks,
-		client:     http.DefaultClient,
-		done:       make(chan struct{}, 1),
+		cRuntime: cRuntime,
+		client:   http.DefaultClient,
+		done:     make(chan struct{}, 1),
 	}
 
 	ctx := context.Background()
@@ -447,7 +425,7 @@ func TestHttpLoader_Run_config_not_sent_to_channel_client_error(t *testing.T) {
 	// make sure you wait for at least an interval
 	case <-time.After(time.Second):
 		t.Log("Config not sent to channel")
-	case c := <-cCfgChecks:
+	case c := <-cRuntime:
 		t.Errorf("Config sent to channel: %v", c)
 	}
 

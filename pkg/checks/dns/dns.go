@@ -21,55 +21,71 @@ package dns
 import (
 	"context"
 	"net"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/caas-team/sparrow/internal/helper"
 	"github.com/caas-team/sparrow/internal/logger"
 	"github.com/caas-team/sparrow/pkg/checks"
-	"github.com/caas-team/sparrow/pkg/checks/errors"
-	"github.com/caas-team/sparrow/pkg/checks/types"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-var _ checks.Check = (*DNS)(nil)
+var (
+	_ checks.Check   = (*DNS)(nil)
+	_ checks.Runtime = (*Config)(nil)
+)
+
+const CheckName = "dns"
 
 // DNS is a check that resolves the names and addresses
 type DNS struct {
-	types.CheckBase
-	config  config
+	checks.CheckBase
+	config  Config
 	metrics metrics
 	client  Resolver
+}
+
+func (d *DNS) GetConfig() checks.Runtime {
+	d.Mu.Lock()
+	defer d.Mu.Unlock()
+	return &d.config
+}
+
+func (d *DNS) Name() string {
+	return CheckName
 }
 
 // NewCheck creates a new instance of the dns check
 func NewCheck() checks.Check {
 	return &DNS{
-		CheckBase: types.CheckBase{
+		CheckBase: checks.CheckBase{
 			Mu:      sync.Mutex{},
 			CResult: nil,
 			Done:    make(chan bool, 1),
 		},
-		config: config{
-			Retry: types.DefaultRetry,
+		config: Config{
+			Retry: checks.DefaultRetry,
 		},
 		metrics: newMetrics(),
 		client:  NewResolver(),
 	}
 }
 
-// config defines the configuration parameters for a dns check
-type config struct {
-	Targets  []string           `json:"targets" yaml:"targets" mapstructure:"targets"`
-	Interval time.Duration      `json:"interval" yaml:"interval" mapstructure:"interval"`
-	Timeout  time.Duration      `json:"timeout" yaml:"timeout" mapstructure:"timeout"`
-	Retry    helper.RetryConfig `json:"retry" yaml:"retry" mapstructure:"retry"`
+// Config defines the configuration parameters for a DNS check
+type Config struct {
+	Targets  []string           `json:"targets" yaml:"targets"`
+	Interval time.Duration      `json:"interval" yaml:"interval"`
+	Timeout  time.Duration      `json:"timeout" yaml:"timeout"`
+	Retry    helper.RetryConfig `json:"retry" yaml:"retry"`
 }
 
-// Result represents the result of a single DNS check for a specific target
-type Result struct {
+func (c Config) For() string {
+	return CheckName
+}
+
+// result represents the result of a single DNS check for a specific target
+type result struct {
 	Resolved []string
 	Error    *string
 	Total    float64
@@ -92,7 +108,7 @@ func (d *DNS) Run(ctx context.Context) error {
 		case <-time.After(d.config.Interval):
 			res := d.check(ctx)
 			errval := ""
-			r := types.Result{
+			r := checks.Result{
 				Data:      res,
 				Err:       errval,
 				Timestamp: time.Now(),
@@ -104,7 +120,7 @@ func (d *DNS) Run(ctx context.Context) error {
 	}
 }
 
-func (d *DNS) Startup(ctx context.Context, cResult chan<- types.Result) error {
+func (d *DNS) Startup(ctx context.Context, cResult chan<- checks.Result) error {
 	log := logger.FromContext(ctx)
 	log.Debug("Initializing dns check")
 
@@ -119,31 +135,24 @@ func (d *DNS) Shutdown(_ context.Context) error {
 	return nil
 }
 
-func (d *DNS) SetConfig(ctx context.Context, conf any) error {
-	log := logger.FromContext(ctx)
-
-	c, err := helper.Decode[config](conf)
-	if err != nil {
-		log.Error("Failed to decode dns config", "error", err)
-		return errors.ErrInvalidConfig
+func (d *DNS) SetConfig(cfg checks.Runtime) error {
+	if c, ok := cfg.(*Config); ok {
+		d.Mu.Lock()
+		defer d.Mu.Unlock()
+		d.config = *c
+		return nil
 	}
 
-	// To be able to lookup global targets injected to config targets
-	for k, v := range c.Targets {
-		c.Targets[k], _ = strings.CutPrefix(v, "https://")
+	return checks.ErrConfigMismatch{
+		Expected: CheckName,
+		Current:  cfg.For(),
 	}
-
-	d.Mu.Lock()
-	defer d.Mu.Unlock()
-	d.config = c
-
-	return nil
 }
 
 // Schema provides the schema of the data that will be provided
 // by the dns check
 func (d *DNS) Schema() (*openapi3.SchemaRef, error) {
-	return checks.OpenapiFromPerfData(make(map[string]Result))
+	return checks.OpenapiFromPerfData(make(map[string]result))
 }
 
 // GetMetricCollectors returns all metric collectors of check
@@ -152,18 +161,18 @@ func (d *DNS) GetMetricCollectors() []prometheus.Collector {
 }
 
 // check performs DNS checks for all configured targets using a custom net.Resolver.
-// Returns a map where each target is associated with its DNS check Result.
-func (d *DNS) check(ctx context.Context) map[string]Result {
+// Returns a map where each target is associated with its DNS check result.
+func (d *DNS) check(ctx context.Context) map[string]result {
 	log := logger.FromContext(ctx)
 	log.Debug("Checking dns")
 	if len(d.config.Targets) == 0 {
 		log.Debug("No targets defined")
-		return map[string]Result{}
+		return map[string]result{}
 	}
 
 	var mu sync.Mutex
 	var wg sync.WaitGroup
-	results := map[string]Result{}
+	results := map[string]result{}
 
 	d.client.SetDialer(&net.Dialer{
 		Timeout: d.config.Timeout,
@@ -211,10 +220,10 @@ func (d *DNS) check(ctx context.Context) map[string]Result {
 // getDNS performs a DNS resolution for the given address using the specified net.Resolver.
 // If the address is an IP address, LookupAddr is used to perform a reverse DNS lookup.
 // If the address is a hostname, LookupHost is used to find its IP addresses.
-// Returns a Result struct containing the outcome of the DNS query.
-func getDNS(ctx context.Context, c Resolver, address string) (Result, error) {
+// Returns a result struct containing the outcome of the DNS query.
+func getDNS(ctx context.Context, c Resolver, address string) (result, error) {
 	log := logger.FromContext(ctx).With("address", address)
-	var res Result
+	var res result
 
 	var lookupFunc func(context.Context, string) ([]string, error)
 	ip := net.ParseIP(address)

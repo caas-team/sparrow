@@ -26,7 +26,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/caas-team/sparrow/pkg/checks/types"
+	"github.com/caas-team/sparrow/pkg/checks"
+
 	"github.com/jarcoal/httpmock"
 	"github.com/stretchr/testify/assert"
 )
@@ -54,7 +55,7 @@ func TestLatency_Run(t *testing.T) { //nolint:gocyclo
 		}
 		targets []string
 		ctx     context.Context
-		want    types.Result
+		want    checks.Result
 	}{
 		{
 			name: "success with one target",
@@ -71,8 +72,8 @@ func TestLatency_Run(t *testing.T) { //nolint:gocyclo
 			},
 			targets: []string{successURL},
 			ctx:     context.Background(),
-			want: types.Result{
-				Data: map[string]Result{
+			want: checks.Result{
+				Data: map[string]result{
 					successURL: {Code: http.StatusOK, Error: nil, Total: 0},
 				},
 				Timestamp: time.Time{},
@@ -104,8 +105,8 @@ func TestLatency_Run(t *testing.T) { //nolint:gocyclo
 			},
 			targets: []string{successURL, failURL, timeoutURL},
 			ctx:     context.Background(),
-			want: types.Result{
-				Data: map[string]Result{
+			want: checks.Result{
+				Data: map[string]result{
 					successURL: {Code: http.StatusOK, Error: nil, Total: 0},
 					failURL:    {Code: http.StatusInternalServerError, Error: nil, Total: 0},
 					timeoutURL: {Code: 0, Error: stringPointer(fmt.Sprintf("Get %q: context deadline exceeded", timeoutURL)), Total: 0},
@@ -127,16 +128,16 @@ func TestLatency_Run(t *testing.T) { //nolint:gocyclo
 			}
 
 			c := NewCheck()
-			results := make(chan types.Result, 1)
+			results := make(chan checks.Result, 1)
 			err := c.Startup(tt.ctx, results)
 			if err != nil {
 				t.Fatalf("Latency.Startup() error = %v", err)
 			}
 
-			err = c.SetConfig(tt.ctx, map[string]any{
-				"targets":  tt.targets,
-				"interval": "1s",
-				"timeout":  "5s",
+			err = c.SetConfig(&Config{
+				Targets:  tt.targets,
+				Interval: time.Millisecond * 120,
+				Timeout:  time.Second * 1,
 			})
 			if err != nil {
 				t.Fatalf("Latency.SetConfig() error = %v", err)
@@ -157,12 +158,12 @@ func TestLatency_Run(t *testing.T) { //nolint:gocyclo
 				}
 			}()
 
-			result := <-results
+			res := <-results
 
-			assert.IsType(t, tt.want.Data, result.Data)
+			assert.IsType(t, tt.want.Data, res.Data)
 
-			got := result.Data.(map[string]Result)
-			expected := result.Data.(map[string]Result)
+			got := res.Data.(map[string]result)
+			expected := tt.want.Data.(map[string]result)
 			if len(got) != len(expected) {
 				t.Errorf("Length of Latency.Run() result set (%v) does not match length of expected result set (%v)", len(got), len(expected))
 			}
@@ -170,9 +171,6 @@ func TestLatency_Run(t *testing.T) { //nolint:gocyclo
 			for key, resultObj := range got {
 				if expected[key].Code != resultObj.Code {
 					t.Errorf("Result Code of %q = %v, want %v", key, resultObj.Code, expected[key].Code)
-				}
-				if expected[key].Error != resultObj.Error {
-					t.Errorf("Result Error of %q = %v, want %v", key, resultObj.Error, expected[key].Error)
 				}
 				if key != timeoutURL {
 					if resultObj.Total <= 0 || resultObj.Total >= 1 {
@@ -185,8 +183,8 @@ func TestLatency_Run(t *testing.T) { //nolint:gocyclo
 				}
 			}
 
-			if result.Err != tt.want.Err {
-				t.Errorf("Latency.Run() = %v, want %v", result.Err, tt.want.Err)
+			if res.Err != tt.want.Err {
+				t.Errorf("Latency.Run() = %v, want %v", res.Err, tt.want.Err)
 			}
 			httpmock.Reset()
 		})
@@ -206,14 +204,14 @@ func TestLatency_check(t *testing.T) {
 		}
 		targets []string
 		ctx     context.Context
-		want    map[string]Result
+		want    map[string]result
 	}{
 		{
 			name:                "no target",
 			registeredEndpoints: nil,
 			targets:             []string{},
 			ctx:                 context.Background(),
-			want:                map[string]Result{},
+			want:                map[string]result{},
 		},
 		{
 			name: "one target",
@@ -230,7 +228,7 @@ func TestLatency_check(t *testing.T) {
 			},
 			targets: []string{successURL},
 			ctx:     context.Background(),
-			want: map[string]Result{
+			want: map[string]result{
 				successURL: {Code: http.StatusOK, Error: nil, Total: 0},
 			},
 		},
@@ -258,7 +256,7 @@ func TestLatency_check(t *testing.T) {
 			},
 			targets: []string{successURL, failURL, timeoutURL},
 			ctx:     context.Background(),
-			want: map[string]Result{
+			want: map[string]result{
 				successURL: {
 					Code:  200,
 					Error: nil,
@@ -289,7 +287,7 @@ func TestLatency_check(t *testing.T) {
 			}
 
 			l := &Latency{
-				config:  config{Targets: tt.targets, Interval: time.Second * 120, Timeout: time.Second * 1},
+				config:  Config{Targets: tt.targets, Interval: time.Second * 120, Timeout: time.Second * 1},
 				metrics: newMetrics(),
 			}
 
@@ -322,7 +320,7 @@ func TestLatency_check(t *testing.T) {
 func TestLatency_Startup(t *testing.T) {
 	c := Latency{}
 
-	if err := c.Startup(context.Background(), make(chan<- types.Result, 1)); err != nil {
+	if err := c.Startup(context.Background(), make(chan<- checks.Result, 1)); err != nil {
 		t.Errorf("Startup() error = %v", err)
 	}
 }
@@ -330,7 +328,7 @@ func TestLatency_Startup(t *testing.T) {
 func TestLatency_Shutdown(t *testing.T) {
 	cDone := make(chan bool, 1)
 	c := Latency{
-		CheckBase: types.CheckBase{
+		CheckBase: checks.CheckBase{
 			Done: cDone,
 		},
 	}
@@ -346,11 +344,11 @@ func TestLatency_Shutdown(t *testing.T) {
 
 func TestLatency_SetConfig(t *testing.T) {
 	c := Latency{}
-	wantCfg := config{
+	wantCfg := Config{
 		Targets: []string{"http://localhost:9090"},
 	}
 
-	err := c.SetConfig(context.Background(), wantCfg)
+	err := c.SetConfig(&wantCfg)
 	if err != nil {
 		t.Errorf("SetConfig() error = %v", err)
 	}

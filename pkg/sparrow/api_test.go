@@ -30,9 +30,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/caas-team/sparrow/pkg/api"
 	"github.com/caas-team/sparrow/pkg/checks"
-	"github.com/caas-team/sparrow/pkg/checks/types"
+
+	"github.com/caas-team/sparrow/pkg/api"
 	"github.com/caas-team/sparrow/pkg/config"
 	"github.com/caas-team/sparrow/pkg/db"
 	"github.com/getkin/kin-openapi/openapi3"
@@ -84,8 +84,8 @@ func TestSparrow_api_shutdownWhenContextCanceled(t *testing.T) {
 
 func testDb() *db.InMemory {
 	d := db.NewInMemory()
-	d.Save(types.ResultDTO{Name: "alpha", Result: &types.Result{Timestamp: time.Now(), Err: "", Data: 1}})
-	d.Save(types.ResultDTO{Name: "beta", Result: &types.Result{Timestamp: time.Now(), Err: "", Data: 1}})
+	d.Save(checks.ResultDTO{Name: "alpha", Result: &checks.Result{Timestamp: time.Now(), Err: "", Data: 1}})
+	d.Save(checks.ResultDTO{Name: "beta", Result: &checks.Result{Timestamp: time.Now(), Err: "", Data: 1}})
 
 	return d
 }
@@ -99,45 +99,29 @@ func chiRequest(r *http.Request, value string) *http.Request {
 }
 
 func TestSparrow_getCheckMetrics(t *testing.T) {
-	type fields struct {
-		checks      map[string]checks.Check
-		routingTree *api.RoutingTree
-		resultFanIn map[string]chan types.Result
-		cResult     chan types.ResultDTO
-		loader      config.Loader
-		cfg         *config.Config
-		cCfgChecks  chan map[string]any
-		router      chi.Router
-		db          db.DB
-	}
-
 	type args struct {
 		w *httptest.ResponseRecorder
 		r *http.Request
 	}
 	tests := []struct {
 		name     string
-		fields   fields
+		db       db.DB
 		args     args
 		want     []byte
 		wantCode int
 	}{
-		{name: "no data", fields: fields{db: db.NewInMemory()}, args: args{w: httptest.NewRecorder(), r: chiRequest(httptest.NewRequest(http.MethodGet, "/v1/metrics/alpha", bytes.NewBuffer([]byte{})), "alpha")}, wantCode: http.StatusNotFound, want: []byte(http.StatusText(http.StatusNotFound))},
-		{name: "bad request data", fields: fields{db: db.NewInMemory()}, args: args{w: httptest.NewRecorder(), r: chiRequest(httptest.NewRequest(http.MethodGet, "/v1/metrics/", bytes.NewBuffer([]byte{})), "")}, wantCode: http.StatusBadRequest, want: []byte(http.StatusText(http.StatusBadRequest))},
-		{name: "has data", fields: fields{db: testDb()}, args: args{w: httptest.NewRecorder(), r: chiRequest(httptest.NewRequest(http.MethodGet, "/v1/metrics/alpha", bytes.NewBuffer([]byte{})), "alpha")}, wantCode: http.StatusOK, want: []byte(`{"name":"alpha","result":{"timestamp":"0001-01-01T00:00:00Z","err":"","data":1}}`)},
+		{
+			name: "no data", db: db.NewInMemory(),
+
+			args: args{w: httptest.NewRecorder(), r: chiRequest(httptest.NewRequest(http.MethodGet, "/v1/metrics/alpha", bytes.NewBuffer([]byte{})), "alpha")}, wantCode: http.StatusNotFound, want: []byte(http.StatusText(http.StatusNotFound)),
+		},
+		{name: "bad request data", db: db.NewInMemory(), args: args{w: httptest.NewRecorder(), r: chiRequest(httptest.NewRequest(http.MethodGet, "/v1/metrics/", bytes.NewBuffer([]byte{})), "")}, wantCode: http.StatusBadRequest, want: []byte(http.StatusText(http.StatusBadRequest))},
+		{name: "has data", db: testDb(), args: args{w: httptest.NewRecorder(), r: chiRequest(httptest.NewRequest(http.MethodGet, "/v1/metrics/alpha", bytes.NewBuffer([]byte{})), "alpha")}, wantCode: http.StatusOK, want: []byte(`{"name":"alpha","result":{"timestamp":"0001-01-01T00:00:00Z","err":"","data":1}}`)},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &Sparrow{
-				checks:      tt.fields.checks,
-				routingTree: tt.fields.routingTree,
-				resultFanIn: tt.fields.resultFanIn,
-				cResult:     tt.fields.cResult,
-				loader:      tt.fields.loader,
-				cfg:         tt.fields.cfg,
-				cCfgChecks:  tt.fields.cCfgChecks,
-				router:      tt.fields.router,
-				db:          tt.fields.db,
+				db: tt.db,
 			}
 			s.getCheckMetrics(tt.args.w, tt.args.r)
 			resp := tt.args.w.Result() //nolint:bodyclose
@@ -147,8 +131,8 @@ func TestSparrow_getCheckMetrics(t *testing.T) {
 				if tt.wantCode != resp.StatusCode {
 					t.Errorf("Sparrow.getCheckMetrics() = %v, want %v", resp.StatusCode, tt.wantCode)
 				}
-				var got types.ResultDTO
-				var want types.ResultDTO
+				var got checks.ResultDTO
+				var want checks.ResultDTO
 				err := json.Unmarshal(body, &got)
 				if err != nil {
 					t.Error("Expected valid json")
@@ -188,47 +172,41 @@ func TestSparrow_handleChecks(t *testing.T) {
 		Path    string
 		Handler http.HandlerFunc
 	}
-	type fields struct {
-		checks      map[string]checks.Check
-		routingTree *api.RoutingTree
-		resultFanIn map[string]chan types.Result
-		cResult     chan types.ResultDTO
-		loader      config.Loader
-		cfg         *config.Config
-		cCfgChecks  chan map[string]any
-		router      chi.Router
-		routes      []route
-		db          db.DB
-	}
 	type args struct {
 		w *httptest.ResponseRecorder
 		r *http.Request
 	}
 	tests := []struct {
 		name     string
-		fields   fields
+		rTree    *api.RoutingTree
+		routes   []route
 		args     args
 		want     []byte
 		wantCode int
 	}{
-		{name: "no check handlers", fields: fields{routingTree: api.NewRoutingTree()}, args: args{w: httptest.NewRecorder(), r: httptest.NewRequest(http.MethodGet, "/v1/notfound", bytes.NewBuffer([]byte{}))}, wantCode: http.StatusNotFound, want: []byte(http.StatusText(http.StatusNotFound))},
-		{name: "has check handlers", fields: fields{routingTree: api.NewRoutingTree(), routes: []route{{Method: http.MethodGet, Path: "/v1/test", Handler: func(w http.ResponseWriter, r *http.Request) { w.Write([]byte("test")) }}}}, args: args{w: httptest.NewRecorder(), r: addRouteParams(httptest.NewRequest(http.MethodGet, "/v1/test", bytes.NewBuffer([]byte{})), map[string]string{"*": "/v1/test"})}, wantCode: http.StatusOK, want: []byte("test")}, //nolint:errcheck
+		{
+			name:     "no check handlers",
+			rTree:    api.NewRoutingTree(),
+			args:     args{w: httptest.NewRecorder(), r: httptest.NewRequest(http.MethodGet, "/v1/notfound", bytes.NewBuffer([]byte{}))},
+			wantCode: http.StatusNotFound,
+			want:     []byte(http.StatusText(http.StatusNotFound)),
+		},
+		{
+			name:     "has check handlers",
+			rTree:    api.NewRoutingTree(),
+			routes:   []route{{Method: http.MethodGet, Path: "/v1/test", Handler: func(w http.ResponseWriter, r *http.Request) { w.Write([]byte("test")) }}}, //nolint:errcheck
+			args:     args{w: httptest.NewRecorder(), r: addRouteParams(httptest.NewRequest(http.MethodGet, "/v1/test", bytes.NewBuffer([]byte{})), map[string]string{"*": "/v1/test"})},
+			wantCode: http.StatusOK,
+			want:     []byte("test"),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &Sparrow{
-				checks:      tt.fields.checks,
-				routingTree: tt.fields.routingTree,
-				resultFanIn: tt.fields.resultFanIn,
-				cResult:     tt.fields.cResult,
-				loader:      tt.fields.loader,
-				cfg:         tt.fields.cfg,
-				cCfgChecks:  tt.fields.cCfgChecks,
-				router:      tt.fields.router,
-				db:          tt.fields.db,
+				routingTree: tt.rTree,
 			}
 
-			for _, route := range tt.fields.routes {
+			for _, route := range tt.routes {
 				s.routingTree.Add(route.Method, route.Path, route.Handler)
 			}
 			s.handleChecks(tt.args.w, tt.args.r)

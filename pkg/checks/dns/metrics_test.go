@@ -68,7 +68,7 @@ func TestMetrics_GetCollectors(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		tt.metrics.Set("test", make(map[string]Result, 1), float64(1))
+		tt.metrics.Set("test", make(map[string]result, 1), float64(1))
 
 		if tt.metrics.GetCollectors() == nil {
 			t.Errorf("metrics.GetCollectors() = %v", tt.metrics.GetCollectors())
