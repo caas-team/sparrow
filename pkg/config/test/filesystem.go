@@ -16,6 +16,8 @@ func (m *MockFS) Open(name string) (fs.File, error) {
 type MockFile struct {
 	Content []byte
 	readPos int
+
+	CloseFunc func() error
 }
 
 func (mf *MockFile) Read(b []byte) (int, error) {
@@ -28,6 +30,9 @@ func (mf *MockFile) Read(b []byte) (int, error) {
 }
 
 func (mf *MockFile) Close() error {
+	if mf.CloseFunc != nil {
+		return mf.CloseFunc()
+	}
 	return nil
 }
 

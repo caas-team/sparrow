@@ -49,7 +49,7 @@ func NewHttpLoader(cfg *Config, cRuntime chan<- runtime.Config) *HttpLoader {
 	}
 }
 
-// Run gets the runtime configuration from the local file.
+// Run gets the runtime configuration from the remote file of the configured http endpoint.
 // The config will be loaded periodically defined by the loader interval configuration.
 // Returns an error if the loader is shutdown or the context is done.
 func (hl *HttpLoader) Run(ctx context.Context) error {

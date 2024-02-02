@@ -84,20 +84,28 @@ func (f *FileLoader) Run(ctx context.Context) error {
 }
 
 // getRuntimeConfig gets the local runtime configuration from the specified file.
-func (f *FileLoader) getRuntimeConfig(ctx context.Context) (runtime.Config, error) {
-	log := logger.FromContext(ctx)
-	var cfg runtime.Config
+func (f *FileLoader) getRuntimeConfig(ctx context.Context) (cfg runtime.Config, err error) {
+	log := logger.FromContext(ctx).With("path", f.config.File.Path)
 
 	file, err := f.fsys.Open(filepath.Base(f.config.File.Path))
 	if err != nil {
-		log.Error("Failed to open config file", "path", f.config.File.Path, "error", err)
+		log.Error("Failed to open config file", "error", err)
 		return cfg, fmt.Errorf("failed to open config file: %w", err)
 	}
-	defer file.Close()
+	defer func() {
+		cerr := file.Close()
+		if cerr != nil {
+			log.Error("Failed to close config file", "error", err)
+		}
+		// This magic allows us to manipulate the returned error (https://riandyrn.medium.com/golang-magic-modify-return-value-using-deferred-function-ed0eabdaa75)
+		if err == nil {
+			err = cerr
+		}
+	}()
 
 	b, err := io.ReadAll(file)
 	if err != nil {
-		log.Error("Failed to read config file", "path", f.config.File.Path, "error", err)
+		log.Error("Failed to read config file", "error", err)
 		return cfg, fmt.Errorf("failed to read config file: %w", err)
 	}
 

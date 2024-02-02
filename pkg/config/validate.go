@@ -21,6 +21,7 @@ package config
 import (
 	"context"
 	"fmt"
+	"io/fs"
 	"net/url"
 	"regexp"
 
@@ -40,7 +41,7 @@ func (c *Config) Validate(ctx context.Context) error {
 		log.Error("The name of the sparrow must be DNS compliant")
 	}
 
-	switch c.Loader.Type { //nolint:gocritic
+	switch c.Loader.Type {
 	case "http":
 		if _, err := url.ParseRequestURI(c.Loader.Http.Url); err != nil {
 			ok = false
@@ -49,6 +50,11 @@ func (c *Config) Validate(ctx context.Context) error {
 		if c.Loader.Http.RetryCfg.Count < 0 || c.Loader.Http.RetryCfg.Count >= 5 {
 			ok = false
 			log.Error("The amount of loader http retries should be above 0 and below 6", "retryCount", c.Loader.Http.RetryCfg.Count)
+		}
+	case "file":
+		if !fs.ValidPath(c.Loader.File.Path) {
+			ok = false
+			log.ErrorContext(ctx, "The loader file path is not a valid path")
 		}
 	}
 

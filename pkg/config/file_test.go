@@ -20,6 +20,7 @@ package config
 
 import (
 	"context"
+	"fmt"
 	"io/fs"
 	"reflect"
 	"testing"
@@ -28,6 +29,7 @@ import (
 	"github.com/caas-team/sparrow/pkg/checks/health"
 	"github.com/caas-team/sparrow/pkg/checks/runtime"
 	"github.com/caas-team/sparrow/pkg/config/test"
+	"gopkg.in/yaml.v3"
 )
 
 func TestNewFileLoader(t *testing.T) {
@@ -102,7 +104,7 @@ func TestFileLoader_getRuntimeConfig(t *testing.T) {
 	tests := []struct {
 		name      string
 		config    LoaderConfig
-		mockFS    func() fs.FS
+		mockFS    func(t *testing.T) fs.FS
 		want      runtime.Config
 		expectErr bool
 	}{
@@ -126,11 +128,45 @@ func TestFileLoader_getRuntimeConfig(t *testing.T) {
 					Path: "test/data/malformed.yaml",
 				},
 			},
-			mockFS: func() fs.FS {
+			mockFS: func(_ *testing.T) fs.FS {
 				return &test.MockFS{
 					OpenFunc: func(name string) (fs.File, error) {
 						content := []byte("this is not a valid yaml content")
 						return &test.MockFile{Content: content}, nil
+					},
+				}
+			},
+			expectErr: true,
+		},
+		{
+			name: "Failed to close file",
+			config: LoaderConfig{
+				Type:     "file",
+				Interval: 1 * time.Second,
+				File: FileLoaderConfig{
+					Path: "test/data/valid.yaml",
+				},
+			},
+			mockFS: func(t *testing.T) fs.FS {
+				b, err := yaml.Marshal(LoaderConfig{
+					Type:     "file",
+					Interval: 1 * time.Second,
+					File: FileLoaderConfig{
+						Path: "test/data/valid.yaml",
+					},
+				})
+				if err != nil {
+					t.Fatalf("Failed marshaling response to bytes: %v", err)
+				}
+
+				return &test.MockFS{
+					OpenFunc: func(name string) (fs.File, error) {
+						return &test.MockFile{
+							Content: b,
+							CloseFunc: func() error {
+								return fmt.Errorf("failed to close file")
+							},
+						}, nil
 					},
 				}
 			},
@@ -146,7 +182,7 @@ func TestFileLoader_getRuntimeConfig(t *testing.T) {
 				Loader: tt.config,
 			}, res)
 			if tt.mockFS != nil {
-				f.fsys = tt.mockFS()
+				f.fsys = tt.mockFS(t)
 			}
 
 			cfg, err := f.getRuntimeConfig(context.Background())
