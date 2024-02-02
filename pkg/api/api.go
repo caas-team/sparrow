@@ -48,8 +48,6 @@ const (
 	shutdownTimeout   = 30 * time.Second
 )
 
-var ErrCreateOpenapiSchema = errors.New("failed to get schema for check")
-
 // New creates a new api
 func New(cfg config.ApiConfig) API {
 	r := chi.NewRouter()
@@ -186,8 +184,8 @@ func GenerateCheckSpecs(ctx context.Context, cks map[string]checks.Check) (opena
 	for name, c := range cks {
 		ref, err := c.Schema()
 		if err != nil {
-			log.Error("failed to get schema for check", "error", err)
-			return openapi3.T{}, fmt.Errorf("%w %s: %w", ErrCreateOpenapiSchema, name, err)
+			log.Error("Failed to get schema for check", "name", name, "error", err)
+			return openapi3.T{}, &ErrCreateOpenapiSchema{name: name, err: err}
 		}
 
 		routeDesc := fmt.Sprintf("Returns the performance data for check %s", name)
@@ -198,7 +196,7 @@ func GenerateCheckSpecs(ctx context.Context, cks map[string]checks.Check) (opena
 				Description: routeDesc,
 				Tags:        []string{"Metrics", name},
 				Responses: openapi3.Responses{
-					"200": &openapi3.ResponseRef{
+					fmt.Sprint(http.StatusOK): &openapi3.ResponseRef{
 						Value: &openapi3.Response{
 							Description: &bodyDesc,
 							Content:     openapi3.NewContentWithSchemaRef(ref, []string{"application/json"}),

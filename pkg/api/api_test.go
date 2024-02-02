@@ -309,6 +309,14 @@ func TestGenerateCheckSpecs(t *testing.T) {
 			if tt.validate != nil {
 				tt.validate(t, doc)
 			}
+
+			if tt.wantErr {
+				var schemaErr *ErrCreateOpenapiSchema
+				t.Logf("Error = %v", err)
+				if !errors.As(err, &schemaErr) {
+					t.Error("Expected ErrCreateOpenapiSchema")
+				}
+			}
 		})
 	}
 }
