@@ -24,6 +24,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/caas-team/sparrow/pkg/api"
 	"github.com/caas-team/sparrow/pkg/checks/dns"
 
 	"github.com/caas-team/sparrow/pkg/checks/runtime"
@@ -186,7 +187,7 @@ func Test_fanInResults(t *testing.T) {
 func TestSparrow_Run_FullComponentStart(t *testing.T) {
 	// create simple file loader config
 	c := &config.Config{
-		Api: config.ApiConfig{ListeningAddress: ":9090"},
+		Api: api.Config{ListeningAddress: ":9090"},
 		Loader: config.LoaderConfig{
 			Type:     "file",
 			File:     config.FileLoaderConfig{Path: "../config/testdata/config.yaml"},
@@ -223,7 +224,7 @@ func TestSparrow_Run_FullComponentStart(t *testing.T) {
 func TestSparrow_Run_ContextCancel(t *testing.T) {
 	// create simple file loader config
 	c := &config.Config{
-		Api: config.ApiConfig{ListeningAddress: ":9090"},
+		Api: api.Config{ListeningAddress: ":9090"},
 		Loader: config.LoaderConfig{
 			Type:     "file",
 			File:     config.FileLoaderConfig{Path: "../config/testdata/config.yaml"},

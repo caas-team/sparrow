@@ -27,7 +27,6 @@ import (
 
 	"github.com/caas-team/sparrow/internal/logger"
 	"github.com/caas-team/sparrow/pkg/checks"
-	"github.com/caas-team/sparrow/pkg/config"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/go-chi/chi/v5"
 )
@@ -43,13 +42,18 @@ type api struct {
 	router chi.Router
 }
 
+// Config is the configuration for the data API
+type Config struct {
+	ListeningAddress string `yaml:"address" mapstructure:"address"`
+}
+
 const (
 	readHeaderTimeout = 5 * time.Second
 	shutdownTimeout   = 30 * time.Second
 )
 
 // New creates a new api
-func New(cfg config.ApiConfig) API {
+func New(cfg Config) API {
 	r := chi.NewRouter()
 	return &api{
 		server: &http.Server{Addr: cfg.ListeningAddress, Handler: r, ReadHeaderTimeout: readHeaderTimeout},
