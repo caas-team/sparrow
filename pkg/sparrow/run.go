@@ -21,7 +21,6 @@ package sparrow
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"slices"
 	"strings"
 	"sync"
@@ -35,7 +34,6 @@ import (
 	"github.com/caas-team/sparrow/pkg/db"
 	"github.com/caas-team/sparrow/pkg/factory"
 	"github.com/caas-team/sparrow/pkg/sparrow/targets"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 const shutdownTimeout = time.Second * 90
@@ -115,29 +113,7 @@ func (s *Sparrow) Run(ctx context.Context) error {
 	}()
 
 	go func() {
-		routes := []api.Route{
-			{
-				Path: "/openapi", Method: http.MethodGet,
-				Handler: s.handleOpenAPI,
-			},
-			{
-				Path: fmt.Sprintf("/v1/metrics/{%s}", urlParamCheckName), Method: http.MethodGet,
-				Handler: s.handleCheckMetrics,
-			},
-			{
-				Path: "/metrics", Method: "Handle",
-				Handler: promhttp.HandlerFor(
-					s.metrics.GetRegistry(),
-					promhttp.HandlerOpts{Registry: s.metrics.GetRegistry()},
-				).ServeHTTP,
-			},
-		}
-		err := s.api.RegisterRoutes(ctx, routes...)
-		if err != nil {
-			log.Error("Error while registering routes", "error", err)
-			s.cErr <- err
-		}
-		s.cErr <- s.api.Run(ctx)
+		s.cErr <- s.startupAPI(ctx)
 	}()
 
 	for {

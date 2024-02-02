@@ -19,12 +19,15 @@
 package sparrow
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/caas-team/sparrow/internal/logger"
 	"github.com/caas-team/sparrow/pkg/api"
 	"github.com/go-chi/chi/v5"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"gopkg.in/yaml.v3"
 )
 
@@ -33,6 +36,33 @@ type encoder interface {
 }
 
 const urlParamCheckName = "checkName"
+
+func (s *Sparrow) startupAPI(ctx context.Context) error {
+	routes := []api.Route{
+		{
+			Path: "/openapi", Method: http.MethodGet,
+			Handler: s.handleOpenAPI,
+		},
+		{
+			Path: fmt.Sprintf("/v1/metrics/{%s}", urlParamCheckName), Method: http.MethodGet,
+			Handler: s.handleCheckMetrics,
+		},
+		{
+			Path: "/metrics", Method: "Handle",
+			Handler: promhttp.HandlerFor(
+				s.metrics.GetRegistry(),
+				promhttp.HandlerOpts{Registry: s.metrics.GetRegistry()},
+			).ServeHTTP,
+		},
+	}
+
+	err := s.api.RegisterRoutes(ctx, routes...)
+	if err != nil {
+		logger.FromContext(ctx).Error("Error while registering routes", "error", err)
+		return err
+	}
+	return s.api.Run(ctx)
+}
 
 func (s *Sparrow) handleOpenAPI(w http.ResponseWriter, r *http.Request) {
 	log := logger.FromContext(r.Context())
