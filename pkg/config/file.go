@@ -20,6 +20,7 @@ package config
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -95,12 +96,9 @@ func (f *FileLoader) getRuntimeConfig(ctx context.Context) (cfg runtime.Config, 
 	defer func() {
 		cerr := file.Close()
 		if cerr != nil {
-			log.Error("Failed to close config file", "error", err)
+			log.Error("Failed to close config file", "error", cerr)
 		}
-		// This magic allows us to manipulate the returned error (https://riandyrn.medium.com/golang-magic-modify-return-value-using-deferred-function-ed0eabdaa75)
-		if err == nil {
-			err = cerr
-		}
+		err = errors.Join(cerr, err)
 	}()
 
 	b, err := io.ReadAll(file)
