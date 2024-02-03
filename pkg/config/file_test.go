@@ -48,10 +48,10 @@ func TestNewFileLoader(t *testing.T) {
 
 func TestFileLoader_Run(t *testing.T) {
 	tests := []struct {
-		name      string
-		config    LoaderConfig
-		want      runtime.Config
-		expectErr bool
+		name    string
+		config  LoaderConfig
+		want    runtime.Config
+		wantErr bool
 	}{
 		{
 			name: "Loads config from file",
@@ -69,7 +69,7 @@ func TestFileLoader_Run(t *testing.T) {
 					Timeout:  1 * time.Second,
 				},
 			},
-			expectErr: false,
+			wantErr: false,
 		},
 	}
 
@@ -84,12 +84,12 @@ func TestFileLoader_Run(t *testing.T) {
 
 			go func() {
 				err := f.Run(ctx)
-				if (err != nil) != tt.expectErr {
-					t.Errorf("Run() error %v, want %v", err, tt.expectErr)
+				if (err != nil) != tt.wantErr {
+					t.Errorf("Run() error %v, want %v", err, tt.wantErr)
 				}
 			}()
 
-			if !tt.expectErr {
+			if !tt.wantErr {
 				config := <-result
 				if !reflect.DeepEqual(config, tt.want) {
 					t.Errorf("Expected config to be %v, got %v", tt.want, config)
@@ -102,11 +102,11 @@ func TestFileLoader_Run(t *testing.T) {
 
 func TestFileLoader_getRuntimeConfig(t *testing.T) {
 	tests := []struct {
-		name      string
-		config    LoaderConfig
-		mockFS    func(t *testing.T) fs.FS
-		want      runtime.Config
-		expectErr bool
+		name    string
+		config  LoaderConfig
+		mockFS  func(t *testing.T) fs.FS
+		want    runtime.Config
+		wantErr bool
 	}{
 		{
 			name: "Invalid File Path",
@@ -117,7 +117,7 @@ func TestFileLoader_getRuntimeConfig(t *testing.T) {
 					Path: "test/data/nonexistent.yaml",
 				},
 			},
-			expectErr: true,
+			wantErr: true,
 		},
 		{
 			name: "Malformed Config File",
@@ -136,7 +136,7 @@ func TestFileLoader_getRuntimeConfig(t *testing.T) {
 					},
 				}
 			},
-			expectErr: true,
+			wantErr: true,
 		},
 		{
 			name: "Failed to close file",
@@ -170,7 +170,30 @@ func TestFileLoader_getRuntimeConfig(t *testing.T) {
 					},
 				}
 			},
-			expectErr: true,
+			wantErr: true,
+		},
+		{
+			name: "Malformed config file and failed to close file",
+			config: LoaderConfig{
+				Type:     "file",
+				Interval: 1 * time.Second,
+				File: FileLoaderConfig{
+					Path: "test/data/malformed.yaml",
+				},
+			},
+			mockFS: func(t *testing.T) fs.FS {
+				return &test.MockFS{
+					OpenFunc: func(name string) (fs.File, error) {
+						return &test.MockFile{
+							Content: []byte("this is not a valid yaml content"),
+							CloseFunc: func() error {
+								return fmt.Errorf("failed to close file")
+							},
+						}, nil
+					},
+				}
+			},
+			wantErr: true,
 		},
 	}
 
@@ -186,11 +209,11 @@ func TestFileLoader_getRuntimeConfig(t *testing.T) {
 			}
 
 			cfg, err := f.getRuntimeConfig(context.Background())
-			if (err != nil) != tt.expectErr {
-				t.Errorf("getRuntimeConfig() error %v, want %v", err, tt.expectErr)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("getRuntimeConfig() error %v, want %v", err, tt.wantErr)
 			}
 
-			if !tt.expectErr {
+			if !tt.wantErr {
 				if !reflect.DeepEqual(cfg, tt.want) {
 					t.Errorf("Expected config to be %v, got %v", tt.want, cfg)
 				}
