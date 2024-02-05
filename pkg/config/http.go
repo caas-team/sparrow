@@ -25,22 +25,24 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/caas-team/sparrow/pkg/checks/runtime"
+
 	"github.com/caas-team/sparrow/internal/helper"
 	"github.com/caas-team/sparrow/internal/logger"
 	"gopkg.in/yaml.v3"
 )
 
 type HttpLoader struct {
-	cfg        *Config
-	cCfgChecks chan<- map[string]any
-	done       chan struct{}
-	client     *http.Client
+	cfg      *Config
+	cRuntime chan<- runtime.Config
+	done     chan struct{}
+	client   *http.Client
 }
 
-func NewHttpLoader(cfg *Config, cCfgChecks chan<- map[string]any) *HttpLoader {
+func NewHttpLoader(cfg *Config, cRuntime chan<- runtime.Config) *HttpLoader {
 	return &HttpLoader{
-		cfg:        cfg,
-		cCfgChecks: cCfgChecks,
+		cfg:      cfg,
+		cRuntime: cRuntime,
 		client: &http.Client{
 			Timeout: cfg.Loader.Http.Timeout,
 		},
@@ -56,7 +58,7 @@ func (hl *HttpLoader) Run(ctx context.Context) error {
 	ctx, cancel := logger.NewContextWithLogger(ctx)
 	defer cancel()
 	log := logger.FromContext(ctx)
-	var runtimeCfg *RuntimeConfig
+	var runtimeCfg *runtime.Config
 	tick := time.NewTicker(hl.cfg.Loader.Interval)
 	defer tick.Stop()
 
@@ -82,14 +84,14 @@ func (hl *HttpLoader) Run(ctx context.Context) error {
 			}
 
 			log.Info("Successfully got remote runtime configuration")
+			hl.cRuntime <- *runtimeCfg
 			tick.Reset(hl.cfg.Loader.Interval)
-			hl.cCfgChecks <- runtimeCfg.Checks
 		}
 	}
 }
 
 // GetRuntimeConfig gets the remote runtime configuration
-func (hl *HttpLoader) GetRuntimeConfig(ctx context.Context) (*RuntimeConfig, error) {
+func (hl *HttpLoader) GetRuntimeConfig(ctx context.Context) (*runtime.Config, error) {
 	log := logger.FromContext(ctx).With("url", hl.cfg.Loader.Http.Url)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, hl.cfg.Loader.Http.Url, http.NoBody)
 	if err != nil {
@@ -124,7 +126,7 @@ func (hl *HttpLoader) GetRuntimeConfig(ctx context.Context) (*RuntimeConfig, err
 	}
 	log.Debug("Successfully got response")
 
-	runtimeCfg := &RuntimeConfig{}
+	runtimeCfg := &runtime.Config{}
 	if err := yaml.Unmarshal(body, &runtimeCfg); err != nil {
 		log.Error("Could not unmarshal response", "error", err.Error())
 		return nil, err

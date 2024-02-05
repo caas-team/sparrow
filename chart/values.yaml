@@ -137,36 +137,34 @@ sparrowConfig:
 
 # -- Check configuration of the Sparrow read on runtime
 # see: https://github.com/caas-team/sparrow?tab=readme-ov-file#checks
-checksConfig:
-  checks: {}
-  # checks:
-  #   health:
-  #     interval: 15s
-  #     timeout: 10s
-  #     retry:
-  #       count: 3
-  #       delay: 1s
-  #     targets:
-  #       - "https://www.example.com/"
-  #       - "https://www.google.com/"
-  #   latency:
-  #     interval: 15s
-  #     timeout: 30s
-  #     retry:
-  #       count: 3
-  #       delay: 2s
-  #     targets:
-  #       - https://example.com/
-  #       - https://google.com/
-  #   dns:
-  #     interval: 10s
-  #     timeout: 30s
-  #     retry:
-  #       count: 5
-  #       delay: 1s
-  #     targets:
-  #       - www.example.com
-  #       - www.google.com
+checksConfig: {}
+#  health:
+#     interval: 15s
+#     timeout: 10s
+#     retry:
+#       count: 3
+#       delay: 1s
+#     targets:
+#       - "https://www.example.com/"
+#       - "https://www.google.com/"
+#  latency:
+#     interval: 15s
+#     timeout: 30s
+#     retry:
+#       count: 3
+#       delay: 2s
+#     targets:
+#       - https://example.com/
+#       - https://google.com/
+#   dns:
+#     interval: 10s
+#     timeout: 30s
+#     retry:
+#       count: 5
+#       delay: 1s
+#     targets:
+#       - www.example.com
+#       - www.google.com
 
 # -- Configure a service monitor for prometheus-operator
 serviceMonitor:

@@ -1,5 +1,5 @@
-apiVersion: 0.0.1
-kind: Config
-checks:
-  testCheck1:
-    enabled: true
+health:
+  targets:
+    - http://localhost:8080/health
+  interval: 1s
+  timeout: 1s

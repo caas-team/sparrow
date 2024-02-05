@@ -3,19 +3,20 @@ package udptraceroute
 import (
 	"context"
 	"net"
-	"sync"
 	"time"
 
 	"github.com/aeden/traceroute"
 	"github.com/caas-team/sparrow/internal/helper"
 	"github.com/caas-team/sparrow/internal/logger"
 	"github.com/caas-team/sparrow/pkg/checks"
-	"github.com/caas-team/sparrow/pkg/checks/types"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-var _ checks.Check = (*UDPTraceroute)(nil)
+var (
+	_         checks.Check = (*UDPTraceroute)(nil)
+	checkname              = "udptraceroute"
+)
 
 type config struct {
 	Targets  []Target
@@ -24,14 +25,18 @@ type config struct {
 	Retry    helper.RetryConfig `json:"retry" yaml:"retry" mapstructure:"retry"`
 }
 
+func (c config) For() string {
+	return checkname
+}
+
 type Target struct {
 	Addr string
 }
 
 type UDPTraceroute struct {
-	types.CheckBase
+	checks.CheckBase
 	config  config
-	cResult chan<- types.Result
+	cResult chan<- checks.Result
 }
 
 type Result struct {
@@ -66,7 +71,7 @@ func (c *UDPTraceroute) Run(ctx context.Context) error {
 		case <-time.After(c.config.Interval):
 			res := c.check(ctx)
 			errval := ""
-			r := types.Result{
+			r := checks.Result{
 				Data:      res,
 				Err:       errval,
 				Timestamp: time.Now(),
@@ -76,20 +81,21 @@ func (c *UDPTraceroute) Run(ctx context.Context) error {
 			log.Debug("Successfully finished latency check run")
 		}
 	}
-
-	return nil
 }
 
-func (c *UDPTraceroute) check(ctx context.Context) map[string]Result {
+func (c *UDPTraceroute) GetConfig() checks.Runtime {
+	c.Mu.Lock()
+	defer c.Mu.Unlock()
+	return c.config
+}
+
+func (c *UDPTraceroute) check(_ context.Context) map[string]Result {
 	res := make(map[string]Result)
-	var resMu sync.Mutex
 	for _, t := range c.config.Targets {
 		tr, err := traceroute.Traceroute(t.Addr, nil)
 		if err != nil {
 			panic(err)
 		}
-
-		// ip := net.IPv4(res.DestinationAddress[0], res.DestinationAddress[1], res.DestinationAddress[2], res.DestinationAddress[3])
 
 		r := Result{
 			NumHops: len(tr.Hops),
@@ -100,21 +106,19 @@ func (c *UDPTraceroute) check(ctx context.Context) map[string]Result {
 			r.Hops = append(r.Hops, Hop{
 				Addr:    h.Address[:],
 				Latency: h.ElapsedTime,
+				Success: h.Success,
 			})
 		}
 
-		resMu.Lock()
-		defer resMu.Unlock()
-
 		res[t.Addr] = r
 	}
-	return
+	return res
 }
 
 // Startup is called once when the check is registered
 // In the Run() method, the check should send results to the cResult channel
 // this will cause sparrow to update its data store with the results
-func (c *UDPTraceroute) Startup(ctx context.Context, cResult chan<- types.Result) error {
+func (c *UDPTraceroute) Startup(_ context.Context, cResult chan<- checks.Result) error {
 	c.Mu.Lock()
 	defer c.Mu.Unlock()
 	c.cResult = cResult
@@ -122,25 +126,31 @@ func (c *UDPTraceroute) Startup(ctx context.Context, cResult chan<- types.Result
 }
 
 // Shutdown is called once when the check is unregistered or sparrow shuts down
-func (c *UDPTraceroute) Shutdown(ctx context.Context) error {
+func (c *UDPTraceroute) Shutdown(_ context.Context) error {
 	return nil
 }
 
 // SetConfig is called once when the check is registered
 // This is also called while the check is running, if the remote config is updated
 // This should return an error if the config is invalid
-func (c *UDPTraceroute) SetConfig(ctx context.Context, cfg any) error {
-	decoded, err := helper.Decode[config](cfg)
-	if err != nil {
-		return err
+func (c *UDPTraceroute) SetConfig(cfg checks.Runtime) error {
+	newConfg, ok := cfg.(*config)
+	if ok {
+		c.Mu.Lock()
+		defer c.Mu.Unlock()
+		c.config = *newConfg
+		return checks.ErrConfigMismatch{
+			Expected: checkname,
+			Current:  cfg.For(),
+		}
 	}
-	err = validateConfig(decoded)
-	if err != nil {
-		return err
+	if err := validateConfig(*newConfg); err != nil {
+		return checks.ErrConfigMismatch{
+			Expected: checkname,
+			Current:  cfg.For(),
+		}
 	}
-	c.Mu.Lock()
-	defer c.Mu.Unlock()
-	c.config = decoded
+
 	return nil
 }
 
@@ -154,6 +164,10 @@ func (c *UDPTraceroute) GetMetricCollectors() []prometheus.Collector {
 	return []prometheus.Collector{}
 }
 
-func validateConfig(c config) error {
+func (c *UDPTraceroute) Name() string {
+	return checkname
+}
+
+func validateConfig(_ config) error {
 	return nil
 }

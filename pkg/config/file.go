@@ -23,6 +23,8 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/caas-team/sparrow/pkg/checks/runtime"
+
 	"gopkg.in/yaml.v3"
 
 	"github.com/caas-team/sparrow/internal/logger"
@@ -31,15 +33,15 @@ import (
 var _ Loader = (*FileLoader)(nil)
 
 type FileLoader struct {
-	path string
-	c    chan<- map[string]any
-	done chan struct{}
+	path     string
+	cRuntime chan<- runtime.Config
+	done     chan struct{}
 }
 
-func NewFileLoader(cfg *Config, cCfgChecks chan<- map[string]any) *FileLoader {
+func NewFileLoader(cfg *Config, cRuntime chan<- runtime.Config) *FileLoader {
 	return &FileLoader{
-		path: cfg.Loader.File.Path,
-		c:    cCfgChecks,
+		path:     cfg.Loader.File.Path,
+		cRuntime: cRuntime,
 	}
 }
 
@@ -53,14 +55,14 @@ func (f *FileLoader) Run(ctx context.Context) error {
 		return fmt.Errorf("failed to read config file: %w", err)
 	}
 
-	var cfg RuntimeConfig
+	var cfg runtime.Config
 
 	if err := yaml.Unmarshal(b, &cfg); err != nil {
 		log.Error("Failed to parse config file", "error", err)
 		return fmt.Errorf("failed to parse config file: %w", err)
 	}
 
-	f.c <- cfg.Checks
+	f.cRuntime <- cfg
 	return nil
 }
 

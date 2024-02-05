@@ -24,7 +24,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/caas-team/sparrow/pkg/checks/types"
+	"github.com/caas-team/sparrow/pkg/checks"
+	"github.com/caas-team/sparrow/pkg/checks/latency"
+
 	"github.com/jarcoal/httpmock"
 	"github.com/stretchr/testify/assert"
 )
@@ -32,20 +34,18 @@ import (
 func TestHealth_SetConfig(t *testing.T) {
 	tests := []struct {
 		name           string
-		inputConfig    any
-		expectedConfig config
+		inputConfig    checks.Runtime
+		expectedConfig Config
 		wantErr        bool
 	}{
 		{
 			name: "simple config",
-			inputConfig: map[string]any{
-				"targets": []any{
-					"test",
-				},
-				"interval": "10s",
-				"timeout":  "30s",
+			inputConfig: &Config{
+				Targets:  []string{"test"},
+				Interval: 10 * time.Second,
+				Timeout:  30 * time.Second,
 			},
-			expectedConfig: config{
+			expectedConfig: Config{
 				Targets:  []string{"test"},
 				Interval: 10 * time.Second,
 				Timeout:  30 * time.Second,
@@ -53,20 +53,18 @@ func TestHealth_SetConfig(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name:        "missing config field",
-			inputConfig: map[string]any{},
-			expectedConfig: config{
-				Targets: nil,
-			},
-			wantErr: false,
+			name:           "empty config",
+			inputConfig:    &Config{},
+			expectedConfig: Config{},
+			wantErr:        false,
 		},
 		{
 			name: "wrong type",
-			inputConfig: map[string]any{
-				"target": struct{ name string }{name: "bla"},
+			inputConfig: &latency.Config{
+				Targets: []string{"test"},
 			},
-			expectedConfig: config{},
-			wantErr:        false,
+			expectedConfig: Config{},
+			wantErr:        true,
 		},
 	}
 	for _, tt := range tests {
@@ -75,10 +73,10 @@ func TestHealth_SetConfig(t *testing.T) {
 				metrics: newMetrics(),
 			}
 
-			if err := h.SetConfig(context.Background(), tt.inputConfig); (err != nil) != tt.wantErr {
+			if err := h.SetConfig(tt.inputConfig); (err != nil) != tt.wantErr {
 				t.Errorf("Health.SetConfig() error = %v, wantErr %v", err, tt.wantErr)
 			}
-			assert.Equal(t, tt.expectedConfig, h.config, "Config is not equal")
+			assert.Equal(t, tt.expectedConfig, h.config, "Runtime config is not equal")
 		})
 	}
 }
@@ -230,10 +228,10 @@ func TestHealth_Check(t *testing.T) {
 			}
 
 			h := &Health{
-				config: config{
+				config: Config{
 					Targets: tt.targets,
 					Timeout: 30,
-					Retry:   types.DefaultRetry,
+					Retry:   checks.DefaultRetry,
 				},
 				metrics: newMetrics(),
 			}
@@ -253,7 +251,7 @@ func TestHealth_Check(t *testing.T) {
 func TestHealth_Shutdown(t *testing.T) {
 	cDone := make(chan bool, 1)
 	c := Health{
-		CheckBase: types.CheckBase{
+		CheckBase: checks.CheckBase{
 			Done: cDone,
 		},
 	}
