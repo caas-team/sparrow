@@ -121,22 +121,15 @@ func (a *api) RegisterRoutes(ctx context.Context, routes ...Route) error {
 	a.router.Use(logger.Middleware(ctx))
 	for _, route := range routes {
 		switch route.Method {
-		case http.MethodGet:
-			a.router.Get(route.Path, route.Handler)
-		case http.MethodPost:
-			a.router.Post(route.Path, route.Handler)
-		case http.MethodPut:
-			a.router.Put(route.Path, route.Handler)
-		case http.MethodDelete:
-			a.router.Delete(route.Path, route.Handler)
-		case http.MethodPatch:
-			a.router.Patch(route.Path, route.Handler)
 		case "Handle":
 			a.router.Handle(route.Path, route.Handler)
 		case "HandleFunc":
 			a.router.HandleFunc(route.Path, route.Handler)
 		default:
-			return fmt.Errorf("unsupported method for %s: %s", route.Path, route.Method)
+			err := a.registerDefaultRoute(route)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -144,6 +137,18 @@ func (a *api) RegisterRoutes(ctx context.Context, routes ...Route) error {
 	// Required for global tarMan in checks
 	a.router.Handle("/", okHandler(ctx))
 
+	return nil
+}
+
+// registerDefaultRoute registers a route using default HTTP methods such as GET, POST, etc.
+// Returns an error if the method is unsupported.
+func (a *api) registerDefaultRoute(route Route) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("unsupported method for %s: %s", route.Path, route.Method)
+		}
+	}()
+	a.router.Method(route.Method, route.Path, route.Handler)
 	return nil
 }
 
