@@ -59,6 +59,7 @@ jobs:
           --set image.tag=${{ steps.version.outputs.value }}  \
           --set sparrowConfig.name=the-sparrow.com \
           --set sparrowConfig.loader.type=file \
+          --set sparrowConfig.loader.interval=5s \
           --set sparrowConfig.loader.file.path=/config/.sparrow.yaml \
           --set checksConfig.health.interval=1s \
           ./chart
