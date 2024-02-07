@@ -20,11 +20,15 @@ package config
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
+	"io/fs"
 	"os"
+	"path/filepath"
+	"time"
 
 	"github.com/caas-team/sparrow/pkg/checks/runtime"
-
 	"gopkg.in/yaml.v3"
 
 	"github.com/caas-team/sparrow/internal/logger"
@@ -33,42 +37,85 @@ import (
 var _ Loader = (*FileLoader)(nil)
 
 type FileLoader struct {
-	path     string
+	config   LoaderConfig
 	cRuntime chan<- runtime.Config
 	done     chan struct{}
+	fsys     fs.FS
 }
 
 func NewFileLoader(cfg *Config, cRuntime chan<- runtime.Config) *FileLoader {
 	return &FileLoader{
-		path:     cfg.Loader.File.Path,
+		config:   cfg.Loader,
 		cRuntime: cRuntime,
+		done:     make(chan struct{}, 1),
+		fsys:     os.DirFS(filepath.Dir(cfg.Loader.File.Path)),
 	}
 }
 
+// Run gets the runtime configuration from the local file.
+// The config will be loaded periodically defined by the loader interval configuration.
+// Returns an error if the loader is shutdown or the context is done.
 func (f *FileLoader) Run(ctx context.Context) error {
+	ctx, cancel := logger.NewContextWithLogger(ctx)
+	defer cancel()
 	log := logger.FromContext(ctx)
-	log.Info("Reading config from file", "file", f.path)
-	// TODO refactor this to use fs.FS
-	b, err := os.ReadFile(f.path)
-	if err != nil {
-		log.Error("Failed to read config file", "path", f.path, "error", err)
-		return fmt.Errorf("failed to read config file: %w", err)
-	}
+	tick := time.NewTicker(f.config.Interval)
+	defer tick.Stop()
 
-	var cfg runtime.Config
+	for {
+		select {
+		case <-f.done:
+			log.Info("File Loader terminated")
+			return nil
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-tick.C:
+			runtimeCfg, err := f.getRuntimeConfig(ctx)
+			if err != nil {
+				log.Warn("Could not get local runtime configuration", "error", err)
+				tick.Reset(f.config.Interval)
+				continue
+			}
+
+			log.Info("Successfully got local runtime configuration")
+			f.cRuntime <- runtimeCfg
+			tick.Reset(f.config.Interval)
+		}
+	}
+}
+
+// getRuntimeConfig gets the local runtime configuration from the specified file.
+func (f *FileLoader) getRuntimeConfig(ctx context.Context) (cfg runtime.Config, err error) {
+	log := logger.FromContext(ctx).With("path", f.config.File.Path)
+
+	file, err := f.fsys.Open(filepath.Base(f.config.File.Path))
+	if err != nil {
+		log.Error("Failed to open config file", "error", err)
+		return cfg, fmt.Errorf("failed to open config file: %w", err)
+	}
+	defer func() {
+		cerr := file.Close()
+		if cerr != nil {
+			log.Error("Failed to close config file", "error", cerr)
+		}
+		err = errors.Join(cerr, err)
+	}()
+
+	b, err := io.ReadAll(file)
+	if err != nil {
+		log.Error("Failed to read config file", "error", err)
+		return cfg, fmt.Errorf("failed to read config file: %w", err)
+	}
 
 	if err := yaml.Unmarshal(b, &cfg); err != nil {
 		log.Error("Failed to parse config file", "error", err)
-		return fmt.Errorf("failed to parse config file: %w", err)
+		return cfg, fmt.Errorf("failed to parse config file: %w", err)
 	}
 
-	f.cRuntime <- cfg
-	return nil
+	return cfg, nil
 }
 
 func (f *FileLoader) Shutdown(ctx context.Context) {
-	// proper implementation must still be done
-	// https://github.com/caas-team/sparrow/issues/85
 	log := logger.FromContext(ctx)
 	select {
 	case f.done <- struct{}{}:

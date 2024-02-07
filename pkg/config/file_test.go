@@ -20,49 +20,48 @@ package config
 
 import (
 	"context"
+	"fmt"
+	"io/fs"
 	"reflect"
 	"testing"
 	"time"
 
-	"github.com/caas-team/sparrow/pkg/checks/runtime"
-
 	"github.com/caas-team/sparrow/pkg/checks/health"
+	"github.com/caas-team/sparrow/pkg/checks/runtime"
+	"github.com/caas-team/sparrow/pkg/config/test"
+	"gopkg.in/yaml.v3"
 )
 
 func TestNewFileLoader(t *testing.T) {
 	l := NewFileLoader(&Config{Loader: LoaderConfig{File: FileLoaderConfig{Path: "config.yaml"}}}, make(chan runtime.Config, 1))
 
-	if l.path != "config.yaml" {
-		t.Errorf("Expected path to be config.yaml, got %s", l.path)
+	if l.config.File.Path != "config.yaml" {
+		t.Errorf("Expected path to be config.yaml, got %s", l.config.File.Path)
 	}
 	if l.cRuntime == nil {
 		t.Errorf("Expected channel to be not nil")
 	}
+	if l.fsys == nil {
+		t.Errorf("Expected filesystem to be not nil")
+	}
 }
 
 func TestFileLoader_Run(t *testing.T) {
-	type fields struct {
-		path string
-		c    chan runtime.Config
-	}
-	type args struct {
-		ctx    *context.Context
-		cancel *context.CancelFunc
-	}
-
 	tests := []struct {
-		name   string
-		fields fields
-		args   args
-		want   runtime.Config
+		name    string
+		config  LoaderConfig
+		want    runtime.Config
+		wantErr bool
 	}{
 		{
-			name:   "Loads config from file",
-			fields: fields{path: "testdata/config.yaml", c: make(chan runtime.Config, 1)},
-			args: func() args {
-				ctx, cancel := context.WithCancel(context.Background())
-				return args{ctx: &ctx, cancel: &cancel}
-			}(),
+			name: "Loads config from file",
+			config: LoaderConfig{
+				Type:     "file",
+				Interval: 1 * time.Second,
+				File: FileLoaderConfig{
+					Path: "test/data/config.yaml",
+				},
+			},
 			want: runtime.Config{
 				Health: &health.Config{
 					Targets:  []string{"http://localhost:8080/health"},
@@ -70,28 +69,154 @@ func TestFileLoader_Run(t *testing.T) {
 					Timeout:  1 * time.Second,
 				},
 			},
+			wantErr: false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			f := &FileLoader{
-				path:     tt.fields.path,
-				cRuntime: tt.fields.c,
-			}
+			ctx := context.Background()
+			result := make(chan runtime.Config, 1)
+			defer close(result)
+			f := NewFileLoader(&Config{
+				Loader: tt.config,
+			}, result)
+
 			go func() {
-				err := f.Run(*tt.args.ctx)
-				if err != nil {
-					t.Errorf("Expected no error, got %v", err)
-					return
+				err := f.Run(ctx)
+				if (err != nil) != tt.wantErr {
+					t.Errorf("Run() error %v, want %v", err, tt.wantErr)
 				}
 			}()
-			(*tt.args.cancel)()
 
-			config := <-tt.fields.c
+			if !tt.wantErr {
+				config := <-result
+				if !reflect.DeepEqual(config, tt.want) {
+					t.Errorf("Expected config to be %v, got %v", tt.want, config)
+				}
+			}
+			f.Shutdown(ctx)
+		})
+	}
+}
 
-			if !reflect.DeepEqual(config, tt.want) {
-				t.Errorf("Expected config to be %v, got %v", tt.want, config)
+func TestFileLoader_getRuntimeConfig(t *testing.T) {
+	tests := []struct {
+		name    string
+		config  LoaderConfig
+		mockFS  func(t *testing.T) fs.FS
+		want    runtime.Config
+		wantErr bool
+	}{
+		{
+			name: "Invalid File Path",
+			config: LoaderConfig{
+				Type:     "file",
+				Interval: 1 * time.Second,
+				File: FileLoaderConfig{
+					Path: "test/data/nonexistent.yaml",
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "Malformed Config File",
+			config: LoaderConfig{
+				Type:     "file",
+				Interval: 1 * time.Second,
+				File: FileLoaderConfig{
+					Path: "test/data/malformed.yaml",
+				},
+			},
+			mockFS: func(_ *testing.T) fs.FS {
+				return &test.MockFS{
+					OpenFunc: func(name string) (fs.File, error) {
+						content := []byte("this is not a valid yaml content")
+						return &test.MockFile{Content: content}, nil
+					},
+				}
+			},
+			wantErr: true,
+		},
+		{
+			name: "Failed to close file",
+			config: LoaderConfig{
+				Type:     "file",
+				Interval: 1 * time.Second,
+				File: FileLoaderConfig{
+					Path: "test/data/valid.yaml",
+				},
+			},
+			mockFS: func(t *testing.T) fs.FS {
+				b, err := yaml.Marshal(LoaderConfig{
+					Type:     "file",
+					Interval: 1 * time.Second,
+					File: FileLoaderConfig{
+						Path: "test/data/valid.yaml",
+					},
+				})
+				if err != nil {
+					t.Fatalf("Failed marshaling response to bytes: %v", err)
+				}
+
+				return &test.MockFS{
+					OpenFunc: func(name string) (fs.File, error) {
+						return &test.MockFile{
+							Content: b,
+							CloseFunc: func() error {
+								return fmt.Errorf("failed to close file")
+							},
+						}, nil
+					},
+				}
+			},
+			wantErr: true,
+		},
+		{
+			name: "Malformed config file and failed to close file",
+			config: LoaderConfig{
+				Type:     "file",
+				Interval: 1 * time.Second,
+				File: FileLoaderConfig{
+					Path: "test/data/malformed.yaml",
+				},
+			},
+			mockFS: func(t *testing.T) fs.FS {
+				return &test.MockFS{
+					OpenFunc: func(name string) (fs.File, error) {
+						return &test.MockFile{
+							Content: []byte("this is not a valid yaml content"),
+							CloseFunc: func() error {
+								return fmt.Errorf("failed to close file")
+							},
+						}, nil
+					},
+				}
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			res := make(chan runtime.Config, 1)
+			defer close(res)
+			f := NewFileLoader(&Config{
+				Loader: tt.config,
+			}, res)
+			if tt.mockFS != nil {
+				f.fsys = tt.mockFS(t)
+			}
+
+			cfg, err := f.getRuntimeConfig(context.Background())
+			if (err != nil) != tt.wantErr {
+				t.Errorf("getRuntimeConfig() error %v, want %v", err, tt.wantErr)
+			}
+
+			if !tt.wantErr {
+				if !reflect.DeepEqual(cfg, tt.want) {
+					t.Errorf("Expected config to be %v, got %v", tt.want, cfg)
+				}
 			}
 		})
 	}

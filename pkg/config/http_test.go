@@ -30,15 +30,12 @@ import (
 	"time"
 
 	"github.com/caas-team/sparrow/internal/helper"
-	"gopkg.in/yaml.v3"
-
-	"github.com/caas-team/sparrow/pkg/checks/runtime"
-
-	"github.com/caas-team/sparrow/pkg/checks/health"
-	"github.com/stretchr/testify/require"
-
 	"github.com/caas-team/sparrow/internal/logger"
+	"github.com/caas-team/sparrow/pkg/checks/health"
+	"github.com/caas-team/sparrow/pkg/checks/runtime"
 	"github.com/jarcoal/httpmock"
+	"github.com/stretchr/testify/require"
+	"gopkg.in/yaml.v3"
 )
 
 func TestHttpLoader_GetRuntimeConfig(t *testing.T) {
@@ -66,7 +63,7 @@ func TestHttpLoader_GetRuntimeConfig(t *testing.T) {
 			},
 			httpResponder: httpResponder{
 				statusCode: 200,
-				response:   httpmock.File("testdata/config.yaml").String(),
+				response:   httpmock.File("test/data/config.yaml").String(),
 			},
 			want: &runtime.Config{
 				Health: &health.Config{
@@ -89,7 +86,7 @@ func TestHttpLoader_GetRuntimeConfig(t *testing.T) {
 			},
 			httpResponder: httpResponder{
 				statusCode: 200,
-				response:   httpmock.File("testdata/config.yaml").String(),
+				response:   httpmock.File("test/data/config.yaml").String(),
 			},
 			want: &runtime.Config{
 				Health: &health.Config{
@@ -109,7 +106,7 @@ func TestHttpLoader_GetRuntimeConfig(t *testing.T) {
 			},
 			httpResponder: httpResponder{
 				statusCode: 400,
-				response:   httpmock.File("testdata/config.yaml").String(),
+				response:   httpmock.File("test/data/config.yaml").String(),
 			},
 			wantErr: true,
 		},
@@ -117,7 +114,7 @@ func TestHttpLoader_GetRuntimeConfig(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			endpoint := "https://api.test.com/test"
-			httpmock.RegisterResponder("GET", endpoint,
+			httpmock.RegisterResponder(http.MethodGet, endpoint,
 				func(req *http.Request) (*http.Response, error) {
 					if tt.cfg.Loader.Http.Token != "" {
 						require.Equal(t, req.Header.Get("Authorization"), fmt.Sprintf("Bearer %s", tt.cfg.Loader.Http.Token))
@@ -134,15 +131,15 @@ func TestHttpLoader_GetRuntimeConfig(t *testing.T) {
 			defer cancel()
 
 			gl := &HttpLoader{
-				cfg:      tt.cfg,
+				cfg:      tt.cfg.Loader,
 				cRuntime: make(chan<- runtime.Config, 1),
 				client: &http.Client{
 					Timeout: tt.cfg.Loader.Http.Timeout,
 				},
 			}
-			gl.cfg.Loader.Http.Url = endpoint
+			gl.cfg.Http.Url = endpoint
 
-			got, err := gl.GetRuntimeConfig(ctx)
+			got, err := gl.getRuntimeConfig(ctx)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("HttpLoader.GetRuntimeConfig() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -158,6 +155,9 @@ func TestHttpLoader_GetRuntimeConfig(t *testing.T) {
 // The test runs the Run method for a while
 // and then shuts it down via a goroutine
 func TestHttpLoader_Run(t *testing.T) {
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+
 	tests := []struct {
 		name     string
 		response *runtime.Config
@@ -187,35 +187,32 @@ func TestHttpLoader_Run(t *testing.T) {
 		},
 	}
 
-	httpmock.Activate()
-	t.Cleanup(httpmock.DeactivateAndReset)
-
 	for _, tt := range tests {
 		body, err := yaml.Marshal(tt.response)
 		if err != nil {
 			t.Fatalf("Failed marshaling response to bytes: %v", err)
 		}
 		resp := httpmock.NewBytesResponder(tt.code, body)
-		httpmock.RegisterResponder("GET", "https://api.test.com/test", resp)
+		httpmock.RegisterResponder(http.MethodGet, "https://api.test.com/test", resp)
 
 		t.Run(tt.name, func(t *testing.T) {
 			hl := &HttpLoader{
-				cfg: &Config{
-					Loader: LoaderConfig{
-						Type:     "http",
-						Interval: time.Millisecond * 500,
-						Http: HttpLoaderConfig{
-							Url: "https://api.test.com/test",
-							RetryCfg: helper.RetryConfig{
-								Count: 3,
-								Delay: 100 * time.Millisecond,
-							},
+				cfg: LoaderConfig{
+					Type:     "http",
+					Interval: time.Millisecond * 500,
+					Http: HttpLoaderConfig{
+						Url: "https://api.test.com/test",
+						RetryCfg: helper.RetryConfig{
+							Count: 3,
+							Delay: 100 * time.Millisecond,
 						},
 					},
 				},
 				cRuntime: make(chan<- runtime.Config, 1),
-				client:   http.DefaultClient,
-				done:     make(chan struct{}, 1),
+				client: &http.Client{
+					Transport: http.DefaultTransport,
+				},
+				done: make(chan struct{}, 1),
 			}
 
 			// shutdown routine
@@ -269,7 +266,7 @@ func TestHttpLoader_Shutdown(t *testing.T) {
 // when the Run method is called and the remote endpoint returns a valid response
 func TestHttpLoader_Run_config_sent_to_channel(t *testing.T) {
 	httpmock.Activate()
-	t.Cleanup(httpmock.DeactivateAndReset)
+	defer httpmock.DeactivateAndReset()
 
 	expected := runtime.Config{
 		Health: &health.Config{
@@ -282,27 +279,27 @@ func TestHttpLoader_Run_config_sent_to_channel(t *testing.T) {
 		t.Fatalf("Failed marshaling yaml: %v", err)
 	}
 	resp := httpmock.NewBytesResponder(200, body)
-	httpmock.RegisterResponder("GET", "https://api.test.com/test", resp)
+	httpmock.RegisterResponder(http.MethodGet, "https://api.test.com/test", resp)
 
 	cRuntime := make(chan runtime.Config, 1)
 
 	hl := &HttpLoader{
-		cfg: &Config{
-			Loader: LoaderConfig{
-				Type:     "http",
-				Interval: time.Millisecond * 500,
-				Http: HttpLoaderConfig{
-					Url: "https://api.test.com/test",
-					RetryCfg: helper.RetryConfig{
-						Count: 2,
-						Delay: 100 * time.Millisecond,
-					},
+		cfg: LoaderConfig{
+			Type:     "http",
+			Interval: time.Millisecond * 500,
+			Http: HttpLoaderConfig{
+				Url: "https://api.test.com/test",
+				RetryCfg: helper.RetryConfig{
+					Count: 2,
+					Delay: 100 * time.Millisecond,
 				},
 			},
 		},
 		cRuntime: cRuntime,
-		client:   http.DefaultClient,
-		done:     make(chan struct{}, 1),
+		client: &http.Client{
+			Transport: http.DefaultTransport,
+		},
+		done: make(chan struct{}, 1),
 	}
 
 	ctx := context.Background()
@@ -331,34 +328,34 @@ func TestHttpLoader_Run_config_sent_to_channel(t *testing.T) {
 // and the remote endpoint returns a non-200 response
 func TestHttpLoader_Run_config_not_sent_to_channel_500(t *testing.T) {
 	httpmock.Activate()
-	t.Cleanup(httpmock.DeactivateAndReset)
+	defer httpmock.DeactivateAndReset()
 
 	resp, err := httpmock.NewJsonResponder(500, nil)
 	if err != nil {
 		t.Fatalf("Failed creating json responder: %v", err)
 	}
 
-	httpmock.RegisterResponder("GET", "https://api.test.com/test", resp)
+	httpmock.RegisterResponder(http.MethodGet, "https://api.test.com/test", resp)
 
 	cRuntime := make(chan runtime.Config, 1)
 
 	hl := &HttpLoader{
-		cfg: &Config{
-			Loader: LoaderConfig{
-				Type:     "http",
-				Interval: time.Millisecond * 500,
-				Http: HttpLoaderConfig{
-					Url: "https://api.test.com/test",
-					RetryCfg: helper.RetryConfig{
-						Count: 2,
-						Delay: 100 * time.Millisecond,
-					},
+		cfg: LoaderConfig{
+			Type:     "http",
+			Interval: time.Millisecond * 500,
+			Http: HttpLoaderConfig{
+				Url: "https://api.test.com/test",
+				RetryCfg: helper.RetryConfig{
+					Count: 2,
+					Delay: 100 * time.Millisecond,
 				},
 			},
 		},
 		cRuntime: cRuntime,
-		client:   http.DefaultClient,
-		done:     make(chan struct{}, 1),
+		client: &http.Client{
+			Transport: http.DefaultTransport,
+		},
+		done: make(chan struct{}, 1),
 	}
 
 	ctx := context.Background()
@@ -386,30 +383,30 @@ func TestHttpLoader_Run_config_not_sent_to_channel_500(t *testing.T) {
 // and the client can't execute the requests
 func TestHttpLoader_Run_config_not_sent_to_channel_client_error(t *testing.T) {
 	httpmock.Activate()
-	t.Cleanup(httpmock.DeactivateAndReset)
+	defer httpmock.DeactivateAndReset()
 
 	resp := httpmock.NewErrorResponder(fmt.Errorf("client error"))
-	httpmock.RegisterResponder("GET", "https://api.test.com/test", resp)
+	httpmock.RegisterResponder(http.MethodGet, "https://api.test.com/test", resp)
 
 	cRuntime := make(chan runtime.Config, 1)
 
 	hl := &HttpLoader{
-		cfg: &Config{
-			Loader: LoaderConfig{
-				Type:     "http",
-				Interval: time.Millisecond * 500,
-				Http: HttpLoaderConfig{
-					Url: "https://api.test.com/test",
-					RetryCfg: helper.RetryConfig{
-						Count: 2,
-						Delay: 100 * time.Millisecond,
-					},
+		cfg: LoaderConfig{
+			Type:     "http",
+			Interval: time.Millisecond * 500,
+			Http: HttpLoaderConfig{
+				Url: "https://api.test.com/test",
+				RetryCfg: helper.RetryConfig{
+					Count: 2,
+					Delay: 100 * time.Millisecond,
 				},
 			},
 		},
 		cRuntime: cRuntime,
-		client:   http.DefaultClient,
-		done:     make(chan struct{}, 1),
+		client: &http.Client{
+			Transport: http.DefaultTransport,
+		},
+		done: make(chan struct{}, 1),
 	}
 
 	ctx := context.Background()
