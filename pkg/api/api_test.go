@@ -143,10 +143,7 @@ func TestAPI_RegisterRoutes(t *testing.T) {
 				{Path: "/patch", Method: http.MethodPatch, Handler: func(w http.ResponseWriter, r *http.Request) {
 					w.WriteHeader(http.StatusOK)
 				}},
-				{Path: "/handle", Method: "Handle", Handler: func(w http.ResponseWriter, r *http.Request) {
-					w.WriteHeader(http.StatusOK)
-				}},
-				{Path: "/handlefunc", Method: "HandleFunc", Handler: func(w http.ResponseWriter, r *http.Request) {
+				{Path: "/handlefunc", Method: "*", Handler: func(w http.ResponseWriter, r *http.Request) {
 					w.WriteHeader(http.StatusOK)
 				}},
 			},
@@ -160,7 +157,6 @@ func TestAPI_RegisterRoutes(t *testing.T) {
 				{method: http.MethodPut, path: "/put", status: http.StatusOK},
 				{method: http.MethodDelete, path: "/delete", status: http.StatusNoContent},
 				{method: http.MethodPatch, path: "/patch", status: http.StatusOK},
-				{method: http.MethodGet, path: "/handle", status: http.StatusOK},
 				{method: http.MethodGet, path: "/handlefunc", status: http.StatusOK},
 			},
 			wantErr: false,

@@ -48,7 +48,7 @@ func (s *Sparrow) startupAPI(ctx context.Context) error {
 			Handler: s.handleCheckMetrics,
 		},
 		{
-			Path: "/metrics", Method: "Handle",
+			Path: "/metrics", Method: "*",
 			Handler: promhttp.HandlerFor(
 				s.metrics.GetRegistry(),
 				promhttp.HandlerOpts{Registry: s.metrics.GetRegistry()},

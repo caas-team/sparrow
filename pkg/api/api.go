@@ -120,12 +120,9 @@ type Route struct {
 func (a *api) RegisterRoutes(ctx context.Context, routes ...Route) error {
 	a.router.Use(logger.Middleware(ctx))
 	for _, route := range routes {
-		switch route.Method {
-		case "Handle":
-			a.router.Handle(route.Path, route.Handler)
-		case "HandleFunc":
+		if route.Method == "*" {
 			a.router.HandleFunc(route.Path, route.Handler)
-		default:
+		} else {
 			err := a.registerDefaultRoute(route)
 			if err != nil {
 				return err
