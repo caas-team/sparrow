@@ -45,6 +45,9 @@ type Config struct {
 	// How often the instance should register itself as a global target.
 	// A duration of 0 means no registration.
 	RegistrationInterval time.Duration `yaml:"registrationInterval" mapstructure:"registrationInterval"`
+	// How often the instance should update its registration as a global target.
+	// A duration of 0 means no update.
+	UpdateInterval time.Duration `yaml:"updateInterval" mapstructure:"updateInterval"`
 	// The amount of time a target can be unhealthy
 	// before it is removed from the global target list.
 	// A duration of 0 means no removal.
@@ -65,6 +68,9 @@ func (tmc *Config) Validate() error {
 	}
 	if tmc.UnhealthyThreshold < 0 {
 		return ErrInvalidUnhealthyThreshold
+	}
+	if tmc.UpdateInterval < 0 {
+		return ErrInvalidUpdateInterval
 	}
 	return nil
 }

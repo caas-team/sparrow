@@ -21,6 +21,7 @@ func TestTargetManagerConfig_Validate(t *testing.T) {
 				UnhealthyThreshold:   1 * time.Second,
 				CheckInterval:        1 * time.Second,
 				RegistrationInterval: 1 * time.Second,
+				UpdateInterval:       1 * time.Second,
 			},
 		},
 		{
@@ -29,6 +30,7 @@ func TestTargetManagerConfig_Validate(t *testing.T) {
 				UnhealthyThreshold:   0,
 				CheckInterval:        1 * time.Second,
 				RegistrationInterval: 0,
+				UpdateInterval:       0,
 			},
 		},
 		{
@@ -37,6 +39,7 @@ func TestTargetManagerConfig_Validate(t *testing.T) {
 				UnhealthyThreshold:   1 * time.Second,
 				CheckInterval:        0,
 				RegistrationInterval: 1 * time.Second,
+				UpdateInterval:       1 * time.Second,
 			},
 			wantErr: true,
 		},
@@ -46,6 +49,7 @@ func TestTargetManagerConfig_Validate(t *testing.T) {
 				UnhealthyThreshold:   -1 * time.Second,
 				CheckInterval:        1 * time.Second,
 				RegistrationInterval: 1 * time.Second,
+				UpdateInterval:       1 * time.Second,
 			},
 			wantErr: true,
 		},
