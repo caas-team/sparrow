@@ -197,46 +197,74 @@ func Test_gitlabTargetManager_GetTargets(t *testing.T) {
 	}
 }
 
-func Test_gitlabTargetManager_updateRegistration(t *testing.T) {
+// Test_gitlabTargetManager_registerSparrow tests that the register method will
+// register the sparrow instance in the remote gitlab instance
+func Test_gitlabTargetManager_register(t *testing.T) {
 	tests := []struct {
-		name          string
-		registered    bool
-		wantPostError bool
-		wantPutError  bool
+		name       string
+		wantErr    bool
+		wantPutErr bool
 	}{
 		{
-			name: "success - first registration",
+			name: "success",
 		},
 		{
-			name:       "success - update registration",
-			registered: true,
+			name:       "failure - failed to register",
+			wantErr:    true,
+			wantPutErr: true,
 		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			glmock := gitlabmock.New(nil)
+			if tt.wantPutErr {
+				glmock.SetPostFileErr(fmt.Errorf("failed to register"))
+			}
+			gtm := &gitlabTargetManager{
+				gitlab: glmock,
+			}
+			if err := gtm.register(context.Background()); (err != nil) != tt.wantErr {
+				t.Fatalf("register() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if !tt.wantErr {
+				if !gtm.Registered() {
+					t.Fatalf("register() did not register the instance")
+				}
+			}
+		})
+	}
+}
+
+// Test_gitlabTargetManager_update tests that the update
+// method will update the registration of the sparrow instance in the remote
+// gitlab instance
+func Test_gitlabTargetManager_update(t *testing.T) {
+	tests := []struct {
+		name         string
+		wantPutError bool
+	}{
 		{
-			name:          "failure - failed to register",
-			wantPostError: true,
+			name: "success - update registration",
 		},
 		{
 			name:         "failure - failed to update registration",
-			registered:   true,
 			wantPutError: true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			glmock := gitlabmock.New(nil)
-			if tt.wantPostError {
-				glmock.SetPostFileErr(fmt.Errorf("failed to register"))
-			}
 			if tt.wantPutError {
 				glmock.SetPutFileErr(fmt.Errorf("failed to update registration"))
 			}
 			gtm := &gitlabTargetManager{
 				gitlab:     glmock,
-				registered: tt.registered,
+				registered: true,
 			}
-			wantErr := tt.wantPutError || tt.wantPostError
-			if err := gtm.updateRegistration(context.Background()); (err != nil) != wantErr {
-				t.Fatalf("updateRegistration() error = %v, wantErr %v", err, wantErr)
+			wantErr := tt.wantPutError
+			if err := gtm.update(context.Background()); (err != nil) != wantErr {
+				t.Fatalf("update() error = %v, wantErr %v", err, wantErr)
 			}
 		})
 	}
@@ -261,10 +289,11 @@ func Test_gitlabTargetManager_Reconcile_success(t *testing.T) {
 		},
 	}
 
+	testTarget := "https://some.target"
 	glmock := gitlabmock.New(
 		[]checks.GlobalTarget{
 			{
-				Url:      "https://test",
+				Url:      testTarget,
 				LastSeen: time.Now(),
 			},
 		},
@@ -283,7 +312,7 @@ func Test_gitlabTargetManager_Reconcile_success(t *testing.T) {
 			}()
 
 			time.Sleep(time.Millisecond * 300)
-			if gtm.GetTargets()[0].Url != "https://test" {
+			if gtm.GetTargets()[0].Url != testTarget {
 				t.Fatalf("Reconcile() did not receive the correct target")
 			}
 			if !gtm.Registered() {
@@ -318,7 +347,7 @@ func Test_gitlabTargetManager_Reconcile_failure(t *testing.T) {
 			putError:   errors.New("failed to update registration"),
 			targets: []checks.GlobalTarget{
 				{
-					Url:      "https://test",
+					Url:      "https://some.sparrow",
 					LastSeen: time.Now(),
 				},
 			},
@@ -368,7 +397,7 @@ func Test_gitlabTargetManager_Reconcile_Context_Canceled(t *testing.T) {
 	glmock := gitlabmock.New(
 		[]checks.GlobalTarget{
 			{
-				Url:      "https://test",
+				Url:      "https://some.sparrow",
 				LastSeen: time.Now(),
 			},
 		},
@@ -403,7 +432,7 @@ func Test_gitlabTargetManager_Reconcile_Context_Done(t *testing.T) {
 	glmock := gitlabmock.New(
 		[]checks.GlobalTarget{
 			{
-				Url:      "https://test",
+				Url:      "https://some.sparrow",
 				LastSeen: time.Now(),
 			},
 		},
@@ -436,7 +465,7 @@ func Test_gitlabTargetManager_Reconcile_Shutdown(t *testing.T) {
 	glmock := gitlabmock.New(
 		[]checks.GlobalTarget{
 			{
-				Url:      "https://test",
+				Url:      "https://some.sparrow",
 				LastSeen: time.Now(),
 			},
 		},
@@ -474,7 +503,7 @@ func Test_gitlabTargetManager_Reconcile_Shutdown_Fail_Unregister(t *testing.T) {
 	glmock := gitlabmock.New(
 		[]checks.GlobalTarget{
 			{
-				Url:      "https://test",
+				Url:      "https://some.sparrow",
 				LastSeen: time.Now(),
 			},
 		},
@@ -507,6 +536,122 @@ func Test_gitlabTargetManager_Reconcile_Shutdown_Fail_Unregister(t *testing.T) {
 	gtm.mu.Unlock()
 }
 
+// Test_gitlabTargetManager_Reconcile_No_Registration tests that the Reconcile
+// method will not register the instance if the registration interval is 0
+func Test_gitlabTargetManager_Reconcile_No_Registration(t *testing.T) {
+	glmock := gitlabmock.New(
+		[]checks.GlobalTarget{
+			{
+				Url:      "https://some.sparrow",
+				LastSeen: time.Now(),
+			},
+		},
+	)
+
+	gtm := mockGitlabTargetManager(glmock, "test")
+	gtm.cfg.RegistrationInterval = 0
+
+	ctx := context.Background()
+	go func() {
+		err := gtm.Reconcile(ctx)
+		if err != nil {
+			t.Error("Reconcile() should not have returned an error")
+			return
+		}
+	}()
+
+	time.Sleep(time.Millisecond * 250)
+
+	gtm.mu.Lock()
+	if gtm.Registered() {
+		t.Fatalf("Reconcile() should not be registered")
+	}
+	gtm.mu.Unlock()
+}
+
+// Test_gitlabTargetManager_Reconcile_No_Update tests that the Reconcile
+// method will not update the registration if the update interval is 0
+func Test_gitlabTargetManager_Reconcile_No_Update(t *testing.T) {
+	glmock := gitlabmock.New(
+		[]checks.GlobalTarget{
+			{
+				Url:      "https://some.sparrow",
+				LastSeen: time.Now(),
+			},
+		},
+	)
+
+	gtm := mockGitlabTargetManager(glmock, "test")
+	gtm.cfg.UpdateInterval = 0
+
+	ctx := context.Background()
+	go func() {
+		err := gtm.Reconcile(ctx)
+		if err != nil {
+			t.Error("Reconcile() should not have returned an error")
+			return
+		}
+	}()
+
+	time.Sleep(time.Millisecond * 250)
+
+	gtm.mu.Lock()
+	if !gtm.Registered() {
+		t.Fatalf("Reconcile() should be registered")
+	}
+	gtm.mu.Unlock()
+
+	// check that no calls were made with the PutFile method
+	if glmock.PutFileCalled() {
+		t.Fatalf("Reconcile() should not have updated the registration")
+	}
+}
+
+// Test_gitlabTargetManager_Reconcile_No_Registration_No_Update tests that the Reconcile
+// method will not register the instance if the registration interval is 0
+// and will not update the registration if the update interval is 0
+func Test_gitlabTargetManager_Reconcile_No_Registration_No_Update(t *testing.T) {
+	glmock := gitlabmock.New(
+		[]checks.GlobalTarget{
+			{
+				Url:      "https://some.sparrow",
+				LastSeen: time.Now(),
+			},
+		},
+	)
+
+	gtm := mockGitlabTargetManager(glmock, "test")
+	gtm.cfg.RegistrationInterval = 0
+	gtm.cfg.UpdateInterval = 0
+
+	ctx := context.Background()
+	go func() {
+		err := gtm.Reconcile(ctx)
+		if err != nil {
+			t.Error("Reconcile() should not have returned an error")
+			return
+		}
+	}()
+
+	time.Sleep(time.Millisecond * 250)
+
+	gtm.mu.Lock()
+	if gtm.Registered() {
+		t.Fatalf("Reconcile() should not be registered")
+	}
+	gtm.mu.Unlock()
+
+	// check that no calls were made with the PostFile method
+	if glmock.PostFileCalled() {
+		t.Fatalf("Reconcile() should not have registered the instance")
+	}
+
+	// check that no calls were made with the PutFile method
+	if glmock.PutFileCalled() {
+		t.Fatalf("Reconcile() should not have updated the registration")
+	}
+}
+
 func mockGitlabTargetManager(g *gitlabmock.MockClient, name string) *gitlabTargetManager { //nolint: unparam // irrelevant
 	return &gitlabTargetManager{
 		targets: nil,
@@ -518,6 +663,7 @@ func mockGitlabTargetManager(g *gitlabmock.MockClient, name string) *gitlabTarge
 			CheckInterval:        100 * time.Millisecond,
 			UnhealthyThreshold:   1 * time.Second,
 			RegistrationInterval: 150 * time.Millisecond,
+			UpdateInterval:       150 * time.Millisecond,
 		},
 		registered: false,
 	}
