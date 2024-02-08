@@ -73,7 +73,7 @@ func TestListenErrors_CheckRunError(t *testing.T) {
 	}
 
 	if found {
-		t.Errorf("Expected mockCheck to be unregistered after encountering a run error")
+		t.Errorf("Expected check to be unregistered after encountering a run error")
 	}
 	if err := cc.Shutdown(ctx); err != nil {
 		t.Fatalf("Shutdown() error = %v", err)
@@ -138,7 +138,7 @@ func TestChecksController_RegisterCheck(t *testing.T) {
 
 			err := cc.RegisterCheck(context.Background(), tt.check)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("ChecksController.RegisterCheck() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("RegisterCheck() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}
@@ -169,7 +169,7 @@ func TestChecksController_UnregisterCheck(t *testing.T) {
 		},
 		{
 			name: "error during check shutdown",
-			setup: func(_ *testing.T) *ChecksController {
+			setup: func(t *testing.T) *ChecksController {
 				cc := NewChecksController(db.NewInMemory(), NewMetrics())
 				check := &checks.CheckMock{
 					NameFunc:                func() string { return "check" },
@@ -205,7 +205,11 @@ func TestChecksController_UnregisterCheck(t *testing.T) {
 
 			err := cc.UnregisterCheck(context.Background(), tt.check)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("ChecksController.RegisterCheck() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("UnregisterCheck() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if !tt.wantErr && len(cc.checks.Iter()) != 0 {
+				t.Errorf("Expected check to be unregistered")
 			}
 		})
 	}
