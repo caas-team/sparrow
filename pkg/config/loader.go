@@ -24,6 +24,7 @@ import (
 	"github.com/caas-team/sparrow/pkg/checks/runtime"
 )
 
+//go:generate moq -out loader_moq.go . Loader
 type Loader interface {
 	// Run starts the loader routine.
 	// The loader should be able
