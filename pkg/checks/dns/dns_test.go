@@ -52,8 +52,9 @@ func TestDNS_Run(t *testing.T) {
 			mockSetup: func() *DNS {
 				return &DNS{
 					CheckBase: checks.CheckBase{
-						Mu:   sync.Mutex{},
-						Done: make(chan bool, 1),
+						Mu:       sync.Mutex{},
+						ResChan:  make(chan checks.Result, 1),
+						DoneChan: make(chan struct{}, 1),
 					},
 				}
 			},
@@ -165,13 +166,7 @@ func TestDNS_Run(t *testing.T) {
 			ctx := context.Background()
 			c := tt.mockSetup()
 
-			results := make(chan checks.Result, 1)
-			err := c.Startup(ctx, results)
-			if err != nil {
-				t.Fatalf("DNS.Startup() error = %v", err)
-			}
-
-			err = c.SetConfig(&Config{
+			err := c.SetConfig(&Config{
 				Targets:  tt.targets,
 				Interval: 1 * time.Second,
 				Timeout:  5 * time.Millisecond,
@@ -195,7 +190,7 @@ func TestDNS_Run(t *testing.T) {
 				}
 			}()
 
-			r := <-results
+			r := <-c.ResultChan()
 			if r.Err != tt.want.Err {
 				t.Errorf("DNS.Run() = %v, want %v", r.Err, tt.want.Err)
 			}
@@ -246,19 +241,25 @@ func TestDNS_Run_Context_Done(t *testing.T) {
 	time.Sleep(time.Millisecond * 30)
 }
 
-func TestDNS_Startup(t *testing.T) {
-	c := DNS{}
+func TestDNS_ResultChan(t *testing.T) {
+	c := DNS{
+		CheckBase: checks.CheckBase{
+			ResChan: make(chan checks.Result, 1),
+		},
+	}
 
-	if err := c.Startup(context.Background(), make(chan<- checks.Result, 1)); err != nil {
-		t.Errorf("Startup() error = %v", err)
+	rc := c.ResultChan()
+	if rc != c.ResChan {
+		t.Errorf("ResultChan() got = %v, want %v", rc, c.ResChan)
 	}
 }
 
 func TestDNS_Shutdown(t *testing.T) {
-	cDone := make(chan bool, 1)
+	cDone := make(chan struct{}, 1)
 	c := DNS{
 		CheckBase: checks.CheckBase{
-			Done: cDone,
+			ResChan:  make(chan checks.Result, 1),
+			DoneChan: cDone,
 		},
 	}
 	err := c.Shutdown(context.Background())
@@ -266,7 +267,8 @@ func TestDNS_Shutdown(t *testing.T) {
 		t.Errorf("Shutdown() error = %v", err)
 	}
 
-	if !<-cDone {
+	_, ok := <-cDone
+	if !ok {
 		t.Error("Shutdown() should be ok")
 	}
 }
@@ -337,7 +339,11 @@ func stringPointer(s string) *string {
 
 func newCommonDNS() *DNS {
 	return &DNS{
-		CheckBase: checks.CheckBase{Mu: sync.Mutex{}, Done: make(chan bool, 1)},
-		metrics:   newMetrics(),
+		CheckBase: checks.CheckBase{
+			Mu:       sync.Mutex{},
+			ResChan:  make(chan checks.Result, 1),
+			DoneChan: make(chan struct{}, 1),
+		},
+		metrics: newMetrics(),
 	}
 }

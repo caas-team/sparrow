@@ -60,9 +60,9 @@ func (d *DNS) Name() string {
 func NewCheck() checks.Check {
 	return &DNS{
 		CheckBase: checks.CheckBase{
-			Mu:      sync.Mutex{},
-			CResult: nil,
-			Done:    make(chan bool, 1),
+			Mu:       sync.Mutex{},
+			ResChan:  make(chan checks.Result, 1),
+			DoneChan: make(chan struct{}, 1),
 		},
 		config: Config{
 			Retry: checks.DefaultRetry,
@@ -103,7 +103,7 @@ func (d *DNS) Run(ctx context.Context) error {
 		case <-ctx.Done():
 			log.Error("Context canceled", "err", ctx.Err())
 			return ctx.Err()
-		case <-d.Done:
+		case <-d.DoneChan:
 			return nil
 		case <-time.After(d.config.Interval):
 			res := d.check(ctx)
@@ -114,25 +114,22 @@ func (d *DNS) Run(ctx context.Context) error {
 				Timestamp: time.Now(),
 			}
 
-			d.CResult <- r
+			d.ResChan <- r
 			log.Debug("Successfully finished dns check run")
 		}
 	}
 }
 
-func (d *DNS) Startup(ctx context.Context, cResult chan<- checks.Result) error {
-	log := logger.FromContext(ctx)
-	log.Debug("Initializing dns check")
+func (d *DNS) Shutdown(_ context.Context) error {
+	d.DoneChan <- struct{}{}
+	close(d.DoneChan)
+	close(d.ResChan)
 
-	d.CResult = cResult
 	return nil
 }
 
-func (d *DNS) Shutdown(_ context.Context) error {
-	d.Done <- true
-	close(d.Done)
-
-	return nil
+func (d *DNS) ResultChan() chan checks.Result {
+	return d.ResChan
 }
 
 func (d *DNS) SetConfig(cfg checks.Runtime) error {

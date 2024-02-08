@@ -29,6 +29,9 @@ var _ Check = &CheckMock{}
 //			NameFunc: func() string {
 //				panic("mock out the Name method")
 //			},
+//			ResultChanFunc: func() chan Result {
+//				panic("mock out the ResultChan method")
+//			},
 //			RunFunc: func(ctx context.Context) error {
 //				panic("mock out the Run method")
 //			},
@@ -40,9 +43,6 @@ var _ Check = &CheckMock{}
 //			},
 //			ShutdownFunc: func(ctx context.Context) error {
 //				panic("mock out the Shutdown method")
-//			},
-//			StartupFunc: func(ctx context.Context, cResult chan<- Result) error {
-//				panic("mock out the Startup method")
 //			},
 //		}
 //
@@ -60,6 +60,9 @@ type CheckMock struct {
 	// NameFunc mocks the Name method.
 	NameFunc func() string
 
+	// ResultChanFunc mocks the ResultChan method.
+	ResultChanFunc func() chan Result
+
 	// RunFunc mocks the Run method.
 	RunFunc func(ctx context.Context) error
 
@@ -72,9 +75,6 @@ type CheckMock struct {
 	// ShutdownFunc mocks the Shutdown method.
 	ShutdownFunc func(ctx context.Context) error
 
-	// StartupFunc mocks the Startup method.
-	StartupFunc func(ctx context.Context, cResult chan<- Result) error
-
 	// calls tracks calls to the methods.
 	calls struct {
 		// GetConfig holds details about calls to the GetConfig method.
@@ -85,6 +85,9 @@ type CheckMock struct {
 		}
 		// Name holds details about calls to the Name method.
 		Name []struct {
+		}
+		// ResultChan holds details about calls to the ResultChan method.
+		ResultChan []struct {
 		}
 		// Run holds details about calls to the Run method.
 		Run []struct {
@@ -104,22 +107,15 @@ type CheckMock struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 		}
-		// Startup holds details about calls to the Startup method.
-		Startup []struct {
-			// Ctx is the ctx argument value.
-			Ctx context.Context
-			// CResult is the cResult argument value.
-			CResult chan<- Result
-		}
 	}
 	lockGetConfig           sync.RWMutex
 	lockGetMetricCollectors sync.RWMutex
 	lockName                sync.RWMutex
+	lockResultChan          sync.RWMutex
 	lockRun                 sync.RWMutex
 	lockSchema              sync.RWMutex
 	lockSetConfig           sync.RWMutex
 	lockShutdown            sync.RWMutex
-	lockStartup             sync.RWMutex
 }
 
 // GetConfig calls GetConfigFunc.
@@ -200,6 +196,33 @@ func (mock *CheckMock) NameCalls() []struct {
 	mock.lockName.RLock()
 	calls = mock.calls.Name
 	mock.lockName.RUnlock()
+	return calls
+}
+
+// ResultChan calls ResultChanFunc.
+func (mock *CheckMock) ResultChan() chan Result {
+	if mock.ResultChanFunc == nil {
+		panic("CheckMock.ResultChanFunc: method is nil but Check.ResultChan was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockResultChan.Lock()
+	mock.calls.ResultChan = append(mock.calls.ResultChan, callInfo)
+	mock.lockResultChan.Unlock()
+	return mock.ResultChanFunc()
+}
+
+// ResultChanCalls gets all the calls that were made to ResultChan.
+// Check the length with:
+//
+//	len(mockedCheck.ResultChanCalls())
+func (mock *CheckMock) ResultChanCalls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockResultChan.RLock()
+	calls = mock.calls.ResultChan
+	mock.lockResultChan.RUnlock()
 	return calls
 }
 
@@ -323,41 +346,5 @@ func (mock *CheckMock) ShutdownCalls() []struct {
 	mock.lockShutdown.RLock()
 	calls = mock.calls.Shutdown
 	mock.lockShutdown.RUnlock()
-	return calls
-}
-
-// Startup calls StartupFunc.
-func (mock *CheckMock) Startup(ctx context.Context, cResult chan<- Result) error {
-	if mock.StartupFunc == nil {
-		panic("CheckMock.StartupFunc: method is nil but Check.Startup was just called")
-	}
-	callInfo := struct {
-		Ctx     context.Context
-		CResult chan<- Result
-	}{
-		Ctx:     ctx,
-		CResult: cResult,
-	}
-	mock.lockStartup.Lock()
-	mock.calls.Startup = append(mock.calls.Startup, callInfo)
-	mock.lockStartup.Unlock()
-	return mock.StartupFunc(ctx, cResult)
-}
-
-// StartupCalls gets all the calls that were made to Startup.
-// Check the length with:
-//
-//	len(mockedCheck.StartupCalls())
-func (mock *CheckMock) StartupCalls() []struct {
-	Ctx     context.Context
-	CResult chan<- Result
-} {
-	var calls []struct {
-		Ctx     context.Context
-		CResult chan<- Result
-	}
-	mock.lockStartup.RLock()
-	calls = mock.calls.Startup
-	mock.lockStartup.RUnlock()
 	return calls
 }

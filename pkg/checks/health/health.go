@@ -47,7 +47,6 @@ const CheckName = "health"
 // Health is a check that measures the availability of an endpoint
 type Health struct {
 	checks.CheckBase
-	route   string
 	config  Config
 	metrics metrics
 }
@@ -56,11 +55,10 @@ type Health struct {
 func NewCheck() checks.Check {
 	return &Health{
 		CheckBase: checks.CheckBase{
-			Mu:      sync.Mutex{},
-			CResult: nil,
-			Done:    make(chan bool, 1),
+			Mu:       sync.Mutex{},
+			ResChan:  make(chan checks.Result, 1),
+			DoneChan: make(chan struct{}, 1),
 		},
-		route: "health",
 		config: Config{
 			Retry: checks.DefaultRetry,
 		},
@@ -97,7 +95,7 @@ func (h *Health) Run(ctx context.Context) error {
 		case <-ctx.Done():
 			log.Error("Context canceled", "err", ctx.Err())
 			return ctx.Err()
-		case <-h.Done:
+		case <-h.DoneChan:
 			log.Debug("Soft shut down")
 			return nil
 		case <-time.After(h.config.Interval):
@@ -109,27 +107,23 @@ func (h *Health) Run(ctx context.Context) error {
 				Timestamp: time.Now(),
 			}
 
-			h.CResult <- r
+			h.ResChan <- r
 			log.Debug("Successfully finished health check run")
 		}
 	}
 }
 
-// Startup is called once when the health check is registered
-func (h *Health) Startup(ctx context.Context, cResult chan<- checks.Result) error {
-	log := logger.FromContext(ctx).WithGroup("health")
-	log.Debug("Initializing health check")
+// Shutdown is called once when the check is unregistered or sparrow shuts down
+func (h *Health) Shutdown(_ context.Context) error {
+	h.DoneChan <- struct{}{}
+	close(h.DoneChan)
+	close(h.ResChan)
 
-	h.CResult = cResult
 	return nil
 }
 
-// Shutdown is called once when the check is unregistered or sparrow shuts down
-func (h *Health) Shutdown(_ context.Context) error {
-	h.Done <- true
-	close(h.Done)
-
-	return nil
+func (h *Health) ResultChan() chan checks.Result {
+	return h.ResChan
 }
 
 // SetConfig sets the configuration for the health check

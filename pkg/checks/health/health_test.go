@@ -249,10 +249,11 @@ func TestHealth_Check(t *testing.T) {
 }
 
 func TestHealth_Shutdown(t *testing.T) {
-	cDone := make(chan bool, 1)
+	cDone := make(chan struct{}, 1)
 	c := Health{
 		CheckBase: checks.CheckBase{
-			Done: cDone,
+			ResChan:  make(chan checks.Result, 1),
+			DoneChan: cDone,
 		},
 	}
 	err := c.Shutdown(context.Background())
@@ -260,12 +261,12 @@ func TestHealth_Shutdown(t *testing.T) {
 		t.Errorf("Shutdown() error = %v", err)
 	}
 
-	if !<-cDone {
+	if _, ok := <-cDone; !ok {
 		t.Error("Channel should be done")
 	}
 
 	assert.Panics(t, func() {
-		cDone <- true
+		cDone <- struct{}{}
 	}, "Channel is closed, should panic")
 
 	hc := NewCheck()
@@ -274,11 +275,12 @@ func TestHealth_Shutdown(t *testing.T) {
 		t.Errorf("Shutdown() error = %v", err)
 	}
 
-	if !<-hc.(*Health).Done {
+	_, ok := <-hc.(*Health).DoneChan
+	if !ok {
 		t.Error("Channel should be done")
 	}
 
 	assert.Panics(t, func() {
-		hc.(*Health).Done <- true
+		hc.(*Health).DoneChan <- struct{}{}
 	}, "Channel is closed, should panic")
 }

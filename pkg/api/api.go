@@ -26,8 +26,6 @@ import (
 	"time"
 
 	"github.com/caas-team/sparrow/internal/logger"
-	"github.com/caas-team/sparrow/pkg/checks"
-	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -121,9 +119,12 @@ type Route struct {
 func (a *api) RegisterRoutes(ctx context.Context, routes ...Route) error {
 	a.router.Use(logger.Middleware(ctx))
 	for _, route := range routes {
-		if route.Method == "*" {
+		switch route.Method {
+		case "Handle":
+			a.router.Handle(route.Path, route.Handler)
+		case "HandleFunc":
 			a.router.HandleFunc(route.Path, route.Handler)
-		} else {
+		default:
 			err := a.registerDefaultRoute(route)
 			if err != nil {
 				return err
@@ -161,58 +162,4 @@ func okHandler(ctx context.Context) http.Handler {
 			log.Error("Could not write response", "error", err.Error())
 		}
 	})
-}
-
-var oapiBoilerplate = openapi3.T{
-	// this object should probably be user defined
-	OpenAPI: "3.0.0",
-	Info: &openapi3.Info{
-		Title:       "Sparrow Metrics API",
-		Description: "Serves metrics collected by sparrows checks",
-		Contact: &openapi3.Contact{
-			URL:   "https://caas.telekom.de",
-			Email: "caas-request@telekom.de",
-			Name:  "CaaS Team",
-		},
-	},
-	Paths:      make(openapi3.Paths),
-	Extensions: make(map[string]any),
-	Components: &openapi3.Components{
-		Schemas: make(openapi3.Schemas),
-	},
-	Servers: openapi3.Servers{},
-}
-
-// GenerateCheckSpecs generates the OpenAPI specifications for the given checks
-// Returns the complete OpenAPI specification for all checks
-func GenerateCheckSpecs(ctx context.Context, cks map[string]checks.Check) (openapi3.T, error) {
-	log := logger.FromContext(ctx)
-	doc := oapiBoilerplate
-	for name, c := range cks {
-		ref, err := c.Schema()
-		if err != nil {
-			log.Error("Failed to get schema for check", "name", name, "error", err)
-			return openapi3.T{}, &ErrCreateOpenapiSchema{name: name, err: err}
-		}
-
-		routeDesc := fmt.Sprintf("Returns the performance data for check %s", name)
-		bodyDesc := fmt.Sprintf("Metrics for check %s", name)
-		doc.Paths["/v1/metrics/"+name] = &openapi3.PathItem{
-			Description: name,
-			Get: &openapi3.Operation{
-				Description: routeDesc,
-				Tags:        []string{"Metrics", name},
-				Responses: openapi3.Responses{
-					fmt.Sprint(http.StatusOK): &openapi3.ResponseRef{
-						Value: &openapi3.Response{
-							Description: &bodyDesc,
-							Content:     openapi3.NewContentWithSchemaRef(ref, []string{"application/json"}),
-						},
-					},
-				},
-			},
-		}
-	}
-
-	return doc, nil
 }

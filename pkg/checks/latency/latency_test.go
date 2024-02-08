@@ -42,7 +42,7 @@ func stringPointer(s string) *string {
 	return &s
 }
 
-func TestLatency_Run(t *testing.T) { //nolint:gocyclo
+func TestLatency_Run(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 
@@ -128,13 +128,7 @@ func TestLatency_Run(t *testing.T) { //nolint:gocyclo
 			}
 
 			c := NewCheck()
-			results := make(chan checks.Result, 1)
-			err := c.Startup(tt.ctx, results)
-			if err != nil {
-				t.Fatalf("Latency.Startup() error = %v", err)
-			}
-
-			err = c.SetConfig(&Config{
+			err := c.SetConfig(&Config{
 				Targets:  tt.targets,
 				Interval: time.Millisecond * 120,
 				Timeout:  time.Second * 1,
@@ -158,7 +152,7 @@ func TestLatency_Run(t *testing.T) { //nolint:gocyclo
 				}
 			}()
 
-			res := <-results
+			res := <-c.ResultChan()
 
 			assert.IsType(t, tt.want.Data, res.Data)
 
@@ -317,19 +311,25 @@ func TestLatency_check(t *testing.T) {
 	}
 }
 
-func TestLatency_Startup(t *testing.T) {
-	c := Latency{}
+func TestDNS_ResultChan(t *testing.T) {
+	c := Latency{
+		CheckBase: checks.CheckBase{
+			ResChan: make(chan checks.Result, 1),
+		},
+	}
 
-	if err := c.Startup(context.Background(), make(chan<- checks.Result, 1)); err != nil {
-		t.Errorf("Startup() error = %v", err)
+	rc := c.ResultChan()
+	if rc != c.ResChan {
+		t.Errorf("ResultChan() got = %v, want %v", rc, c.ResChan)
 	}
 }
 
 func TestLatency_Shutdown(t *testing.T) {
-	cDone := make(chan bool, 1)
+	cDone := make(chan struct{}, 1)
 	c := Latency{
 		CheckBase: checks.CheckBase{
-			Done: cDone,
+			ResChan:  make(chan checks.Result, 1),
+			DoneChan: cDone,
 		},
 	}
 	err := c.Shutdown(context.Background())
@@ -337,7 +337,8 @@ func TestLatency_Shutdown(t *testing.T) {
 		t.Errorf("Shutdown() error = %v", err)
 	}
 
-	if !<-cDone {
+	_, ok := <-cDone
+	if !ok {
 		t.Error("Shutdown() should be ok")
 	}
 }

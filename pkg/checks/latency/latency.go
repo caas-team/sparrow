@@ -52,9 +52,9 @@ type Latency struct {
 func NewCheck() checks.Check {
 	return &Latency{
 		CheckBase: checks.CheckBase{
-			Mu:      sync.Mutex{},
-			CResult: nil,
-			Done:    make(chan bool, 1),
+			Mu:       sync.Mutex{},
+			ResChan:  make(chan checks.Result, 1),
+			DoneChan: make(chan struct{}, 1),
 		},
 		config: Config{
 			Retry: checks.DefaultRetry,
@@ -101,7 +101,7 @@ func (l *Latency) Run(ctx context.Context) error {
 		case <-ctx.Done():
 			log.Error("Context canceled", "err", ctx.Err())
 			return ctx.Err()
-		case <-l.Done:
+		case <-l.DoneChan:
 			return nil
 		case <-time.After(l.config.Interval):
 			res := l.check(ctx)
@@ -112,25 +112,22 @@ func (l *Latency) Run(ctx context.Context) error {
 				Timestamp: time.Now(),
 			}
 
-			l.CResult <- r
+			l.ResChan <- r
 			log.Debug("Successfully finished latency check run")
 		}
 	}
 }
 
-func (l *Latency) Startup(ctx context.Context, cResult chan<- checks.Result) error {
-	log := logger.FromContext(ctx)
-	log.Debug("Initializing latency check")
+func (l *Latency) Shutdown(_ context.Context) error {
+	l.DoneChan <- struct{}{}
+	close(l.DoneChan)
+	close(l.ResChan)
 
-	l.CResult = cResult
 	return nil
 }
 
-func (l *Latency) Shutdown(_ context.Context) error {
-	l.Done <- true
-	close(l.Done)
-
-	return nil
+func (l *Latency) ResultChan() chan checks.Result {
+	return l.ResChan
 }
 
 // SetConfig sets the configuration for the latency check

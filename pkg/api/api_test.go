@@ -21,14 +21,11 @@ package api
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
-	"github.com/caas-team/sparrow/pkg/checks"
-	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -143,7 +140,10 @@ func TestAPI_RegisterRoutes(t *testing.T) {
 				{Path: "/patch", Method: http.MethodPatch, Handler: func(w http.ResponseWriter, r *http.Request) {
 					w.WriteHeader(http.StatusOK)
 				}},
-				{Path: "/handlefunc", Method: "*", Handler: func(w http.ResponseWriter, r *http.Request) {
+				{Path: "/handle", Method: "Handle", Handler: func(w http.ResponseWriter, r *http.Request) {
+					w.WriteHeader(http.StatusOK)
+				}},
+				{Path: "/handlefunc", Method: "HandleFunc", Handler: func(w http.ResponseWriter, r *http.Request) {
 					w.WriteHeader(http.StatusOK)
 				}},
 			},
@@ -157,6 +157,7 @@ func TestAPI_RegisterRoutes(t *testing.T) {
 				{method: http.MethodPut, path: "/put", status: http.StatusOK},
 				{method: http.MethodDelete, path: "/delete", status: http.StatusNoContent},
 				{method: http.MethodPatch, path: "/patch", status: http.StatusOK},
+				{method: http.MethodGet, path: "/handle", status: http.StatusOK},
 				{method: http.MethodGet, path: "/handlefunc", status: http.StatusOK},
 			},
 			wantErr: false,
@@ -237,82 +238,5 @@ func Test_okHandler(t *testing.T) {
 	if rr.Body.String() != expected {
 		t.Errorf("Handler returned unexpected body: got %v want %v",
 			rr.Body.String(), expected)
-	}
-}
-
-func TestGenerateCheckSpecs(t *testing.T) {
-	tests := []struct {
-		name     string
-		checks   map[string]checks.Check
-		wantErr  bool
-		validate func(t *testing.T, doc openapi3.T)
-	}{
-		{
-			name: "successful generation",
-			checks: map[string]checks.Check{
-				"check1": &checks.CheckMock{
-					SchemaFunc: func() (*openapi3.SchemaRef, error) {
-						type CheckResultSpec struct {
-							name string
-						}
-						res := CheckResultSpec{name: "check1"}
-						return checks.OpenapiFromPerfData[CheckResultSpec](res)
-					},
-				},
-				"check2": &checks.CheckMock{
-					SchemaFunc: func() (*openapi3.SchemaRef, error) {
-						type CheckResultSpec struct {
-							name string
-						}
-						res := CheckResultSpec{name: "check2"}
-						return checks.OpenapiFromPerfData[CheckResultSpec](res)
-					},
-				},
-			},
-			wantErr: false,
-			validate: func(t *testing.T, doc openapi3.T) {
-				if _, ok := doc.Paths["/v1/metrics/check1"]; !ok {
-					t.Errorf("Expected path '/v1/metrics/check1' not found")
-				}
-				if _, ok := doc.Paths["/v1/metrics/check2"]; !ok {
-					t.Errorf("Expected path '/v1/metrics/check2' not found")
-				}
-			},
-		},
-		{
-			name: "error in schema generation",
-			checks: map[string]checks.Check{
-				"failingCheck": &checks.CheckMock{
-					SchemaFunc: func() (*openapi3.SchemaRef, error) {
-						return nil, fmt.Errorf("some error")
-					},
-				},
-			},
-			wantErr:  true,
-			validate: nil,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			ctx := context.Background()
-			doc, err := GenerateCheckSpecs(ctx, tt.checks)
-
-			if (err != nil) != tt.wantErr {
-				t.Fatalf("GenerateCheckSpecs() error = %v, wantErr %v", err, tt.wantErr)
-			}
-
-			if tt.validate != nil {
-				tt.validate(t, doc)
-			}
-
-			if tt.wantErr {
-				var schemaErr *ErrCreateOpenapiSchema
-				t.Logf("Error = %v", err)
-				if !errors.As(err, &schemaErr) {
-					t.Error("Expected ErrCreateOpenapiSchema")
-				}
-			}
-		})
 	}
 }

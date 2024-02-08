@@ -49,16 +49,15 @@ type Sparrow struct {
 	checkCoordinator
 }
 
+// checkCoordinator is used to coordinate the checks and the reconciler
 type checkCoordinator struct {
-	// the existing checks
-	checks      map[string]checks.Check
-	resultFanIn map[string]chan checks.Result
-	// cRuntime is the channel where the loader sends the checkCfg configuration of the checks
+	// controller is used to manage the checks
+	controller *ChecksController
+	// cRuntime is used to signal that the runtime configuration has changed
 	cRuntime chan runtime.Config
-	// cResult is the channel where the checks send their results to
-	cResult chan checks.ResultDTO
 }
 
+// errorHandler is used to handle non-recoverable errors of the sparrow components
 type errorHandler struct {
 	// cErr is used to handle non-recoverable errors of the sparrow components
 	cErr chan error
@@ -70,21 +69,22 @@ type errorHandler struct {
 
 // New creates a new sparrow from a given configfile
 func New(cfg *config.Config) *Sparrow {
+	metrics := NewMetrics()
+	dbase := db.NewInMemory()
+
 	sparrow := &Sparrow{
 		config:  cfg,
-		db:      db.NewInMemory(),
+		db:      dbase,
 		api:     api.New(cfg.Api),
-		metrics: NewMetrics(),
+		metrics: metrics,
 		errorHandler: errorHandler{
 			cErr:     make(chan error, 1),
 			cDone:    make(chan struct{}, 1),
 			shutOnce: sync.Once{},
 		},
 		checkCoordinator: checkCoordinator{
-			checks:      make(map[string]checks.Check),
-			resultFanIn: make(map[string]chan checks.Result),
-			cRuntime:    make(chan runtime.Config, 1),
-			cResult:     make(chan checks.ResultDTO, 1),
+			controller: NewChecksController(dbase, metrics),
+			cRuntime:   make(chan runtime.Config, 1),
 		},
 	}
 
@@ -115,11 +115,12 @@ func (s *Sparrow) Run(ctx context.Context) error {
 	go func() {
 		s.cErr <- s.startupAPI(ctx)
 	}()
+	go func() {
+		s.controller.ListenErrors(ctx)
+	}()
 
 	for {
 		select {
-		case result := <-s.cResult:
-			go s.db.Save(result)
 		case cfg := <-s.cRuntime:
 			s.ReconcileChecks(ctx, cfg)
 		case <-ctx.Done():
@@ -135,49 +136,46 @@ func (s *Sparrow) Run(ctx context.Context) error {
 	}
 }
 
-// ReconcileChecks registers new Checks, unregisters removed Checks,
-// resets the Configs of Checks and starts running the checks
+// ReconcileChecks reconciles the checks.
+// It registers new checks, updates existing checks and unregisters checks not in the new config.
 func (s *Sparrow) ReconcileChecks(ctx context.Context, cfg runtime.Config) {
-	// generate checks from configuration
+	log := logger.FromContext(ctx)
+
 	cfg = s.enrichTargets(cfg)
-	fChecks, err := factory.NewChecksFromConfig(cfg)
+	newChecks, err := factory.NewChecksFromConfig(cfg)
 	if err != nil {
-		logger.FromContext(ctx).ErrorContext(ctx, "Failed to create checks from config", "error", err)
+		log.ErrorContext(ctx, "Failed to create checks from config", "error", err)
 		return
 	}
 
-	// if checks are empty, register all checks
-	if len(s.checks) == 0 {
-		for _, c := range fChecks {
-			err = s.registerCheck(ctx, c)
+	// Update existing checks and create a list of checks to unregister
+	var unregList []checks.Check
+	for _, c := range s.controller.checks.Iter() {
+		conf := cfg.For(c.Name())
+		if conf != nil {
+			err = c.SetConfig(conf)
 			if err != nil {
-				logger.FromContext(ctx).ErrorContext(ctx, "Failed to register check", "check", c.Name(), "error", err)
+				log.ErrorContext(ctx, "Failed to set config for check", "check", c.Name(), "error", err)
 			}
-		}
-		return
-	}
-
-	// unregister checks that are not in the new config
-	for name, check := range s.checks {
-		if !cfg.HasCheck(name) {
-			s.unregisterCheck(ctx, check)
+			delete(newChecks, c.Name())
+		} else {
+			unregList = append(unregList, c)
 		}
 	}
 
-	// register / update checks that are in the new config
-	for _, c := range fChecks {
-		if _, ok := s.checks[c.Name()]; !ok {
-			err = s.registerCheck(ctx, c)
-			if err != nil {
-				logger.FromContext(ctx).ErrorContext(ctx, "Failed to register check", "check", c.Name(), "error", err)
-			}
-			continue
-		}
-
-		// existing config
-		err = s.checks[c.Name()].SetConfig(c.GetConfig())
+	// Unregister checks not in the new config
+	for _, c := range unregList {
+		err = s.controller.UnregisterCheck(ctx, c)
 		if err != nil {
-			logger.FromContext(ctx).ErrorContext(ctx, "Failed to set config for check", "check", c.Name(), "error", err)
+			log.ErrorContext(ctx, "Failed to unregister check", "check", c.Name(), "error", err)
+		}
+	}
+
+	// Register new checks
+	for _, c := range newChecks {
+		err = s.controller.RegisterCheck(ctx, c)
+		if err != nil {
+			log.ErrorContext(ctx, "Failed to register check", "check", c.Name(), "error", err)
 		}
 	}
 }
@@ -208,75 +206,10 @@ func (s *Sparrow) enrichTargets(cfg runtime.Config) runtime.Config {
 	return cfg
 }
 
-// registerCheck registers and executes a new check
-func (s *Sparrow) registerCheck(ctx context.Context, check checks.Check) error {
-	log := logger.FromContext(ctx).With("name", check.Name())
-
-	s.checks[check.Name()] = check
-
-	// Create a fan in a channel for the check
-	checkChan := make(chan checks.Result, 1)
-	s.resultFanIn[check.Name()] = checkChan
-
-	go fanInResults(checkChan, s.cResult, check.Name())
-	err := check.Startup(ctx, checkChan)
-	if err != nil {
-		log.ErrorContext(ctx, "Failed to startup check", "error", err)
-		close(checkChan)
-		return err
-	}
-
-	// Add prometheus collectors of check to registry
-	for _, collector := range check.GetMetricCollectors() {
-		if err := s.metrics.GetRegistry().Register(collector); err != nil {
-			log.ErrorContext(ctx, "Could not add metrics collector to registry")
-		}
-	}
-
-	go func() {
-		err := check.Run(ctx)
-		if err != nil {
-			log.ErrorContext(ctx, "Failed to run check", "error", err)
-		}
-	}()
-	return nil
-}
-
-// UnregisterCheck removes the check from sparrow and performs a soft shutdown for the check
-func (s *Sparrow) unregisterCheck(ctx context.Context, check checks.Check) {
-	log := logger.FromContext(ctx).With("name", check.Name())
-
-	// Remove prometheus collectors of check from registry
-	for _, metricsCollector := range check.GetMetricCollectors() {
-		if !s.metrics.GetRegistry().Unregister(metricsCollector) {
-			log.ErrorContext(ctx, "Could not remove metrics collector from registry")
-		}
-	}
-
-	err := check.Shutdown(ctx)
-	if err != nil {
-		log.ErrorContext(ctx, "Failed to shutdown check", "error", err)
-	}
-	if c, ok := s.resultFanIn[check.Name()]; ok {
-		// close fan in the channel if it exists
-		close(c)
-		delete(s.resultFanIn, check.Name())
-	}
-
-	delete(s.checks, check.Name())
-}
-
-// This is a fan in for the checks.
-//
-// It allows augmenting the results with the check name which is needed by the db
-// without putting the responsibility of providing the name on every iteration on the check
-func fanInResults(checkChan chan checks.Result, cResult chan checks.ResultDTO, name string) {
-	for i := range checkChan {
-		cResult <- checks.ResultDTO{
-			Name:   name,
-			Result: &i,
-		}
-	}
+type ErrShutdown struct {
+	errAPI       error
+	errTarMan    error
+	errCheckCont error
 }
 
 // shutdown shuts down the sparrow and all managed components gracefully.
@@ -290,14 +223,16 @@ func (s *Sparrow) shutdown(ctx context.Context) {
 
 	s.shutOnce.Do(func() {
 		log.Info("Shutting down sparrow gracefully")
-		var errS error
+		var sErrs ErrShutdown
 		if s.tarMan != nil {
-			errS = s.tarMan.Shutdown(ctx)
+			sErrs.errTarMan = s.tarMan.Shutdown(ctx)
 		}
-		errA := s.api.Shutdown(ctx)
+		sErrs.errAPI = s.api.Shutdown(ctx)
 		s.loader.Shutdown(ctx)
-		if errS != nil || errA != nil {
-			log.Error("Failed to shutdown gracefully", "contextError", errC, "apiError", errA, "targetError", errS)
+		sErrs.errCheckCont = s.controller.Shutdown(ctx)
+
+		if sErrs.errTarMan != nil || sErrs.errAPI != nil || sErrs.errCheckCont != nil {
+			log.Error("Failed to shutdown gracefully", "contextError", errC, "errors", sErrs)
 		}
 
 		// Signal that shutdown is complete
