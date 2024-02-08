@@ -391,9 +391,12 @@ func Test_gitlabTargetManager_Reconcile_success(t *testing.T) {
 			if gtm.GetTargets()[0].Url != testTarget {
 				t.Fatalf("Reconcile() did not receive the correct target")
 			}
+
+			gtm.mu.Lock()
 			if !gtm.Registered() {
 				t.Fatalf("Reconcile() did not register")
 			}
+			gtm.mu.Unlock()
 
 			err := gtm.Shutdown(ctx)
 			if err != nil {
