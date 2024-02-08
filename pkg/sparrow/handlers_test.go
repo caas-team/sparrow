@@ -37,12 +37,10 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func TestSparrow_getOpenapi(t *testing.T) {
+func TestSparrow_handleOpenAPI(t *testing.T) {
 	s := Sparrow{
-		checkCoordinator: checkCoordinator{
-			controller: &ChecksController{
-				checks: runtime.Checks{},
-			},
+		controller: &ChecksController{
+			checks: runtime.Checks{},
 		},
 	}
 

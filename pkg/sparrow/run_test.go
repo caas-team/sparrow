@@ -132,12 +132,9 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 						},
 					},
 				},
-				metrics:      NewMetrics(),
-				errorHandler: errorHandler{},
-				checkCoordinator: checkCoordinator{
-					controller: NewChecksController(db.NewInMemory(), NewMetrics()),
-					cRuntime:   make(chan runtime.Config, 1),
-				},
+				metrics:    NewMetrics(),
+				controller: NewChecksController(db.NewInMemory(), NewMetrics()),
+				cRuntime:   make(chan runtime.Config, 1),
 			}
 			for _, c := range tt.checks {
 				s.controller.checks.Add(c)

@@ -59,7 +59,7 @@ func TestListenErrors_CheckRunError(t *testing.T) {
 		t.Fatalf("RegisterCheck() error = %v", err)
 	}
 
-	go cc.ListenErrors(ctx)
+	go cc.HandleErrors(ctx)
 
 	// Wait for the error to be processed
 	time.Sleep(100 * time.Millisecond)
@@ -87,7 +87,7 @@ func TestListenErrors_ContextCancellation(t *testing.T) {
 
 	done := make(chan struct{})
 	go func() {
-		cc.ListenErrors(ctx)
+		cc.HandleErrors(ctx)
 		close(done)
 	}()
 

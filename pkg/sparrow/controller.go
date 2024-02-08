@@ -51,8 +51,8 @@ func NewChecksController(dbase db.DB, metrics Metrics) *ChecksController {
 	}
 }
 
-// ListenErrors listens for errors and unregisters failed checks.
-func (cc *ChecksController) ListenErrors(ctx context.Context) {
+// HandleErrors listens for errors and unregisters failed checks.
+func (cc *ChecksController) HandleErrors(ctx context.Context) {
 	log := logger.FromContext(ctx)
 
 	for {

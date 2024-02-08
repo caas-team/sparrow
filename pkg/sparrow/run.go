@@ -38,27 +38,24 @@ import (
 
 const shutdownTimeout = time.Second * 90
 
+// Sparrow is the main struct of the sparrow application
 type Sparrow struct {
-	config  *config.Config
-	db      db.DB
-	api     api.API
-	loader  config.Loader
-	tarMan  targets.TargetManager
+	// config is the startup configuration of the sparrow
+	config *config.Config
+	// db is the database used to store the check results
+	db db.DB
+	// api is the sparrow's API
+	api api.API
+	// loader is used to load the runtime configuration
+	loader config.Loader
+	// tarMan is the target manager that is used to manage global targets
+	tarMan targets.TargetManager
+	// metrics is used to collect metrics
 	metrics Metrics
-	errorHandler
-	checkCoordinator
-}
-
-// checkCoordinator is used to coordinate the checks and the reconciler
-type checkCoordinator struct {
 	// controller is used to manage the checks
 	controller *ChecksController
 	// cRuntime is used to signal that the runtime configuration has changed
 	cRuntime chan runtime.Config
-}
-
-// errorHandler is used to handle non-recoverable errors of the sparrow components
-type errorHandler struct {
 	// cErr is used to handle non-recoverable errors of the sparrow components
 	cErr chan error
 	// cDone is used to signal that the sparrow was shut down because of an error
@@ -73,19 +70,15 @@ func New(cfg *config.Config) *Sparrow {
 	dbase := db.NewInMemory()
 
 	sparrow := &Sparrow{
-		config:  cfg,
-		db:      dbase,
-		api:     api.New(cfg.Api),
-		metrics: metrics,
-		errorHandler: errorHandler{
-			cErr:     make(chan error, 1),
-			cDone:    make(chan struct{}, 1),
-			shutOnce: sync.Once{},
-		},
-		checkCoordinator: checkCoordinator{
-			controller: NewChecksController(dbase, metrics),
-			cRuntime:   make(chan runtime.Config, 1),
-		},
+		config:     cfg,
+		db:         dbase,
+		api:        api.New(cfg.Api),
+		metrics:    metrics,
+		controller: NewChecksController(dbase, metrics),
+		cRuntime:   make(chan runtime.Config, 1),
+		cErr:       make(chan error, 1),
+		cDone:      make(chan struct{}, 1),
+		shutOnce:   sync.Once{},
 	}
 
 	if cfg.HasTargetManager() {
@@ -115,9 +108,8 @@ func (s *Sparrow) Run(ctx context.Context) error {
 	go func() {
 		s.cErr <- s.startupAPI(ctx)
 	}()
-	go func() {
-		s.controller.ListenErrors(ctx)
-	}()
+
+	go s.controller.HandleErrors(ctx)
 
 	for {
 		select {
@@ -206,12 +198,6 @@ func (s *Sparrow) enrichTargets(cfg runtime.Config) runtime.Config {
 	return cfg
 }
 
-type ErrShutdown struct {
-	errAPI       error
-	errTarMan    error
-	errCheckCont error
-}
-
 // shutdown shuts down the sparrow and all managed components gracefully.
 // It returns an error if one is present in the context or if any of the
 // components fail to shut down.
@@ -231,7 +217,7 @@ func (s *Sparrow) shutdown(ctx context.Context) {
 		s.loader.Shutdown(ctx)
 		sErrs.errCheckCont = s.controller.Shutdown(ctx)
 
-		if sErrs.errTarMan != nil || sErrs.errAPI != nil || sErrs.errCheckCont != nil {
+		if sErrs.HasError() {
 			log.Error("Failed to shutdown gracefully", "contextError", errC, "errors", sErrs)
 		}
 
