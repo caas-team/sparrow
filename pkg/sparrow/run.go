@@ -21,84 +21,79 @@ package sparrow
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"slices"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/caas-team/sparrow/pkg/factory"
-
-	"github.com/caas-team/sparrow/pkg/checks"
-
-	"github.com/caas-team/sparrow/pkg/checks/runtime"
-
-	"github.com/caas-team/sparrow/pkg/sparrow/targets"
-
 	"github.com/caas-team/sparrow/internal/logger"
 	"github.com/caas-team/sparrow/pkg/api"
+	"github.com/caas-team/sparrow/pkg/checks"
+	"github.com/caas-team/sparrow/pkg/checks/runtime"
 	"github.com/caas-team/sparrow/pkg/config"
 	"github.com/caas-team/sparrow/pkg/db"
-	"github.com/go-chi/chi/v5"
+	"github.com/caas-team/sparrow/pkg/factory"
+	"github.com/caas-team/sparrow/pkg/sparrow/targets"
 )
 
 const shutdownTimeout = time.Second * 90
 
 type Sparrow struct {
-	db db.DB
-	// the existing checks
-	checks map[string]checks.Check
-	server *http.Server
-
+	config  *config.Config
+	db      db.DB
+	api     api.API
+	loader  config.Loader
+	tarMan  targets.TargetManager
 	metrics Metrics
+	errorHandler
+	checkCoordinator
+}
 
+type checkCoordinator struct {
+	// the existing checks
+	checks      map[string]checks.Check
 	resultFanIn map[string]chan checks.Result
-
-	cfg *config.Config
-
 	// cRuntime is the channel where the loader sends the checkCfg configuration of the checks
 	cRuntime chan runtime.Config
 	// cResult is the channel where the checks send their results to
 	cResult chan checks.ResultDTO
+}
+
+type errorHandler struct {
 	// cErr is used to handle non-recoverable errors of the sparrow components
 	cErr chan error
 	// cDone is used to signal that the sparrow was shut down because of an error
 	cDone chan struct{}
 	// shutOnce is used to ensure that the shutdown function is only called once
 	shutOnce sync.Once
-
-	loader config.Loader
-	tarMan targets.TargetManager
-
-	routingTree *api.RoutingTree
-	router      chi.Router
 }
 
 // New creates a new sparrow from a given configfile
 func New(cfg *config.Config) *Sparrow {
 	sparrow := &Sparrow{
-		db:          db.NewInMemory(),
-		checks:      make(map[string]checks.Check),
-		metrics:     NewMetrics(),
-		resultFanIn: make(map[string]chan checks.Result),
-		cResult:     make(chan checks.ResultDTO, 1),
-		cfg:         cfg,
-		cRuntime:    make(chan runtime.Config, 1),
-		routingTree: api.NewRoutingTree(),
-		router:      chi.NewRouter(),
-		cErr:        make(chan error, 1),
-		cDone:       make(chan struct{}, 1),
+		config:  cfg,
+		db:      db.NewInMemory(),
+		api:     api.New(cfg.Api),
+		metrics: NewMetrics(),
+		errorHandler: errorHandler{
+			cErr:     make(chan error, 1),
+			cDone:    make(chan struct{}, 1),
+			shutOnce: sync.Once{},
+		},
+		checkCoordinator: checkCoordinator{
+			checks:      make(map[string]checks.Check),
+			resultFanIn: make(map[string]chan checks.Result),
+			cRuntime:    make(chan runtime.Config, 1),
+			cResult:     make(chan checks.ResultDTO, 1),
+		},
 	}
-
-	sparrow.server = &http.Server{Addr: cfg.Api.ListeningAddress, Handler: sparrow.router, ReadHeaderTimeout: readHeaderTimeout}
 
 	if cfg.HasTargetManager() {
 		gm := targets.NewGitlabManager(cfg.SparrowName, cfg.TargetManager)
 		sparrow.tarMan = gm
 	}
-
 	sparrow.loader = config.NewLoader(cfg, sparrow.cRuntime)
-	sparrow.db = db.NewInMemory()
+
 	return sparrow
 }
 
@@ -116,8 +111,9 @@ func (s *Sparrow) Run(ctx context.Context) error {
 			s.cErr <- s.tarMan.Reconcile(ctx)
 		}
 	}()
+
 	go func() {
-		s.cErr <- s.api(ctx)
+		s.cErr <- s.startupAPI(ctx)
 	}()
 
 	for {
@@ -194,7 +190,7 @@ func (s *Sparrow) enrichTargets(cfg runtime.Config) runtime.Config {
 	}
 
 	for _, gt := range s.tarMan.GetTargets() {
-		if gt.Url == fmt.Sprintf("https://%s", s.cfg.SparrowName) {
+		if gt.Url == fmt.Sprintf("https://%s", s.config.SparrowName) {
 			continue
 		}
 		if cfg.HasHealthCheck() && !slices.Contains(cfg.Health.Targets, gt.Url) {
@@ -298,7 +294,7 @@ func (s *Sparrow) shutdown(ctx context.Context) {
 		if s.tarMan != nil {
 			errS = s.tarMan.Shutdown(ctx)
 		}
-		errA := s.shutdownAPI(ctx)
+		errA := s.api.Shutdown(ctx)
 		s.loader.Shutdown(ctx)
 		if errS != nil || errA != nil {
 			log.Error("Failed to shutdown gracefully", "contextError", errC, "apiError", errA, "targetError", errS)

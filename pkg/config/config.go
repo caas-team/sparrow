@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/caas-team/sparrow/internal/helper"
+	"github.com/caas-team/sparrow/pkg/api"
 )
 
 type GitlabTargetManagerConfig struct {
@@ -41,13 +42,8 @@ type Config struct {
 	// SparrowName is the DNS name of the sparrow
 	SparrowName   string              `yaml:"name" mapstructure:"name"`
 	Loader        LoaderConfig        `yaml:"loader" mapstructure:"loader"`
-	Api           ApiConfig           `yaml:"api" mapstructure:"api"`
+	Api           api.Config          `yaml:"api" mapstructure:"api"`
 	TargetManager TargetManagerConfig `yaml:"targetManager" mapstructure:"targetManager"`
-}
-
-// ApiConfig is the configuration for the data API
-type ApiConfig struct {
-	ListeningAddress string `yaml:"address" mapstructure:"address"`
 }
 
 // LoaderConfig is the configuration for loader

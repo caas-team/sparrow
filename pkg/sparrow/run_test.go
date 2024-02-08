@@ -24,6 +24,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/caas-team/sparrow/pkg/api"
 	"github.com/caas-team/sparrow/pkg/checks/dns"
 
 	"github.com/caas-team/sparrow/pkg/checks/runtime"
@@ -31,8 +32,6 @@ import (
 	"github.com/caas-team/sparrow/pkg/checks"
 	"github.com/caas-team/sparrow/pkg/checks/health"
 	"github.com/caas-team/sparrow/pkg/checks/latency"
-
-	"github.com/caas-team/sparrow/pkg/api"
 
 	gitlabmock "github.com/caas-team/sparrow/pkg/sparrow/targets/test"
 
@@ -118,18 +117,21 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &Sparrow{
-				checks:      tt.checks,
-				resultFanIn: make(map[string]chan checks.Result),
-				cfg:         &config.Config{SparrowName: "sparrow.com"},
-				cRuntime:    make(chan runtime.Config, 1),
-				routingTree: api.NewRoutingTree(),
-				metrics:     NewMetrics(),
+				config: &config.Config{SparrowName: "sparrow.com"},
 				tarMan: &gitlabmock.MockTargetManager{
 					Targets: []checks.GlobalTarget{
 						{
 							Url: "https://gitlab.com",
 						},
 					},
+				},
+				metrics:      NewMetrics(),
+				errorHandler: errorHandler{},
+				checkCoordinator: checkCoordinator{
+					checks:      tt.checks,
+					resultFanIn: make(map[string]chan checks.Result),
+					cRuntime:    make(chan runtime.Config, 1),
+					cResult:     make(chan checks.ResultDTO),
 				},
 			}
 
@@ -185,7 +187,7 @@ func Test_fanInResults(t *testing.T) {
 func TestSparrow_Run_FullComponentStart(t *testing.T) {
 	// create simple file loader config
 	c := &config.Config{
-		Api: config.ApiConfig{ListeningAddress: ":9090"},
+		Api: api.Config{ListeningAddress: ":9090"},
 		Loader: config.LoaderConfig{
 			Type:     "file",
 			File:     config.FileLoaderConfig{Path: "../config/testdata/config.yaml"},
@@ -222,7 +224,7 @@ func TestSparrow_Run_FullComponentStart(t *testing.T) {
 func TestSparrow_Run_ContextCancel(t *testing.T) {
 	// create simple file loader config
 	c := &config.Config{
-		Api: config.ApiConfig{ListeningAddress: ":9090"},
+		Api: api.Config{ListeningAddress: ":9090"},
 		Loader: config.LoaderConfig{
 			Type:     "file",
 			File:     config.FileLoaderConfig{Path: "../config/testdata/config.yaml"},
@@ -386,7 +388,7 @@ func TestSparrow_enrichTargets(t *testing.T) {
 				tarMan: &gitlabmock.MockTargetManager{
 					Targets: tt.globalTargets,
 				},
-				cfg: &config.Config{
+				config: &config.Config{
 					SparrowName: "sparrow.com",
 				},
 			}

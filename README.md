@@ -417,7 +417,7 @@ dns:
   - Description: Count of DNS checks done
   - Labelled with `target`
 
-- `sparrow_dns_duration`
+- `sparrow_dns_duration_seconds`
   - Type: Gauge
   - Description: Duration of DNS resolution attempts
   - Labelled with `target`
