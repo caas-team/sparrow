@@ -43,31 +43,40 @@ type gitlabTargetManager struct {
 	targets []checks.GlobalTarget
 	mu      sync.RWMutex
 	// channel to signal the "reconcile" routine to stop
-	done   chan struct{}
-	gitlab gitlab.Gitlab
+	done chan struct{}
 	// the DNS name used for self-registration
 	name string
-	// the interval for the target reconciliation process
-	checkInterval time.Duration
-	// the amount of time a target can be
-	// unhealthy before it is removed from the global target list
-	unhealthyThreshold time.Duration
-	// how often the instance should register itself as a global target
-	registrationInterval time.Duration
 	// whether the instance has already registered itself as a global target
 	registered bool
+	cfg        cfg
+	gitlab     gitlab.Gitlab
+}
+
+// cfg contains the configuration for the gitlabTargetManager
+type cfg struct {
+	// The interval for the target reconciliation process
+	checkInterval time.Duration
+	// The amount of time a target can be unhealthy
+	// before it is removed from the global target list.
+	// A duration of 0 means no removal.
+	unhealthyThreshold time.Duration
+	// How often the instance should register itself as a global target.
+	// A duration of 0 means no registration.
+	registrationInterval time.Duration
 }
 
 // NewGitlabManager creates a new gitlabTargetManager
 func NewGitlabManager(name string, gtmConfig config.TargetManagerConfig) *gitlabTargetManager {
 	return &gitlabTargetManager{
-		gitlab:               gitlab.New(gtmConfig.Gitlab.BaseURL, gtmConfig.Gitlab.Token, gtmConfig.Gitlab.ProjectID),
-		name:                 name,
-		checkInterval:        gtmConfig.CheckInterval,
-		registrationInterval: gtmConfig.RegistrationInterval,
-		unhealthyThreshold:   gtmConfig.UnhealthyThreshold,
-		mu:                   sync.RWMutex{},
-		done:                 make(chan struct{}, 1),
+		gitlab: gitlab.New(gtmConfig.Gitlab.BaseURL, gtmConfig.Gitlab.Token, gtmConfig.Gitlab.ProjectID),
+		name:   name,
+		cfg: cfg{
+			checkInterval:        gtmConfig.CheckInterval,
+			registrationInterval: gtmConfig.RegistrationInterval,
+			unhealthyThreshold:   gtmConfig.UnhealthyThreshold,
+		},
+		mu:   sync.RWMutex{},
+		done: make(chan struct{}, 1),
 	}
 }
 
@@ -80,8 +89,8 @@ func (t *gitlabTargetManager) Reconcile(ctx context.Context) error {
 	log := logger.FromContext(ctx)
 	log.Info("Starting global gitlabTargetManager reconciler")
 
-	checkTimer := time.NewTimer(t.checkInterval)
-	registrationTimer := time.NewTimer(t.registrationInterval)
+	checkTimer := time.NewTimer(t.cfg.checkInterval)
+	registrationTimer := time.NewTimer(t.cfg.registrationInterval)
 
 	defer checkTimer.Stop()
 	defer registrationTimer.Stop()
@@ -99,13 +108,13 @@ func (t *gitlabTargetManager) Reconcile(ctx context.Context) error {
 			if err != nil {
 				log.Warn("Failed to get global targets", "error", err)
 			}
-			checkTimer.Reset(t.checkInterval)
+			checkTimer.Reset(t.cfg.checkInterval)
 		case <-registrationTimer.C:
 			err := t.updateRegistration(ctx)
 			if err != nil {
 				log.Warn("Failed to register self as global target", "error", err)
 			}
-			registrationTimer.Reset(t.registrationInterval)
+			registrationTimer.Reset(t.cfg.registrationInterval)
 		}
 	}
 }
@@ -211,7 +220,7 @@ func (t *gitlabTargetManager) refreshTargets(ctx context.Context) error {
 			log.Debug("Found self as global target", "lastSeenMin", time.Since(target.LastSeen).Minutes())
 			t.registered = true
 		}
-		if time.Now().Add(-t.unhealthyThreshold).After(target.LastSeen) {
+		if time.Now().Add(-t.cfg.unhealthyThreshold).After(target.LastSeen) {
 			log.Debug("Skipping unhealthy target", "target", target)
 			continue
 		}
