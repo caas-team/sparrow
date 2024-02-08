@@ -56,7 +56,7 @@ type TargetManagerConfig struct {
 	Gitlab GitlabTargetManagerConfig `yaml:"gitlab" mapstructure:"gitlab"`
 }
 
-func (tmc *TargetManagerConfig) Validate() error {
+func (tmc *Config) Validate() error {
 	if tmc.CheckInterval <= 0 {
 		return ErrInvalidCheckInterval
 	}
