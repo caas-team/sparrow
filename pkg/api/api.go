@@ -31,6 +31,7 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
+//go:generate moq -out api_moq.go . API
 type API interface {
 	Run(ctx context.Context) error
 	Shutdown(ctx context.Context) error
