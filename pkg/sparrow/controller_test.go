@@ -25,15 +25,19 @@ import (
 	"testing"
 	"time"
 
+	"github.com/caas-team/sparrow/internal/logger"
 	"github.com/caas-team/sparrow/pkg/checks"
+	"github.com/caas-team/sparrow/pkg/checks/dns"
 	"github.com/caas-team/sparrow/pkg/checks/health"
+	"github.com/caas-team/sparrow/pkg/checks/latency"
 	"github.com/caas-team/sparrow/pkg/checks/runtime"
 	"github.com/caas-team/sparrow/pkg/db"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/stretchr/testify/assert"
 )
 
-func TestListenErrors_CheckRunError(t *testing.T) {
+func TestHandleErrors_CheckRunError(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -80,7 +84,7 @@ func TestListenErrors_CheckRunError(t *testing.T) {
 	}
 }
 
-func TestListenErrors_ContextCancellation(t *testing.T) {
+func TestHandleErrors_ContextCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	cc := NewChecksController(db.NewInMemory(), NewMetrics())
@@ -98,6 +102,119 @@ func TestListenErrors_ContextCancellation(t *testing.T) {
 		return
 	case <-time.After(time.Second):
 		t.Fatal("ListenErrors did not exit on context cancellation")
+	}
+}
+
+func TestChecksController_Reconcile(t *testing.T) {
+	ctx, cancel := logger.NewContextWithLogger(context.Background())
+	defer cancel()
+	rtcfg := &runtime.Config{}
+	tests := []struct {
+		name             string
+		checks           []checks.Check
+		newRuntimeConfig runtime.Config
+	}{
+		{
+			name:   "no checks registered yet but register one",
+			checks: []checks.Check{},
+			newRuntimeConfig: runtime.Config{Health: &health.Config{
+				Targets: []string{"https://gitlab.com"},
+			}},
+		},
+		{
+			name:   "no checks registered, register multiple new ones",
+			checks: []checks.Check{},
+			newRuntimeConfig: runtime.Config{
+				Health: &health.Config{
+					Targets: []string{"https://gitlab.com"},
+				},
+				Latency: &latency.Config{
+					Targets: []string{"https://gitlab.com"},
+				},
+				Dns: &dns.Config{
+					Targets: []string{"gitlab.com"},
+				},
+			},
+		},
+		{
+			name: "one healthcheck registered, register latency check",
+			checks: []checks.Check{
+				health.NewCheck(),
+			},
+			newRuntimeConfig: runtime.Config{
+				Latency: &latency.Config{
+					Targets: []string{"https://gitlab.com"},
+				},
+				Health: &health.Config{
+					Targets: []string{"https://gitlab.com"},
+				},
+			},
+		},
+		{
+			name: "no checks registered but unregister all",
+			checks: []checks.Check{
+				health.NewCheck(),
+			},
+			newRuntimeConfig: *rtcfg,
+		},
+		{
+			name: "one health check registered, register latency and unregister health",
+			checks: []checks.Check{
+				health.NewCheck(),
+			},
+			newRuntimeConfig: runtime.Config{
+				Latency: &latency.Config{
+					Targets: []string{"https://gitlab.com"},
+				},
+			},
+		},
+		{
+			name: "multiple checks registered, unregister some",
+			checks: []checks.Check{
+				health.NewCheck(),
+				latency.NewCheck(),
+			},
+			newRuntimeConfig: runtime.Config{
+				Health: &health.Config{
+					Targets: []string{"https://gitlab.com"},
+				},
+			},
+		},
+		{
+			name: "multiple checks registered, unregister all",
+			checks: []checks.Check{
+				health.NewCheck(),
+				latency.NewCheck(),
+			},
+			newRuntimeConfig: *rtcfg,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cc := NewChecksController(db.NewInMemory(), NewMetrics())
+
+			for _, c := range tt.checks {
+				cc.checks.Add(c)
+			}
+
+			cc.Reconcile(ctx, tt.newRuntimeConfig)
+
+			// iterate of the controllers checks and check if they are configured
+			for _, c := range cc.checks.Iter() {
+				cfg := c.GetConfig()
+				assert.NotNil(t, cfg)
+				if cfg.For() == health.CheckName {
+					assert.Equal(t, tt.newRuntimeConfig.Health, cfg)
+				}
+				if cfg.For() == latency.CheckName {
+					assert.Equal(t, tt.newRuntimeConfig.Latency, cfg)
+				}
+				if cfg.For() == dns.CheckName {
+					assert.Equal(t, tt.newRuntimeConfig.Dns, cfg)
+				}
+			}
+		})
 	}
 }
 

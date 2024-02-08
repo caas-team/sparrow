@@ -28,11 +28,9 @@ import (
 
 	"github.com/caas-team/sparrow/internal/logger"
 	"github.com/caas-team/sparrow/pkg/api"
-	"github.com/caas-team/sparrow/pkg/checks"
 	"github.com/caas-team/sparrow/pkg/checks/runtime"
 	"github.com/caas-team/sparrow/pkg/config"
 	"github.com/caas-team/sparrow/pkg/db"
-	"github.com/caas-team/sparrow/pkg/factory"
 	"github.com/caas-team/sparrow/pkg/sparrow/targets"
 )
 
@@ -114,7 +112,8 @@ func (s *Sparrow) Run(ctx context.Context) error {
 	for {
 		select {
 		case cfg := <-s.cRuntime:
-			s.ReconcileChecks(ctx, cfg)
+			cfg = s.enrichTargets(cfg)
+			s.controller.Reconcile(ctx, cfg)
 		case <-ctx.Done():
 			s.shutdown(ctx)
 		case err := <-s.cErr:
@@ -124,50 +123,6 @@ func (s *Sparrow) Run(ctx context.Context) error {
 			}
 		case <-s.cDone:
 			return fmt.Errorf("sparrow was shut down")
-		}
-	}
-}
-
-// ReconcileChecks reconciles the checks.
-// It registers new checks, updates existing checks and unregisters checks not in the new config.
-func (s *Sparrow) ReconcileChecks(ctx context.Context, cfg runtime.Config) {
-	log := logger.FromContext(ctx)
-
-	cfg = s.enrichTargets(cfg)
-	newChecks, err := factory.NewChecksFromConfig(cfg)
-	if err != nil {
-		log.ErrorContext(ctx, "Failed to create checks from config", "error", err)
-		return
-	}
-
-	// Update existing checks and create a list of checks to unregister
-	var unregList []checks.Check
-	for _, c := range s.controller.checks.Iter() {
-		conf := cfg.For(c.Name())
-		if conf != nil {
-			err = c.SetConfig(conf)
-			if err != nil {
-				log.ErrorContext(ctx, "Failed to set config for check", "check", c.Name(), "error", err)
-			}
-			delete(newChecks, c.Name())
-		} else {
-			unregList = append(unregList, c)
-		}
-	}
-
-	// Unregister checks not in the new config
-	for _, c := range unregList {
-		err = s.controller.UnregisterCheck(ctx, c)
-		if err != nil {
-			log.ErrorContext(ctx, "Failed to unregister check", "check", c.Name(), "error", err)
-		}
-	}
-
-	// Register new checks
-	for _, c := range newChecks {
-		err = s.controller.RegisterCheck(ctx, c)
-		if err != nil {
-			log.ErrorContext(ctx, "Failed to register check", "check", c.Name(), "error", err)
 		}
 	}
 }

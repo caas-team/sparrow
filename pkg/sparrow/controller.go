@@ -28,6 +28,7 @@ import (
 	"github.com/caas-team/sparrow/pkg/checks"
 	"github.com/caas-team/sparrow/pkg/checks/runtime"
 	"github.com/caas-team/sparrow/pkg/db"
+	"github.com/caas-team/sparrow/pkg/factory"
 	"github.com/getkin/kin-openapi/openapi3"
 )
 
@@ -89,6 +90,49 @@ func (cc *ChecksController) Shutdown(ctx context.Context) (err error) {
 	cc.done <- struct{}{}
 	close(cc.done)
 	return err
+}
+
+// Reconcile reconciles the checks.
+// It registers new checks, updates existing checks and unregisters checks not in the new config.
+func (cc *ChecksController) Reconcile(ctx context.Context, cfg runtime.Config) {
+	log := logger.FromContext(ctx)
+
+	newChecks, err := factory.NewChecksFromConfig(cfg)
+	if err != nil {
+		log.ErrorContext(ctx, "Failed to create checks from config", "error", err)
+		return
+	}
+
+	// Update existing checks and create a list of checks to unregister
+	var unregList []checks.Check
+	for _, c := range cc.checks.Iter() {
+		conf := cfg.For(c.Name())
+		if conf != nil {
+			err = c.SetConfig(conf)
+			if err != nil {
+				log.ErrorContext(ctx, "Failed to set config for check", "check", c.Name(), "error", err)
+			}
+			delete(newChecks, c.Name())
+		} else {
+			unregList = append(unregList, c)
+		}
+	}
+
+	// Unregister checks not in the new config
+	for _, c := range unregList {
+		err = cc.UnregisterCheck(ctx, c)
+		if err != nil {
+			log.ErrorContext(ctx, "Failed to unregister check", "check", c.Name(), "error", err)
+		}
+	}
+
+	// Register new checks
+	for _, c := range newChecks {
+		err = cc.RegisterCheck(ctx, c)
+		if err != nil {
+			log.ErrorContext(ctx, "Failed to register check", "check", c.Name(), "error", err)
+		}
+	}
 }
 
 // RegisterCheck registers a new check.
