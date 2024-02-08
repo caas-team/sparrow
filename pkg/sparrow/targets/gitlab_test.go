@@ -110,7 +110,7 @@ func Test_gitlabTargetManager_refreshTargets(t *testing.T) {
 				targets: nil,
 				gitlab:  gitlab,
 				name:    "test",
-				cfg:     cfg{unhealthyThreshold: time.Hour},
+				cfg:     Config{UnhealthyThreshold: time.Hour},
 			}
 			if err := gtm.refreshTargets(context.Background()); (err != nil) != (tt.wantErr != nil) {
 				t.Fatalf("refreshTargets() error = %v, wantErr %v", err, tt.wantErr)
@@ -514,10 +514,10 @@ func mockGitlabTargetManager(g *gitlabmock.MockClient, name string) *gitlabTarge
 		done:    make(chan struct{}, 1),
 		gitlab:  g,
 		name:    name,
-		cfg: cfg{
-			checkInterval:        100 * time.Millisecond,
-			unhealthyThreshold:   1 * time.Second,
-			registrationInterval: 150 * time.Millisecond,
+		cfg: Config{
+			CheckInterval:        100 * time.Millisecond,
+			UnhealthyThreshold:   1 * time.Second,
+			RegistrationInterval: 150 * time.Millisecond,
 		},
 		registered: false,
 	}

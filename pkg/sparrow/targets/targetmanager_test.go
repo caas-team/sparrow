@@ -18,34 +18,42 @@ func TestTargetManagerConfig_Validate(t *testing.T) {
 		{
 			name: "valid config - non-zero values",
 			cfg: TargetManagerConfig{
-				UnhealthyThreshold:   1 * time.Second,
-				CheckInterval:        1 * time.Second,
-				RegistrationInterval: 1 * time.Second,
+				Config: Config{
+					UnhealthyThreshold:   1 * time.Second,
+					CheckInterval:        1 * time.Second,
+					RegistrationInterval: 1 * time.Second,
+				},
 			},
 		},
 		{
 			name: "valid config - zero values",
 			cfg: TargetManagerConfig{
-				UnhealthyThreshold:   0,
-				CheckInterval:        1 * time.Second,
-				RegistrationInterval: 0,
+				Config: Config{
+					UnhealthyThreshold:   0,
+					CheckInterval:        1 * time.Second,
+					RegistrationInterval: 0,
+				},
 			},
 		},
 		{
 			name: "invalid config - zero check interval",
 			cfg: TargetManagerConfig{
-				UnhealthyThreshold:   1 * time.Second,
-				CheckInterval:        0,
-				RegistrationInterval: 1 * time.Second,
+				Config: Config{
+					UnhealthyThreshold:   1 * time.Second,
+					CheckInterval:        0,
+					RegistrationInterval: 1 * time.Second,
+				},
 			},
 			wantErr: true,
 		},
 		{
 			name: "invalid config - negative values",
 			cfg: TargetManagerConfig{
-				UnhealthyThreshold:   -1 * time.Second,
-				CheckInterval:        1 * time.Second,
-				RegistrationInterval: 1 * time.Second,
+				Config: Config{
+					UnhealthyThreshold:   -1 * time.Second,
+					CheckInterval:        1 * time.Second,
+					RegistrationInterval: 1 * time.Second,
+				},
 			},
 			wantErr: true,
 		},

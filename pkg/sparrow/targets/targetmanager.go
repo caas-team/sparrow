@@ -38,11 +38,22 @@ type TargetManager interface {
 	Shutdown(ctx context.Context) error
 }
 
+// Config is the general configuration of the target manager
+type Config struct {
+	// The interval for the target reconciliation process
+	CheckInterval time.Duration `yaml:"checkInterval" mapstructure:"checkInterval"`
+	// How often the instance should register itself as a global target.
+	// A duration of 0 means no registration.
+	RegistrationInterval time.Duration `yaml:"registrationInterval" mapstructure:"registrationInterval"`
+	// The amount of time a target can be unhealthy
+	// before it is removed from the global target list.
+	// A duration of 0 means no removal.
+	UnhealthyThreshold time.Duration `yaml:"unhealthyThreshold" mapstructure:"unhealthyThreshold"`
+}
+
 type TargetManagerConfig struct {
-	CheckInterval        time.Duration             `yaml:"checkInterval" mapstructure:"checkInterval"`
-	RegistrationInterval time.Duration             `yaml:"registrationInterval" mapstructure:"registrationInterval"`
-	UnhealthyThreshold   time.Duration             `yaml:"unhealthyThreshold" mapstructure:"unhealthyThreshold"`
-	Gitlab               GitlabTargetManagerConfig `yaml:"gitlab" mapstructure:"gitlab"`
+	Config
+	Gitlab GitlabTargetManagerConfig `yaml:"gitlab" mapstructure:"gitlab"`
 }
 
 func (tmc *TargetManagerConfig) Validate() error {

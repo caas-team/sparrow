@@ -196,9 +196,11 @@ func TestSparrow_Run_FullComponentStart(t *testing.T) {
 			Interval: time.Second * 1,
 		},
 		TargetManager: targets.TargetManagerConfig{
-			CheckInterval:        time.Second * 1,
-			RegistrationInterval: time.Second * 1,
-			UnhealthyThreshold:   time.Second * 1,
+			Config: targets.Config{
+				CheckInterval:        time.Second * 1,
+				RegistrationInterval: time.Second * 1,
+				UnhealthyThreshold:   time.Second * 1,
+			},
 			Gitlab: targets.GitlabTargetManagerConfig{
 				BaseURL:   "https://gitlab.com",
 				Token:     "my-cool-token",
