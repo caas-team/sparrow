@@ -31,6 +31,10 @@ import (
 	gitlabmock "github.com/caas-team/sparrow/pkg/sparrow/gitlab/test"
 )
 
+// Test_gitlabTargetManager_refreshTargets tests that the refreshTargets method
+// will fetch the targets from the remote gitlab instance and update the local
+// targets list. When an unhealthyTheshold is set, it will also unregister
+// unhealthy targets
 func Test_gitlabTargetManager_refreshTargets(t *testing.T) {
 	now := time.Now()
 	tooOld := now.Add(-time.Hour * 2)
@@ -111,6 +115,78 @@ func Test_gitlabTargetManager_refreshTargets(t *testing.T) {
 				gitlab:  gitlab,
 				name:    "test",
 				cfg:     Config{UnhealthyThreshold: time.Hour},
+			}
+			if err := gtm.refreshTargets(context.Background()); (err != nil) != (tt.wantErr != nil) {
+				t.Fatalf("refreshTargets() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if gtm.Registered() != tt.expectedRegisteredAfter {
+				t.Fatalf("expected registered to be %v, got %v", tt.expectedRegisteredAfter, gtm.Registered())
+			}
+		})
+	}
+}
+
+// Test_gitlabTargetManager_refreshTargets_No_Threshold tests that the
+// refreshTargets method will not unregister unhealthy targets if the
+// unhealthyThreshold is 0
+func Test_gitlabTargetManager_refreshTargets_No_Threshold(t *testing.T) {
+	tests := []struct {
+		name                    string
+		mockTargets             []checks.GlobalTarget
+		expectedHealthy         []checks.GlobalTarget
+		expectedRegisteredAfter bool
+		wantErr                 error
+	}{
+		{
+			name: "success with 1 target",
+			mockTargets: []checks.GlobalTarget{
+				{
+					Url:      "https://test",
+					LastSeen: time.Now().Add(-time.Hour * 24),
+				},
+			},
+			expectedHealthy: []checks.GlobalTarget{
+				{
+					Url:      "https://test",
+					LastSeen: time.Now().Add(-time.Hour * 2),
+				},
+			},
+			expectedRegisteredAfter: true,
+		},
+		{
+			name: "success with 2 old targets",
+			mockTargets: []checks.GlobalTarget{
+				{
+					Url:      "https://test",
+					LastSeen: time.Now().Add(-time.Hour * 24),
+				},
+				{
+					Url:      "https://test2",
+					LastSeen: time.Now().Add(-time.Hour * 24),
+				},
+			},
+			expectedHealthy: []checks.GlobalTarget{
+				{
+					Url:      "https://test",
+					LastSeen: time.Now().Add(-time.Hour * 24),
+				},
+				{
+					Url:      "https://test2",
+					LastSeen: time.Now().Add(-time.Hour * 24),
+				},
+			},
+			expectedRegisteredAfter: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gitlab := gitlabmock.New(tt.mockTargets)
+			gtm := &gitlabTargetManager{
+				targets: nil,
+				gitlab:  gitlab,
+				name:    "test",
+				cfg:     Config{UnhealthyThreshold: 0},
 			}
 			if err := gtm.refreshTargets(context.Background()); (err != nil) != (tt.wantErr != nil) {
 				t.Fatalf("refreshTargets() error = %v, wantErr %v", err, tt.wantErr)

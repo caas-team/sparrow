@@ -235,6 +235,12 @@ func (t *gitlabTargetManager) refreshTargets(ctx context.Context) error {
 			log.Debug("Found self as global target", "lastSeenMin", time.Since(target.LastSeen).Minutes())
 			t.registered = true
 		}
+
+		if t.cfg.UnhealthyThreshold == 0 {
+			healthyTargets = append(healthyTargets, target)
+			continue
+		}
+
 		if time.Now().Add(-t.cfg.UnhealthyThreshold).After(target.LastSeen) {
 			log.Debug("Skipping unhealthy target", "target", target)
 			continue
