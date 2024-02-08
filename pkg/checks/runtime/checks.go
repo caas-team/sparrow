@@ -19,25 +19,34 @@
 package runtime
 
 import (
+	"sync"
+
 	"github.com/caas-team/sparrow/pkg/checks"
 )
 
 // Checks holds all the checks.
 type Checks struct {
+	mu     sync.RWMutex
 	checks []checks.Check
 }
 
 // Add adds a new check.
 func (c *Checks) Add(check checks.Check) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.checks = append(c.checks, check)
 }
 
 // Delete deletes a check.
 func (c *Checks) Delete(index int) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.checks = append(c.checks[:index], c.checks[index+1:]...)
 }
 
 // Iter returns configured checks in an iterable format
 func (c *Checks) Iter() []checks.Check {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	return c.checks
 }
