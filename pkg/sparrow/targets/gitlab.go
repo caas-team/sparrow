@@ -27,8 +27,6 @@ import (
 
 	"github.com/caas-team/sparrow/pkg/checks"
 
-	"github.com/caas-team/sparrow/pkg/config"
-
 	"github.com/caas-team/sparrow/pkg/sparrow/gitlab"
 
 	"github.com/caas-team/sparrow/internal/logger"
@@ -52,6 +50,12 @@ type gitlabTargetManager struct {
 	gitlab     gitlab.Gitlab
 }
 
+type GitlabTargetManagerConfig struct {
+	BaseURL   string `yaml:"baseUrl" mapstructure:"baseUrl"`
+	Token     string `yaml:"token" mapstructure:"token"`
+	ProjectID int    `yaml:"projectId" mapstructure:"projectId"`
+}
+
 // cfg contains the configuration for the gitlabTargetManager
 type cfg struct {
 	// The interval for the target reconciliation process
@@ -66,7 +70,7 @@ type cfg struct {
 }
 
 // NewGitlabManager creates a new gitlabTargetManager
-func NewGitlabManager(name string, gtmConfig config.TargetManagerConfig) *gitlabTargetManager {
+func NewGitlabManager(name string, gtmConfig TargetManagerConfig) *gitlabTargetManager {
 	return &gitlabTargetManager{
 		gitlab: gitlab.New(gtmConfig.Gitlab.BaseURL, gtmConfig.Gitlab.Token, gtmConfig.Gitlab.ProjectID),
 		name:   name,

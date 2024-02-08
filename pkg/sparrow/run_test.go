@@ -24,6 +24,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/caas-team/sparrow/pkg/sparrow/targets"
+
 	"github.com/caas-team/sparrow/pkg/api"
 	"github.com/caas-team/sparrow/pkg/checks/dns"
 
@@ -193,11 +195,11 @@ func TestSparrow_Run_FullComponentStart(t *testing.T) {
 			File:     config.FileLoaderConfig{Path: "../config/testdata/config.yaml"},
 			Interval: time.Second * 1,
 		},
-		TargetManager: config.TargetManagerConfig{
+		TargetManager: targets.TargetManagerConfig{
 			CheckInterval:        time.Second * 1,
 			RegistrationInterval: time.Second * 1,
 			UnhealthyThreshold:   time.Second * 1,
-			Gitlab: config.GitlabTargetManagerConfig{
+			Gitlab: targets.GitlabTargetManagerConfig{
 				BaseURL:   "https://gitlab.com",
 				Token:     "my-cool-token",
 				ProjectID: 42,

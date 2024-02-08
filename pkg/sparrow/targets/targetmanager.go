@@ -20,6 +20,7 @@ package targets
 
 import (
 	"context"
+	"time"
 
 	"github.com/caas-team/sparrow/pkg/checks"
 )
@@ -35,4 +36,24 @@ type TargetManager interface {
 	// Shutdown shuts down the target manager
 	// and unregisters the instance as a global target
 	Shutdown(ctx context.Context) error
+}
+
+type TargetManagerConfig struct {
+	CheckInterval        time.Duration             `yaml:"checkInterval" mapstructure:"checkInterval"`
+	RegistrationInterval time.Duration             `yaml:"registrationInterval" mapstructure:"registrationInterval"`
+	UnhealthyThreshold   time.Duration             `yaml:"unhealthyThreshold" mapstructure:"unhealthyThreshold"`
+	Gitlab               GitlabTargetManagerConfig `yaml:"gitlab" mapstructure:"gitlab"`
+}
+
+func (tmc *TargetManagerConfig) Validate() error {
+	if tmc.CheckInterval <= 0 {
+		return ErrInvalidCheckInterval
+	}
+	if tmc.RegistrationInterval < 0 {
+		return ErrInvalidRegistrationInterval
+	}
+	if tmc.UnhealthyThreshold < 0 {
+		return ErrInvalidUnhealthyThreshold
+	}
+	return nil
 }
