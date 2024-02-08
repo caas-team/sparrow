@@ -60,10 +60,8 @@ func TestListenErrors_CheckRunError(t *testing.T) {
 	}
 
 	go cc.ListenErrors(ctx)
-	if err := cc.Shutdown(ctx); err != nil {
-		t.Fatalf("Shutdown() error = %v", err)
-	}
 
+	// Wait for the error to be processed
 	time.Sleep(100 * time.Millisecond)
 
 	found := false
@@ -76,6 +74,9 @@ func TestListenErrors_CheckRunError(t *testing.T) {
 
 	if found {
 		t.Errorf("Expected mockCheck to be unregistered after encountering a run error")
+	}
+	if err := cc.Shutdown(ctx); err != nil {
+		t.Fatalf("Shutdown() error = %v", err)
 	}
 }
 
@@ -90,7 +91,7 @@ func TestListenErrors_ContextCancellation(t *testing.T) {
 		close(done)
 	}()
 
-	cancel() // Trigger context cancellation
+	cancel()
 
 	select {
 	case <-done:
