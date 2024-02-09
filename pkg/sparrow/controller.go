@@ -107,15 +107,15 @@ func (cc *ChecksController) Reconcile(ctx context.Context, cfg runtime.Config) {
 	var unregList []checks.Check
 	for _, c := range cc.checks.Iter() {
 		conf := cfg.For(c.Name())
-		if conf != nil {
-			err = c.SetConfig(conf)
-			if err != nil {
-				log.ErrorContext(ctx, "Failed to set config for check", "check", c.Name(), "error", err)
-			}
-			delete(newChecks, c.Name())
-		} else {
+		if conf == nil {
 			unregList = append(unregList, c)
+			continue
 		}
+		err = c.SetConfig(conf)
+		if err != nil {
+			log.ErrorContext(ctx, "Failed to set config for check", "check", c.Name(), "error", err)
+		}
+		delete(newChecks, c.Name())
 	}
 
 	// Unregister checks not in the new config
