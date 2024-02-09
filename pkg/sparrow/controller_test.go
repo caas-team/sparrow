@@ -63,8 +63,12 @@ func TestHandleErrors_CheckRunError(t *testing.T) {
 		t.Fatalf("RegisterCheck() error = %v", err)
 	}
 
-	go cc.HandleErrors(ctx)
-
+	go func() {
+		err := cc.HandleErrors(ctx)
+		if err != nil {
+			t.Errorf("HandleErrors() error = %v", err)
+		}
+	}()
 	// Wait for the error to be processed
 	time.Sleep(100 * time.Millisecond)
 
@@ -91,7 +95,10 @@ func TestHandleErrors_ContextCancellation(t *testing.T) {
 
 	done := make(chan struct{})
 	go func() {
-		cc.HandleErrors(ctx)
+		err := cc.HandleErrors(ctx)
+		if err == nil {
+			t.Errorf("HandleErrors() = %v, want %v", nil, err)
+		}
 		close(done)
 	}()
 
@@ -101,7 +108,7 @@ func TestHandleErrors_ContextCancellation(t *testing.T) {
 	case <-done:
 		return
 	case <-time.After(time.Second):
-		t.Fatal("ListenErrors did not exit on context cancellation")
+		t.Fatal("HandleErrors did not exit on context cancellation")
 	}
 }
 

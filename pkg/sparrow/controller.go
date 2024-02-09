@@ -52,8 +52,8 @@ func NewChecksController(dbase db.DB, metrics Metrics) *ChecksController {
 	}
 }
 
-// HandleErrors listens for errors and unregisters failed checks.
-func (cc *ChecksController) HandleErrors(ctx context.Context) {
+// HandleErrors handles errors that occur while running checks.
+func (cc *ChecksController) HandleErrors(ctx context.Context) error {
 	log := logger.FromContext(ctx)
 
 	for {
@@ -68,10 +68,10 @@ func (cc *ChecksController) HandleErrors(ctx context.Context) {
 			}
 			log.ErrorContext(ctx, "Error while running check", "error", err)
 		case <-ctx.Done():
-			return
+			return ctx.Err()
 		case <-cc.done:
 			cc.cErr <- nil
-			return
+			return nil
 		}
 	}
 }

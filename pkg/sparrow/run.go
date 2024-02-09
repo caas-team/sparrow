@@ -107,7 +107,9 @@ func (s *Sparrow) Run(ctx context.Context) error {
 		s.cErr <- s.startupAPI(ctx)
 	}()
 
-	go s.controller.HandleErrors(ctx)
+	go func() {
+		s.cErr <- s.controller.HandleErrors(ctx)
+	}()
 
 	for {
 		select {
