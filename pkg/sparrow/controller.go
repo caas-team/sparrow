@@ -175,12 +175,7 @@ func (cc *ChecksController) UnregisterCheck(ctx context.Context, check checks.Ch
 		return err
 	}
 
-	for i, existingCheck := range cc.checks.Iter() {
-		if existingCheck.Name() == check.Name() {
-			cc.checks.Delete(i)
-			break
-		}
-	}
+	cc.removeCheck(check)
 
 	return nil
 }
@@ -210,6 +205,16 @@ func (cc *ChecksController) runCheck(ctx context.Context, check checks.Check) er
 			return ctx.Err()
 		case <-cc.done:
 			return nil
+		}
+	}
+}
+
+// removeCheck removes a check from the list of checks.
+func (cc *ChecksController) removeCheck(c checks.Check) {
+	for i, exist := range cc.checks.Iter() {
+		if exist.Name() == c.Name() {
+			cc.checks.Delete(i)
+			break
 		}
 	}
 }
