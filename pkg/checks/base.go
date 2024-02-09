@@ -77,6 +77,8 @@ type CheckBase struct {
 type Runtime interface {
 	// For returns the name of the check being configured
 	For() string
+	// Validate checks if the configuration is valid
+	Validate() error
 }
 
 // Result encapsulates the outcome of a check run.

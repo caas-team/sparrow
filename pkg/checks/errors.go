@@ -22,6 +22,7 @@ import (
 	"fmt"
 )
 
+// ErrConfigMismatch is returned when a configuration is of the wrong type
 type ErrConfigMismatch struct {
 	Expected string
 	Current  string
@@ -29,4 +30,14 @@ type ErrConfigMismatch struct {
 
 func (e ErrConfigMismatch) Error() string {
 	return fmt.Sprintf("config mismatch: expected type %v, got %v", e.Expected, e.Current)
+}
+
+// ErrInvalidConfig is returned when a configuration is invalid
+type ErrInvalidConfig struct {
+	Field  string
+	Reason string
+}
+
+func (e ErrInvalidConfig) Error() string {
+	return fmt.Sprintf("invalid config field %v: %v", e.Field, e.Reason)
 }
