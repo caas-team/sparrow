@@ -19,6 +19,8 @@
 package runtime
 
 import (
+	"errors"
+
 	"github.com/caas-team/sparrow/pkg/checks"
 	"github.com/caas-team/sparrow/pkg/checks/dns"
 	"github.com/caas-team/sparrow/pkg/checks/health"
@@ -37,6 +39,16 @@ type Config struct {
 // Empty returns true if no checks are configured
 func (c Config) Empty() bool {
 	return c.size() == 0
+}
+
+func (c Config) Validate() (err error) {
+	for _, cfg := range c.Iter() {
+		if vErr := cfg.Validate(); vErr != nil {
+			err = errors.Join(err, vErr)
+		}
+	}
+
+	return err
 }
 
 // Iter returns configured checks in an iterable format
