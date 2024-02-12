@@ -39,6 +39,15 @@ func TestConfig_Validate(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "invalid targets",
+			config: Config{
+				Targets:  []string{"localhost:8080"},
+				Interval: 100 * time.Millisecond,
+				Timeout:  1 * time.Second,
+			},
+			wantErr: true,
+		},
+		{
 			name: "invalid interval",
 			config: Config{
 				Targets:  []string{"http://localhost:8080"},
@@ -53,15 +62,6 @@ func TestConfig_Validate(t *testing.T) {
 				Targets:  []string{"http://localhost:8080"},
 				Interval: 100 * time.Millisecond,
 				Timeout:  100 * time.Millisecond,
-			},
-			wantErr: true,
-		},
-		{
-			name: "no targets",
-			config: Config{
-				Targets:  []string{},
-				Interval: 100 * time.Millisecond,
-				Timeout:  1 * time.Second,
 			},
 			wantErr: true,
 		},

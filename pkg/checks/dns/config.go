@@ -19,6 +19,8 @@
 package dns
 
 import (
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/caas-team/sparrow/internal/helper"
@@ -27,7 +29,7 @@ import (
 
 const (
 	minInterval = 100 * time.Millisecond
-	minTimeout  = 1 * time.Second
+	minTimeout  = 200 * time.Millisecond
 )
 
 // Config defines the configuration parameters for a DNS check
@@ -45,16 +47,18 @@ func (c *Config) For() string {
 
 // Validate checks if the configuration is valid
 func (h *Config) Validate() error {
-	if len(h.Targets) == 0 {
-		return checks.ErrInvalidConfig{Field: "targets", Reason: "no targets defined"}
+	for _, t := range h.Targets {
+		if strings.HasPrefix(t, "https://") || strings.HasPrefix(t, "http://") {
+			return checks.ErrInvalidConfig{Field: "targets", Reason: "target URLs must not start with 'https://' or 'http://'"}
+		}
 	}
 
 	if h.Interval < minInterval {
-		return checks.ErrInvalidConfig{Field: "interval", Reason: "interval must be at least 100ms"}
+		return checks.ErrInvalidConfig{Field: "interval", Reason: fmt.Sprintf("interval must be at least %v", minInterval)}
 	}
 
 	if h.Timeout < minTimeout {
-		return checks.ErrInvalidConfig{Field: "timeout", Reason: "timeout must be at least 1s"}
+		return checks.ErrInvalidConfig{Field: "timeout", Reason: fmt.Sprintf("timeout must be at least %v", minTimeout)}
 	}
 
 	return nil
