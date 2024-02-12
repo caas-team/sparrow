@@ -34,10 +34,11 @@ func (e ErrConfigMismatch) Error() string {
 
 // ErrInvalidConfig is returned when a configuration is invalid
 type ErrInvalidConfig struct {
-	Field  string
-	Reason string
+	CheckName string
+	Field     string
+	Reason    string
 }
 
 func (e ErrInvalidConfig) Error() string {
-	return fmt.Sprintf("invalid config field %v: %v", e.Field, e.Reason)
+	return fmt.Sprintf("invalid configuration field '%s' in check '%s': %s", e.Field, e.CheckName, e.Reason)
 }

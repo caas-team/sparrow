@@ -46,19 +46,19 @@ func (c *Config) For() string {
 }
 
 // Validate checks if the configuration is valid
-func (h *Config) Validate() error {
-	for _, t := range h.Targets {
+func (c *Config) Validate() error {
+	for _, t := range c.Targets {
 		if strings.HasPrefix(t, "https://") || strings.HasPrefix(t, "http://") {
-			return checks.ErrInvalidConfig{Field: "targets", Reason: "target URLs must not start with 'https://' or 'http://'"}
+			return checks.ErrInvalidConfig{CheckName: c.For(), Field: "targets", Reason: "target URLs must not start with 'https://' or 'http://'"}
 		}
 	}
 
-	if h.Interval < minInterval {
-		return checks.ErrInvalidConfig{Field: "interval", Reason: fmt.Sprintf("interval must be at least %v", minInterval)}
+	if c.Interval < minInterval {
+		return checks.ErrInvalidConfig{CheckName: c.For(), Field: "interval", Reason: fmt.Sprintf("interval must be at least %v", minInterval)}
 	}
 
-	if h.Timeout < minTimeout {
-		return checks.ErrInvalidConfig{Field: "timeout", Reason: fmt.Sprintf("timeout must be at least %v", minTimeout)}
+	if c.Timeout < minTimeout {
+		return checks.ErrInvalidConfig{CheckName: c.For(), Field: "timeout", Reason: fmt.Sprintf("timeout must be at least %v", minTimeout)}
 	}
 
 	return nil
