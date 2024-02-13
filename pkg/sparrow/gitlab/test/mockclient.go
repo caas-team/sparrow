@@ -20,6 +20,7 @@ package gitlabmock
 
 import (
 	"context"
+	"sync"
 
 	"github.com/caas-team/sparrow/pkg/checks"
 
@@ -28,22 +29,31 @@ import (
 )
 
 type MockClient struct {
-	targets       []checks.GlobalTarget
-	fetchFilesErr error
-	putFileErr    error
-	postFileErr   error
-	deleteFileErr error
+	targets        []checks.GlobalTarget
+	mu             sync.Mutex
+	fetchFilesErr  error
+	putFileErr     error
+	postFileErr    error
+	deleteFileErr  error
+	putFileCalled  bool
+	postFileCalled bool
 }
 
 func (m *MockClient) PutFile(ctx context.Context, _ gitlab.File) error { //nolint: gocritic // irrelevant
 	log := logger.FromContext(ctx)
 	log.Info("MockPutFile called", "err", m.putFileErr)
+	m.mu.Lock()
+	m.putFileCalled = true
+	m.mu.Unlock()
 	return m.putFileErr
 }
 
 func (m *MockClient) PostFile(ctx context.Context, _ gitlab.File) error { //nolint: gocritic // irrelevant
 	log := logger.FromContext(ctx)
 	log.Info("MockPostFile called", "err", m.postFileErr)
+	m.mu.Lock()
+	m.postFileCalled = true
+	m.mu.Unlock()
 	return m.postFileErr
 }
 
@@ -77,6 +87,15 @@ func (m *MockClient) SetPostFileErr(err error) {
 // SetDeleteFileErr sets the error returned by DeleteFile
 func (m *MockClient) SetDeleteFileErr(err error) {
 	m.deleteFileErr = err
+}
+
+// PutFileCalled returns true if PutFile was called
+func (m *MockClient) PutFileCalled() bool {
+	return m.putFileCalled
+}
+
+func (m *MockClient) PostFileCalled() bool {
+	return m.postFileCalled
 }
 
 // New creates a new MockClient to mock Gitlab interaction

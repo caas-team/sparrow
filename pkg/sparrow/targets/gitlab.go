@@ -76,11 +76,13 @@ func (t *gitlabTargetManager) Reconcile(ctx context.Context) error {
 	log := logger.FromContext(ctx)
 	log.Info("Starting global gitlabTargetManager reconciler")
 
-	checkTimer := time.NewTimer(t.cfg.CheckInterval)
-	registrationTimer := time.NewTimer(t.cfg.RegistrationInterval)
+	checkTimer := startTimer(t.cfg.CheckInterval)
+	registrationTimer := startTimer(t.cfg.RegistrationInterval)
+	updateTimer := startTimer(t.cfg.UpdateInterval)
 
 	defer checkTimer.Stop()
 	defer registrationTimer.Stop()
+	defer updateTimer.Stop()
 
 	for {
 		select {
@@ -97,11 +99,17 @@ func (t *gitlabTargetManager) Reconcile(ctx context.Context) error {
 			}
 			checkTimer.Reset(t.cfg.CheckInterval)
 		case <-registrationTimer.C:
-			err := t.updateRegistration(ctx)
+			err := t.register(ctx)
 			if err != nil {
 				log.Warn("Failed to register self as global target", "error", err)
 			}
 			registrationTimer.Reset(t.cfg.RegistrationInterval)
+		case <-updateTimer.C:
+			err := t.update(ctx)
+			if err != nil {
+				log.Warn("Failed to update registration", "error", err)
+			}
+			updateTimer.Reset(t.cfg.UpdateInterval)
 		}
 	}
 }
@@ -150,8 +158,37 @@ func (t *gitlabTargetManager) Shutdown(ctx context.Context) error {
 	return nil
 }
 
-// updateRegistration registers the current instance as a global target
-func (t *gitlabTargetManager) updateRegistration(ctx context.Context) error {
+// register registers the current instance as a global target
+// in the gitlab repository
+func (t *gitlabTargetManager) register(ctx context.Context) error {
+	log := logger.FromContext(ctx)
+	log.Debug("Registering as global target")
+
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	f := gitlab.File{
+		Branch:        "main",
+		AuthorEmail:   fmt.Sprintf("%s@sparrow", t.name),
+		AuthorName:    t.name,
+		CommitMessage: "Initial registration",
+		Content:       checks.GlobalTarget{Url: fmt.Sprintf("https://%s", t.name), LastSeen: time.Now().UTC()},
+	}
+	f.SetFileName(fmt.Sprintf("%s.json", t.name))
+
+	err := t.gitlab.PostFile(ctx, f)
+	if err != nil {
+		log.Error("Failed to register global gitlabTargetManager", "error", err)
+		return err
+	}
+
+	log.Debug("Successfully registered")
+	t.registered = true
+	return nil
+}
+
+// update updates the registration file of the current sparrow instance
+// in the gitlab repository
+func (t *gitlabTargetManager) update(ctx context.Context) error {
 	log := logger.FromContext(ctx)
 	log.Debug("Updating registration")
 
@@ -176,15 +213,6 @@ func (t *gitlabTargetManager) updateRegistration(ctx context.Context) error {
 		return nil
 	}
 
-	f.CommitMessage = "Initial registration"
-	err := t.gitlab.PostFile(ctx, f)
-	if err != nil {
-		log.Error("Failed to register global gitlabTargetManager", "error", err)
-		return err
-	}
-
-	log.Debug("Successfully registered")
-	t.registered = true
 	return nil
 }
 
@@ -207,6 +235,12 @@ func (t *gitlabTargetManager) refreshTargets(ctx context.Context) error {
 			log.Debug("Found self as global target", "lastSeenMin", time.Since(target.LastSeen).Minutes())
 			t.registered = true
 		}
+
+		if t.cfg.UnhealthyThreshold == 0 {
+			healthyTargets = append(healthyTargets, target)
+			continue
+		}
+
 		if time.Now().Add(-t.cfg.UnhealthyThreshold).After(target.LastSeen) {
 			log.Debug("Skipping unhealthy target", "target", target)
 			continue
@@ -222,4 +256,14 @@ func (t *gitlabTargetManager) refreshTargets(ctx context.Context) error {
 // Registered returns whether the instance is registered as a global target
 func (t *gitlabTargetManager) Registered() bool {
 	return t.registered
+}
+
+// startTimer creates a new timer with the given duration.
+// If the duration is 0, the timer is stopped.
+func startTimer(d time.Duration) *time.Timer {
+	res := time.NewTimer(d)
+	if d == 0 {
+		res.Stop()
+	}
+	return res
 }
