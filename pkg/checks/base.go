@@ -41,11 +41,9 @@ type Check interface {
 	// Run is called once, to start running the check. The check should
 	// run until the context is canceled and handle problems itself.
 	// Returning a non-nil error will cause the shutdown of the check.
-	Run(ctx context.Context) error
+	Run(ctx context.Context, cResult chan ResultDTO) error
 	// Shutdown is called once when the check is unregistered or sparrow shuts down
 	Shutdown(ctx context.Context) error
-	// ResultChan returns the channel where the check sends its results to
-	ResultChan() chan Result
 	// SetConfig is called once when the check is registered
 	// This is also called while the check is running, if the remote config is updated
 	// This should return an error if the config is invalid
@@ -65,8 +63,6 @@ type Check interface {
 type CheckBase struct {
 	// Mutex for thread-safe access to shared resources within the check implementation
 	Mu sync.Mutex
-	// Essential for passing check results back to the Sparrow; must be utilized by Check implementations
-	ResChan chan Result
 	// Signal channel used to notify about shutdown of a check
 	DoneChan chan struct{}
 }

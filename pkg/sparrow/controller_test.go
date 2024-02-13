@@ -37,21 +37,18 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestHandleErrors_CheckRunError(t *testing.T) {
+func TestRun_CheckRunError(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	cc := NewChecksController(db.NewInMemory(), NewMetrics())
 	mockCheck := &checks.CheckMock{
 		NameFunc: func() string { return "mockCheck" },
-		RunFunc: func(ctx context.Context) error {
+		RunFunc: func(ctx context.Context, cResult chan checks.ResultDTO) error {
 			return fmt.Errorf("some error")
 		},
 		GetMetricCollectorsFunc: func() []prometheus.Collector {
 			return []prometheus.Collector{}
-		},
-		ResultChanFunc: func() chan checks.Result {
-			return make(chan checks.Result, 1)
 		},
 		ShutdownFunc: func(ctx context.Context) error {
 			return nil
@@ -64,7 +61,7 @@ func TestHandleErrors_CheckRunError(t *testing.T) {
 	}
 
 	go func() {
-		err := cc.HandleErrors(ctx)
+		err := cc.Run(ctx)
 		if err != nil {
 			t.Errorf("HandleErrors() error = %v", err)
 		}
@@ -88,14 +85,14 @@ func TestHandleErrors_CheckRunError(t *testing.T) {
 	}
 }
 
-func TestHandleErrors_ContextCancellation(t *testing.T) {
+func TestRun_ContextCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	cc := NewChecksController(db.NewInMemory(), NewMetrics())
 
 	done := make(chan struct{})
 	go func() {
-		err := cc.HandleErrors(ctx)
+		err := cc.Run(ctx)
 		if err == nil {
 			t.Errorf("HandleErrors() = %v, want %v", nil, err)
 		}
@@ -298,8 +295,7 @@ func TestChecksController_UnregisterCheck(t *testing.T) {
 				check := &checks.CheckMock{
 					NameFunc:                func() string { return "check" },
 					GetMetricCollectorsFunc: func() []prometheus.Collector { return []prometheus.Collector{} },
-					RunFunc:                 func(ctx context.Context) error { return nil },
-					ResultChanFunc:          func() chan checks.Result { return make(chan checks.Result) },
+					RunFunc:                 func(ctx context.Context, cResult chan checks.ResultDTO) error { return nil },
 					ShutdownFunc: func(ctx context.Context) error {
 						return fmt.Errorf("some error")
 					},

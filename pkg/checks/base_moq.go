@@ -29,10 +29,7 @@ var _ Check = &CheckMock{}
 //			NameFunc: func() string {
 //				panic("mock out the Name method")
 //			},
-//			ResultChanFunc: func() chan Result {
-//				panic("mock out the ResultChan method")
-//			},
-//			RunFunc: func(ctx context.Context) error {
+//			RunFunc: func(ctx context.Context, cResult chan ResultDTO) error {
 //				panic("mock out the Run method")
 //			},
 //			SchemaFunc: func() (*openapi3.SchemaRef, error) {
@@ -60,11 +57,8 @@ type CheckMock struct {
 	// NameFunc mocks the Name method.
 	NameFunc func() string
 
-	// ResultChanFunc mocks the ResultChan method.
-	ResultChanFunc func() chan Result
-
 	// RunFunc mocks the Run method.
-	RunFunc func(ctx context.Context) error
+	RunFunc func(ctx context.Context, cResult chan ResultDTO) error
 
 	// SchemaFunc mocks the Schema method.
 	SchemaFunc func() (*openapi3.SchemaRef, error)
@@ -86,13 +80,12 @@ type CheckMock struct {
 		// Name holds details about calls to the Name method.
 		Name []struct {
 		}
-		// ResultChan holds details about calls to the ResultChan method.
-		ResultChan []struct {
-		}
 		// Run holds details about calls to the Run method.
 		Run []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
+			// CResult is the cResult argument value.
+			CResult chan ResultDTO
 		}
 		// Schema holds details about calls to the Schema method.
 		Schema []struct {
@@ -111,7 +104,6 @@ type CheckMock struct {
 	lockGetConfig           sync.RWMutex
 	lockGetMetricCollectors sync.RWMutex
 	lockName                sync.RWMutex
-	lockResultChan          sync.RWMutex
 	lockRun                 sync.RWMutex
 	lockSchema              sync.RWMutex
 	lockSetConfig           sync.RWMutex
@@ -199,47 +191,22 @@ func (mock *CheckMock) NameCalls() []struct {
 	return calls
 }
 
-// ResultChan calls ResultChanFunc.
-func (mock *CheckMock) ResultChan() chan Result {
-	if mock.ResultChanFunc == nil {
-		panic("CheckMock.ResultChanFunc: method is nil but Check.ResultChan was just called")
-	}
-	callInfo := struct {
-	}{}
-	mock.lockResultChan.Lock()
-	mock.calls.ResultChan = append(mock.calls.ResultChan, callInfo)
-	mock.lockResultChan.Unlock()
-	return mock.ResultChanFunc()
-}
-
-// ResultChanCalls gets all the calls that were made to ResultChan.
-// Check the length with:
-//
-//	len(mockedCheck.ResultChanCalls())
-func (mock *CheckMock) ResultChanCalls() []struct {
-} {
-	var calls []struct {
-	}
-	mock.lockResultChan.RLock()
-	calls = mock.calls.ResultChan
-	mock.lockResultChan.RUnlock()
-	return calls
-}
-
 // Run calls RunFunc.
-func (mock *CheckMock) Run(ctx context.Context) error {
+func (mock *CheckMock) Run(ctx context.Context, cResult chan ResultDTO) error {
 	if mock.RunFunc == nil {
 		panic("CheckMock.RunFunc: method is nil but Check.Run was just called")
 	}
 	callInfo := struct {
-		Ctx context.Context
+		Ctx     context.Context
+		CResult chan ResultDTO
 	}{
-		Ctx: ctx,
+		Ctx:     ctx,
+		CResult: cResult,
 	}
 	mock.lockRun.Lock()
 	mock.calls.Run = append(mock.calls.Run, callInfo)
 	mock.lockRun.Unlock()
-	return mock.RunFunc(ctx)
+	return mock.RunFunc(ctx, cResult)
 }
 
 // RunCalls gets all the calls that were made to Run.
@@ -247,10 +214,12 @@ func (mock *CheckMock) Run(ctx context.Context) error {
 //
 //	len(mockedCheck.RunCalls())
 func (mock *CheckMock) RunCalls() []struct {
-	Ctx context.Context
+	Ctx     context.Context
+	CResult chan ResultDTO
 } {
 	var calls []struct {
-		Ctx context.Context
+		Ctx     context.Context
+		CResult chan ResultDTO
 	}
 	mock.lockRun.RLock()
 	calls = mock.calls.Run

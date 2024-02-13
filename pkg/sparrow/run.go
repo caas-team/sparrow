@@ -108,7 +108,7 @@ func (s *Sparrow) Run(ctx context.Context) error {
 	}()
 
 	go func() {
-		s.cErr <- s.controller.HandleErrors(ctx)
+		s.cErr <- s.controller.Run(ctx)
 	}()
 
 	for {

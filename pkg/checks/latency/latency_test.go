@@ -128,6 +128,9 @@ func TestLatency_Run(t *testing.T) {
 			}
 
 			c := NewCheck()
+			cResult := make(chan checks.ResultDTO, 1)
+			defer close(cResult)
+
 			err := c.SetConfig(&Config{
 				Targets:  tt.targets,
 				Interval: time.Millisecond * 120,
@@ -138,7 +141,7 @@ func TestLatency_Run(t *testing.T) {
 			}
 
 			go func() {
-				err := c.Run(tt.ctx)
+				err := c.Run(tt.ctx, cResult)
 				if err != nil {
 					t.Errorf("Latency.Run() error = %v", err)
 					return
@@ -152,11 +155,11 @@ func TestLatency_Run(t *testing.T) {
 				}
 			}()
 
-			res := <-c.ResultChan()
+			res := <-cResult
 
-			assert.IsType(t, tt.want.Data, res.Data)
+			assert.IsType(t, tt.want.Data, res.Result.Data)
 
-			got := res.Data.(map[string]result)
+			got := res.Result.Data.(map[string]result)
 			expected := tt.want.Data.(map[string]result)
 			if len(got) != len(expected) {
 				t.Errorf("Length of Latency.Run() result set (%v) does not match length of expected result set (%v)", len(got), len(expected))
@@ -177,8 +180,8 @@ func TestLatency_Run(t *testing.T) {
 				}
 			}
 
-			if res.Err != tt.want.Err {
-				t.Errorf("Latency.Run() = %v, want %v", res.Err, tt.want.Err)
+			if res.Result.Err != tt.want.Err {
+				t.Errorf("Latency.Run() = %v, want %v", res.Result.Err, tt.want.Err)
 			}
 			httpmock.Reset()
 		})
@@ -311,24 +314,10 @@ func TestLatency_check(t *testing.T) {
 	}
 }
 
-func TestDNS_ResultChan(t *testing.T) {
-	c := Latency{
-		CheckBase: checks.CheckBase{
-			ResChan: make(chan checks.Result, 1),
-		},
-	}
-
-	rc := c.ResultChan()
-	if rc != c.ResChan {
-		t.Errorf("ResultChan() got = %v, want %v", rc, c.ResChan)
-	}
-}
-
 func TestLatency_Shutdown(t *testing.T) {
 	cDone := make(chan struct{}, 1)
 	c := Latency{
 		CheckBase: checks.CheckBase{
-			ResChan:  make(chan checks.Result, 1),
 			DoneChan: cDone,
 		},
 	}

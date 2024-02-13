@@ -37,6 +37,7 @@ type ChecksController struct {
 	db      db.DB
 	metrics Metrics
 	checks  runtime.Checks
+	cResult chan checks.ResultDTO
 	cErr    chan error
 	done    chan struct{}
 }
@@ -47,17 +48,20 @@ func NewChecksController(dbase db.DB, metrics Metrics) *ChecksController {
 		db:      dbase,
 		metrics: metrics,
 		checks:  runtime.Checks{},
+		cResult: make(chan checks.ResultDTO, 8), //nolint:gomnd // Buffered channel to avoid blocking the checks
 		cErr:    make(chan error, 1),
 		done:    make(chan struct{}, 1),
 	}
 }
 
-// HandleErrors handles errors that occur while running checks.
-func (cc *ChecksController) HandleErrors(ctx context.Context) error {
+// Run runs the ChecksController with handling results and errors.
+func (cc *ChecksController) Run(ctx context.Context) error {
 	log := logger.FromContext(ctx)
 
 	for {
 		select {
+		case result := <-cc.cResult:
+			cc.db.Save(result)
 		case err := <-cc.cErr:
 			var runErr *ErrRunningCheck
 			if errors.As(err, &runErr) {
@@ -89,6 +93,7 @@ func (cc *ChecksController) Shutdown(ctx context.Context) (err error) {
 	}
 	cc.done <- struct{}{}
 	close(cc.done)
+	close(cc.cResult)
 	return err
 }
 
@@ -147,10 +152,13 @@ func (cc *ChecksController) RegisterCheck(ctx context.Context, check checks.Chec
 	}
 
 	go func() {
-		err := cc.runCheck(ctx, check)
+		err := check.Run(ctx, cc.cResult)
 		if err != nil {
-			log.ErrorContext(ctx, "Failed to start check", "error", err)
-			cc.cErr <- err
+			log.ErrorContext(ctx, "Failed to run check", "error", err)
+			cc.cErr <- &ErrRunningCheck{
+				Check: check,
+				Err:   err,
+			}
 		}
 	}()
 
@@ -178,35 +186,6 @@ func (cc *ChecksController) UnregisterCheck(ctx context.Context, check checks.Ch
 	cc.removeCheck(check)
 
 	return nil
-}
-
-func (cc *ChecksController) runCheck(ctx context.Context, check checks.Check) error {
-	log := logger.FromContext(ctx).With("check", check.Name())
-
-	go func() {
-		err := check.Run(ctx)
-		if err != nil {
-			log.ErrorContext(ctx, "Failed to run check", "error", err)
-			cc.cErr <- &ErrRunningCheck{
-				Check: check,
-				Err:   err,
-			}
-		}
-	}()
-
-	for {
-		select {
-		case result := <-check.ResultChan():
-			cc.db.Save(checks.ResultDTO{
-				Name:   check.Name(),
-				Result: &result,
-			})
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-cc.done:
-			return nil
-		}
-	}
 }
 
 // removeCheck removes a check from the list of checks.
