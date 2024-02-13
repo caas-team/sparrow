@@ -40,5 +40,5 @@ type ErrInvalidConfig struct {
 }
 
 func (e ErrInvalidConfig) Error() string {
-	return fmt.Sprintf("invalid configuration field '%s' in check '%s': %s", e.Field, e.CheckName, e.Reason)
+	return fmt.Sprintf("invalid configuration field %q in check %q: %s", e.Field, e.CheckName, e.Reason)
 }
