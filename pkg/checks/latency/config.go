@@ -20,7 +20,7 @@ package latency
 
 import (
 	"fmt"
-	"strings"
+	"net/url"
 	"time"
 
 	"github.com/caas-team/sparrow/internal/helper"
@@ -48,7 +48,12 @@ func (c *Config) For() string {
 // Validate checks if the configuration is valid
 func (c *Config) Validate() error {
 	for _, t := range c.Targets {
-		if !strings.HasPrefix(t, "https://") && !strings.HasPrefix(t, "http://") {
+		u, err := url.Parse(t)
+		if err != nil {
+			return checks.ErrInvalidConfig{CheckName: c.For(), Field: "targets", Reason: "invalid target URL"}
+		}
+
+		if u.Scheme != "https" && u.Scheme != "http" {
 			return checks.ErrInvalidConfig{CheckName: c.For(), Field: "targets", Reason: "target URLs must start with 'https://' or 'http://'"}
 		}
 	}
