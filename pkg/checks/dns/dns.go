@@ -71,18 +71,6 @@ func NewCheck() checks.Check {
 	}
 }
 
-// Config defines the configuration parameters for a DNS check
-type Config struct {
-	Targets  []string           `json:"targets" yaml:"targets"`
-	Interval time.Duration      `json:"interval" yaml:"interval"`
-	Timeout  time.Duration      `json:"timeout" yaml:"timeout"`
-	Retry    helper.RetryConfig `json:"retry" yaml:"retry"`
-}
-
-func (c Config) For() string {
-	return CheckName
-}
-
 // result represents the result of a single DNS check for a specific target
 type result struct {
 	Resolved []string

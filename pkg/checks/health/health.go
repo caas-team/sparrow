@@ -65,21 +65,9 @@ func NewCheck() checks.Check {
 	}
 }
 
-// Config defines the configuration parameters for a health check
-type Config struct {
-	Targets  []string           `json:"targets,omitempty" yaml:"targets,omitempty"`
-	Interval time.Duration      `json:"interval" yaml:"interval"`
-	Timeout  time.Duration      `json:"timeout" yaml:"timeout"`
-	Retry    helper.RetryConfig `json:"retry" yaml:"retry"`
-}
-
 // metrics contains the metric collectors for the Health check
 type metrics struct {
 	*prometheus.GaugeVec
-}
-
-func (h *Config) For() string {
-	return CheckName
 }
 
 // Run starts the health check

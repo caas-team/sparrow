@@ -62,6 +62,7 @@ jobs:
           --set sparrowConfig.loader.interval=5s \
           --set sparrowConfig.loader.file.path=/config/.sparrow.yaml \
           --set checksConfig.health.interval=1s \
+          --set checksConfig.health.timeout=1s \
           ./chart
 
     - name: Check Pods
