@@ -78,6 +78,16 @@ func (hl *HttpLoader) Run(ctx context.Context) error {
 	tick := time.NewTicker(hl.cfg.Interval)
 	defer tick.Stop()
 
+	// Get the runtime configuration once at startup
+	go func() {
+		cfg, err := hl.getRuntimeConfig(ctx)
+		if err != nil {
+			log.Warn("Could not get remote runtime configuration", "error", err)
+			return
+		}
+		hl.cRuntime <- *cfg
+	}()
+
 	for {
 		select {
 		case <-hl.done:

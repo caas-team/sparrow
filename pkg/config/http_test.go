@@ -224,7 +224,7 @@ func TestHttpLoader_Run(t *testing.T) {
 						},
 					},
 				},
-				cRuntime: make(chan<- runtime.Config, 1),
+				cRuntime: make(chan<- runtime.Config, 2),
 				client: &http.Client{
 					Transport: http.DefaultTransport,
 				},

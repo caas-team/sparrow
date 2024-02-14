@@ -73,6 +73,16 @@ func (f *FileLoader) Run(ctx context.Context) error {
 	tick := time.NewTicker(f.config.Interval)
 	defer tick.Stop()
 
+	// Get the runtime configuration once at startup
+	go func() {
+		cfg, err := f.getRuntimeConfig(ctx)
+		if err != nil {
+			log.Warn("Could not get remote runtime configuration", "error", err)
+			return
+		}
+		f.cRuntime <- cfg
+	}()
+
 	for {
 		select {
 		case <-f.done:
