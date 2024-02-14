@@ -77,7 +77,6 @@ func TestLatency_Run(t *testing.T) {
 					successURL: {Code: http.StatusOK, Error: nil, Total: 0},
 				},
 				Timestamp: time.Time{},
-				Err:       "",
 			},
 		},
 		{
@@ -112,7 +111,6 @@ func TestLatency_Run(t *testing.T) {
 					timeoutURL: {Code: 0, Error: stringPointer(fmt.Sprintf("Get %q: context deadline exceeded", timeoutURL)), Total: 0},
 				},
 				Timestamp: time.Time{},
-				Err:       "",
 			},
 		},
 	}
@@ -180,9 +178,6 @@ func TestLatency_Run(t *testing.T) {
 				}
 			}
 
-			if res.Result.Err != tt.want.Err {
-				t.Errorf("Latency.Run() = %v, want %v", res.Result.Err, tt.want.Err)
-			}
 			httpmock.Reset()
 		})
 	}

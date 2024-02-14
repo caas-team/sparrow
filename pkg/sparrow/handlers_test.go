@@ -172,8 +172,8 @@ func chiRequest(r *http.Request, value string) *http.Request {
 
 func testDb() *db.InMemory {
 	d := db.NewInMemory()
-	d.Save(checks.ResultDTO{Name: "alpha", Result: &checks.Result{Timestamp: time.Now(), Err: "", Data: 1}})
-	d.Save(checks.ResultDTO{Name: "beta", Result: &checks.Result{Timestamp: time.Now(), Err: "", Data: 1}})
+	d.Save(checks.ResultDTO{Name: "alpha", Result: &checks.Result{Timestamp: time.Now(), Data: 1}})
+	d.Save(checks.ResultDTO{Name: "beta", Result: &checks.Result{Timestamp: time.Now(), Data: 1}})
 
 	return d
 }

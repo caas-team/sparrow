@@ -193,9 +193,6 @@ func TestDNS_Run(t *testing.T) {
 			}()
 
 			r := <-cResult
-			if r.Result.Err != tt.want.Err {
-				t.Errorf("DNS.Run() = %v, want %v", r.Result.Err, tt.want.Err)
-			}
 			assert.IsType(t, tt.want.Data, r.Result.Data)
 
 			got := r.Result.Data.(map[string]result)
