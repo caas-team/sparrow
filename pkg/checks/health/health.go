@@ -56,7 +56,6 @@ func NewCheck() checks.Check {
 	return &Health{
 		CheckBase: checks.CheckBase{
 			Mu:       sync.Mutex{},
-			ResChan:  make(chan checks.Result, 1),
 			DoneChan: make(chan struct{}, 1),
 		},
 		config: Config{
@@ -84,7 +83,7 @@ func (h *Config) For() string {
 }
 
 // Run starts the health check
-func (h *Health) Run(ctx context.Context) error {
+func (h *Health) Run(ctx context.Context, cResult chan checks.ResultDTO) error {
 	ctx, cancel := logger.NewContextWithLogger(ctx)
 	defer cancel()
 	log := logger.FromContext(ctx)
@@ -100,14 +99,14 @@ func (h *Health) Run(ctx context.Context) error {
 			return nil
 		case <-time.After(h.config.Interval):
 			res := h.check(ctx)
-			errval := ""
-			r := checks.Result{
-				Data:      res,
-				Err:       errval,
-				Timestamp: time.Now(),
-			}
 
-			h.ResChan <- r
+			cResult <- checks.ResultDTO{
+				Name: h.Name(),
+				Result: &checks.Result{
+					Data:      res,
+					Timestamp: time.Now(),
+				},
+			}
 			log.Debug("Successfully finished health check run")
 		}
 	}
@@ -117,13 +116,8 @@ func (h *Health) Run(ctx context.Context) error {
 func (h *Health) Shutdown(_ context.Context) error {
 	h.DoneChan <- struct{}{}
 	close(h.DoneChan)
-	close(h.ResChan)
 
 	return nil
-}
-
-func (h *Health) ResultChan() chan checks.Result {
-	return h.ResChan
 }
 
 // SetConfig sets the configuration for the health check

@@ -252,7 +252,6 @@ func TestHealth_Shutdown(t *testing.T) {
 	cDone := make(chan struct{}, 1)
 	c := Health{
 		CheckBase: checks.CheckBase{
-			ResChan:  make(chan checks.Result, 1),
 			DoneChan: cDone,
 		},
 	}

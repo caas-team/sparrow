@@ -53,7 +53,6 @@ func NewCheck() checks.Check {
 	return &Latency{
 		CheckBase: checks.CheckBase{
 			Mu:       sync.Mutex{},
-			ResChan:  make(chan checks.Result, 1),
 			DoneChan: make(chan struct{}, 1),
 		},
 		config: Config{
@@ -90,7 +89,7 @@ type metrics struct {
 }
 
 // Run starts the latency check
-func (l *Latency) Run(ctx context.Context) error {
+func (l *Latency) Run(ctx context.Context, cResult chan checks.ResultDTO) error {
 	ctx, cancel := logger.NewContextWithLogger(ctx)
 	defer cancel()
 	log := logger.FromContext(ctx)
@@ -105,14 +104,14 @@ func (l *Latency) Run(ctx context.Context) error {
 			return nil
 		case <-time.After(l.config.Interval):
 			res := l.check(ctx)
-			errval := ""
-			r := checks.Result{
-				Data:      res,
-				Err:       errval,
-				Timestamp: time.Now(),
-			}
 
-			l.ResChan <- r
+			cResult <- checks.ResultDTO{
+				Name: l.Name(),
+				Result: &checks.Result{
+					Data:      res,
+					Timestamp: time.Now(),
+				},
+			}
 			log.Debug("Successfully finished latency check run")
 		}
 	}
@@ -121,13 +120,8 @@ func (l *Latency) Run(ctx context.Context) error {
 func (l *Latency) Shutdown(_ context.Context) error {
 	l.DoneChan <- struct{}{}
 	close(l.DoneChan)
-	close(l.ResChan)
 
 	return nil
-}
-
-func (l *Latency) ResultChan() chan checks.Result {
-	return l.ResChan
 }
 
 // SetConfig sets the configuration for the latency check

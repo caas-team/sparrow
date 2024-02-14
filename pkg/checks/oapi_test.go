@@ -36,7 +36,20 @@ func TestOpenapiFromPerfData(t *testing.T) {
 		wantErr bool
 	}
 	tests := []cases[string]{
-		{name: "int", args: args[string]{perfData: "hello world"}, want: &openapi3.SchemaRef{Value: openapi3.NewObjectSchema().WithProperties(map[string]*openapi3.Schema{"error": {Type: "string"}, "data": {Type: "string"}, "timestamp": {Type: "string", Format: "date-time"}})}, wantErr: false},
+		{
+			name: "int",
+			args: args[string]{perfData: "hello world"},
+			want: &openapi3.SchemaRef{
+				Value: openapi3.NewObjectSchema().WithProperties(map[string]*openapi3.Schema{
+					"data": {Type: "string"},
+					"timestamp": {
+						Type:   "string",
+						Format: "date-time",
+					},
+				}),
+			},
+			wantErr: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
