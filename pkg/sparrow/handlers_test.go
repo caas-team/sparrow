@@ -32,6 +32,7 @@ import (
 	"github.com/caas-team/sparrow/pkg/checks"
 	"github.com/caas-team/sparrow/pkg/checks/runtime"
 	"github.com/caas-team/sparrow/pkg/db"
+	"github.com/caas-team/sparrow/pkg/healthz"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/go-chi/chi/v5"
 	"gopkg.in/yaml.v3"
@@ -157,6 +158,49 @@ func TestSparrow_handleCheckMetrics(t *testing.T) {
 				if !reflect.DeepEqual(body, tt.want) {
 					t.Errorf("Sparrow.getCheckMetrics() = %v, want %v", body, tt.want)
 				}
+			}
+		})
+	}
+}
+
+func TestSparrow_handleHealthz(t *testing.T) {
+	tests := []struct {
+		name     string
+		wantCode int
+	}{
+		{
+			name:     "healthy",
+			wantCode: http.StatusOK,
+		},
+		{
+			name:     "unhealthy",
+			wantCode: http.StatusServiceUnavailable,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &Sparrow{
+				controller: NewChecksController(db.NewInMemory(), NewMetrics()),
+				checker: &healthz.CheckerMock{
+					CheckOverallHealthFunc: func(ctx context.Context, cks []checks.Check) bool {
+						return tt.wantCode == http.StatusOK
+					},
+				},
+			}
+
+			w := httptest.NewRecorder()
+			r := httptest.NewRequest(http.MethodGet, "/healthz", bytes.NewBuffer([]byte{}))
+
+			s.handleHealthz(w, r)
+			resp := w.Result() //nolint:bodyclose // close is defer below
+			defer func(b io.ReadCloser) {
+				err := b.Close()
+				if err != nil {
+					t.Fatalf("Failed to close response body: %v", err)
+				}
+			}(resp.Body)
+			if tt.wantCode != resp.StatusCode {
+				t.Errorf("Sparrow.handleHealthz() Status = %v, want %v", resp.StatusCode, tt.wantCode)
 			}
 		})
 	}

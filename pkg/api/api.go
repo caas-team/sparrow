@@ -131,7 +131,7 @@ func (a *api) RegisterRoutes(ctx context.Context, routes ...Route) error {
 
 	// Handles requests with simple http ok
 	// Required for global tarMan in checks
-	a.router.Handle("/", okHandler(ctx))
+	a.router.Handle("/", OkHandler(ctx))
 
 	return nil
 }
@@ -148,8 +148,8 @@ func (a *api) registerDefaultRoute(route Route) (err error) {
 	return nil
 }
 
-// okHandler returns a handler that will serve status ok
-func okHandler(ctx context.Context) http.Handler {
+// OkHandler returns a handler that will serve status ok
+func OkHandler(ctx context.Context) http.Handler {
 	log := logger.FromContext(ctx)
 
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {

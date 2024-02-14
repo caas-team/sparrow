@@ -31,6 +31,7 @@ import (
 	"github.com/caas-team/sparrow/pkg/checks/runtime"
 	"github.com/caas-team/sparrow/pkg/config"
 	"github.com/caas-team/sparrow/pkg/db"
+	"github.com/caas-team/sparrow/pkg/healthz"
 	"github.com/caas-team/sparrow/pkg/sparrow/targets"
 )
 
@@ -60,6 +61,8 @@ type Sparrow struct {
 	cDone chan struct{}
 	// shutOnce is used to ensure that the shutdown function is only called once
 	shutOnce sync.Once
+	// checker is used to check the health of the sparrow's endpoints
+	checker healthz.Checker
 }
 
 // New creates a new sparrow from a given configfile
@@ -77,6 +80,7 @@ func New(cfg *config.Config) *Sparrow {
 		cErr:       make(chan error, 1),
 		cDone:      make(chan struct{}, 1),
 		shutOnce:   sync.Once{},
+		checker:    healthz.New(cfg.Api),
 	}
 
 	if cfg.HasTargetManager() {
