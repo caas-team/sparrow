@@ -59,7 +59,9 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 			checks: map[string]checks.Check{},
 
 			newRuntimeConfig: runtime.Config{Health: &health.Config{
-				Targets: []string{"https://gitlab.com"},
+				Targets:  []string{"https://gitlab.com"},
+				Interval: 1 * time.Second,
+				Timeout:  1 * time.Second,
 			}},
 		},
 		{
@@ -67,13 +69,19 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 			checks: map[string]checks.Check{},
 			newRuntimeConfig: runtime.Config{
 				Health: &health.Config{
-					Targets: []string{"https://gitlab.com"},
+					Targets:  []string{"https://gitlab.com"},
+					Interval: 1 * time.Second,
+					Timeout:  1 * time.Second,
 				},
 				Latency: &latency.Config{
-					Targets: []string{"https://gitlab.com"},
+					Targets:  []string{"https://gitlab.com"},
+					Interval: 1 * time.Second,
+					Timeout:  1 * time.Second,
 				},
 				Dns: &dns.Config{
-					Targets: []string{"gitlab.com"},
+					Targets:  []string{"gitlab.com"},
+					Interval: 1 * time.Second,
+					Timeout:  1 * time.Second,
 				},
 			},
 		},
@@ -86,10 +94,14 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 
 			newRuntimeConfig: runtime.Config{
 				Latency: &latency.Config{
-					Targets: []string{"https://gitlab.com"},
+					Targets:  []string{"https://gitlab.com"},
+					Interval: 1 * time.Second,
+					Timeout:  1 * time.Second,
 				},
 				Health: &health.Config{
-					Targets: []string{"https://gitlab.com"},
+					Targets:  []string{"https://gitlab.com"},
+					Interval: 1 * time.Second,
+					Timeout:  1 * time.Second,
 				},
 			},
 		},
@@ -111,7 +123,9 @@ func TestSparrow_ReconcileChecks(t *testing.T) {
 
 			newRuntimeConfig: runtime.Config{
 				Latency: &latency.Config{
-					Targets: []string{"https://gitlab.com"},
+					Targets:  []string{"https://gitlab.com"},
+					Interval: 1 * time.Second,
+					Timeout:  1 * time.Second,
 				},
 			},
 		},

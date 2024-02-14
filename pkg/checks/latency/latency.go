@@ -63,18 +63,6 @@ func NewCheck() checks.Check {
 	}
 }
 
-// Config defines the configuration parameters for a latency check
-type Config struct {
-	Targets  []string           `json:"targets,omitempty" yaml:"targets,omitempty"`
-	Interval time.Duration      `json:"interval" yaml:"interval"`
-	Timeout  time.Duration      `json:"timeout" yaml:"timeout"`
-	Retry    helper.RetryConfig `json:"retry" yaml:"retry"`
-}
-
-func (l *Config) For() string {
-	return CheckName
-}
-
 // result represents the result of a single latency check for a specific target
 type result struct {
 	Code  int     `json:"code"`
