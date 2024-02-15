@@ -21,33 +21,18 @@ package config
 import (
 	"time"
 
+	"github.com/caas-team/sparrow/pkg/sparrow/targets"
+
 	"github.com/caas-team/sparrow/internal/helper"
+	"github.com/caas-team/sparrow/pkg/api"
 )
-
-type GitlabTargetManagerConfig struct {
-	BaseURL   string `yaml:"baseUrl" mapstructure:"baseUrl"`
-	Token     string `yaml:"token" mapstructure:"token"`
-	ProjectID int    `yaml:"projectId" mapstructure:"projectId"`
-}
-
-type TargetManagerConfig struct {
-	CheckInterval        time.Duration             `yaml:"checkInterval" mapstructure:"checkInterval"`
-	RegistrationInterval time.Duration             `yaml:"registrationInterval" mapstructure:"registrationInterval"`
-	UnhealthyThreshold   time.Duration             `yaml:"unhealthyThreshold" mapstructure:"unhealthyThreshold"`
-	Gitlab               GitlabTargetManagerConfig `yaml:"gitlab" mapstructure:"gitlab"`
-}
 
 type Config struct {
 	// SparrowName is the DNS name of the sparrow
-	SparrowName   string              `yaml:"name" mapstructure:"name"`
-	Loader        LoaderConfig        `yaml:"loader" mapstructure:"loader"`
-	Api           ApiConfig           `yaml:"api" mapstructure:"api"`
-	TargetManager TargetManagerConfig `yaml:"targetManager" mapstructure:"targetManager"`
-}
-
-// ApiConfig is the configuration for the data API
-type ApiConfig struct {
-	ListeningAddress string `yaml:"address" mapstructure:"address"`
+	SparrowName   string                      `yaml:"name" mapstructure:"name"`
+	Loader        LoaderConfig                `yaml:"loader" mapstructure:"loader"`
+	Api           api.Config                  `yaml:"api" mapstructure:"api"`
+	TargetManager targets.TargetManagerConfig `yaml:"targetManager" mapstructure:"targetManager"`
 }
 
 // LoaderConfig is the configuration for loader
@@ -73,5 +58,5 @@ type FileLoaderConfig struct {
 
 // HasTargetManager returns true if the config has a target manager
 func (c *Config) HasTargetManager() bool {
-	return c.TargetManager != TargetManagerConfig{}
+	return c.TargetManager != targets.TargetManagerConfig{}
 }

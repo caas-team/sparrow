@@ -111,6 +111,19 @@ func TestConfig_Validate(t *testing.T) {
 			},
 			wantErr: true,
 		},
+		{
+			name: "file path malformed",
+			fields: fields{
+				Loader: LoaderConfig{
+					Type: "file",
+					File: FileLoaderConfig{
+						Path: "",
+					},
+					Interval: time.Second,
+				},
+			},
+			wantErr: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -107,10 +107,10 @@ func Test_gitlabTargetManager_refreshTargets(t *testing.T) {
 				gitlab.SetFetchFilesErr(tt.wantErr)
 			}
 			gtm := &gitlabTargetManager{
-				targets:            nil,
-				gitlab:             gitlab,
-				name:               "test",
-				unhealthyThreshold: time.Hour,
+				targets: nil,
+				gitlab:  gitlab,
+				name:    "test",
+				cfg:     Config{UnhealthyThreshold: time.Hour},
 			}
 			if err := gtm.refreshTargets(context.Background()); (err != nil) != (tt.wantErr != nil) {
 				t.Fatalf("refreshTargets() error = %v, wantErr %v", err, tt.wantErr)
@@ -509,14 +509,16 @@ func Test_gitlabTargetManager_Reconcile_Shutdown_Fail_Unregister(t *testing.T) {
 
 func mockGitlabTargetManager(g *gitlabmock.MockClient, name string) *gitlabTargetManager { //nolint: unparam // irrelevant
 	return &gitlabTargetManager{
-		targets:              nil,
-		mu:                   sync.RWMutex{},
-		done:                 make(chan struct{}, 1),
-		gitlab:               g,
-		name:                 name,
-		checkInterval:        100 * time.Millisecond,
-		unhealthyThreshold:   1 * time.Second,
-		registrationInterval: 150 * time.Millisecond,
-		registered:           false,
+		targets: nil,
+		mu:      sync.RWMutex{},
+		done:    make(chan struct{}, 1),
+		gitlab:  g,
+		name:    name,
+		cfg: Config{
+			CheckInterval:        100 * time.Millisecond,
+			UnhealthyThreshold:   1 * time.Second,
+			RegistrationInterval: 150 * time.Millisecond,
+		},
+		registered: false,
 	}
 }
