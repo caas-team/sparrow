@@ -42,7 +42,7 @@ func stringPointer(s string) *string {
 	return &s
 }
 
-func TestLatency_Run(t *testing.T) { //nolint:gocyclo
+func TestLatency_Run(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 
@@ -77,7 +77,6 @@ func TestLatency_Run(t *testing.T) { //nolint:gocyclo
 					successURL: {Code: http.StatusOK, Error: nil, Total: 0},
 				},
 				Timestamp: time.Time{},
-				Err:       "",
 			},
 		},
 		{
@@ -112,7 +111,6 @@ func TestLatency_Run(t *testing.T) { //nolint:gocyclo
 					timeoutURL: {Code: 0, Error: stringPointer(fmt.Sprintf("Get %q: context deadline exceeded", timeoutURL)), Total: 0},
 				},
 				Timestamp: time.Time{},
-				Err:       "",
 			},
 		},
 	}
@@ -128,13 +126,10 @@ func TestLatency_Run(t *testing.T) { //nolint:gocyclo
 			}
 
 			c := NewCheck()
-			results := make(chan checks.Result, 1)
-			err := c.Startup(tt.ctx, results)
-			if err != nil {
-				t.Fatalf("Latency.Startup() error = %v", err)
-			}
+			cResult := make(chan checks.ResultDTO, 1)
+			defer close(cResult)
 
-			err = c.SetConfig(&Config{
+			err := c.SetConfig(&Config{
 				Targets:  tt.targets,
 				Interval: time.Millisecond * 120,
 				Timeout:  time.Second * 1,
@@ -144,7 +139,7 @@ func TestLatency_Run(t *testing.T) { //nolint:gocyclo
 			}
 
 			go func() {
-				err := c.Run(tt.ctx)
+				err := c.Run(tt.ctx, cResult)
 				if err != nil {
 					t.Errorf("Latency.Run() error = %v", err)
 					return
@@ -158,11 +153,11 @@ func TestLatency_Run(t *testing.T) { //nolint:gocyclo
 				}
 			}()
 
-			res := <-results
+			res := <-cResult
 
-			assert.IsType(t, tt.want.Data, res.Data)
+			assert.IsType(t, tt.want.Data, res.Result.Data)
 
-			got := res.Data.(map[string]result)
+			got := res.Result.Data.(map[string]result)
 			expected := tt.want.Data.(map[string]result)
 			if len(got) != len(expected) {
 				t.Errorf("Length of Latency.Run() result set (%v) does not match length of expected result set (%v)", len(got), len(expected))
@@ -183,9 +178,6 @@ func TestLatency_Run(t *testing.T) { //nolint:gocyclo
 				}
 			}
 
-			if res.Err != tt.want.Err {
-				t.Errorf("Latency.Run() = %v, want %v", res.Err, tt.want.Err)
-			}
 			httpmock.Reset()
 		})
 	}
@@ -317,19 +309,11 @@ func TestLatency_check(t *testing.T) {
 	}
 }
 
-func TestLatency_Startup(t *testing.T) {
-	c := Latency{}
-
-	if err := c.Startup(context.Background(), make(chan<- checks.Result, 1)); err != nil {
-		t.Errorf("Startup() error = %v", err)
-	}
-}
-
 func TestLatency_Shutdown(t *testing.T) {
-	cDone := make(chan bool, 1)
+	cDone := make(chan struct{}, 1)
 	c := Latency{
 		CheckBase: checks.CheckBase{
-			Done: cDone,
+			DoneChan: cDone,
 		},
 	}
 	err := c.Shutdown(context.Background())
@@ -337,7 +321,8 @@ func TestLatency_Shutdown(t *testing.T) {
 		t.Errorf("Shutdown() error = %v", err)
 	}
 
-	if !<-cDone {
+	_, ok := <-cDone
+	if !ok {
 		t.Error("Shutdown() should be ok")
 	}
 }

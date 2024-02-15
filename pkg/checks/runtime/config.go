@@ -109,3 +109,22 @@ func (c Config) HasCheck(name string) bool {
 		return false
 	}
 }
+
+// For returns the runtime configuration for the check with the given name
+func (c Config) For(name string) checks.Runtime {
+	switch name {
+	case health.CheckName:
+		if c.HasHealthCheck() {
+			return c.Health
+		}
+	case latency.CheckName:
+		if c.HasLatencyCheck() {
+			return c.Latency
+		}
+	case dns.CheckName:
+		if c.HasDNSCheck() {
+			return c.Dns
+		}
+	}
+	return nil
+}

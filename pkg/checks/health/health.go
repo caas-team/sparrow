@@ -47,7 +47,6 @@ const CheckName = "health"
 // Health is a check that measures the availability of an endpoint
 type Health struct {
 	checks.CheckBase
-	route   string
 	config  Config
 	metrics metrics
 }
@@ -56,11 +55,9 @@ type Health struct {
 func NewCheck() checks.Check {
 	return &Health{
 		CheckBase: checks.CheckBase{
-			Mu:      sync.Mutex{},
-			CResult: nil,
-			Done:    make(chan bool, 1),
+			Mu:       sync.Mutex{},
+			DoneChan: make(chan struct{}, 1),
 		},
-		route: "health",
 		config: Config{
 			Retry: checks.DefaultRetry,
 		},
@@ -74,7 +71,7 @@ type metrics struct {
 }
 
 // Run starts the health check
-func (h *Health) Run(ctx context.Context) error {
+func (h *Health) Run(ctx context.Context, cResult chan checks.ResultDTO) error {
 	ctx, cancel := logger.NewContextWithLogger(ctx)
 	defer cancel()
 	log := logger.FromContext(ctx)
@@ -85,37 +82,28 @@ func (h *Health) Run(ctx context.Context) error {
 		case <-ctx.Done():
 			log.Error("Context canceled", "err", ctx.Err())
 			return ctx.Err()
-		case <-h.Done:
+		case <-h.DoneChan:
 			log.Debug("Soft shut down")
 			return nil
 		case <-time.After(h.config.Interval):
 			res := h.check(ctx)
-			errval := ""
-			r := checks.Result{
-				Data:      res,
-				Err:       errval,
-				Timestamp: time.Now(),
-			}
 
-			h.CResult <- r
+			cResult <- checks.ResultDTO{
+				Name: h.Name(),
+				Result: &checks.Result{
+					Data:      res,
+					Timestamp: time.Now(),
+				},
+			}
 			log.Debug("Successfully finished health check run")
 		}
 	}
 }
 
-// Startup is called once when the health check is registered
-func (h *Health) Startup(ctx context.Context, cResult chan<- checks.Result) error {
-	log := logger.FromContext(ctx).WithGroup("health")
-	log.Debug("Initializing health check")
-
-	h.CResult = cResult
-	return nil
-}
-
 // Shutdown is called once when the check is unregistered or sparrow shuts down
 func (h *Health) Shutdown(_ context.Context) error {
-	h.Done <- true
-	close(h.Done)
+	h.DoneChan <- struct{}{}
+	close(h.DoneChan)
 
 	return nil
 }

@@ -52,8 +52,8 @@ func TestDNS_Run(t *testing.T) {
 			mockSetup: func() *DNS {
 				return &DNS{
 					CheckBase: checks.CheckBase{
-						Mu:   sync.Mutex{},
-						Done: make(chan bool, 1),
+						Mu:       sync.Mutex{},
+						DoneChan: make(chan struct{}, 1),
 					},
 				}
 			},
@@ -165,13 +165,10 @@ func TestDNS_Run(t *testing.T) {
 			ctx := context.Background()
 			c := tt.mockSetup()
 
-			results := make(chan checks.Result, 1)
-			err := c.Startup(ctx, results)
-			if err != nil {
-				t.Fatalf("DNS.Startup() error = %v", err)
-			}
+			cResult := make(chan checks.ResultDTO, 1)
+			defer close(cResult)
 
-			err = c.SetConfig(&Config{
+			err := c.SetConfig(&Config{
 				Targets:  tt.targets,
 				Interval: 1 * time.Second,
 				Timeout:  5 * time.Millisecond,
@@ -181,7 +178,7 @@ func TestDNS_Run(t *testing.T) {
 			}
 
 			go func() {
-				err := c.Run(ctx)
+				err := c.Run(ctx, cResult)
 				if err != nil {
 					t.Errorf("DNS.Run() error = %v", err)
 					return
@@ -195,13 +192,10 @@ func TestDNS_Run(t *testing.T) {
 				}
 			}()
 
-			r := <-results
-			if r.Err != tt.want.Err {
-				t.Errorf("DNS.Run() = %v, want %v", r.Err, tt.want.Err)
-			}
-			assert.IsType(t, tt.want.Data, r.Data)
+			r := <-cResult
+			assert.IsType(t, tt.want.Data, r.Result.Data)
 
-			got := r.Data.(map[string]result)
+			got := r.Result.Data.(map[string]result)
 			want := tt.want.Data.(map[string]result)
 			if len(got) != len(want) {
 				t.Errorf("Length of DNS.Run() result set (%v) does not match length of expected result set (%v)", len(got), len(want))
@@ -222,16 +216,21 @@ func TestDNS_Run(t *testing.T) {
 }
 
 func TestDNS_Run_Context_Done(t *testing.T) {
-	c := NewCheck()
 	ctx, cancel := context.WithCancel(context.Background())
+
+	c := NewCheck()
+	cResult := make(chan checks.ResultDTO, 1)
+	defer close(cResult)
+
 	err := c.SetConfig(&Config{
 		Interval: time.Second,
 	})
 	if err != nil {
 		t.Fatalf("DNS.SetConfig() error = %v", err)
 	}
+
 	go func() {
-		err := c.Run(ctx)
+		err := c.Run(ctx, cResult)
 		t.Logf("DNS.Run() exited with error: %v", err)
 		if err == nil {
 			t.Error("DNS.Run() should have errored out, no error received")
@@ -246,19 +245,11 @@ func TestDNS_Run_Context_Done(t *testing.T) {
 	time.Sleep(time.Millisecond * 30)
 }
 
-func TestDNS_Startup(t *testing.T) {
-	c := DNS{}
-
-	if err := c.Startup(context.Background(), make(chan<- checks.Result, 1)); err != nil {
-		t.Errorf("Startup() error = %v", err)
-	}
-}
-
 func TestDNS_Shutdown(t *testing.T) {
-	cDone := make(chan bool, 1)
+	cDone := make(chan struct{}, 1)
 	c := DNS{
 		CheckBase: checks.CheckBase{
-			Done: cDone,
+			DoneChan: cDone,
 		},
 	}
 	err := c.Shutdown(context.Background())
@@ -266,7 +257,8 @@ func TestDNS_Shutdown(t *testing.T) {
 		t.Errorf("Shutdown() error = %v", err)
 	}
 
-	if !<-cDone {
+	_, ok := <-cDone
+	if !ok {
 		t.Error("Shutdown() should be ok")
 	}
 }
@@ -337,7 +329,10 @@ func stringPointer(s string) *string {
 
 func newCommonDNS() *DNS {
 	return &DNS{
-		CheckBase: checks.CheckBase{Mu: sync.Mutex{}, Done: make(chan bool, 1)},
-		metrics:   newMetrics(),
+		CheckBase: checks.CheckBase{
+			Mu:       sync.Mutex{},
+			DoneChan: make(chan struct{}, 1),
+		},
+		metrics: newMetrics(),
 	}
 }

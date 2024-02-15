@@ -66,7 +66,7 @@ func (s *Sparrow) startupAPI(ctx context.Context) error {
 
 func (s *Sparrow) handleOpenAPI(w http.ResponseWriter, r *http.Request) {
 	log := logger.FromContext(r.Context())
-	oapi, err := api.GenerateCheckSpecs(r.Context(), s.checks)
+	oapi, err := s.controller.GenerateCheckSpecs(r.Context())
 	if err != nil {
 		log.Error("failed to create openapi", "error", err)
 		w.WriteHeader(http.StatusInternalServerError)
