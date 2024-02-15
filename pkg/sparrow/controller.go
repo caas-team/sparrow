@@ -183,19 +183,8 @@ func (cc *ChecksController) UnregisterCheck(ctx context.Context, check checks.Ch
 		return err
 	}
 
-	cc.removeCheck(check)
-
+	cc.checks.Delete(check)
 	return nil
-}
-
-// removeCheck removes a check from the list of checks.
-func (cc *ChecksController) removeCheck(c checks.Check) {
-	for i, exist := range cc.checks.Iter() {
-		if exist.Name() == c.Name() {
-			cc.checks.Delete(i)
-			break
-		}
-	}
 }
 
 var oapiBoilerplate = openapi3.T{

@@ -38,10 +38,15 @@ func (c *Checks) Add(check checks.Check) {
 }
 
 // Delete deletes a check.
-func (c *Checks) Delete(index int) {
+func (c *Checks) Delete(check checks.Check) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.checks = append(c.checks[:index], c.checks[index+1:]...)
+	for i, exist := range c.checks {
+		if exist.Name() == check.Name() {
+			c.checks = append(c.checks[:i], c.checks[i+1:]...)
+			return
+		}
+	}
 }
 
 // Iter returns configured checks in an iterable format
