@@ -62,20 +62,15 @@ func TestCheck(t *testing.T) {
 		if c.want.wantErr {
 			if err == nil {
 				t.Errorf("expected error, got nil")
-			} else {
-				if c.want.err.Error() != err.Error() {
-					t.Errorf("expected: %v, got: %v", c.want.err, err)
-				}
+			} else if c.want.err.Error() != err.Error() {
+				t.Errorf("expected: %v, got: %v", c.want.err, err)
 			}
 		}
 		if !cmp.Equal(res, c.want.expected) {
 			diff := cmp.Diff(res, c.want.expected)
 			t.Errorf("unexpected result: -want +got\n%s", diff)
-
 		}
-
 	}
-
 }
 
 func newForTest(f tracerouteFactory, targets []string) *UDPTraceroute {
@@ -84,7 +79,7 @@ func newForTest(f tracerouteFactory, targets []string) *UDPTraceroute {
 		t[i] = Target{Addr: target}
 	}
 	return &UDPTraceroute{
-		config: config{
+		config: Config{
 			Targets: t,
 		},
 		traceroute: f,
@@ -94,7 +89,6 @@ func newForTest(f tracerouteFactory, targets []string) *UDPTraceroute {
 			Done:    make(chan bool),
 		},
 	}
-
 }
 
 // success produces a tracerouteFactory that returns a traceroute result with nHops hops
@@ -124,7 +118,6 @@ func success(nHops int) tracerouteFactory {
 			DestinationAddress: hops[nHops-1].Address,
 			Hops:               hops,
 		}, nil
-
 	}
 }
 

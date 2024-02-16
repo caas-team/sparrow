@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/url"
 	"sync"
 	"time"
 
@@ -20,43 +21,42 @@ var (
 	CheckName              = "udptraceroute"
 )
 
-type config struct {
-	Targets  []Target
+type Config struct {
+	Targets  []Target           `json:"targets" yaml:"targets" mapstructure:"targets"`
 	Interval time.Duration      `json:"interval" yaml:"interval" mapstructure:"interval"`
 	Timeout  time.Duration      `json:"timeout" yaml:"timeout" mapstructure:"timeout"`
 	Retry    helper.RetryConfig `json:"retry" yaml:"retry" mapstructure:"retry"`
 }
 
-func (c config) For() string {
+func (c Config) For() string {
 	return CheckName
 }
 
 type Target struct {
-	Addr string
+	Addr string `json:"addr" yaml:"addr" mapstructure:"addr"`
 }
 
 func NewCheck() checks.Check {
 	return &UDPTraceroute{
-		config:     config{},
+		config:     Config{},
 		traceroute: newTraceroute,
 		CheckBase: checks.CheckBase{
-			Mu:      sync.Mutex{},
-			CResult: make(chan checks.Result),
-			Done:    make(chan bool),
+			Mu:   sync.Mutex{},
+			Done: make(chan bool),
 		},
 	}
 }
 
 type UDPTraceroute struct {
 	checks.CheckBase
-	config     config
+	config     Config
 	traceroute tracerouteFactory
 }
 
 type tracerouteFactory func(dest string) (traceroute.TracerouteResult, error)
 
 func newTraceroute(dest string) (traceroute.TracerouteResult, error) {
-	return traceroute.Traceroute(dest, nil)
+	return traceroute.Traceroute(dest, &traceroute.TracerouteOptions{})
 }
 
 type Result struct {
@@ -79,7 +79,7 @@ func (c *UDPTraceroute) Run(ctx context.Context) error {
 	ctx, cancel := logger.NewContextWithLogger(ctx)
 	defer cancel()
 	log := logger.FromContext(ctx)
-	log.Info("Starting latency check", "interval", c.config.Interval.String())
+	log.Info("Starting traceroute check", "interval", c.config.Interval.String())
 
 	for {
 		select {
@@ -98,7 +98,7 @@ func (c *UDPTraceroute) Run(ctx context.Context) error {
 			}
 
 			c.CResult <- r
-			log.Debug("Successfully finished latency check run")
+			log.Debug("Successfully finished traceroute check run")
 		}
 	}
 }
@@ -106,7 +106,7 @@ func (c *UDPTraceroute) Run(ctx context.Context) error {
 func (c *UDPTraceroute) GetConfig() checks.Runtime {
 	c.Mu.Lock()
 	defer c.Mu.Unlock()
-	return c.config
+	return &c.config
 }
 
 func (c *UDPTraceroute) check(_ context.Context) (map[string]Result, error) {
@@ -171,22 +171,20 @@ func (c *UDPTraceroute) Shutdown(_ context.Context) error {
 // This is also called while the check is running, if the remote config is updated
 // This should return an error if the config is invalid
 func (c *UDPTraceroute) SetConfig(cfg checks.Runtime) error {
-	newConfg, ok := cfg.(*config)
-	if ok {
-		c.Mu.Lock()
-		defer c.Mu.Unlock()
-		c.config = *newConfg
+	newConfig, ok := cfg.(*Config)
+	if !ok {
 		return checks.ErrConfigMismatch{
 			Expected: CheckName,
 			Current:  cfg.For(),
 		}
 	}
-	if err := validateConfig(*newConfg); err != nil {
-		return checks.ErrConfigMismatch{
-			Expected: CheckName,
-			Current:  cfg.For(),
-		}
+	if err := validateConfig(*newConfig); err != nil {
+		return err
 	}
+
+	c.Mu.Lock()
+	defer c.Mu.Unlock()
+	c.config = *newConfig
 
 	return nil
 }
@@ -205,6 +203,17 @@ func (c *UDPTraceroute) Name() string {
 	return CheckName
 }
 
-func validateConfig(_ config) error {
+func validateConfig(cfg Config) error {
+	if cfg.Timeout <= 0 {
+		return fmt.Errorf("timeout must be greater than 0")
+	}
+	if cfg.Interval <= 0 {
+		return fmt.Errorf("interval must be greater than 0")
+	}
+	for _, t := range cfg.Targets {
+		if _, err := url.Parse(t.Addr); err != nil {
+			return fmt.Errorf("%s is not a valid url", t.Addr)
+		}
+	}
 	return nil
 }
