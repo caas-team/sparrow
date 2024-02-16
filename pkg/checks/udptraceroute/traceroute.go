@@ -2,7 +2,9 @@ package udptraceroute
 
 import (
 	"context"
+	"fmt"
 	"net"
+	"sync"
 	"time"
 
 	"github.com/aeden/traceroute"
@@ -15,7 +17,7 @@ import (
 
 var (
 	_         checks.Check = (*UDPTraceroute)(nil)
-	checkname              = "udptraceroute"
+	CheckName              = "udptraceroute"
 )
 
 type config struct {
@@ -26,17 +28,35 @@ type config struct {
 }
 
 func (c config) For() string {
-	return checkname
+	return CheckName
 }
 
 type Target struct {
 	Addr string
 }
 
+func NewCheck() checks.Check {
+	return &UDPTraceroute{
+		config:     config{},
+		traceroute: newTraceroute,
+		CheckBase: checks.CheckBase{
+			Mu:      sync.Mutex{},
+			CResult: make(chan checks.Result),
+			Done:    make(chan bool),
+		},
+	}
+}
+
 type UDPTraceroute struct {
 	checks.CheckBase
-	config  config
-	cResult chan<- checks.Result
+	config     config
+	traceroute tracerouteFactory
+}
+
+type tracerouteFactory func(dest string) (traceroute.TracerouteResult, error)
+
+func newTraceroute(dest string) (traceroute.TracerouteResult, error) {
+	return traceroute.Traceroute(dest, nil)
 }
 
 type Result struct {
@@ -69,7 +89,7 @@ func (c *UDPTraceroute) Run(ctx context.Context) error {
 		case <-c.Done:
 			return nil
 		case <-time.After(c.config.Interval):
-			res := c.check(ctx)
+			res, _ := c.check(ctx)
 			errval := ""
 			r := checks.Result{
 				Data:      res,
@@ -89,30 +109,47 @@ func (c *UDPTraceroute) GetConfig() checks.Runtime {
 	return c.config
 }
 
-func (c *UDPTraceroute) check(_ context.Context) map[string]Result {
+func (c *UDPTraceroute) check(_ context.Context) (map[string]Result, error) {
 	res := make(map[string]Result)
+	var err error
 	for _, t := range c.config.Targets {
-		tr, err := traceroute.Traceroute(t.Addr, nil)
-		if err != nil {
-			panic(err)
+		tr, trerr := c.traceroute(t.Addr)
+		if trerr != nil {
+			err = trerr
+			continue
 		}
 
-		r := Result{
+		result := Result{
 			NumHops: len(tr.Hops),
 			Hops:    []Hop{},
 		}
 
 		for _, h := range tr.Hops {
-			r.Hops = append(r.Hops, Hop{
-				Addr:    h.Address[:],
+			result.Hops = append(result.Hops, Hop{
+				Addr:    net.IPv4(h.Address[0], h.Address[1], h.Address[2], h.Address[3]),
 				Latency: h.ElapsedTime,
 				Success: h.Success,
 			})
 		}
-
-		res[t.Addr] = r
+		res[t.Addr] = result
 	}
-	return res
+	return res, err
+}
+
+type MultiError struct {
+	errors []error
+}
+
+func (m MultiError) Error() string {
+	result := "["
+	if len(m.errors) > 0 {
+		result = m.errors[0].Error()
+	}
+	for _, err := range m.errors {
+		result = fmt.Sprintf("%s, %s", result, err.Error())
+	}
+	result += "]"
+	return result
 }
 
 // Startup is called once when the check is registered
@@ -121,7 +158,7 @@ func (c *UDPTraceroute) check(_ context.Context) map[string]Result {
 func (c *UDPTraceroute) Startup(_ context.Context, cResult chan<- checks.Result) error {
 	c.Mu.Lock()
 	defer c.Mu.Unlock()
-	c.cResult = cResult
+	c.CheckBase.CResult = cResult
 	return nil
 }
 
@@ -140,13 +177,13 @@ func (c *UDPTraceroute) SetConfig(cfg checks.Runtime) error {
 		defer c.Mu.Unlock()
 		c.config = *newConfg
 		return checks.ErrConfigMismatch{
-			Expected: checkname,
+			Expected: CheckName,
 			Current:  cfg.For(),
 		}
 	}
 	if err := validateConfig(*newConfg); err != nil {
 		return checks.ErrConfigMismatch{
-			Expected: checkname,
+			Expected: CheckName,
 			Current:  cfg.For(),
 		}
 	}
@@ -165,7 +202,7 @@ func (c *UDPTraceroute) GetMetricCollectors() []prometheus.Collector {
 }
 
 func (c *UDPTraceroute) Name() string {
-	return checkname
+	return CheckName
 }
 
 func validateConfig(_ config) error {

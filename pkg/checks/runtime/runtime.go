@@ -23,15 +23,17 @@ import (
 	"github.com/caas-team/sparrow/pkg/checks/dns"
 	"github.com/caas-team/sparrow/pkg/checks/health"
 	"github.com/caas-team/sparrow/pkg/checks/latency"
+	"github.com/caas-team/sparrow/pkg/checks/udptraceroute"
 )
 
 // Config holds the runtime configuration
 // for the various checks
 // the sparrow supports
 type Config struct {
-	Health  *health.Config  `yaml:"health" json:"health"`
-	Latency *latency.Config `yaml:"latency" json:"latency"`
-	Dns     *dns.Config     `yaml:"dns" json:"dns"`
+	Health     *health.Config        `yaml:"health" json:"health"`
+	Latency    *latency.Config       `yaml:"latency" json:"latency"`
+	Dns        *dns.Config           `yaml:"dns" json:"dns"`
+	Traceroute *udptraceroute.Config `yaml:"udptraceroute" json:"udptraceroute"`
 }
 
 // Empty returns true if no checks are configured
@@ -51,6 +53,9 @@ func (c Config) Iter() []checks.Runtime {
 	if c.Dns != nil {
 		configs = append(configs, c.Dns)
 	}
+	if c.Traceroute != nil {
+		configs = append(configs, c.Traceroute)
+	}
 	return configs
 }
 
@@ -64,6 +69,9 @@ func (c Config) size() int {
 		size++
 	}
 	if c.HasDNSCheck() {
+		size++
+	}
+	if c.HasUdpTracerouteCheck() {
 		size++
 	}
 	return size
@@ -84,6 +92,11 @@ func (c Config) HasDNSCheck() bool {
 	return c.Dns != nil
 }
 
+// HasUdpTracerouteCheck returns true if the check has a udptraceroute check configured
+func (c Config) HasUdpTracerouteCheck() bool {
+	return c.Traceroute != nil
+}
+
 // HasCheck returns true if the check has a check with the given name configured
 func (c Config) HasCheck(name string) bool {
 	switch name {
@@ -93,6 +106,8 @@ func (c Config) HasCheck(name string) bool {
 		return c.HasLatencyCheck()
 	case dns.CheckName:
 		return c.HasDNSCheck()
+	case udptraceroute.CheckName:
+		return c.HasUdpTracerouteCheck()
 	default:
 		return false
 	}
