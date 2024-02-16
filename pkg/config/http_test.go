@@ -160,46 +160,62 @@ func TestHttpLoader_Run(t *testing.T) {
 
 	tests := []struct {
 		name     string
+		interval time.Duration
 		response *runtime.Config
 		code     int
 		wantErr  bool
 	}{
 		{
 			name:     "non-200 response",
+			interval: 500 * time.Millisecond,
 			response: nil,
-			code:     500,
+			code:     http.StatusInternalServerError,
 			wantErr:  false,
 		},
 		{
 			name:     "empty checks' configuration",
+			interval: 500 * time.Millisecond,
 			response: &runtime.Config{},
-			code:     200,
+			code:     http.StatusOK,
 		},
 		{
-			name: "config with health check",
+			name:     "config with health check",
+			interval: 500 * time.Millisecond,
 			response: &runtime.Config{
 				Health: &health.Config{
 					Targets:  []string{"http://localhost:8080/health"},
 					Interval: 1 * time.Second,
 				},
 			},
-			code: 200,
+			code: http.StatusOK,
+		},
+		{
+			name:     "continuous loading disabled",
+			interval: 0,
+			response: &runtime.Config{
+				Health: &health.Config{
+					Targets:  []string{"http://localhost:8080/health"},
+					Interval: 1 * time.Second,
+				},
+			},
+			code:    http.StatusOK,
+			wantErr: false,
 		},
 	}
 
 	for _, tt := range tests {
-		body, err := yaml.Marshal(tt.response)
-		if err != nil {
-			t.Fatalf("Failed marshaling response to bytes: %v", err)
-		}
-		resp := httpmock.NewBytesResponder(tt.code, body)
-		httpmock.RegisterResponder(http.MethodGet, "https://api.test.com/test", resp)
-
 		t.Run(tt.name, func(t *testing.T) {
+			body, err := yaml.Marshal(tt.response)
+			if err != nil {
+				t.Fatalf("Failed marshaling response to bytes: %v", err)
+			}
+			resp := httpmock.NewBytesResponder(tt.code, body)
+			httpmock.RegisterResponder(http.MethodGet, "https://api.test.com/test", resp)
+
 			hl := &HttpLoader{
 				cfg: LoaderConfig{
 					Type:     "http",
-					Interval: time.Millisecond * 500,
+					Interval: tt.interval,
 					Http: HttpLoaderConfig{
 						Url: "https://api.test.com/test",
 						RetryCfg: helper.RetryConfig{
@@ -219,14 +235,16 @@ func TestHttpLoader_Run(t *testing.T) {
 			ctx := context.Background()
 			var wg sync.WaitGroup
 			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				time.Sleep(time.Millisecond * 600)
-				t.Log("Shutting down the Run method")
-				hl.Shutdown(ctx)
-			}()
+			if tt.interval > 0 {
+				go func() {
+					defer wg.Done()
+					time.Sleep(time.Millisecond * 600)
+					t.Log("Shutting down the Run method")
+					hl.Shutdown(ctx)
+				}()
+			}
 
-			err := hl.Run(ctx)
+			err = hl.Run(ctx)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("HttpLoader.Run() error = %v, wantErr %v", err, tt.wantErr)
 			}

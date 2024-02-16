@@ -56,10 +56,22 @@ func (hl *HttpLoader) Run(ctx context.Context) error {
 	ctx, cancel := logger.NewContextWithLogger(ctx)
 	defer cancel()
 	log := logger.FromContext(ctx)
-	var runtimeCfg *runtime.Config
+
+	if hl.cfg.Interval == 0 {
+		cfg, err := hl.getRuntimeConfig(ctx)
+		if err != nil {
+			log.Warn("Could not get local runtime configuration", "error", err)
+		}
+
+		hl.cRuntime <- *cfg
+		log.Info("HTTP Loader disabled")
+		return nil
+	}
+
 	tick := time.NewTicker(hl.cfg.Interval)
 	defer tick.Stop()
 
+	var runtimeCfg *runtime.Config
 	for {
 		select {
 		case <-hl.done:
@@ -68,8 +80,7 @@ func (hl *HttpLoader) Run(ctx context.Context) error {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-tick.C:
-			getConfigRetry := helper.Retry(func(ctx context.Context) error {
-				var err error
+			getConfigRetry := helper.Retry(func(ctx context.Context) (err error) {
 				runtimeCfg, err = hl.getRuntimeConfig(ctx)
 				return err
 			}, hl.cfg.Http.RetryCfg)

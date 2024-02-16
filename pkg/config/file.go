@@ -58,6 +58,18 @@ func (f *FileLoader) Run(ctx context.Context) error {
 	ctx, cancel := logger.NewContextWithLogger(ctx)
 	defer cancel()
 	log := logger.FromContext(ctx)
+
+	if f.config.Interval == 0 {
+		cfg, err := f.getRuntimeConfig(ctx)
+		if err != nil {
+			log.Warn("Could not get local runtime configuration", "error", err)
+		}
+
+		f.cRuntime <- cfg
+		log.Info("File Loader disabled")
+		return nil
+	}
+
 	tick := time.NewTicker(f.config.Interval)
 	defer tick.Stop()
 
