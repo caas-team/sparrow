@@ -57,13 +57,19 @@ func (hl *HttpLoader) Run(ctx context.Context) error {
 	defer cancel()
 	log := logger.FromContext(ctx)
 
+	var runtimeCfg *runtime.Config
+	getConfigRetry := helper.Retry(func(ctx context.Context) (err error) {
+		runtimeCfg, err = hl.getRuntimeConfig(ctx)
+		return err
+	}, hl.cfg.Http.RetryCfg)
+
 	if hl.cfg.Interval == 0 {
-		cfg, err := hl.getRuntimeConfig(ctx)
+		err := getConfigRetry(ctx)
 		if err != nil {
 			log.Warn("Could not get local runtime configuration", "error", err)
 		}
 
-		hl.cRuntime <- *cfg
+		hl.cRuntime <- *runtimeCfg
 		log.Info("HTTP Loader disabled")
 		return nil
 	}
@@ -71,7 +77,6 @@ func (hl *HttpLoader) Run(ctx context.Context) error {
 	tick := time.NewTicker(hl.cfg.Interval)
 	defer tick.Stop()
 
-	var runtimeCfg *runtime.Config
 	for {
 		select {
 		case <-hl.done:
@@ -80,11 +85,6 @@ func (hl *HttpLoader) Run(ctx context.Context) error {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-tick.C:
-			getConfigRetry := helper.Retry(func(ctx context.Context) (err error) {
-				runtimeCfg, err = hl.getRuntimeConfig(ctx)
-				return err
-			}, hl.cfg.Http.RetryCfg)
-
 			if err := getConfigRetry(ctx); err != nil {
 				log.Warn("Could not get remote runtime configuration", "error", err)
 				tick.Reset(hl.cfg.Interval)
