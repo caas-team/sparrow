@@ -53,7 +53,6 @@ func NewFileLoader(cfg *Config, cRuntime chan<- runtime.Config) *FileLoader {
 
 // Run gets the runtime configuration from the local file.
 // The config will be loaded periodically defined by the loader interval configuration.
-// Returns an error if the loader is shutdown or the context is done.
 func (f *FileLoader) Run(ctx context.Context) error {
 	ctx, cancel := logger.NewContextWithLogger(ctx)
 	defer cancel()
