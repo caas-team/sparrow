@@ -109,6 +109,7 @@ startupConfig:
   ...
   loader:
     type: http
+    interval: 30s
     http:
       url: https://url-to-checks-config.de/api/config%2Eyaml
 
@@ -194,6 +195,7 @@ loader:
   # defines which loader to use. Options: "file | http" 
   type: http
   # the interval in which sparrow tries to fetch a new configuration
+  # if this isn't set or set to 0, the loader will only retrieve the configuration once
   interval: 30s
   # config specific to the http loader
   http:
@@ -210,8 +212,7 @@ loader:
       count: 3
 
   # config specific to the file loader
-  # The file loader is not intended for production use and does 
-  # not refresh the config after reading it the first time
+  # The file loader is not intended for production use
   file:
     # location of the file in the local filesystem
     path: ./config.yaml
@@ -259,15 +260,16 @@ Available loaders:
 - `http` (default): Retrieves the checks' configuration from a remote endpoint during runtime. Additional configuration
   parameters are set in the `loader.http` section.
 
-- `file` (experimental): Intended for development, it loads the configuration once from a local file and does not
-  refresh after the first load. The target manager is currently not functional in combination with this loader type.
+- `file`: Loads the configuration from a local file during runtime. Additional configuration
+  parameters are set in the `loader.file` section.
+
+If you want to retrieve the checks' configuration only once, you can set `loader.interval` to 0.
+The target manager is currently not functional in combination with this configuration.
 
 ### Checks
 
-In addition to the technical startup configuration, the `sparrow` checks' configuration can be dynamically loaded from
-an HTTP endpoint during runtime.
-For local use, you may directly load the configuration using a `file` loader. The `loader` is capable of dynamically
-loading and configuring checks.
+In addition to the technical startup configuration, the `sparrow` checks' configuration can be dynamically loaded during runtime.
+The `loader` is capable of dynamically loading and configuring checks.
 
 For detailed information on available loader configuration options, please refer
 to [this documentation](docs/sparrow_run.md).
@@ -287,7 +289,7 @@ the `targetManager`, it will not be used. When configured, it offers various set
 in the startup YAML configuration file as shown in the [example configuration](#example-startup-configuration).
 
 | Type                                 | Description                                                                                  |
-|--------------------------------------|----------------------------------------------------------------------------------------------|
+| ------------------------------------ | -------------------------------------------------------------------------------------------- |
 | `targetManager.checkInterval`        | Interval for checking new targets.                                                           |
 | `targetManager.unhealthyThreshold`   | Threshold for marking a target as unhealthy. 0 means no cleanup.                             |
 | `targetManager.registrationInterval` | Interval for registering the current sparrow at the target backend. 0 means no registration. |
@@ -314,7 +316,7 @@ which is named after the DNS name of the `sparrow`. The state file contains the 
 Available configuration options:
 
 | Field         | Type              | Description                                                                                                                                                 |
-|---------------|-------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| ------------- | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `interval`    | `duration`        | Interval to perform the health check.                                                                                                                       |
 | `timeout`     | `duration`        | Timeout for the health check.                                                                                                                               |
 | `retry.count` | `integer`         | Number of retries for the health check.                                                                                                                     |
@@ -347,7 +349,7 @@ health:
 Available configuration options:
 
 | Field         | Type              | Description                                                                                                                                                  |
-|---------------|-------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| ------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `interval`    | `duration`        | Interval to perform the latency check.                                                                                                                       |
 | `timeout`     | `duration`        | Timeout for the latency check.                                                                                                                               |
 | `retry.count` | `integer`         | Number of retries for the latency check.                                                                                                                     |
@@ -390,7 +392,7 @@ latency:
 Available configuration options:
 
 | Field         | Type              | Description                                                                                                                                               |
-|---------------|-------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------|
+| ------------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `interval`    | `duration`        | Interval to perform the DNS check.                                                                                                                        |
 | `timeout`     | `duration`        | Timeout for the DNS check.                                                                                                                                |
 | `retry.count` | `integer`         | Number of retries for the DNS check.                                                                                                                      |
@@ -463,7 +465,7 @@ The application itself and all end-user facing content will be made available in
 The following channels are available for discussions, feedback, and support requests:
 
 | Type       | Channel                                                                                                                                                |
-|------------|--------------------------------------------------------------------------------------------------------------------------------------------------------|
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Issues** | <a href="/../../issues/new/choose" title="General Discussion"><img src="https://img.shields.io/github/issues/caas-team/sparrow?style=flat-square"></a> |
 
 ## How to Contribute

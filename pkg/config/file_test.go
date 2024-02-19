@@ -71,23 +71,42 @@ func TestFileLoader_Run(t *testing.T) {
 			},
 			wantErr: false,
 		},
+		{
+			name: "Continuous loading disabled",
+			config: LoaderConfig{
+				Type:     "file",
+				Interval: 0,
+				File: FileLoaderConfig{
+					Path: "test/data/config.yaml",
+				},
+			},
+			want: runtime.Config{
+				Health: &health.Config{
+					Targets:  []string{"http://localhost:8080/health"},
+					Interval: 1 * time.Second,
+					Timeout:  1 * time.Second,
+				},
+			},
+			wantErr: false,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.Background()
 			result := make(chan runtime.Config, 1)
-			defer close(result)
 			f := NewFileLoader(&Config{
 				Loader: tt.config,
 			}, result)
 
-			go func() {
+			go func(wantErr bool) {
+				defer close(result)
 				err := f.Run(ctx)
-				if (err != nil) != tt.wantErr {
+				if (err != nil) != wantErr {
 					t.Errorf("Run() error %v, want %v", err, tt.wantErr)
 				}
-			}()
+			}(tt.wantErr)
+			defer f.Shutdown(ctx)
 
 			if !tt.wantErr {
 				config := <-result
@@ -95,7 +114,6 @@ func TestFileLoader_Run(t *testing.T) {
 					t.Errorf("Expected config to be %v, got %v", tt.want, config)
 				}
 			}
-			f.Shutdown(ctx)
 		})
 	}
 }
