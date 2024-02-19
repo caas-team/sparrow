@@ -55,7 +55,7 @@ type Config struct {
 }
 
 type TargetManagerConfig struct {
-	Config
+	Config `yaml:",inline" mapstructure:",squash"`
 	Gitlab GitlabTargetManagerConfig `yaml:"gitlab" mapstructure:"gitlab"`
 }
 
