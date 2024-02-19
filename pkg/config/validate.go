@@ -42,7 +42,7 @@ func (c *Config) Validate(ctx context.Context) error {
 
 	if c.Loader.Interval < 0 {
 		ok = false
-		log.Error("The loader interval should be above 0", "interval", c.Loader.Interval)
+		log.Error("The loader interval should be equal or above 0", "interval", c.Loader.Interval)
 	}
 
 	switch c.Loader.Type {
