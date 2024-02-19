@@ -63,6 +63,7 @@ func (f *FileLoader) Run(ctx context.Context) error {
 		cfg, err := f.getRuntimeConfig(ctx)
 		if err != nil {
 			log.Warn("Could not get local runtime configuration", "error", err)
+			return fmt.Errorf("could not get local runtime configuration: %w", err)
 		}
 
 		f.cRuntime <- cfg

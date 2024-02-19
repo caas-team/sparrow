@@ -66,7 +66,8 @@ func (hl *HttpLoader) Run(ctx context.Context) error {
 	if hl.cfg.Interval == 0 {
 		err := getConfigRetry(ctx)
 		if err != nil {
-			log.Warn("Could not get local runtime configuration", "error", err)
+			log.Warn("Could not get remote runtime configuration", "error", err)
+			return fmt.Errorf("could not get remote runtime configuration: %w", err)
 		}
 
 		hl.cRuntime <- *runtimeCfg
