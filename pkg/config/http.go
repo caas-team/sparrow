@@ -51,7 +51,7 @@ func NewHttpLoader(cfg *Config, cRuntime chan<- runtime.Config) *HttpLoader {
 
 // Run gets the runtime configuration from the remote file of the configured http endpoint.
 // The config will be loaded periodically defined by the loader interval configuration.
-// Returns an error if the loader is shutdown or the context is done.
+// If the interval is 0, the configuration is only fetched once and the loader is disabled.
 func (hl *HttpLoader) Run(ctx context.Context) error {
 	ctx, cancel := logger.NewContextWithLogger(ctx)
 	defer cancel()
@@ -63,30 +63,22 @@ func (hl *HttpLoader) Run(ctx context.Context) error {
 		return err
 	}, hl.cfg.Http.RetryCfg)
 
-	if hl.cfg.Interval == 0 {
-		err := getConfigRetry(ctx)
-		if err != nil {
-			log.Warn("Could not get remote runtime configuration", "error", err)
-			return fmt.Errorf("could not get remote runtime configuration: %w", err)
-		}
-
+	// Get the runtime configuration once on startup
+	err := getConfigRetry(ctx)
+	if err != nil {
+		log.Warn("Could not get remote runtime configuration", "error", err)
+		err = fmt.Errorf("could not get remote runtime configuration: %w", err)
+	} else { // The else block is necessary to avoid sending a nil pointer
 		hl.cRuntime <- *runtimeCfg
+	}
+
+	if hl.cfg.Interval == 0 {
 		log.Info("HTTP Loader disabled")
-		return nil
+		return err
 	}
 
 	tick := time.NewTicker(hl.cfg.Interval)
 	defer tick.Stop()
-
-	// Get the runtime configuration once at startup
-	go func() {
-		cfg, err := hl.getRuntimeConfig(ctx)
-		if err != nil {
-			log.Warn("Could not get remote runtime configuration", "error", err)
-			return
-		}
-		hl.cRuntime <- *cfg
-	}()
 
 	for {
 		select {
