@@ -60,9 +60,8 @@ func (d *DNS) Name() string {
 func NewCheck() checks.Check {
 	return &DNS{
 		CheckBase: checks.CheckBase{
-			Mu:      sync.Mutex{},
-			CResult: nil,
-			Done:    make(chan bool, 1),
+			Mu:       sync.Mutex{},
+			DoneChan: make(chan struct{}, 1),
 		},
 		config: Config{
 			Retry: checks.DefaultRetry,
@@ -70,18 +69,6 @@ func NewCheck() checks.Check {
 		metrics: newMetrics(),
 		client:  NewResolver(),
 	}
-}
-
-// Config defines the configuration parameters for a DNS check
-type Config struct {
-	Targets  []string           `json:"targets" yaml:"targets"`
-	Interval time.Duration      `json:"interval" yaml:"interval"`
-	Timeout  time.Duration      `json:"timeout" yaml:"timeout"`
-	Retry    helper.RetryConfig `json:"retry" yaml:"retry"`
-}
-
-func (c Config) For() string {
-	return CheckName
 }
 
 // result represents the result of a single DNS check for a specific target
@@ -92,7 +79,7 @@ type result struct {
 }
 
 // Run starts the dns check
-func (d *DNS) Run(ctx context.Context) error {
+func (d *DNS) Run(ctx context.Context, cResult chan checks.ResultDTO) error {
 	ctx, cancel := logger.NewContextWithLogger(ctx)
 	defer cancel()
 	log := logger.FromContext(ctx)
@@ -103,34 +90,26 @@ func (d *DNS) Run(ctx context.Context) error {
 		case <-ctx.Done():
 			log.Error("Context canceled", "err", ctx.Err())
 			return ctx.Err()
-		case <-d.Done:
+		case <-d.DoneChan:
 			return nil
 		case <-time.After(d.config.Interval):
 			res := d.check(ctx)
-			errval := ""
-			r := checks.Result{
-				Data:      res,
-				Err:       errval,
-				Timestamp: time.Now(),
-			}
 
-			d.CResult <- r
+			cResult <- checks.ResultDTO{
+				Name: d.Name(),
+				Result: &checks.Result{
+					Data:      res,
+					Timestamp: time.Now(),
+				},
+			}
 			log.Debug("Successfully finished dns check run")
 		}
 	}
 }
 
-func (d *DNS) Startup(ctx context.Context, cResult chan<- checks.Result) error {
-	log := logger.FromContext(ctx)
-	log.Debug("Initializing dns check")
-
-	d.CResult = cResult
-	return nil
-}
-
 func (d *DNS) Shutdown(_ context.Context) error {
-	d.Done <- true
-	close(d.Done)
+	d.DoneChan <- struct{}{}
+	close(d.DoneChan)
 
 	return nil
 }

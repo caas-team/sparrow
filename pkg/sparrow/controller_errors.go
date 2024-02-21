@@ -16,29 +16,28 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package checks
+package sparrow
 
 import (
 	"fmt"
+
+	"github.com/caas-team/sparrow/pkg/checks"
 )
 
-// ErrConfigMismatch is returned when a configuration is of the wrong type
-type ErrConfigMismatch struct {
-	Expected string
-	Current  string
+type ErrRunningCheck struct {
+	Check checks.Check
+	Err   error
 }
 
-func (e ErrConfigMismatch) Error() string {
-	return fmt.Sprintf("config mismatch: expected type %v, got %v", e.Expected, e.Current)
+func (e *ErrRunningCheck) Error() string {
+	return fmt.Sprintf("check %s failed: %v", e.Check.Name(), e.Err)
 }
 
-// ErrInvalidConfig is returned when a configuration is invalid
-type ErrInvalidConfig struct {
-	CheckName string
-	Field     string
-	Reason    string
+type ErrCreateOpenapiSchema struct {
+	name string
+	err  error
 }
 
-func (e ErrInvalidConfig) Error() string {
-	return fmt.Sprintf("invalid configuration field %q in check %q: %s", e.Field, e.CheckName, e.Reason)
+func (e ErrCreateOpenapiSchema) Error() string {
+	return fmt.Sprintf("failed to get schema for check %s: %v", e.name, e.err)
 }

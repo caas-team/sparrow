@@ -45,6 +45,10 @@ func newCheck(cfg checks.Runtime) (checks.Check, error) {
 
 // NewChecksFromConfig creates all checks defined provided config
 func NewChecksFromConfig(cfg runtime.Config) (map[string]checks.Check, error) {
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
+
 	result := make(map[string]checks.Check)
 	for _, c := range cfg.Iter() {
 		check, err := newCheck(c)

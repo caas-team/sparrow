@@ -109,6 +109,7 @@ startupConfig:
   ...
   loader:
     type: http
+    interval: 30s
     http:
       url: https://url-to-checks-config.de/api/config%2Eyaml
 
@@ -194,6 +195,7 @@ loader:
   # defines which loader to use. Options: "file | http" 
   type: http
   # the interval in which sparrow tries to fetch a new configuration
+  # if this isn't set or set to 0, the loader will only retrieve the configuration once
   interval: 30s
   # config specific to the http loader
   http:
@@ -210,8 +212,7 @@ loader:
       count: 3
 
   # config specific to the file loader
-  # The file loader is not intended for production use and does 
-  # not refresh the config after reading it the first time
+  # The file loader is not intended for production use
   file:
     # location of the file in the local filesystem
     path: ./config.yaml
@@ -223,13 +224,18 @@ api:
 
 # Configures the target manager
 targetManager:
-  # time between checking for new targets
+  # The interval for the target reconciliation process
   checkInterval: 1m
-  # how often the instance should register itself as a global target
+  # How often the instance should register itself as a global target.
+  # A duration of 0 means no registration.
   registrationInterval: 1m
-  # the amount of time a target can be
-  # unhealthy before it is removed from the global target list
-  unhealthyThreshold: 3m
+  # How often the instance should update its registration as a global target.
+  # A duration of 0 means no update.
+  updateInterval: 120m
+  # The amount of time a target can be unhealthy
+  # before it is removed from the global target list.
+  # A duration of 0 means no removal.
+  unhealthyThreshold: 360m
   # Configuration options for the gitlab target manager
   gitlab:
     # The url of your gitlab host
@@ -254,15 +260,16 @@ Available loaders:
 - `http` (default): Retrieves the checks' configuration from a remote endpoint during runtime. Additional configuration
   parameters are set in the `loader.http` section.
 
-- `file` (experimental): Intended for development, it loads the configuration once from a local file and does not
-  refresh after the first load. The target manager is currently not functional in combination with this loader type.
+- `file`: Loads the configuration from a local file during runtime. Additional configuration
+  parameters are set in the `loader.file` section.
+
+If you want to retrieve the checks' configuration only once, you can set `loader.interval` to 0.
+The target manager is currently not functional in combination with this configuration.
 
 ### Checks
 
-In addition to the technical startup configuration, the `sparrow` checks' configuration can be dynamically loaded from
-an HTTP endpoint during runtime.
-For local use, you may directly load the configuration using a `file` loader. The `loader` is capable of dynamically
-loading and configuring checks.
+In addition to the technical startup configuration, the `sparrow` checks' configuration can be dynamically loaded during runtime.
+The `loader` is capable of dynamically loading and configuring checks.
 
 For detailed information on available loader configuration options, please refer
 to [this documentation](docs/sparrow_run.md).
@@ -281,17 +288,18 @@ the `TargetManager` interface. This feature is optional; if the startup configur
 the `targetManager`, it will not be used. When configured, it offers various settings, detailed below, which can be set
 in the startup YAML configuration file as shown in the [example configuration](#example-startup-configuration).
 
-| Type                                 | Description                                                         | Default Value        |
-|--------------------------------------|---------------------------------------------------------------------|----------------------|
-| `targetManager.checkInterval`        | Interval for checking new targets.                                  | `300s`               |
-| `targetManager.unhealthyThreshold`   | Threshold for marking a target as unhealthy.                        | `600s`               |
-| `targetManager.registrationInterval` | Interval for registering the current sparrow at the target backend. | `300s`               |
-| `targetManager.gitlab.token`         | Token for authenticating with the GitLab instance.                  | `""`                 |
-| `targetManager.gitlab.baseUrl`       | Base URL of the GitLab instance.                                    | `https://gitlab.com` |
-| `targetManager.gitlab.projectId`     | Project ID for the GitLab project used as a remote state backend.   | `""`                 |
+| Type                                 | Description                                                                                  |
+| ------------------------------------ | -------------------------------------------------------------------------------------------- |
+| `targetManager.checkInterval`        | Interval for checking new targets.                                                           |
+| `targetManager.unhealthyThreshold`   | Threshold for marking a target as unhealthy. 0 means no cleanup.                             |
+| `targetManager.registrationInterval` | Interval for registering the current sparrow at the target backend. 0 means no registration. |
+| `targetManager.updateInterval`       | Interval for updating the registration of the current sparrow. 0 means no update.            |
+| `targetManager.gitlab.token`         | Token for authenticating with the GitLab instance.                                           |
+| `targetManager.gitlab.baseUrl`       | Base URL of the GitLab instance.                                                             |
+| `targetManager.gitlab.projectId`     | Project ID for the GitLab project used as a remote state backend.                            |
 
 Currently, only one target manager exists: the Gitlab target manager. It uses a gitlab project as the remote state
-backend. The various `sparrow` instances will register themselves as targets in the project.
+backend. The various `sparrow` instances can register themselves as targets in the project.
 The `sparrow` instances will also check the project for new targets and add them to the local state.
 The registration is done by committing a "state" file in the main branch of the repository,
 which is named after the DNS name of the `sparrow`. The state file contains the following information:
@@ -308,7 +316,7 @@ which is named after the DNS name of the `sparrow`. The state file contains the 
 Available configuration options:
 
 | Field         | Type              | Description                                                                                                                                                 |
-|---------------|-------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| ------------- | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `interval`    | `duration`        | Interval to perform the health check.                                                                                                                       |
 | `timeout`     | `duration`        | Timeout for the health check.                                                                                                                               |
 | `retry.count` | `integer`         | Number of retries for the health check.                                                                                                                     |
@@ -341,7 +349,7 @@ health:
 Available configuration options:
 
 | Field         | Type              | Description                                                                                                                                                  |
-|---------------|-------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| ------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `interval`    | `duration`        | Interval to perform the latency check.                                                                                                                       |
 | `timeout`     | `duration`        | Timeout for the latency check.                                                                                                                               |
 | `retry.count` | `integer`         | Number of retries for the latency check.                                                                                                                     |
@@ -384,7 +392,7 @@ latency:
 Available configuration options:
 
 | Field         | Type              | Description                                                                                                                                               |
-|---------------|-------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------|
+| ------------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `interval`    | `duration`        | Interval to perform the DNS check.                                                                                                                        |
 | `timeout`     | `duration`        | Timeout for the DNS check.                                                                                                                                |
 | `retry.count` | `integer`         | Number of retries for the DNS check.                                                                                                                      |
@@ -457,7 +465,7 @@ The application itself and all end-user facing content will be made available in
 The following channels are available for discussions, feedback, and support requests:
 
 | Type       | Channel                                                                                                                                                |
-|------------|--------------------------------------------------------------------------------------------------------------------------------------------------------|
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Issues** | <a href="/../../issues/new/choose" title="General Discussion"><img src="https://img.shields.io/github/issues/caas-team/sparrow?style=flat-square"></a> |
 
 ## How to Contribute

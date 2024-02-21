@@ -29,18 +29,20 @@ import (
 	"testing"
 	"time"
 
-	"github.com/caas-team/sparrow/pkg/api"
 	"github.com/caas-team/sparrow/pkg/checks"
 	"github.com/caas-team/sparrow/pkg/checks/runtime"
-	"github.com/caas-team/sparrow/pkg/config"
 	"github.com/caas-team/sparrow/pkg/db"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/go-chi/chi/v5"
 	"gopkg.in/yaml.v3"
 )
 
-func TestSparrow_getOpenapi(t *testing.T) {
-	s := Sparrow{}
+func TestSparrow_handleOpenAPI(t *testing.T) {
+	s := Sparrow{
+		controller: &ChecksController{
+			checks: runtime.Checks{},
+		},
+	}
 
 	type args struct {
 		request  *http.Request
@@ -89,49 +91,45 @@ func TestSparrow_getOpenapi(t *testing.T) {
 }
 
 func TestSparrow_handleCheckMetrics(t *testing.T) {
-	type fields struct {
-		checks      map[string]checks.Check
-		resultFanIn map[string]chan checks.Result
-		cResult     chan checks.ResultDTO
-		loader      config.Loader
-		cfg         *config.Config
-		cRuntime    chan runtime.Config
-		api         api.API
-		db          db.DB
-	}
-
-	type args struct {
-		w *httptest.ResponseRecorder
-		r *http.Request
-	}
 	tests := []struct {
 		name     string
-		fields   fields
-		args     args
 		want     []byte
 		wantCode int
 	}{
-		{name: "no data", fields: fields{db: db.NewInMemory()}, args: args{w: httptest.NewRecorder(), r: chiRequest(httptest.NewRequest(http.MethodGet, "/v1/metrics/alpha", bytes.NewBuffer([]byte{})), "alpha")}, wantCode: http.StatusNotFound, want: []byte(http.StatusText(http.StatusNotFound))},
-		{name: "bad request data", fields: fields{db: db.NewInMemory()}, args: args{w: httptest.NewRecorder(), r: chiRequest(httptest.NewRequest(http.MethodGet, "/v1/metrics/", bytes.NewBuffer([]byte{})), "")}, wantCode: http.StatusBadRequest, want: []byte(http.StatusText(http.StatusBadRequest))},
-		{name: "has data", fields: fields{db: testDb()}, args: args{w: httptest.NewRecorder(), r: chiRequest(httptest.NewRequest(http.MethodGet, "/v1/metrics/alpha", bytes.NewBuffer([]byte{})), "alpha")}, wantCode: http.StatusOK, want: []byte(`{"name":"alpha","result":{"timestamp":"0001-01-01T00:00:00Z","err":"","data":1}}`)},
+		{
+			name:     "no data",
+			wantCode: http.StatusNotFound,
+			want:     []byte(http.StatusText(http.StatusNotFound)),
+		},
+		{
+			name:     "bad request data",
+			wantCode: http.StatusBadRequest,
+			want:     []byte(http.StatusText(http.StatusBadRequest)),
+		},
+		{
+			name:     "has data",
+			wantCode: http.StatusOK,
+			want:     []byte(`{"name":"alpha","result":{"timestamp":"0001-01-01T00:00:00Z","err":"","data":1}}`),
+		},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &Sparrow{
-				config: tt.fields.cfg,
-				db:     tt.fields.db,
-				api:    tt.fields.api,
-				loader: tt.fields.loader,
-				checkCoordinator: checkCoordinator{
-					checks:      tt.fields.checks,
-					resultFanIn: tt.fields.resultFanIn,
-					cRuntime:    tt.fields.cRuntime,
-					cResult:     tt.fields.cResult,
-				},
+				db: db.NewInMemory(),
+			}
+			if tt.wantCode == http.StatusOK {
+				s.db = testDb()
 			}
 
-			s.handleCheckMetrics(tt.args.w, tt.args.r)
-			resp := tt.args.w.Result() //nolint:bodyclose
+			w := httptest.NewRecorder()
+			r := chiRequest(httptest.NewRequest(http.MethodGet, "/v1/metrics/alpha", bytes.NewBuffer([]byte{})), "alpha")
+			if tt.wantCode == http.StatusBadRequest {
+				r = chiRequest(httptest.NewRequest(http.MethodGet, "/v1/metrics/", bytes.NewBuffer([]byte{})), "")
+			}
+
+			s.handleCheckMetrics(w, r)
+			resp := w.Result() //nolint:bodyclose
 			body, _ := io.ReadAll(resp.Body)
 
 			if tt.wantCode == http.StatusOK {
@@ -174,8 +172,8 @@ func chiRequest(r *http.Request, value string) *http.Request {
 
 func testDb() *db.InMemory {
 	d := db.NewInMemory()
-	d.Save(checks.ResultDTO{Name: "alpha", Result: &checks.Result{Timestamp: time.Now(), Err: "", Data: 1}})
-	d.Save(checks.ResultDTO{Name: "beta", Result: &checks.Result{Timestamp: time.Now(), Err: "", Data: 1}})
+	d.Save(checks.ResultDTO{Name: "alpha", Result: &checks.Result{Timestamp: time.Now(), Data: 1}})
+	d.Save(checks.ResultDTO{Name: "beta", Result: &checks.Result{Timestamp: time.Now(), Data: 1}})
 
 	return d
 }

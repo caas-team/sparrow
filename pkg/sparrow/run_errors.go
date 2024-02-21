@@ -16,29 +16,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package checks
+package sparrow
 
-import (
-	"fmt"
-)
-
-// ErrConfigMismatch is returned when a configuration is of the wrong type
-type ErrConfigMismatch struct {
-	Expected string
-	Current  string
+type ErrShutdown struct {
+	errAPI       error
+	errTarMan    error
+	errCheckCont error
 }
 
-func (e ErrConfigMismatch) Error() string {
-	return fmt.Sprintf("config mismatch: expected type %v, got %v", e.Expected, e.Current)
-}
-
-// ErrInvalidConfig is returned when a configuration is invalid
-type ErrInvalidConfig struct {
-	CheckName string
-	Field     string
-	Reason    string
-}
-
-func (e ErrInvalidConfig) Error() string {
-	return fmt.Sprintf("invalid configuration field %q in check %q: %s", e.Field, e.CheckName, e.Reason)
+func (e ErrShutdown) HasError() bool {
+	return e.errAPI != nil || e.errTarMan != nil || e.errCheckCont != nil
 }

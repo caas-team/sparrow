@@ -40,6 +40,11 @@ func (c *Config) Validate(ctx context.Context) error {
 		log.Error("The name of the sparrow must be DNS compliant")
 	}
 
+	if c.Loader.Interval < 0 {
+		ok = false
+		log.Error("The loader interval should be equal or above 0", "interval", c.Loader.Interval)
+	}
+
 	switch c.Loader.Type {
 	case "http":
 		if _, err := url.ParseRequestURI(c.Loader.Http.Url); err != nil {

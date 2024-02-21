@@ -20,174 +20,25 @@ package sparrow
 
 import (
 	"context"
-	"reflect"
 	"testing"
 	"time"
 
 	"github.com/caas-team/sparrow/pkg/sparrow/targets"
 
 	"github.com/caas-team/sparrow/pkg/api"
-	"github.com/caas-team/sparrow/pkg/checks/dns"
-
-	"github.com/caas-team/sparrow/pkg/checks/runtime"
-
 	"github.com/caas-team/sparrow/pkg/checks"
+	"github.com/caas-team/sparrow/pkg/checks/dns"
 	"github.com/caas-team/sparrow/pkg/checks/health"
 	"github.com/caas-team/sparrow/pkg/checks/latency"
-
-	gitlabmock "github.com/caas-team/sparrow/pkg/sparrow/targets/test"
-
-	"github.com/stretchr/testify/assert"
-
-	"github.com/caas-team/sparrow/internal/logger"
+	"github.com/caas-team/sparrow/pkg/checks/runtime"
 	"github.com/caas-team/sparrow/pkg/config"
+	gitlabmock "github.com/caas-team/sparrow/pkg/sparrow/targets/test"
+	"github.com/stretchr/testify/assert"
 )
-
-func TestSparrow_ReconcileChecks(t *testing.T) {
-	ctx, cancel := logger.NewContextWithLogger(context.Background())
-	defer cancel()
-
-	rtcfg := &runtime.Config{}
-	tests := []struct {
-		name             string
-		checks           map[string]checks.Check
-		newRuntimeConfig runtime.Config
-	}{
-		{
-			name: "no checks registered yet but register one",
-
-			checks: map[string]checks.Check{},
-
-			newRuntimeConfig: runtime.Config{Health: &health.Config{
-				Targets: []string{"https://gitlab.com"},
-			}},
-		},
-		{
-			name:   "no checks registered, register multiple new ones",
-			checks: map[string]checks.Check{},
-			newRuntimeConfig: runtime.Config{
-				Health: &health.Config{
-					Targets: []string{"https://gitlab.com"},
-				},
-				Latency: &latency.Config{
-					Targets: []string{"https://gitlab.com"},
-				},
-				Dns: &dns.Config{
-					Targets: []string{"gitlab.com"},
-				},
-			},
-		},
-		{
-			name: "one healtcheck registered, register latency check",
-
-			checks: map[string]checks.Check{
-				health.CheckName: health.NewCheck(),
-			},
-
-			newRuntimeConfig: runtime.Config{
-				Latency: &latency.Config{
-					Targets: []string{"https://gitlab.com"},
-				},
-				Health: &health.Config{
-					Targets: []string{"https://gitlab.com"},
-				},
-			},
-		},
-		{
-			name: "no checks registered but unregister all",
-
-			checks: map[string]checks.Check{
-				health.CheckName: health.NewCheck(),
-			},
-
-			newRuntimeConfig: *rtcfg,
-		},
-		{
-			name: "one health check registered, register latency and unregister health",
-
-			checks: map[string]checks.Check{
-				health.CheckName: health.NewCheck(),
-			},
-
-			newRuntimeConfig: runtime.Config{
-				Latency: &latency.Config{
-					Targets: []string{"https://gitlab.com"},
-				},
-			},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			s := &Sparrow{
-				config: &config.Config{SparrowName: "sparrow.com"},
-				tarMan: &gitlabmock.MockTargetManager{
-					Targets: []checks.GlobalTarget{
-						{
-							Url: "https://gitlab.com",
-						},
-					},
-				},
-				metrics:      NewMetrics(),
-				errorHandler: errorHandler{},
-				checkCoordinator: checkCoordinator{
-					checks:      tt.checks,
-					resultFanIn: make(map[string]chan checks.Result),
-					cRuntime:    make(chan runtime.Config, 1),
-					cResult:     make(chan checks.ResultDTO),
-				},
-			}
-
-			s.ReconcileChecks(ctx, tt.newRuntimeConfig)
-
-			// iterate of the sparrow's checks and check if they are configured
-			for _, c := range s.checks {
-				cfg := c.GetConfig()
-				assert.NotNil(t, cfg)
-				if cfg.For() == health.CheckName {
-					assert.Equal(t, tt.newRuntimeConfig.Health, cfg)
-				}
-				if cfg.For() == latency.CheckName {
-					assert.Equal(t, tt.newRuntimeConfig.Latency, cfg)
-				}
-				if cfg.For() == dns.CheckName {
-					assert.Equal(t, tt.newRuntimeConfig.Dns, cfg)
-				}
-			}
-		})
-	}
-}
-
-func Test_fanInResults(t *testing.T) {
-	checkChan := make(chan checks.Result, 1)
-	cResult := make(chan checks.ResultDTO, 1)
-	name := "check"
-	go fanInResults(checkChan, cResult, name)
-
-	result := checks.Result{
-		Timestamp: time.Time{},
-		Err:       "",
-		Data:      0,
-	}
-
-	checkChan <- result
-	output := <-cResult
-
-	want := checks.ResultDTO{
-		Name:   name,
-		Result: &result,
-	}
-
-	if !reflect.DeepEqual(output, want) {
-		t.Errorf("fanInResults() = %v, want %v", output, want)
-	}
-
-	close(checkChan)
-}
 
 // TestSparrow_Run_FullComponentStart tests that the Run method starts the API,
 // loader and a targetManager all start.
 func TestSparrow_Run_FullComponentStart(t *testing.T) {
-	// create simple file loader config
 	c := &config.Config{
 		Api: api.Config{ListeningAddress: ":9090"},
 		Loader: config.LoaderConfig{
@@ -209,7 +60,6 @@ func TestSparrow_Run_FullComponentStart(t *testing.T) {
 		},
 	}
 
-	// start sparrow
 	s := New(c)
 	ctx := context.Background()
 	go func() {
@@ -220,13 +70,12 @@ func TestSparrow_Run_FullComponentStart(t *testing.T) {
 	}()
 
 	t.Log("Running sparrow for 10ms")
-	time.Sleep(time.Millisecond * 10)
+	time.Sleep(10 * time.Millisecond)
 }
 
 // TestSparrow_Run_ContextCancel tests that after a context cancels the Run method
 // will return an error and all started components will be shut down.
 func TestSparrow_Run_ContextCancel(t *testing.T) {
-	// create simple file loader config
 	c := &config.Config{
 		Api: api.Config{ListeningAddress: ":9090"},
 		Loader: config.LoaderConfig{
@@ -236,7 +85,6 @@ func TestSparrow_Run_ContextCancel(t *testing.T) {
 		},
 	}
 
-	// start sparrow
 	s := New(c)
 	s.tarMan = &gitlabmock.MockTargetManager{}
 	ctx, cancel := context.WithCancel(context.Background())

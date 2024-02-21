@@ -28,3 +28,6 @@ var ErrInvalidRegistrationInterval = errors.New("invalid registration interval")
 
 // ErrInvalidUnhealthyThreshold is returned when the unhealthy threshold is invalid
 var ErrInvalidUnhealthyThreshold = errors.New("invalid unhealthy threshold")
+
+// ErrInvalidUpdateInterval is returned when the update interval is invalid
+var ErrInvalidUpdateInterval = errors.New("invalid update interval")

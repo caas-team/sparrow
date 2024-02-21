@@ -16,29 +16,42 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package checks
+package runtime
 
 import (
-	"fmt"
+	"sync"
+
+	"github.com/caas-team/sparrow/pkg/checks"
 )
 
-// ErrConfigMismatch is returned when a configuration is of the wrong type
-type ErrConfigMismatch struct {
-	Expected string
-	Current  string
+// Checks holds all the checks.
+type Checks struct {
+	mu     sync.RWMutex
+	checks []checks.Check
 }
 
-func (e ErrConfigMismatch) Error() string {
-	return fmt.Sprintf("config mismatch: expected type %v, got %v", e.Expected, e.Current)
+// Add adds a new check.
+func (c *Checks) Add(check checks.Check) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.checks = append(c.checks, check)
 }
 
-// ErrInvalidConfig is returned when a configuration is invalid
-type ErrInvalidConfig struct {
-	CheckName string
-	Field     string
-	Reason    string
+// Delete deletes a check.
+func (c *Checks) Delete(check checks.Check) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	for i, exist := range c.checks {
+		if exist.Name() == check.Name() {
+			c.checks = append(c.checks[:i], c.checks[i+1:]...)
+			return
+		}
+	}
 }
 
-func (e ErrInvalidConfig) Error() string {
-	return fmt.Sprintf("invalid configuration field %q in check %q: %s", e.Field, e.CheckName, e.Reason)
+// Iter returns configured checks in an iterable format
+func (c *Checks) Iter() []checks.Check {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.checks
 }

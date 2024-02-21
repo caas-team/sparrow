@@ -52,27 +52,14 @@ type Latency struct {
 func NewCheck() checks.Check {
 	return &Latency{
 		CheckBase: checks.CheckBase{
-			Mu:      sync.Mutex{},
-			CResult: nil,
-			Done:    make(chan bool, 1),
+			Mu:       sync.Mutex{},
+			DoneChan: make(chan struct{}, 1),
 		},
 		config: Config{
 			Retry: checks.DefaultRetry,
 		},
 		metrics: newMetrics(),
 	}
-}
-
-// Config defines the configuration parameters for a latency check
-type Config struct {
-	Targets  []string           `json:"targets,omitempty" yaml:"targets,omitempty"`
-	Interval time.Duration      `json:"interval" yaml:"interval"`
-	Timeout  time.Duration      `json:"timeout" yaml:"timeout"`
-	Retry    helper.RetryConfig `json:"retry" yaml:"retry"`
-}
-
-func (l *Config) For() string {
-	return CheckName
 }
 
 // result represents the result of a single latency check for a specific target
@@ -90,7 +77,7 @@ type metrics struct {
 }
 
 // Run starts the latency check
-func (l *Latency) Run(ctx context.Context) error {
+func (l *Latency) Run(ctx context.Context, cResult chan checks.ResultDTO) error {
 	ctx, cancel := logger.NewContextWithLogger(ctx)
 	defer cancel()
 	log := logger.FromContext(ctx)
@@ -101,34 +88,26 @@ func (l *Latency) Run(ctx context.Context) error {
 		case <-ctx.Done():
 			log.Error("Context canceled", "err", ctx.Err())
 			return ctx.Err()
-		case <-l.Done:
+		case <-l.DoneChan:
 			return nil
 		case <-time.After(l.config.Interval):
 			res := l.check(ctx)
-			errval := ""
-			r := checks.Result{
-				Data:      res,
-				Err:       errval,
-				Timestamp: time.Now(),
-			}
 
-			l.CResult <- r
+			cResult <- checks.ResultDTO{
+				Name: l.Name(),
+				Result: &checks.Result{
+					Data:      res,
+					Timestamp: time.Now(),
+				},
+			}
 			log.Debug("Successfully finished latency check run")
 		}
 	}
 }
 
-func (l *Latency) Startup(ctx context.Context, cResult chan<- checks.Result) error {
-	log := logger.FromContext(ctx)
-	log.Debug("Initializing latency check")
-
-	l.CResult = cResult
-	return nil
-}
-
 func (l *Latency) Shutdown(_ context.Context) error {
-	l.Done <- true
-	close(l.Done)
+	l.DoneChan <- struct{}{}
+	close(l.DoneChan)
 
 	return nil
 }
