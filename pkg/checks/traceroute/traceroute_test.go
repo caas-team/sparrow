@@ -1,4 +1,4 @@
-package udptraceroute
+package traceroute
 
 import (
 	"context"
@@ -21,7 +21,7 @@ func TestCheck(t *testing.T) {
 	}
 	type testcase struct {
 		name string
-		c    *UDPTraceroute
+		c    *Traceroute
 		want want
 	}
 
@@ -34,11 +34,11 @@ func TestCheck(t *testing.T) {
 					"8.8.8.8": {
 						NumHops: 5,
 						Hops: []Hop{
-							{Addr: net.IPv4(0, 0, 0, 0), Latency: 0 * time.Second, Success: false},
-							{Addr: net.IPv4(0, 0, 0, 1), Latency: 1 * time.Second, Success: false},
-							{Addr: net.IPv4(0, 0, 0, 2), Latency: 2 * time.Second, Success: false},
-							{Addr: net.IPv4(0, 0, 0, 3), Latency: 3 * time.Second, Success: false},
-							{Addr: net.IPv4(8, 8, 8, 8), Latency: 69 * time.Second, Success: true},
+							{Addr: "0.0.0.0", Latency: 0 * time.Second, Success: false},
+							{Addr: "0.0.0.1", Latency: 1 * time.Second, Success: false},
+							{Addr: "0.0.0.2", Latency: 2 * time.Second, Success: false},
+							{Addr: "0.0.0.3", Latency: 3 * time.Second, Success: false},
+							{Addr: "google-public-dns-a.google.com", Latency: 69 * time.Second, Success: true},
 						},
 					},
 				},
@@ -49,9 +49,11 @@ func TestCheck(t *testing.T) {
 			name: "Traceroute internal error",
 			c:    newForTest(returnError(&net.DNSError{Err: "no such host", Name: "google.com", IsNotFound: true}), []string{"google.com"}),
 			want: want{
-				wantErr:  true,
-				expected: map[string]Result{},
-				err:      &net.DNSError{Err: "no such host", Name: "google.com", IsNotFound: true},
+				wantErr: true,
+				expected: map[string]Result{
+					"google.com": {Hops: []Hop{}},
+				},
+				err: &net.DNSError{Err: "no such host", Name: "google.com", IsNotFound: true},
 			},
 		},
 	}
@@ -68,17 +70,17 @@ func TestCheck(t *testing.T) {
 		}
 		if !cmp.Equal(res, c.want.expected) {
 			diff := cmp.Diff(res, c.want.expected)
-			t.Errorf("unexpected result: -want +got\n%s", diff)
+			t.Errorf("unexpected result: +want -got\n%s", diff)
 		}
 	}
 }
 
-func newForTest(f tracerouteFactory, targets []string) *UDPTraceroute {
+func newForTest(f tracerouteFactory, targets []string) *Traceroute {
 	t := make([]Target, len(targets))
 	for i, target := range targets {
 		t[i] = Target{Addr: target}
 	}
-	return &UDPTraceroute{
+	return &Traceroute{
 		config: Config{
 			Targets: t,
 		},
@@ -93,14 +95,13 @@ func newForTest(f tracerouteFactory, targets []string) *UDPTraceroute {
 
 // success produces a tracerouteFactory that returns a traceroute result with nHops hops
 func success(nHops int) tracerouteFactory {
-	return func(dest string) (traceroute.TracerouteResult, error) {
+	return func(dest string, port, timeout, retries, maxHops int) (traceroute.TracerouteResult, error) {
 		hops := make([]traceroute.TracerouteHop, nHops)
 		for i := 0; i < nHops-1; i++ {
 			hops[i] = traceroute.TracerouteHop{
 				Success:     false,
-				Address:     ipFromInt(i),
 				N:           nHops,
-				Host:        "",
+				Host:        ipFromInt(i),
 				ElapsedTime: time.Duration(i) * time.Second,
 				TTL:         i,
 			}
@@ -122,7 +123,7 @@ func success(nHops int) tracerouteFactory {
 }
 
 func returnError(err error) tracerouteFactory {
-	return func(dest string) (traceroute.TracerouteResult, error) {
+	return func(dest string, port, timeout, retries, maxHops int) (traceroute.TracerouteResult, error) {
 		return traceroute.TracerouteResult{}, err
 	}
 }
@@ -130,24 +131,24 @@ func returnError(err error) tracerouteFactory {
 // ipFromInt takes in an int and builds an IP address from it
 // Example:
 // ipFromInt(300) -> 0.0.1.44
-func ipFromInt(i int) [4]byte {
+func ipFromInt(i int) string {
 	b1 := i >> 24 & 0xFF
 	b2 := i >> 16 & 0xFF
 	b3 := i >> 8 & 0xFF
 	b4 := i & 0xFF
 
-	return [4]byte{byte(b1), byte(b2), byte(b3), byte(b4)}
+	return net.IPv4(byte(b1), byte(b2), byte(b3), byte(b4)).String()
 }
 
 func TestIpFromInt(t *testing.T) {
 	type testcase struct {
 		In       int
-		Expected [4]byte
+		Expected string
 	}
 	cases := []testcase{
-		{In: 300, Expected: [4]byte{0, 0, 1, 44}},
-		{In: 0, Expected: [4]byte{0, 0, 0, 0}},
-		{In: (1 << 33) - 1, Expected: [4]byte{255, 255, 255, 255}},
+		{In: 300, Expected: "0.0.1.44"},
+		{In: 0, Expected: "0.0.0.0"},
+		{In: (1 << 33) - 1, Expected: "255.255.255.255"},
 	}
 
 	for _, c := range cases {

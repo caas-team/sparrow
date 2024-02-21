@@ -1,15 +1,13 @@
-package udptraceroute
+package traceroute
 
 import (
 	"context"
 	"fmt"
-	"net"
 	"net/url"
 	"sync"
 	"time"
 
 	"github.com/aeden/traceroute"
-	"github.com/caas-team/sparrow/internal/helper"
 	"github.com/caas-team/sparrow/internal/logger"
 	"github.com/caas-team/sparrow/pkg/checks"
 	"github.com/getkin/kin-openapi/openapi3"
@@ -17,15 +15,16 @@ import (
 )
 
 var (
-	_         checks.Check = (*UDPTraceroute)(nil)
-	CheckName              = "udptraceroute"
+	_         checks.Check = (*Traceroute)(nil)
+	CheckName              = "traceroute"
 )
 
 type Config struct {
-	Targets  []Target           `json:"targets" yaml:"targets" mapstructure:"targets"`
-	Interval time.Duration      `json:"interval" yaml:"interval" mapstructure:"interval"`
-	Timeout  time.Duration      `json:"timeout" yaml:"timeout" mapstructure:"timeout"`
-	Retry    helper.RetryConfig `json:"retry" yaml:"retry" mapstructure:"retry"`
+	Targets  []Target      `json:"targets" yaml:"targets" mapstructure:"targets"`
+	Retries  int           `json:"retries" yaml:"retries" mapstructure:"retries"`
+	MaxHops  int           `json:"maxHops" yaml:"maxHops" mapstructure:"maxHops"`
+	Interval time.Duration `json:"interval" yaml:"interval" mapstructure:"interval"`
+	Timeout  time.Duration `json:"timeout" yaml:"timeout" mapstructure:"timeout"`
 }
 
 func (c Config) For() string {
@@ -34,10 +33,11 @@ func (c Config) For() string {
 
 type Target struct {
 	Addr string `json:"addr" yaml:"addr" mapstructure:"addr"`
+	Port uint16 `json:"port" yaml:"port" mapstructure:"port"`
 }
 
 func NewCheck() checks.Check {
-	return &UDPTraceroute{
+	return &Traceroute{
 		config:     Config{},
 		traceroute: newTraceroute,
 		CheckBase: checks.CheckBase{
@@ -47,16 +47,21 @@ func NewCheck() checks.Check {
 	}
 }
 
-type UDPTraceroute struct {
+type Traceroute struct {
 	checks.CheckBase
 	config     Config
 	traceroute tracerouteFactory
 }
 
-type tracerouteFactory func(dest string) (traceroute.TracerouteResult, error)
+type tracerouteFactory func(dest string, port, timeout, retries, maxHops int) (traceroute.TracerouteResult, error)
 
-func newTraceroute(dest string) (traceroute.TracerouteResult, error) {
-	return traceroute.Traceroute(dest, &traceroute.TracerouteOptions{})
+func newTraceroute(dest string, port, timeout, retries, maxHops int) (traceroute.TracerouteResult, error) {
+	opts := &traceroute.TracerouteOptions{}
+	opts.SetTimeoutMs(timeout)
+	opts.SetRetries(retries)
+	opts.SetMaxHops(maxHops)
+	opts.SetPort(port)
+	return traceroute.Traceroute(dest, opts)
 }
 
 type Result struct {
@@ -67,7 +72,7 @@ type Result struct {
 }
 
 type Hop struct {
-	Addr    net.IP
+	Addr    string
 	Latency time.Duration
 	Success bool
 }
@@ -75,7 +80,7 @@ type Hop struct {
 // Run is called once per check interval
 // this should error if there is a problem running the check
 // Returns an error and a result. Returning a non nil error will cause a shutdown of the system
-func (c *UDPTraceroute) Run(ctx context.Context) error {
+func (c *Traceroute) Run(ctx context.Context) error {
 	ctx, cancel := logger.NewContextWithLogger(ctx)
 	defer cancel()
 	log := logger.FromContext(ctx)
@@ -103,36 +108,79 @@ func (c *UDPTraceroute) Run(ctx context.Context) error {
 	}
 }
 
-func (c *UDPTraceroute) GetConfig() checks.Runtime {
+func (c *Traceroute) GetConfig() checks.Runtime {
 	c.Mu.Lock()
 	defer c.Mu.Unlock()
 	return &c.config
 }
 
-func (c *UDPTraceroute) check(_ context.Context) (map[string]Result, error) {
+func (c *Traceroute) check(ctx context.Context) (map[string]Result, error) {
 	res := make(map[string]Result)
-	var err error
-	for _, t := range c.config.Targets {
-		tr, trerr := c.traceroute(t.Addr)
-		if trerr != nil {
-			err = trerr
-			continue
-		}
+	log := logger.FromContext(ctx)
 
-		result := Result{
-			NumHops: len(tr.Hops),
-			Hops:    []Hop{},
-		}
-
-		for _, h := range tr.Hops {
-			result.Hops = append(result.Hops, Hop{
-				Addr:    net.IPv4(h.Address[0], h.Address[1], h.Address[2], h.Address[3]),
-				Latency: h.ElapsedTime,
-				Success: h.Success,
-			})
-		}
-		res[t.Addr] = result
+	type internalResult struct {
+		addr string
+		res  Result
 	}
+
+	var err error
+	var wg sync.WaitGroup
+	cErr := make(chan error, len(c.config.Targets))
+	cResult := make(chan internalResult, len(c.config.Targets))
+
+	for _, t := range c.config.Targets {
+		wg.Add(1)
+		go func(t Target) {
+			defer wg.Done()
+			log.Debug("Running traceroute", "target", t.Addr)
+			start := time.Now()
+			tr, trerr := c.traceroute(t.Addr, int(t.Port), int(c.config.Timeout/time.Millisecond), c.config.Retries, c.config.MaxHops)
+			duration := time.Since(start)
+			if trerr != nil {
+				err = trerr
+				log.Error("Error running traceroute", "err", trerr, "target", t.Addr)
+			}
+
+			log.Debug("Ran traceroute", "result", tr, "duration", duration)
+
+			result := Result{
+				NumHops: len(tr.Hops),
+				Hops:    []Hop{},
+			}
+
+			for _, h := range tr.Hops {
+				result.Hops = append(result.Hops, Hop{
+					Addr:    h.Host,
+					Latency: h.ElapsedTime,
+					Success: h.Success,
+				})
+			}
+			cResult <- internalResult{addr: t.Addr, res: result}
+		}(t)
+	}
+
+	log.Debug("Waiting for traceroute checks to finish")
+
+	go func() {
+		wg.Wait()
+		close(cResult)
+		close(cErr)
+	}()
+
+	log.Debug("All traceroute checks finished")
+
+	for r := range cResult {
+		res[r.addr] = r.res
+	}
+
+	log.Debug("Getting errors from traceroute checks")
+
+	for e := range cErr {
+		err = MultiError{append([]error{}, err, e)}
+	}
+
+	log.Debug("Finished traceroute checks", "result", res, "err", err)
+
 	return res, err
 }
 
@@ -155,7 +203,7 @@ func (m MultiError) Error() string {
 // Startup is called once when the check is registered
 // In the Run() method, the check should send results to the cResult channel
 // this will cause sparrow to update its data store with the results
-func (c *UDPTraceroute) Startup(_ context.Context, cResult chan<- checks.Result) error {
+func (c *Traceroute) Startup(_ context.Context, cResult chan<- checks.Result) error {
 	c.Mu.Lock()
 	defer c.Mu.Unlock()
 	c.CheckBase.CResult = cResult
@@ -163,14 +211,14 @@ func (c *UDPTraceroute) Startup(_ context.Context, cResult chan<- checks.Result)
 }
 
 // Shutdown is called once when the check is unregistered or sparrow shuts down
-func (c *UDPTraceroute) Shutdown(_ context.Context) error {
+func (c *Traceroute) Shutdown(_ context.Context) error {
 	return nil
 }
 
 // SetConfig is called once when the check is registered
 // This is also called while the check is running, if the remote config is updated
 // This should return an error if the config is invalid
-func (c *UDPTraceroute) SetConfig(cfg checks.Runtime) error {
+func (c *Traceroute) SetConfig(cfg checks.Runtime) error {
 	newConfig, ok := cfg.(*Config)
 	if !ok {
 		return checks.ErrConfigMismatch{
@@ -190,16 +238,16 @@ func (c *UDPTraceroute) SetConfig(cfg checks.Runtime) error {
 }
 
 // Schema returns an openapi3.SchemaRef of the result type returned by the check
-func (c *UDPTraceroute) Schema() (*openapi3.SchemaRef, error) {
+func (c *Traceroute) Schema() (*openapi3.SchemaRef, error) {
 	return checks.OpenapiFromPerfData[Result](Result{})
 }
 
 // GetMetricCollectors allows the check to provide prometheus metric collectors
-func (c *UDPTraceroute) GetMetricCollectors() []prometheus.Collector {
+func (c *Traceroute) GetMetricCollectors() []prometheus.Collector {
 	return []prometheus.Collector{}
 }
 
-func (c *UDPTraceroute) Name() string {
+func (c *Traceroute) Name() string {
 	return CheckName
 }
 

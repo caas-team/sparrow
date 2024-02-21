@@ -26,7 +26,7 @@ import (
 	"github.com/caas-team/sparrow/pkg/checks/health"
 	"github.com/caas-team/sparrow/pkg/checks/latency"
 	"github.com/caas-team/sparrow/pkg/checks/runtime"
-	"github.com/caas-team/sparrow/pkg/checks/udptraceroute"
+	"github.com/caas-team/sparrow/pkg/checks/traceroute"
 )
 
 // newCheck creates a new check instance from the given name
@@ -58,8 +58,8 @@ func NewChecksFromConfig(cfg runtime.Config) (map[string]checks.Check, error) {
 
 // registry is a convenience map to create new checks
 var registry = map[string]func() checks.Check{
-	health.CheckName:        health.NewCheck,
-	latency.CheckName:       latency.NewCheck,
-	dns.CheckName:           dns.NewCheck,
-	udptraceroute.CheckName: udptraceroute.NewCheck,
+	health.CheckName:     health.NewCheck,
+	latency.CheckName:    latency.NewCheck,
+	dns.CheckName:        dns.NewCheck,
+	traceroute.CheckName: traceroute.NewCheck,
 }
