@@ -41,8 +41,8 @@ func NewCheck() checks.Check {
 		config:     Config{},
 		traceroute: newTraceroute,
 		CheckBase: checks.CheckBase{
-			Mu:   sync.Mutex{},
-			Done: make(chan bool),
+			Mu:       sync.Mutex{},
+			DoneChan: make(chan struct{}),
 		},
 	}
 }
@@ -77,33 +77,30 @@ type Hop struct {
 	Success bool
 }
 
-// Run is called once per check interval
-// this should error if there is a problem running the check
-// Returns an error and a result. Returning a non nil error will cause a shutdown of the system
-func (c *Traceroute) Run(ctx context.Context) error {
+func (d *Traceroute) Run(ctx context.Context, cResult chan checks.ResultDTO) error {
 	ctx, cancel := logger.NewContextWithLogger(ctx)
 	defer cancel()
 	log := logger.FromContext(ctx)
-	log.Info("Starting traceroute check", "interval", c.config.Interval.String())
+	log.Info("Starting dns check", "interval", d.config.Interval.String())
 
 	for {
 		select {
 		case <-ctx.Done():
 			log.Error("Context canceled", "err", ctx.Err())
 			return ctx.Err()
-		case <-c.Done:
+		case <-d.DoneChan:
 			return nil
-		case <-time.After(c.config.Interval):
-			res, _ := c.check(ctx)
-			errval := ""
-			r := checks.Result{
-				Data:      res,
-				Err:       errval,
-				Timestamp: time.Now(),
-			}
+		case <-time.After(d.config.Interval):
+			res := d.check(ctx)
 
-			c.CResult <- r
-			log.Debug("Successfully finished traceroute check run")
+			cResult <- checks.ResultDTO{
+				Name: d.Name(),
+				Result: &checks.Result{
+					Data:      res,
+					Timestamp: time.Now(),
+				},
+			}
+			log.Debug("Successfully finished dns check run")
 		}
 	}
 }
@@ -114,7 +111,7 @@ func (c *Traceroute) GetConfig() checks.Runtime {
 	return &c.config
 }
 
-func (c *Traceroute) check(ctx context.Context) (map[string]Result, error) {
+func (c *Traceroute) check(ctx context.Context) map[string]Result {
 	res := make(map[string]Result)
 	log := logger.FromContext(ctx)
 
@@ -123,9 +120,7 @@ func (c *Traceroute) check(ctx context.Context) (map[string]Result, error) {
 		res  Result
 	}
 
-	var err error
 	var wg sync.WaitGroup
-	cErr := make(chan error, len(c.config.Targets))
 	cResult := make(chan internalResult, len(c.config.Targets))
 
 	for _, t := range c.config.Targets {
@@ -137,7 +132,6 @@ func (c *Traceroute) check(ctx context.Context) (map[string]Result, error) {
 			tr, trerr := c.traceroute(t.Addr, int(t.Port), int(c.config.Timeout/time.Millisecond), c.config.Retries, c.config.MaxHops)
 			duration := time.Since(start)
 			if trerr != nil {
-				err = trerr
 				log.Error("Error running traceroute", "err", trerr, "target", t.Addr)
 			}
 
@@ -164,7 +158,6 @@ func (c *Traceroute) check(ctx context.Context) (map[string]Result, error) {
 	go func() {
 		wg.Wait()
 		close(cResult)
-		close(cErr)
 	}()
 
 	log.Debug("All traceroute checks finished")
@@ -175,43 +168,15 @@ func (c *Traceroute) check(ctx context.Context) (map[string]Result, error) {
 
 	log.Debug("Getting errors from traceroute checks")
 
-	for e := range cErr {
-		err = MultiError{append([]error{}, err, e)}
-	}
+	log.Debug("Finished traceroute checks", "result", res)
 
-	log.Debug("Finished traceroute checks", "result", res, "err", err)
-
-	return res, err
-}
-
-type MultiError struct {
-	errors []error
-}
-
-func (m MultiError) Error() string {
-	result := "["
-	if len(m.errors) > 0 {
-		result = m.errors[0].Error()
-	}
-	for _, err := range m.errors {
-		result = fmt.Sprintf("%s, %s", result, err.Error())
-	}
-	result += "]"
-	return result
-}
-
-// Startup is called once when the check is registered
-// In the Run() method, the check should send results to the cResult channel
-// this will cause sparrow to update its data store with the results
-func (c *Traceroute) Startup(_ context.Context, cResult chan<- checks.Result) error {
-	c.Mu.Lock()
-	defer c.Mu.Unlock()
-	c.CheckBase.CResult = cResult
-	return nil
+	return res
 }
 
 // Shutdown is called once when the check is unregistered or sparrow shuts down
 func (c *Traceroute) Shutdown(_ context.Context) error {
+	c.DoneChan <- struct{}{}
+	close(c.DoneChan)
 	return nil
 }
 
@@ -219,22 +184,17 @@ func (c *Traceroute) Shutdown(_ context.Context) error {
 // This is also called while the check is running, if the remote config is updated
 // This should return an error if the config is invalid
 func (c *Traceroute) SetConfig(cfg checks.Runtime) error {
-	newConfig, ok := cfg.(*Config)
-	if !ok {
-		return checks.ErrConfigMismatch{
-			Expected: CheckName,
-			Current:  cfg.For(),
-		}
-	}
-	if err := validateConfig(*newConfig); err != nil {
-		return err
+	if cfg, ok := cfg.(*Config); ok {
+		c.Mu.Lock()
+		defer c.Mu.Unlock()
+		c.config = *cfg
+		return nil
 	}
 
-	c.Mu.Lock()
-	defer c.Mu.Unlock()
-	c.config = *newConfig
-
-	return nil
+	return checks.ErrConfigMismatch{
+		Expected: CheckName,
+		Current:  cfg.For(),
+	}
 }
 
 // Schema returns an openapi3.SchemaRef of the result type returned by the check
@@ -249,6 +209,10 @@ func (c *Traceroute) GetMetricCollectors() []prometheus.Collector {
 
 func (c *Traceroute) Name() string {
 	return CheckName
+}
+
+func (c *Config) Validate() error {
+	return validateConfig(*c)
 }
 
 func validateConfig(cfg Config) error {

@@ -16,8 +16,6 @@ import (
 func TestCheck(t *testing.T) {
 	type want struct {
 		expected map[string]Result
-		wantErr  bool
-		err      error
 	}
 	type testcase struct {
 		name string
@@ -42,32 +40,22 @@ func TestCheck(t *testing.T) {
 						},
 					},
 				},
-				wantErr: false,
 			},
 		},
 		{
-			name: "Traceroute internal error",
+			name: "Traceroute internal error fails silently",
 			c:    newForTest(returnError(&net.DNSError{Err: "no such host", Name: "google.com", IsNotFound: true}), []string{"google.com"}),
 			want: want{
-				wantErr: true,
 				expected: map[string]Result{
 					"google.com": {Hops: []Hop{}},
 				},
-				err: &net.DNSError{Err: "no such host", Name: "google.com", IsNotFound: true},
 			},
 		},
 	}
 
 	for _, c := range cases {
-		res, err := c.c.check(context.Background())
+		res := c.c.check(context.Background())
 
-		if c.want.wantErr {
-			if err == nil {
-				t.Errorf("expected error, got nil")
-			} else if c.want.err.Error() != err.Error() {
-				t.Errorf("expected: %v, got: %v", c.want.err, err)
-			}
-		}
 		if !cmp.Equal(res, c.want.expected) {
 			diff := cmp.Diff(res, c.want.expected)
 			t.Errorf("unexpected result: +want -got\n%s", diff)
@@ -86,9 +74,8 @@ func newForTest(f tracerouteFactory, targets []string) *Traceroute {
 		},
 		traceroute: f,
 		CheckBase: checks.CheckBase{
-			Mu:      sync.Mutex{},
-			CResult: make(chan checks.Result),
-			Done:    make(chan bool),
+			Mu:       sync.Mutex{},
+			DoneChan: make(chan struct{}),
 		},
 	}
 }
