@@ -212,17 +212,13 @@ func (c *Traceroute) Name() string {
 }
 
 func (c *Config) Validate() error {
-	return validateConfig(*c)
-}
-
-func validateConfig(cfg Config) error {
-	if cfg.Timeout <= 0 {
+	if c.Timeout <= 0 {
 		return fmt.Errorf("timeout must be greater than 0")
 	}
-	if cfg.Interval <= 0 {
+	if c.Interval <= 0 {
 		return fmt.Errorf("interval must be greater than 0")
 	}
-	for _, t := range cfg.Targets {
+	for _, t := range c.Targets {
 		if _, err := url.Parse(t.Addr); err != nil {
 			return fmt.Errorf("%s is not a valid url", t.Addr)
 		}
