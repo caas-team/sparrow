@@ -95,7 +95,7 @@ dedicated [release](https://github.com/caas-team/sparrow/releases) can be found 
 Sparrow can be installed via Helm Chart. The chart is available in the GitHub registry:
 
 ```sh
-helm -n sparrow upgrade -i sparrow oci://ghcr.io/caas-team/charts/sparrow --version 0.0.4 --create-namespace
+helm -n sparrow upgrade -i sparrow oci://ghcr.io/caas-team/charts/sparrow --create-namespace
 ```
 
 The default settings are suitable for a local configuration. With the default Helm values, the sparrow loader uses a
