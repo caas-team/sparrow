@@ -72,11 +72,11 @@ curl https://github.com/caas-team/sparrow/releases/download/v${RELEASE_VERSION}/
 curl https://github.com/caas-team/sparrow/releases/download/v${RELEASE_VERSION}/sparrow_${RELEASE_VERSION}_checksums.txt -Lo checksums.txt
 ```
 
-For example, for release `v0.3.0`:
+For example, for release `v0.3.1`:
 
 ```sh
-curl https://github.com/caas-team/sparrow/releases/download/v0.3.0/sparrow_0.3.0_linux_amd64.tar.gz -Lo sparrow.tar.gz
-curl https://github.com/caas-team/sparrow/releases/download/v0.3.0/sparrow_0.3.0_checksums.txt -Lo checksums.txt
+curl https://github.com/caas-team/sparrow/releases/download/v0.3.1/sparrow_0.3.1_linux_amd64.tar.gz -Lo sparrow.tar.gz
+curl https://github.com/caas-team/sparrow/releases/download/v0.3.1/sparrow_0.3.1_checksums.txt -Lo checksums.txt
 ```
 
 Extract the binary:
@@ -95,7 +95,7 @@ dedicated [release](https://github.com/caas-team/sparrow/releases) can be found 
 Sparrow can be installed via Helm Chart. The chart is available in the GitHub registry:
 
 ```sh
-helm -n sparrow upgrade -i sparrow oci://ghcr.io/caas-team/charts/sparrow --version 1.0.0 --create-namespace
+helm -n sparrow upgrade -i sparrow oci://ghcr.io/caas-team/charts/sparrow --create-namespace
 ```
 
 The default settings are suitable for a local configuration. With the default Helm values, the sparrow loader uses a
@@ -182,9 +182,6 @@ Just write out the path to the attribute, delimited by `_`.
 
 You can set the `LOG_LEVEL` environment variable to adjust the log level.
 
-To be able to load the configuration for the [checks](#checks) during runtime dynamically, the sparrow loader needs to
-be set to type `http`.
-
 #### Example startup configuration
 
 ```yaml
@@ -260,7 +257,7 @@ Available loaders:
 - `http` (default): Retrieves the checks' configuration from a remote endpoint during runtime. Additional configuration
   parameters are set in the `loader.http` section.
 
-- `file`: Loads the configuration from a local file during runtime. Additional configuration
+- `file`: Loads the checks' configuration from a local file during runtime. Additional configuration
   parameters are set in the `loader.file` section.
 
 If you want to retrieve the checks' configuration only once, you can set `loader.interval` to 0.
