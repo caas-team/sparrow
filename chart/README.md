@@ -1,6 +1,6 @@
 # sparrow
 
-![Version: 0.0.4](https://img.shields.io/badge/Version-0.0.4-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v0.3.0](https://img.shields.io/badge/AppVersion-v0.3.0-informational?style=flat-square)
+![Version: 0.0.4](https://img.shields.io/badge/Version-0.0.4-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v0.3.1](https://img.shields.io/badge/AppVersion-v0.3.1-informational?style=flat-square)
 
 A Helm chart to install Sparrow
 
@@ -62,6 +62,6 @@ A Helm chart to install Sparrow
 | serviceMonitor.interval | string | `"30s"` | Sets the scrape interval |
 | serviceMonitor.labels | object | `{}` | Additional label added to the service Monitor |
 | serviceMonitor.scrapeTimeout | string | `"5s"` | Sets the scrape timeout |
-| sparrowConfig | object | `{"loader":{"path":"/config/checks.yaml","type":"file"},"name":"sparrow.com"}` | Sparrow configuration read on startup see: https://github.com/caas-team/sparrow/blob/main/docs/sparrow_run.md |
+| sparrowConfig | object | `{"loader":{"file":{"path":"/config/checks.yaml"},"type":"file"},"name":"sparrow.com"}` | Sparrow configuration read on startup see: https://github.com/caas-team/sparrow/blob/main/docs/sparrow_run.md |
 | tolerations | list | `[]` |  |
 
