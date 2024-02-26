@@ -140,6 +140,10 @@ func (c Config) For(name string) checks.Runtime {
 		if c.HasDNSCheck() {
 			return c.Dns
 		}
+	case traceroute.CheckName:
+		if c.HasTracerouteCheck() {
+			return c.Traceroute
+		}
 	}
 	return nil
 }

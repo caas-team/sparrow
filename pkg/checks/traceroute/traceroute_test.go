@@ -15,7 +15,7 @@ import (
 
 func TestCheck(t *testing.T) {
 	type want struct {
-		expected map[string]Result
+		expected map[string]result
 	}
 	type testcase struct {
 		name string
@@ -28,7 +28,7 @@ func TestCheck(t *testing.T) {
 			name: "Success 5 hops",
 			c:    newForTest(success(5), []string{"8.8.8.8"}),
 			want: want{
-				expected: map[string]Result{
+				expected: map[string]result{
 					"8.8.8.8": {
 						NumHops: 5,
 						Hops: []Hop{
@@ -46,7 +46,7 @@ func TestCheck(t *testing.T) {
 			name: "Traceroute internal error fails silently",
 			c:    newForTest(returnError(&net.DNSError{Err: "no such host", Name: "google.com", IsNotFound: true}), []string{"google.com"}),
 			want: want{
-				expected: map[string]Result{
+				expected: map[string]result{
 					"google.com": {Hops: []Hop{}},
 				},
 			},
