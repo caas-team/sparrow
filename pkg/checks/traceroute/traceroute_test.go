@@ -31,7 +31,7 @@ func TestCheck(t *testing.T) {
 				expected: map[string]result{
 					"8.8.8.8": {
 						NumHops: 5,
-						Hops: []Hop{
+						Hops: []hop{
 							{Addr: "0.0.0.0", Latency: 0 * time.Second, Success: false},
 							{Addr: "0.0.0.1", Latency: 1 * time.Second, Success: false},
 							{Addr: "0.0.0.2", Latency: 2 * time.Second, Success: false},
@@ -47,7 +47,7 @@ func TestCheck(t *testing.T) {
 			c:    newForTest(returnError(&net.DNSError{Err: "no such host", Name: "google.com", IsNotFound: true}), []string{"google.com"}),
 			want: want{
 				expected: map[string]result{
-					"google.com": {Hops: []Hop{}},
+					"google.com": {Hops: []hop{}},
 				},
 			},
 		},

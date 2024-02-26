@@ -2,9 +2,6 @@ package traceroute
 
 import (
 	"context"
-	"fmt"
-	"net"
-	"net/url"
 	"sync"
 	"time"
 
@@ -19,23 +16,12 @@ var _ checks.Check = (*Traceroute)(nil)
 
 const CheckName = "traceroute"
 
-type Config struct {
-	Targets  []Target      `json:"targets" yaml:"targets" mapstructure:"targets"`
-	Retries  int           `json:"retries" yaml:"retries" mapstructure:"retries"`
-	MaxHops  int           `json:"maxHops" yaml:"maxHops" mapstructure:"maxHops"`
-	Interval time.Duration `json:"interval" yaml:"interval" mapstructure:"interval"`
-	Timeout  time.Duration `json:"timeout" yaml:"timeout" mapstructure:"timeout"`
-}
-
-func (c Config) For() string {
-	return CheckName
-}
-
 type Target struct {
 	Addr string `json:"addr" yaml:"addr" mapstructure:"addr"`
 	Port uint16 `json:"port" yaml:"port" mapstructure:"port"`
 }
 
+// Config is the configuration for the traceroute check
 func NewCheck() checks.Check {
 	return &Traceroute{
 		config:     Config{},
@@ -65,36 +51,37 @@ func newTraceroute(dest string, port, timeout, retries, maxHops int) (traceroute
 }
 
 type result struct {
-	// The minimum amount of hops required to reach the target
+	// The minimum number of hops required to reach the target
 	NumHops int
 	// The path taken to the destination
-	Hops []Hop
+	Hops []hop
 }
 
-type Hop struct {
+type hop struct {
 	Addr    string
 	Latency time.Duration
 	Success bool
 }
 
-func (d *Traceroute) Run(ctx context.Context, cResult chan checks.ResultDTO) error {
+// Run runs the check in a loop sending results to the provided channel
+func (tr *Traceroute) Run(ctx context.Context, cResult chan checks.ResultDTO) error {
 	ctx, cancel := logger.NewContextWithLogger(ctx)
 	defer cancel()
 	log := logger.FromContext(ctx)
-	log.Info("Starting traceroute check", "interval", d.config.Interval.String())
+	log.Info("Starting traceroute check", "interval", tr.config.Interval.String())
 
 	for {
 		select {
 		case <-ctx.Done():
 			log.Error("Context canceled", "err", ctx.Err())
 			return ctx.Err()
-		case <-d.DoneChan:
+		case <-tr.DoneChan:
 			return nil
-		case <-time.After(d.config.Interval):
-			res := d.check(ctx)
+		case <-time.After(tr.config.Interval):
+			res := tr.check(ctx)
 
 			cResult <- checks.ResultDTO{
-				Name: d.Name(),
+				Name: tr.Name(),
 				Result: &checks.Result{
 					Data:      res,
 					Timestamp: time.Now(),
@@ -105,13 +92,14 @@ func (d *Traceroute) Run(ctx context.Context, cResult chan checks.ResultDTO) err
 	}
 }
 
-func (c *Traceroute) GetConfig() checks.Runtime {
-	c.Mu.Lock()
-	defer c.Mu.Unlock()
-	return &c.config
+// GetConfig returns the current configuration of the check
+func (tr *Traceroute) GetConfig() checks.Runtime {
+	tr.Mu.Lock()
+	defer tr.Mu.Unlock()
+	return &tr.config
 }
 
-func (c *Traceroute) check(ctx context.Context) map[string]result {
+func (tr *Traceroute) check(ctx context.Context) map[string]result {
 	res := make(map[string]result)
 	log := logger.FromContext(ctx)
 
@@ -121,15 +109,15 @@ func (c *Traceroute) check(ctx context.Context) map[string]result {
 	}
 
 	var wg sync.WaitGroup
-	cResult := make(chan internalResult, len(c.config.Targets))
+	cResult := make(chan internalResult, len(tr.config.Targets))
 
-	for _, t := range c.config.Targets {
+	for _, t := range tr.config.Targets {
 		wg.Add(1)
 		go func(t Target) {
 			defer wg.Done()
 			log.Debug("Running traceroute", "target", t.Addr)
 			start := time.Now()
-			tr, trerr := c.traceroute(t.Addr, int(t.Port), int(c.config.Timeout/time.Millisecond), c.config.Retries, c.config.MaxHops)
+			tr, trerr := tr.traceroute(t.Addr, int(t.Port), int(tr.config.Timeout/time.Millisecond), tr.config.Retries, tr.config.MaxHops)
 			duration := time.Since(start)
 			if trerr != nil {
 				log.Error("Error running traceroute", "err", trerr, "target", t.Addr)
@@ -139,11 +127,11 @@ func (c *Traceroute) check(ctx context.Context) map[string]result {
 
 			r := result{
 				NumHops: len(tr.Hops),
-				Hops:    []Hop{},
+				Hops:    []hop{},
 			}
 
 			for _, h := range tr.Hops {
-				r.Hops = append(r.Hops, Hop{
+				r.Hops = append(r.Hops, hop{
 					Addr:    h.Host,
 					Latency: h.ElapsedTime,
 					Success: h.Success,
@@ -172,20 +160,20 @@ func (c *Traceroute) check(ctx context.Context) map[string]result {
 }
 
 // Shutdown is called once when the check is unregistered or sparrow shuts down
-func (c *Traceroute) Shutdown(_ context.Context) error {
-	c.DoneChan <- struct{}{}
-	close(c.DoneChan)
+func (tr *Traceroute) Shutdown(_ context.Context) error {
+	tr.DoneChan <- struct{}{}
+	close(tr.DoneChan)
 	return nil
 }
 
 // SetConfig is called once when the check is registered
 // This is also called while the check is running, if the remote config is updated
 // This should return an error if the config is invalid
-func (c *Traceroute) SetConfig(cfg checks.Runtime) error {
+func (tr *Traceroute) SetConfig(cfg checks.Runtime) error {
 	if cfg, ok := cfg.(*Config); ok {
-		c.Mu.Lock()
-		defer c.Mu.Unlock()
-		c.config = *cfg
+		tr.Mu.Lock()
+		defer tr.Mu.Unlock()
+		tr.config = *cfg
 		return nil
 	}
 
@@ -196,32 +184,16 @@ func (c *Traceroute) SetConfig(cfg checks.Runtime) error {
 }
 
 // Schema returns an openapi3.SchemaRef of the result type returned by the check
-func (c *Traceroute) Schema() (*openapi3.SchemaRef, error) {
+func (tr *Traceroute) Schema() (*openapi3.SchemaRef, error) {
 	return checks.OpenapiFromPerfData[map[string]result](map[string]result{})
 }
 
 // GetMetricCollectors allows the check to provide prometheus metric collectors
-func (c *Traceroute) GetMetricCollectors() []prometheus.Collector {
+func (tr *Traceroute) GetMetricCollectors() []prometheus.Collector {
 	return []prometheus.Collector{}
 }
 
-func (c *Traceroute) Name() string {
+// Name returns the name of the check
+func (tr *Traceroute) Name() string {
 	return CheckName
-}
-
-func (c *Config) Validate() error {
-	if c.Timeout <= 0 {
-		return checks.ErrInvalidConfig{CheckName: CheckName, Field: "traceroute.timeout", Reason: "must be greater than 0"}
-	}
-	if c.Interval <= 0 {
-		return checks.ErrInvalidConfig{CheckName: CheckName, Field: "traceroute.interval", Reason: "must be greater than 0"}
-	}
-
-	for i, t := range c.Targets {
-		net.ParseIP(t.Addr)
-		if _, err := url.Parse(t.Addr); err != nil {
-			return checks.ErrInvalidConfig{CheckName: CheckName, Field: fmt.Sprintf("traceroute.targets[%d].addr", i), Reason: "invalid url"}
-		}
-	}
-	return nil
 }
