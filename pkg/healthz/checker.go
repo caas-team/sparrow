@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
 
 	"github.com/caas-team/sparrow/internal/logger"
 	"github.com/caas-team/sparrow/pkg/api"
@@ -25,7 +24,7 @@ type checker struct {
 // New creates a new healthz checker
 func New(cfg api.Config) Checker {
 	return &checker{
-		addr: formatAddress(cfg.ListeningAddress),
+		addr: cfg.ListeningAddress,
 	}
 }
 
@@ -95,17 +94,4 @@ func (c *checker) isCheckHealthy(ctx context.Context, ck checks.Check, client *h
 	}(resp.Body)
 
 	return resp.StatusCode == http.StatusOK
-}
-
-// formatAddress adjusts the provided address to ensure it includes a hostname.
-// This is necessary since the address can be specified in various forms like :8080,
-// localhost:8080, or a domain with a port.
-func formatAddress(address string) string {
-	if !strings.Contains(address, ":") {
-		address = "localhost:" + address
-	} else if strings.HasPrefix(address, ":") {
-		address = "localhost" + address
-	}
-
-	return address
 }
