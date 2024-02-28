@@ -30,9 +30,15 @@ func (c *Config) Validate() error {
 	}
 
 	for i, t := range c.Targets {
-		net.ParseIP(t.Addr)
-		if _, err := url.Parse(t.Addr); err != nil {
-			return checks.ErrInvalidConfig{CheckName: CheckName, Field: fmt.Sprintf("traceroute.targets[%d].addr", i), Reason: "invalid url"}
+		ip := net.ParseIP(t.Addr)
+
+		if ip != nil {
+			continue
+		}
+
+		_, err := url.Parse(t.Addr)
+		if err != nil && ip == nil {
+			return checks.ErrInvalidConfig{CheckName: CheckName, Field: fmt.Sprintf("traceroute.targets[%d].addr", i), Reason: "invalid url or ip"}
 		}
 	}
 	return nil
