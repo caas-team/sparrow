@@ -35,7 +35,8 @@ func TestChecker_isMetricsHealthy(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			httpmock.RegisterResponder(http.MethodGet, "http://:8080/metrics", tt.responder)
 			c := checker{
-				addr: ":8080",
+				addr:   ":8080",
+				client: &http.Client{},
 			}
 
 			if got := c.isMetricsHealthy(ctx); got != tt.want {
@@ -99,7 +100,8 @@ func TestChecker_areChecksHealthy(t *testing.T) {
 			}
 
 			c := checker{
-				addr: ":8080",
+				addr:   ":8080",
+				client: &http.Client{},
 			}
 
 			if got := c.areChecksHealthy(ctx, tt.checks); got != tt.want {

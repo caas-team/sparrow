@@ -18,13 +18,15 @@ type Checker interface {
 
 // checker is used to check the health of the sparrow's endpoints
 type checker struct {
-	addr string
+	addr   string
+	client *http.Client
 }
 
 // New creates a new healthz checker
 func New(cfg api.Config) Checker {
 	return &checker{
-		addr: cfg.ListeningAddress,
+		addr:   cfg.ListeningAddress,
+		client: &http.Client{},
 	}
 }
 
@@ -35,7 +37,6 @@ func (c *checker) CheckOverallHealth(ctx context.Context, cks []checks.Check) bo
 // isMetricsHealthy checks if the metrics endpoint is healthy
 func (c *checker) isMetricsHealthy(ctx context.Context) bool {
 	log := logger.FromContext(ctx)
-	client := &http.Client{}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("http://%s/metrics", c.addr), http.NoBody)
 	if err != nil {
@@ -43,7 +44,7 @@ func (c *checker) isMetricsHealthy(ctx context.Context) bool {
 		return false
 	}
 
-	resp, err := client.Do(req) //nolint:bodyclose // closed in defer
+	resp, err := c.client.Do(req) //nolint:bodyclose // closed in defer
 	if err != nil {
 		return false
 	}
@@ -59,9 +60,8 @@ func (c *checker) isMetricsHealthy(ctx context.Context) bool {
 
 // areChecksHealthy checks if the checks are healthy
 func (c *checker) areChecksHealthy(ctx context.Context, cks []checks.Check) bool {
-	client := &http.Client{}
 	for _, ck := range cks {
-		ok := c.isCheckHealthy(ctx, ck, client)
+		ok := c.isCheckHealthy(ctx, ck)
 		if !ok {
 			logger.FromContext(ctx).Warn("Check is unhealthy", "check", ck.Name())
 			return false
@@ -72,7 +72,7 @@ func (c *checker) areChecksHealthy(ctx context.Context, cks []checks.Check) bool
 }
 
 // isCheckHealthy checks if a single check is healthy
-func (c *checker) isCheckHealthy(ctx context.Context, ck checks.Check, client *http.Client) bool {
+func (c *checker) isCheckHealthy(ctx context.Context, ck checks.Check) bool {
 	log := logger.FromContext(ctx).With("check", ck.Name())
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("http://%s/v1/metrics/%s", c.addr, ck.Name()), http.NoBody)
@@ -81,7 +81,7 @@ func (c *checker) isCheckHealthy(ctx context.Context, ck checks.Check, client *h
 		return false
 	}
 
-	resp, err := client.Do(req) //nolint:bodyclose // closed in defer
+	resp, err := c.client.Do(req) //nolint:bodyclose // closed in defer
 	if err != nil {
 		log.Error("Failed to send request", "error", err)
 		return false
