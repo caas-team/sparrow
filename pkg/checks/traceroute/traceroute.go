@@ -21,7 +21,6 @@ type Target struct {
 	Port uint16 `json:"port" yaml:"port" mapstructure:"port"`
 }
 
-// Config is the configuration for the traceroute check
 func NewCheck() checks.Check {
 	return &Traceroute{
 		config:     Config{},
