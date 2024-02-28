@@ -97,19 +97,16 @@ func (t *gitlabTargetManager) Reconcile(ctx context.Context) error {
 			if err != nil {
 				log.Warn("Failed to get global targets", "error", err)
 			}
-			checkTimer.Reset(t.cfg.CheckInterval)
 		case <-registrationTimer.C:
 			err := t.register(ctx)
 			if err != nil {
 				log.Warn("Failed to register self as global target", "error", err)
 			}
-			registrationTimer.Reset(t.cfg.RegistrationInterval)
 		case <-updateTimer.C:
 			err := t.update(ctx)
 			if err != nil {
 				log.Warn("Failed to update registration", "error", err)
 			}
-			updateTimer.Reset(t.cfg.UpdateInterval)
 		}
 	}
 }
