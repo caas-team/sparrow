@@ -72,7 +72,7 @@ func (tr *Traceroute) Run(ctx context.Context, cResult chan checks.ResultDTO) er
 	for {
 		select {
 		case <-ctx.Done():
-			log.Error("Context canceled", "err", ctx.Err())
+			log.Error("Context canceled", "error", ctx.Err())
 			return ctx.Err()
 		case <-tr.DoneChan:
 			return nil
@@ -120,7 +120,7 @@ func (tr *Traceroute) check(ctx context.Context) map[string]result {
 			trace, err := tr.traceroute(t.Addr, int(t.Port), int(tr.config.Timeout/time.Millisecond), tr.config.Retries, tr.config.MaxHops)
 			duration := time.Since(start)
 			if err != nil {
-				l.Error("Error running traceroute", "err", err)
+				l.Error("Error running traceroute", "error", err)
 			}
 
 			l.Debug("Ran traceroute", "result", trace, "duration", duration)
