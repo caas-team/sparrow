@@ -114,16 +114,17 @@ func (tr *Traceroute) check(ctx context.Context) map[string]result {
 	for _, t := range tr.config.Targets {
 		wg.Add(1)
 		go func(t Target) {
+			l := log.With("target", t.Addr)
 			defer wg.Done()
-			log.Debug("Running traceroute", "target", t.Addr)
+			l.Debug("Running traceroute")
 			start := time.Now()
 			tr, trerr := tr.traceroute(t.Addr, int(t.Port), int(tr.config.Timeout/time.Millisecond), tr.config.Retries, tr.config.MaxHops)
 			duration := time.Since(start)
 			if trerr != nil {
-				log.Error("Error running traceroute", "err", trerr, "target", t.Addr)
+				l.Error("Error running traceroute", "err", trerr)
 			}
 
-			log.Debug("Ran traceroute", "result", tr, "duration", duration)
+			l.Debug("Ran traceroute", "result", tr, "duration", duration)
 
 			r := result{
 				NumHops: len(tr.Hops),
