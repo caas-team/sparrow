@@ -14,30 +14,23 @@ import (
 )
 
 func TestCheck(t *testing.T) {
-	type want struct {
-		expected map[string]result
-	}
-	type testcase struct {
+	cases := []struct {
 		name string
 		c    *Traceroute
-		want want
-	}
-
-	cases := []testcase{
+		want map[string]result
+	}{
 		{
 			name: "Success 5 hops",
 			c:    newForTest(success(5), []string{"8.8.8.8"}),
-			want: want{
-				expected: map[string]result{
-					"8.8.8.8": {
-						NumHops: 5,
-						Hops: []hop{
-							{Addr: "0.0.0.0", Latency: 0 * time.Second, Success: false},
-							{Addr: "0.0.0.1", Latency: 1 * time.Second, Success: false},
-							{Addr: "0.0.0.2", Latency: 2 * time.Second, Success: false},
-							{Addr: "0.0.0.3", Latency: 3 * time.Second, Success: false},
-							{Addr: "google-public-dns-a.google.com", Latency: 69 * time.Second, Success: true},
-						},
+			want: map[string]result{
+				"8.8.8.8": {
+					NumHops: 5,
+					Hops: []hop{
+						{Addr: "0.0.0.0", Latency: 0 * time.Second, Success: false},
+						{Addr: "0.0.0.1", Latency: 1 * time.Second, Success: false},
+						{Addr: "0.0.0.2", Latency: 2 * time.Second, Success: false},
+						{Addr: "0.0.0.3", Latency: 3 * time.Second, Success: false},
+						{Addr: "google-public-dns-a.google.com", Latency: 69 * time.Second, Success: true},
 					},
 				},
 			},
@@ -45,10 +38,8 @@ func TestCheck(t *testing.T) {
 		{
 			name: "Traceroute internal error fails silently",
 			c:    newForTest(returnError(&net.DNSError{Err: "no such host", Name: "google.com", IsNotFound: true}), []string{"google.com"}),
-			want: want{
-				expected: map[string]result{
-					"google.com": {Hops: []hop{}},
-				},
+			want: map[string]result{
+				"google.com": {Hops: []hop{}},
 			},
 		},
 	}
@@ -56,8 +47,8 @@ func TestCheck(t *testing.T) {
 	for _, c := range cases {
 		res := c.c.check(context.Background())
 
-		if !cmp.Equal(res, c.want.expected) {
-			diff := cmp.Diff(res, c.want.expected)
+		if !cmp.Equal(res, c.want) {
+			diff := cmp.Diff(res, c.want)
 			t.Errorf("unexpected result: +want -got\n%s", diff)
 		}
 	}
@@ -128,11 +119,10 @@ func ipFromInt(i int) string {
 }
 
 func TestIpFromInt(t *testing.T) {
-	type testcase struct {
+	cases := []struct {
 		In       int
 		Expected string
-	}
-	cases := []testcase{
+	}{
 		{In: 300, Expected: "0.0.1.44"},
 		{In: 0, Expected: "0.0.0.0"},
 		{In: (1 << 33) - 1, Expected: "255.255.255.255"},
