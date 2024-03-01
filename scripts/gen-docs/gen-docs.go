@@ -66,7 +66,7 @@ func NewCmdGenDocs() *cobra.Command {
 func runGenDocs(path *string) func(cmd *cobra.Command, args []string) error {
 	c := sparrowcmd.BuildCmd("")
 	c.DisableAutoGenTag = true
-	return func(cmd *cobra.Command, args []string) error {
+	return func(_ *cobra.Command, _ []string) error {
 		if err := doc.GenMarkdownTree(c, *path); err != nil {
 			return fmt.Errorf("failed to generate docs: %w", err)
 		}

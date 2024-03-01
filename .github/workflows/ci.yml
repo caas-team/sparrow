@@ -13,17 +13,10 @@ jobs:
   rel:
     name: Build, scan & push Snapshot
     runs-on: ubuntu-latest
-
-    permissions:
-      contents: write
-      packages: write
-      security-events: write
-
     steps:
-
       - name: Checkout repository
         uses: actions/checkout@v4
-      
+
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
@@ -44,7 +37,7 @@ jobs:
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: "ghcr.io/caas-team/sparrow:${{ steps.version.outputs.value }}"
+          image-ref: "ghcr.io/${{ github.repository }}:${{ steps.version.outputs.value }}"
           format: "sarif"
           output: "trivy-results.sarif"
 
@@ -61,7 +54,8 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Push snapshot container image
-        run: docker push ghcr.io/caas-team/sparrow:${{ steps.version.outputs.value }}
+        run: docker push ghcr.io/${{ github.repository }}:${{ steps.version.outputs.value }}
+
   helm:
     runs-on: ubuntu-latest
     steps:
@@ -75,7 +69,7 @@ jobs:
 
       - name: Get App Version
         id: appVersion
-        run:  echo "value=commit-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+        run: echo "value=commit-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
 
       - name: Get Chart Version
         id: chartVersion
@@ -87,9 +81,9 @@ jobs:
 
       - name: Helm lint
         run: helm lint ./chart
-      
+
       - name: Helm package
         run: helm package ./chart -d ./chart --version ${{ steps.chartVersion.outputs.value }} --app-version ${{ steps.appVersion.outputs.value }}
-        
+
       - name: Push helm package
         run: helm push $(ls ./chart/*.tgz| head -1) oci://ghcr.io/${{ github.repository_owner }}/charts
