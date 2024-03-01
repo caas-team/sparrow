@@ -156,8 +156,6 @@ func (tr *Traceroute) check(ctx context.Context) map[string]result {
 		res[r.addr] = r.res
 	}
 
-	log.Debug("Finished traceroute checks", "result", res)
-
 	return res
 }
 
