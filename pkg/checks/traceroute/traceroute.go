@@ -17,7 +17,9 @@ var _ checks.Check = (*Traceroute)(nil)
 const CheckName = "traceroute"
 
 type Target struct {
+	// The address of the target to traceroute to. Can be a DNS name or an IP address
 	Addr string `json:"addr" yaml:"addr" mapstructure:"addr"`
+	// The port to traceroute to
 	Port uint16 `json:"port" yaml:"port" mapstructure:"port"`
 }
 
