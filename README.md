@@ -465,6 +465,14 @@ dns:
       port: 80
 ```
 
+#### Required Capabilities
+To use this check, sparrow needs to be run with the `CAP_NET_RAW` capability or elevated privileges to be able to send raw packets.
+Using the `CAP_NET_RAW` capability is recommended over running sparrow as sudo
+
+```bash
+sudo setcap 'cap_net_raw=ep' sparrow
+```
+
 ## API
 
 The `sparrow` exposes an API for accessing the results of various checks. Each check registers its own endpoint
