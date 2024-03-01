@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 
 	"github.com/caas-team/sparrow/internal/logger"
-	"github.com/caas-team/sparrow/pkg/api"
 	"github.com/caas-team/sparrow/pkg/checks"
 )
 
@@ -23,9 +23,10 @@ type checker struct {
 }
 
 // New creates a new healthz checker
-func New(cfg api.Config) Checker {
+// address is the address of the API
+func New(address string) Checker {
 	return &checker{
-		addr:   cfg.ListeningAddress,
+		addr:   formatAddress(address),
 		client: &http.Client{},
 	}
 }
@@ -94,4 +95,19 @@ func (c *checker) isCheckHealthy(ctx context.Context, ck checks.Check) bool {
 	}(resp.Body)
 
 	return resp.StatusCode == http.StatusOK
+}
+
+// formatAddress formats the address to be used in the healthz checker
+func formatAddress(addr string) string {
+	// Localhost is a special case, since it's the only address that doesn't need to be formatted
+	if addr == "localhost" || addr == "127.0.0.1" || addr == net.IPv6loopback.String() {
+		return addr
+	}
+
+	_, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		return net.JoinHostPort("localhost", "8080")
+	}
+
+	return net.JoinHostPort("localhost", port)
 }

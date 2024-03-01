@@ -80,7 +80,7 @@ func New(cfg *config.Config) *Sparrow {
 		cErr:       make(chan error, 1),
 		cDone:      make(chan struct{}, 1),
 		shutOnce:   sync.Once{},
-		checker:    healthz.New(cfg.Api),
+		checker:    healthz.New(cfg.Api.ListeningAddress),
 	}
 
 	if cfg.HasTargetManager() {

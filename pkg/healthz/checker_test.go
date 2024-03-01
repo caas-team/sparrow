@@ -111,3 +111,60 @@ func TestChecker_areChecksHealthy(t *testing.T) {
 		})
 	}
 }
+
+func Test_formatAddress(t *testing.T) {
+	tests := []struct {
+		name string
+		addr string
+		want string
+	}{
+		{
+			name: "empty",
+			addr: "",
+			want: "localhost:8080",
+		},
+		{
+			name: "localhost",
+			addr: "localhost",
+			want: "localhost",
+		},
+		{
+			name: "ipv4",
+			addr: "10.0.1.2:8080",
+			want: "localhost:8080",
+		},
+		{
+			name: "ipv6",
+			addr: "::1",
+			want: "::1",
+		},
+		{
+			name: "ipv6 with port",
+			addr: "[::1]:8080",
+			want: "localhost:8080",
+		},
+		{
+			name: "port",
+			addr: ":9090",
+			want: "localhost:9090",
+		},
+		{
+			name: "host and port",
+			addr: "example.com:8080",
+			want: "localhost:8080",
+		},
+		{
+			name: "kubernetes service",
+			addr: "example-service",
+			want: "localhost:8080",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := formatAddress(tt.addr); got != tt.want {
+				t.Errorf("formatAddress() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
