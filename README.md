@@ -53,6 +53,9 @@ The following checks are available:
 3. [DNS check](#check-dns) - `dns`: The `sparrow` is able to perform DNS resolution checks to monitor domain name system
    performance and reliability. The check has the ability to target specific domains or IPs for monitoring.
 
+4. [Traceroute Check](#check-traceroute) - `traceroute`: The `sparrow` is able to perform traceroute checks to monitor
+   the network path to a target. The check has the ability to target specific domains or IPs for monitoring.
+
 Each check is designed to provide comprehensive insights into the various aspects of network and service health,
 ensuring robust monitoring and quick detection of potential issues.
 
@@ -434,6 +437,33 @@ dns:
   - Type: Histogram
   - Description: Histogram of response times for DNS checks
   - Labelled with `target`
+
+### Check: Traceroute
+
+| Field             | Type              | Description                                                                                                                                               |
+| ----------------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `interval`        | `duration`        | Interval to perform the Traceroute check.                                                                                                                 |
+| `timeout`         | `duration`        | Timeout for every hop.                                                                                                                                    |
+| `retries`         | `integer`         | Number of times to retry the traceroute for a target, if it fails.                                                                                        |
+| `maxHops`         | `integer`         | Maximum number of hops to try before giving up.                                                                                                           |
+| `targets`         | `list of objects` | List of targets to traceroute to.                                                                                                                         |
+| `targets[].addr`  | `string`          | The address of the target to traceroute to. Can be an IP address or DNS name                                                                              |
+| `targets[].port`  | `uint16`          | The port of the target to traceroute to. Default is 80                                                                                                    |
+
+#### Example configuration
+
+```yaml
+ traceroute:
+  interval: 5s
+  timeout: 3s
+  retries: 3
+  maxHops: 8
+  targets:
+    - addr: 8.8.8.8
+      port: 53
+    - addr: www.google.com
+      port: 80
+```
 
 ## API
 
