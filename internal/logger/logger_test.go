@@ -86,17 +86,14 @@ func TestNewContextWithLogger(t *testing.T) {
 	tests := []struct {
 		name      string
 		parentCtx context.Context
-		wantType  *slog.Logger
 	}{
 		{
 			name:      "With Background context",
 			parentCtx: context.Background(),
-			wantType:  (*slog.Logger)(nil),
 		},
 		{
 			name:      "With already set logger in context",
 			parentCtx: context.WithValue(context.Background(), logger{}, NewLogger()),
-			wantType:  (*slog.Logger)(nil),
 		},
 	}
 
@@ -188,44 +185,44 @@ func TestMiddleware(t *testing.T) {
 func TestNewHandler(t *testing.T) {
 	tests := []struct {
 		name      string
-		logFormat string
-		logLevel  string
+		format    string
+		level     string
 		wantLevel int
 	}{
 		{
 			name:      "Default handler",
-			logFormat: "",
-			logLevel:  "",
+			format:    "",
+			level:     "",
 			wantLevel: int(slog.LevelInfo),
 		},
 		{
 			name:      "Text handler with custom log level",
-			logFormat: "TEXT",
-			logLevel:  "DEBUG",
+			format:    "TEXT",
+			level:     "DEBUG",
 			wantLevel: int(clog.DebugLevel),
 		},
 		{
 			name:      "JSON handler with custom log level",
-			logFormat: "JSON",
-			logLevel:  "WARN",
+			format:    "JSON",
+			level:     "WARN",
 			wantLevel: int(slog.LevelWarn),
 		},
 		{
 			name:      "Invalid log level",
-			logFormat: "TEXT",
-			logLevel:  "UNKNOWN",
+			format:    "TEXT",
+			level:     "UNKNOWN",
 			wantLevel: int(clog.InfoLevel),
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Setenv("LOG_FORMAT", tt.logFormat)
-			t.Setenv("LOG_LEVEL", tt.logLevel)
+			t.Setenv("LOG_FORMAT", tt.format)
+			t.Setenv("LOG_LEVEL", tt.level)
 
 			handler := newHandler()
 
-			if tt.logFormat == "TEXT" {
+			if tt.format == "TEXT" {
 				if _, ok := handler.(*clog.Logger); !ok {
 					t.Errorf("Expected handler to be of type *log.Logger")
 				}
@@ -245,9 +242,9 @@ func TestNewHandler(t *testing.T) {
 
 func TestGetSlogLevel(t *testing.T) {
 	tests := []struct {
-		name   string
-		input  string
-		expect slog.Level
+		name  string
+		input string
+		want  slog.Level
 	}{
 		{"Empty string", "", slog.LevelInfo},
 		{"Debug level", "DEBUG", slog.LevelDebug},
@@ -261,8 +258,8 @@ func TestGetSlogLevel(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := getSlogLevel(tt.input)
-			if got != tt.expect {
-				t.Errorf("getLevel(%s) = %v, want %v", tt.input, got, tt.expect)
+			if got != tt.want {
+				t.Errorf("getLevel(%s) = %v, want %v", tt.input, got, tt.want)
 			}
 		})
 	}
