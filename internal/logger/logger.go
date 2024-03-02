@@ -25,8 +25,6 @@ import (
 	"os"
 	"strings"
 	"time"
-
-	clog "github.com/charmbracelet/log"
 )
 
 type logger struct{}
@@ -84,30 +82,28 @@ func Middleware(ctx context.Context) func(http.Handler) http.Handler {
 
 // newHandler creates a new slog.Handler based on the environment variables.
 func newHandler() slog.Handler {
-	if strings.ToUpper(os.Getenv("LOG_FORMAT")) == "TEXT" {
-		h := clog.New(os.Stderr)
-		h.SetTimeFormat(time.TimeOnly)
-		h.SetReportTimestamp(true)
-		h.SetReportCaller(true)
-
-		l, err := clog.ParseLevel(os.Getenv("LOG_LEVEL"))
-		if err != nil {
-			l = clog.InfoLevel
-		}
-		h.SetLevel(l)
-
-		return h
+	opts := &slog.HandlerOptions{
+		AddSource: true,
+		Level:     getLevel(os.Getenv("LOG_LEVEL")),
 	}
 
-	return slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{
-		AddSource: true,
-		Level:     getSlogLevel(os.Getenv("LOG_LEVEL")),
-	})
+	if strings.ToUpper(os.Getenv("LOG_FORMAT")) == "TEXT" {
+		opts.ReplaceAttr = func(_ []string, a slog.Attr) slog.Attr {
+			if a.Key == slog.TimeKey {
+				v := a.Value.Any().(time.Time)
+				a.Value = slog.StringValue(v.Format(time.TimeOnly))
+			}
+			return a
+		}
+		return slog.NewTextHandler(os.Stderr, opts)
+	}
+
+	return slog.NewJSONHandler(os.Stderr, opts)
 }
 
-// getSlogLevel takes a level string and maps it to the corresponding slog.Level
+// getLevel takes a level string and maps it to the corresponding slog.Level
 // Returns the level if no mapped level is found it returns info level
-func getSlogLevel(level string) slog.Level {
+func getLevel(level string) slog.Level {
 	switch strings.ToUpper(level) {
 	case "DEBUG":
 		return slog.LevelDebug

@@ -26,8 +26,6 @@ import (
 	"os"
 	"reflect"
 	"testing"
-
-	clog "github.com/charmbracelet/log"
 )
 
 func TestNewLogger(t *testing.T) {
@@ -68,7 +66,7 @@ func TestNewLogger(t *testing.T) {
 			}
 
 			if tt.logLevel != "" {
-				want := getSlogLevel(tt.logLevel)
+				want := getLevel(tt.logLevel)
 				got := log.Enabled(context.Background(), want)
 				if !got {
 					t.Errorf("Expected log level: %v", want)
@@ -139,8 +137,9 @@ func TestFromContext(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := FromContext(tt.ctx)
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("FromContext() = %v, want %v", got, tt.want)
+			_, ok := got.Handler().(*slog.JSONHandler)
+			if !ok {
+				t.Errorf("FromContext() = %T, want %T", got, tt.want)
 			}
 		})
 	}
@@ -187,31 +186,31 @@ func TestNewHandler(t *testing.T) {
 		name      string
 		format    string
 		level     string
-		wantLevel int
+		wantLevel slog.Level
 	}{
 		{
 			name:      "Default handler",
 			format:    "",
 			level:     "",
-			wantLevel: int(slog.LevelInfo),
+			wantLevel: slog.LevelInfo,
 		},
 		{
 			name:      "Text handler with custom log level",
 			format:    "TEXT",
 			level:     "DEBUG",
-			wantLevel: int(clog.DebugLevel),
+			wantLevel: slog.LevelDebug,
 		},
 		{
 			name:      "JSON handler with custom log level",
 			format:    "JSON",
 			level:     "WARN",
-			wantLevel: int(slog.LevelWarn),
+			wantLevel: slog.LevelWarn,
 		},
 		{
 			name:      "Invalid log level",
 			format:    "TEXT",
 			level:     "UNKNOWN",
-			wantLevel: int(clog.InfoLevel),
+			wantLevel: slog.LevelInfo,
 		},
 	}
 
@@ -223,7 +222,7 @@ func TestNewHandler(t *testing.T) {
 			handler := newHandler()
 
 			if tt.format == "TEXT" {
-				if _, ok := handler.(*clog.Logger); !ok {
+				if _, ok := handler.(*slog.TextHandler); !ok {
 					t.Errorf("Expected handler to be of type *log.Logger")
 				}
 			} else {
@@ -232,7 +231,7 @@ func TestNewHandler(t *testing.T) {
 				}
 			}
 
-			ok := handler.Enabled(context.Background(), slog.Level(tt.wantLevel))
+			ok := handler.Enabled(context.Background(), tt.wantLevel)
 			if !ok {
 				t.Errorf("Expected log level: %v", tt.wantLevel)
 			}
@@ -240,7 +239,7 @@ func TestNewHandler(t *testing.T) {
 	}
 }
 
-func TestGetSlogLevel(t *testing.T) {
+func TestGetLevel(t *testing.T) {
 	tests := []struct {
 		name  string
 		input string
@@ -257,7 +256,7 @@ func TestGetSlogLevel(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := getSlogLevel(tt.input)
+			got := getLevel(tt.input)
 			if got != tt.want {
 				t.Errorf("getLevel(%s) = %v, want %v", tt.input, got, tt.want)
 			}
