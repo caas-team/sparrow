@@ -67,6 +67,8 @@ env: {}
 # HTTP_PROXY:
 # HTTPS_PROXY:
 # NO_PROXY:
+# LOG_LEVEL:
+# LOG_FORMAT:
 
 # -- define a network policy that will
 # open egress traffic to a proxy
