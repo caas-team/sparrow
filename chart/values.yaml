@@ -111,21 +111,23 @@ sparrowConfig:
   name: sparrow.com
   loader:
     type: file
-    path: /config/checks.yaml
-# name: the-sparrow.com
+    file:
+      path: /config/checks.yaml
+# name: sparrow.com
 # api:
 #   address:
 # loader:
 #   type: http | file
-#   interval:
+#   interval: 30s
 #   http:
-#     url:
-#     token:
-#     timeout:
-#     retryCount:
-#     retryDelay:
+#     url: ""
+#     token: ""
+#     timeout: 30s
+#     retry:
+#       delay: 10s
+#       count: 5
 #   file:
-#     path: /runconfig/checks.yaml
+#     path: /config/checks.yaml
 # targetManager:
 #   checkInterval: 300s
 #   unhealthyThreshold: 600s
@@ -139,33 +141,33 @@ sparrowConfig:
 # -- Check configuration of the Sparrow read on runtime
 # see: https://github.com/caas-team/sparrow?tab=readme-ov-file#checks
 checksConfig: {}
-#  health:
-#     interval: 15s
-#     timeout: 10s
-#     retry:
-#       count: 3
-#       delay: 1s
-#     targets:
-#       - "https://www.example.com/"
-#       - "https://www.google.com/"
-#  latency:
-#     interval: 15s
-#     timeout: 30s
-#     retry:
-#       count: 3
-#       delay: 2s
-#     targets:
-#       - https://example.com/
-#       - https://google.com/
-#   dns:
-#     interval: 10s
-#     timeout: 30s
-#     retry:
-#       count: 5
-#       delay: 1s
-#     targets:
-#       - www.example.com
-#       - www.google.com
+# health:
+#   interval: 15s
+#   timeout: 10s
+#   retry:
+#     count: 3
+#     delay: 1s
+#   targets:
+#     - "https://www.example.com/"
+#     - "https://www.google.com/"
+# latency:
+#   interval: 15s
+#   timeout: 30s
+#   retry:
+#     count: 3
+#     delay: 2s
+#   targets:
+#     - https://example.com/
+#     - https://google.com/
+# dns:
+#   interval: 10s
+#   timeout: 30s
+#   retry:
+#     count: 5
+#     delay: 1s
+#   targets:
+#     - www.example.com
+#     - www.google.com
 
 # -- Configure a service monitor for prometheus-operator
 serviceMonitor:

@@ -152,7 +152,7 @@ func (a *api) registerDefaultRoute(route Route) (err error) {
 func okHandler(ctx context.Context) http.Handler {
 	log := logger.FromContext(ctx)
 
-	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+	return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, err := w.Write([]byte("ok"))
 		if err != nil {
