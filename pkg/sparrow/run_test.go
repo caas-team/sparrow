@@ -23,8 +23,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/caas-team/sparrow/pkg/sparrow/targets"
-
 	"github.com/caas-team/sparrow/pkg/api"
 	"github.com/caas-team/sparrow/pkg/checks"
 	"github.com/caas-team/sparrow/pkg/checks/dns"
@@ -32,7 +30,10 @@ import (
 	"github.com/caas-team/sparrow/pkg/checks/latency"
 	"github.com/caas-team/sparrow/pkg/checks/runtime"
 	"github.com/caas-team/sparrow/pkg/config"
-	gitlabmock "github.com/caas-team/sparrow/pkg/sparrow/targets/test"
+	"github.com/caas-team/sparrow/pkg/sparrow/targets"
+	"github.com/caas-team/sparrow/pkg/sparrow/targets/interactor"
+	"github.com/caas-team/sparrow/pkg/sparrow/targets/remote/gitlab"
+	managermock "github.com/caas-team/sparrow/pkg/sparrow/targets/test"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -43,19 +44,22 @@ func TestSparrow_Run_FullComponentStart(t *testing.T) {
 		Api: api.Config{ListeningAddress: ":9090"},
 		Loader: config.LoaderConfig{
 			Type:     "file",
-			File:     config.FileLoaderConfig{Path: "../config/testdata/config.yaml"},
+			File:     config.FileLoaderConfig{Path: "../config/test/data/config.yaml"},
 			Interval: time.Second * 1,
 		},
 		TargetManager: targets.TargetManagerConfig{
-			Config: targets.Config{
+			Type: "gitlab",
+			General: targets.General{
 				CheckInterval:        time.Second * 1,
 				RegistrationInterval: time.Second * 1,
 				UnhealthyThreshold:   time.Second * 1,
 			},
-			Gitlab: targets.GitlabTargetManagerConfig{
-				BaseURL:   "https://gitlab.com",
-				Token:     "my-cool-token",
-				ProjectID: 42,
+			Config: interactor.Config{
+				Gitlab: gitlab.Config{
+					BaseURL:   "https://gitlab.com",
+					Token:     "my-cool-token",
+					ProjectID: 42,
+				},
 			},
 		},
 	}
@@ -80,13 +84,13 @@ func TestSparrow_Run_ContextCancel(t *testing.T) {
 		Api: api.Config{ListeningAddress: ":9090"},
 		Loader: config.LoaderConfig{
 			Type:     "file",
-			File:     config.FileLoaderConfig{Path: "../config/testdata/config.yaml"},
+			File:     config.FileLoaderConfig{Path: "../config/test/data/config.yaml"},
 			Interval: time.Second * 1,
 		},
 	}
 
 	s := New(c)
-	s.tarMan = &gitlabmock.MockTargetManager{}
+	s.tarMan = &managermock.MockTargetManager{}
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
 		err := s.Run(ctx)
@@ -237,7 +241,7 @@ func TestSparrow_enrichTargets(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &Sparrow{
-				tarMan: &gitlabmock.MockTargetManager{
+				tarMan: &managermock.MockTargetManager{
 					Targets: tt.globalTargets,
 				},
 				config: &config.Config{

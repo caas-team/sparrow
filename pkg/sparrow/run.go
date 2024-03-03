@@ -80,7 +80,7 @@ func New(cfg *config.Config) *Sparrow {
 	}
 
 	if cfg.HasTargetManager() {
-		gm := targets.NewGitlabManager(cfg.SparrowName, cfg.TargetManager)
+		gm := targets.NewManager(cfg.SparrowName, cfg.TargetManager)
 		sparrow.tarMan = gm
 	}
 	sparrow.loader = config.NewLoader(cfg, sparrow.cRuntime)

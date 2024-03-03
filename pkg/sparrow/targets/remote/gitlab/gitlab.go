@@ -21,7 +21,6 @@ package gitlab
 import (
 	"bytes"
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -30,108 +29,48 @@ import (
 	"strings"
 
 	"github.com/caas-team/sparrow/pkg/checks"
+	"github.com/caas-team/sparrow/pkg/sparrow/targets/remote"
 
 	"github.com/caas-team/sparrow/internal/logger"
 )
 
-// Gitlab handles interaction with a gitlab repository containing
-// the global targets for the Sparrow instance
-type Gitlab interface {
-	// FetchFiles fetches the files from the global targets repository
-	FetchFiles(ctx context.Context) ([]checks.GlobalTarget, error)
-	// PutFile updates the file in the repository
-	PutFile(ctx context.Context, file File) error
-	// PostFile creates the file in the repository
-	PostFile(ctx context.Context, file File) error
-	// DeleteFile deletes the file from the repository
-	DeleteFile(ctx context.Context, file File) error
-}
+var _ remote.Interactor = (*client)(nil)
 
-// Client implements Gitlab
-type Client struct {
-	// the base URL of the gitlab instance
+// client is the implementation of the remote.Interactor for gitlab
+type client struct {
+	// baseUrl is the URL of the gitlab instance
 	baseUrl string
-	// the ID of the project containing the global targets
+	// projectID is the ID of the project in the gitlab instance that contains the global targets
 	projectID int
-	// the token used to authenticate with the gitlab instance
-	token  string
+	// token is the personal access token used to authenticate with the gitlab instance
+	token string
+	// client is the http client used to interact with the gitlab instance
 	client *http.Client
 }
 
-// DeleteFile deletes the file matching the filename from the configured
-// gitlab repository
-func (g *Client) DeleteFile(ctx context.Context, file File) error { //nolint:gocritic // no performance concerns yet
-	log := logger.FromContext(ctx).With("file", file)
-
-	if file.fileName == "" {
-		return fmt.Errorf("filename is empty")
-	}
-
-	log.Debug("Deleting file from gitlab")
-	n := url.PathEscape(file.fileName)
-	b, err := file.Bytes()
-	if err != nil {
-		log.Error("Failed to create request", "error", err)
-		return err
-	}
-
-	req, err := http.NewRequestWithContext(ctx,
-		http.MethodDelete,
-		fmt.Sprintf("%s/api/v4/projects/%d/repository/files/%s", g.baseUrl, g.projectID, n),
-		bytes.NewBuffer(b),
-	)
-	if err != nil {
-		log.Error("Failed to create request", "error", err)
-		return err
-	}
-
-	req.Header.Add("PRIVATE-TOKEN", g.token)
-	req.Header.Add("Content-Type", "application/json")
-
-	resp, err := g.client.Do(req) //nolint:bodyclose // closed in defer
-	if err != nil {
-		log.Error("Failed to delete file", "error", err)
-		return err
-	}
-
-	defer func(Body io.ReadCloser) {
-		err = Body.Close()
-		if err != nil {
-			log.Error("Failed to close response body", "error", err)
-		}
-	}(resp.Body)
-
-	if resp.StatusCode != http.StatusNoContent {
-		log.Error("Failed to delete file", "status", resp.Status)
-		return fmt.Errorf("request failed, status is %s", resp.Status)
-	}
-
-	return nil
+// Config contains the configuration for the gitlab client
+type Config struct {
+	// BaseURL is the URL of the gitlab instance
+	BaseURL string `yaml:"baseUrl" mapstructure:"baseUrl"`
+	// Token is the personal access token used to authenticate with the gitlab instance
+	Token string `yaml:"token" mapstructure:"token"`
+	// ProjectID is the ID of the project in the gitlab instance that contains the global targets
+	ProjectID int `yaml:"projectId" mapstructure:"projectId"`
 }
 
-// File represents a File manipulation operation via the Gitlab API
-type File struct {
-	Branch        string              `json:"branch"`
-	AuthorEmail   string              `json:"author_email"`
-	AuthorName    string              `json:"author_name"`
-	Content       checks.GlobalTarget `json:"content"`
-	CommitMessage string              `json:"commit_message"`
-	fileName      string
-}
-
-func New(baseURL, token string, pid int) Gitlab {
-	return &Client{
-		baseUrl:   baseURL,
-		token:     token,
-		projectID: pid,
+func New(cfg Config) remote.Interactor {
+	return &client{
+		baseUrl:   cfg.BaseURL,
+		token:     cfg.Token,
+		projectID: cfg.ProjectID,
 		client:    &http.Client{},
 	}
 }
 
 // FetchFiles fetches the files from the global targets repository from the configured gitlab repository
-func (g *Client) FetchFiles(ctx context.Context) ([]checks.GlobalTarget, error) {
+func (c *client) FetchFiles(ctx context.Context) ([]checks.GlobalTarget, error) {
 	log := logger.FromContext(ctx)
-	fl, err := g.fetchFileList(ctx)
+	fl, err := c.fetchFileList(ctx)
 	if err != nil {
 		log.Error("Failed to fetch files", "error", err)
 		return nil, err
@@ -139,7 +78,7 @@ func (g *Client) FetchFiles(ctx context.Context) ([]checks.GlobalTarget, error) 
 
 	var result []checks.GlobalTarget
 	for _, f := range fl {
-		gl, err := g.fetchFile(ctx, f)
+		gl, err := c.fetchFile(ctx, f)
 		if err != nil {
 			log.Error("Failed fetching files", "error", err)
 			return nil, err
@@ -151,24 +90,24 @@ func (g *Client) FetchFiles(ctx context.Context) ([]checks.GlobalTarget, error) 
 }
 
 // fetchFile fetches the file from the global targets repository from the configured gitlab repository
-func (g *Client) fetchFile(ctx context.Context, f string) (checks.GlobalTarget, error) {
+func (c *client) fetchFile(ctx context.Context, f string) (checks.GlobalTarget, error) {
 	log := logger.FromContext(ctx).With("file", f)
 	var res checks.GlobalTarget
 	// URL encode the name
 	n := url.PathEscape(f)
 	req, err := http.NewRequestWithContext(ctx,
 		http.MethodGet,
-		fmt.Sprintf("%s/api/v4/projects/%d/repository/files/%s/raw?ref=main", g.baseUrl, g.projectID, n),
+		fmt.Sprintf("%s/api/v4/projects/%d/repository/files/%s/raw?ref=main", c.baseUrl, c.projectID, n),
 		http.NoBody,
 	)
 	if err != nil {
 		log.Error("Failed to create request", "error", err)
 		return res, err
 	}
-	req.Header.Add("PRIVATE-TOKEN", g.token)
+	req.Header.Add("PRIVATE-TOKEN", c.token)
 	req.Header.Add("Content-Type", "application/json")
 
-	resp, err := g.client.Do(req) //nolint:bodyclose // closed in defer
+	resp, err := c.client.Do(req) //nolint:bodyclose // closed in defer
 	if err != nil {
 		log.Error("Failed to fetch file", "error", err)
 		return res, err
@@ -198,7 +137,7 @@ func (g *Client) fetchFile(ctx context.Context, f string) (checks.GlobalTarget, 
 
 // fetchFileList fetches the filenames from the global targets repository from the configured gitlab repository,
 // so they may be fetched individually
-func (g *Client) fetchFileList(ctx context.Context) ([]string, error) {
+func (c *client) fetchFileList(ctx context.Context) ([]string, error) {
 	log := logger.FromContext(ctx)
 	log.Debug("Fetching file list from gitlab")
 	type file struct {
@@ -207,7 +146,7 @@ func (g *Client) fetchFileList(ctx context.Context) ([]string, error) {
 
 	req, err := http.NewRequestWithContext(ctx,
 		http.MethodGet,
-		fmt.Sprintf("%s/api/v4/projects/%d/repository/tree?ref=main", g.baseUrl, g.projectID),
+		fmt.Sprintf("%s/api/v4/projects/%d/repository/tree?ref=main", c.baseUrl, c.projectID),
 		http.NoBody,
 	)
 	if err != nil {
@@ -215,10 +154,10 @@ func (g *Client) fetchFileList(ctx context.Context) ([]string, error) {
 		return nil, err
 	}
 
-	req.Header.Add("PRIVATE-TOKEN", g.token)
+	req.Header.Add("PRIVATE-TOKEN", c.token)
 	req.Header.Add("Content-Type", "application/json")
 
-	resp, err := g.client.Do(req) //nolint:bodyclose // closed in defer
+	resp, err := c.client.Do(req) //nolint:bodyclose // closed in defer
 	if err != nil {
 		log.Error("Failed to fetch file list", "error", err)
 		return nil, err
@@ -256,12 +195,12 @@ func (g *Client) fetchFileList(ctx context.Context) ([]string, error) {
 
 // PutFile commits the current instance to the configured gitlab repository
 // as a global target for other sparrow instances to discover
-func (g *Client) PutFile(ctx context.Context, body File) error { //nolint: dupl,gocritic // no need to refactor yet
+func (c *client) PutFile(ctx context.Context, body remote.File) error { //nolint: dupl,gocritic // no need to refactor yet
 	log := logger.FromContext(ctx)
 	log.Debug("Registering sparrow instance to gitlab")
 
 	// chose method based on whether the registration has already happened
-	n := url.PathEscape(body.fileName)
+	n := url.PathEscape(body.Name)
 	b, err := body.Bytes()
 	if err != nil {
 		log.Error("Failed to create request", "error", err)
@@ -269,7 +208,7 @@ func (g *Client) PutFile(ctx context.Context, body File) error { //nolint: dupl,
 	}
 	req, err := http.NewRequestWithContext(ctx,
 		http.MethodPut,
-		fmt.Sprintf("%s/api/v4/projects/%d/repository/files/%s", g.baseUrl, g.projectID, n),
+		fmt.Sprintf("%s/api/v4/projects/%d/repository/files/%s", c.baseUrl, c.projectID, n),
 		bytes.NewBuffer(b),
 	)
 	if err != nil {
@@ -277,10 +216,10 @@ func (g *Client) PutFile(ctx context.Context, body File) error { //nolint: dupl,
 		return err
 	}
 
-	req.Header.Add("PRIVATE-TOKEN", g.token)
+	req.Header.Add("PRIVATE-TOKEN", c.token)
 	req.Header.Add("Content-Type", "application/json")
 
-	resp, err := g.client.Do(req) //nolint:bodyclose // closed in defer
+	resp, err := c.client.Do(req) //nolint:bodyclose // closed in defer
 	if err != nil {
 		log.Error("Failed to push registration file", "error", err)
 		return err
@@ -303,12 +242,12 @@ func (g *Client) PutFile(ctx context.Context, body File) error { //nolint: dupl,
 
 // PostFile commits the current instance to the configured gitlab repository
 // as a global target for other sparrow instances to discover
-func (g *Client) PostFile(ctx context.Context, body File) error { //nolint:dupl,gocritic // no need to refactor yet
+func (c *client) PostFile(ctx context.Context, body remote.File) error { //nolint:dupl,gocritic // no need to refactor yet
 	log := logger.FromContext(ctx)
 	log.Debug("Posting registration file to gitlab")
 
 	// chose method based on whether the registration has already happened
-	n := url.PathEscape(body.fileName)
+	n := url.PathEscape(body.Name)
 	b, err := body.Bytes()
 	if err != nil {
 		log.Error("Failed to create request", "error", err)
@@ -316,7 +255,7 @@ func (g *Client) PostFile(ctx context.Context, body File) error { //nolint:dupl,
 	}
 	req, err := http.NewRequestWithContext(ctx,
 		http.MethodPost,
-		fmt.Sprintf("%s/api/v4/projects/%d/repository/files/%s", g.baseUrl, g.projectID, n),
+		fmt.Sprintf("%s/api/v4/projects/%d/repository/files/%s", c.baseUrl, c.projectID, n),
 		bytes.NewBuffer(b),
 	)
 	if err != nil {
@@ -324,10 +263,10 @@ func (g *Client) PostFile(ctx context.Context, body File) error { //nolint:dupl,
 		return err
 	}
 
-	req.Header.Add("PRIVATE-TOKEN", g.token)
+	req.Header.Add("PRIVATE-TOKEN", c.token)
 	req.Header.Add("Content-Type", "application/json")
 
-	resp, err := g.client.Do(req) //nolint:bodyclose // closed in defer
+	resp, err := c.client.Do(req) //nolint:bodyclose // closed in defer
 	if err != nil {
 		log.Error("Failed to post file", "error", err)
 		return err
@@ -348,32 +287,53 @@ func (g *Client) PostFile(ctx context.Context, body File) error { //nolint:dupl,
 	return nil
 }
 
-// Bytes returns the File as a byte array. The Content
-// is base64 encoded for Gitlab API compatibility.
-func (g *File) Bytes() ([]byte, error) {
-	content, err := json.Marshal(g.Content)
-	if err != nil {
-		return nil, err
+// DeleteFile deletes the file matching the filename from the configured
+// gitlab repository
+func (c *client) DeleteFile(ctx context.Context, file remote.File) error { //nolint:gocritic // no performance concerns yet
+	log := logger.FromContext(ctx).With("file", file)
+
+	if file.Name == "" {
+		return fmt.Errorf("filename is empty")
 	}
 
-	// base64 encode the content
-	enc := base64.NewEncoder(base64.StdEncoding, bytes.NewBuffer(content))
-	_, err = enc.Write(content)
-	_ = enc.Close()
-
+	log.Debug("Deleting file from gitlab")
+	n := url.PathEscape(file.Name)
+	b, err := file.Bytes()
 	if err != nil {
-		return nil, err
+		log.Error("Failed to create request", "error", err)
+		return err
 	}
-	return json.Marshal(map[string]string{
-		"branch":         g.Branch,
-		"author_email":   g.AuthorEmail,
-		"author_name":    g.AuthorName,
-		"content":        string(content),
-		"commit_message": g.CommitMessage,
-	})
-}
 
-// SetFileName sets the filename of the File
-func (g *File) SetFileName(name string) {
-	g.fileName = name
+	req, err := http.NewRequestWithContext(ctx,
+		http.MethodDelete,
+		fmt.Sprintf("%s/api/v4/projects/%d/repository/files/%s", c.baseUrl, c.projectID, n),
+		bytes.NewBuffer(b),
+	)
+	if err != nil {
+		log.Error("Failed to create request", "error", err)
+		return err
+	}
+
+	req.Header.Add("PRIVATE-TOKEN", c.token)
+	req.Header.Add("Content-Type", "application/json")
+
+	resp, err := c.client.Do(req) //nolint:bodyclose // closed in defer
+	if err != nil {
+		log.Error("Failed to delete file", "error", err)
+		return err
+	}
+
+	defer func(Body io.ReadCloser) {
+		err = Body.Close()
+		if err != nil {
+			log.Error("Failed to close response body", "error", err)
+		}
+	}(resp.Body)
+
+	if resp.StatusCode != http.StatusNoContent {
+		log.Error("Failed to delete file", "status", resp.Status)
+		return fmt.Errorf("request failed, status is %s", resp.Status)
+	}
+
+	return nil
 }

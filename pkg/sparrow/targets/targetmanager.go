@@ -24,6 +24,7 @@ import (
 
 	"github.com/caas-team/sparrow/internal/logger"
 	"github.com/caas-team/sparrow/pkg/checks"
+	"github.com/caas-team/sparrow/pkg/sparrow/targets/interactor"
 )
 
 // TargetManager handles the management of globalTargets for
@@ -39,8 +40,8 @@ type TargetManager interface {
 	Shutdown(ctx context.Context) error
 }
 
-// Config is the general configuration of the target manager
-type Config struct {
+// General is the general configuration of the target manager
+type General struct {
 	// The interval for the target reconciliation process
 	CheckInterval time.Duration `yaml:"checkInterval" mapstructure:"checkInterval"`
 	// How often the instance should register itself as a global target.
@@ -57,10 +58,12 @@ type Config struct {
 
 // TargetManagerConfig is the configuration for the target manager
 type TargetManagerConfig struct {
-	// Config is the general configuration of the target manager
-	Config `yaml:",inline" mapstructure:",squash"`
-	// Gitlab is the configuration for the Gitlab target manager
-	Gitlab GitlabTargetManagerConfig `yaml:"gitlab" mapstructure:"gitlab"`
+	// Type defines which target manager to use
+	Type interactor.Type `yaml:"type" mapstructure:"type"`
+	// General is the general configuration of the target manager
+	General `yaml:",inline" mapstructure:",squash"`
+	// Config is the configuration for the Config target manager
+	interactor.Config `yaml:",inline" mapstructure:",squash"`
 }
 
 func (c *TargetManagerConfig) Validate(ctx context.Context) error {
@@ -81,5 +84,12 @@ func (c *TargetManagerConfig) Validate(ctx context.Context) error {
 		log.Error("The update interval should be equal or above 0", "interval", c.UpdateInterval)
 		return ErrInvalidUpdateInterval
 	}
-	return nil
+
+	switch c.Type {
+	case "gitlab":
+		return nil
+	default:
+		log.Error("Invalid interactor type", "type", c.Type)
+		return ErrInvalidInteractorType
+	}
 }

@@ -25,56 +25,51 @@ import (
 	"sync"
 	"time"
 
-	"github.com/caas-team/sparrow/pkg/checks"
-
-	"github.com/caas-team/sparrow/pkg/sparrow/gitlab"
-
 	"github.com/caas-team/sparrow/internal/logger"
+	"github.com/caas-team/sparrow/pkg/checks"
+	"github.com/caas-team/sparrow/pkg/sparrow/targets/remote"
 )
 
-var _ TargetManager = &gitlabTargetManager{}
+var _ TargetManager = (*manager)(nil)
 
 const shutdownTimeout = 30 * time.Second
 
-// gitlabTargetManager implements TargetManager
-type gitlabTargetManager struct {
+// manager implements the TargetManager interface
+type manager struct {
+	// targets contains the current global targets
 	targets []checks.GlobalTarget
-	mu      sync.RWMutex
-	// channel to signal the "reconcile" routine to stop
+	// mu is used for mutex locking/unlocking
+	mu sync.RWMutex
+	// done is used to signal the reconciliation routine to stop
 	done chan struct{}
-	// the DNS name used for self-registration
+	// name is the DNS name used for self-registration
 	name string
-	// whether the instance has already registered itself as a global target
+	// registered contains whether the instance has already registered itself as a global target
 	registered bool
-	cfg        Config
-	gitlab     gitlab.Gitlab
+	// cfg contains the general configuration for the target manager
+	cfg General
+	// interactor is the remote interactor used to interact with the remote state backend
+	interactor remote.Interactor
 }
 
-type GitlabTargetManagerConfig struct {
-	BaseURL   string `yaml:"baseUrl" mapstructure:"baseUrl"`
-	Token     string `yaml:"token" mapstructure:"token"`
-	ProjectID int    `yaml:"projectId" mapstructure:"projectId"`
-}
-
-// NewGitlabManager creates a new gitlabTargetManager
-func NewGitlabManager(name string, gtmConfig TargetManagerConfig) *gitlabTargetManager {
-	return &gitlabTargetManager{
-		gitlab: gitlab.New(gtmConfig.Gitlab.BaseURL, gtmConfig.Gitlab.Token, gtmConfig.Gitlab.ProjectID),
-		name:   name,
-		cfg:    gtmConfig.Config,
-		mu:     sync.RWMutex{},
-		done:   make(chan struct{}, 1),
+// NewManager creates a new target manager
+func NewManager(name string, cfg TargetManagerConfig) TargetManager { //nolint:gocritic // no performance concerns yet
+	return &manager{
+		name:       name,
+		cfg:        cfg.General,
+		mu:         sync.RWMutex{},
+		done:       make(chan struct{}, 1),
+		interactor: cfg.Type.Interactor(&cfg.Config),
 	}
 }
 
-// Reconcile reconciles the targets of the gitlabTargetManager.
-// The global targets are parsed from a gitlab repository.
+// Reconcile reconciles the targets of the target manager.
+// The global targets are parsed from a remote state backend.
 //
-// The global targets are evaluated for healthiness and
-// unhealthy gitlabTargetManager are removed.
-func (t *gitlabTargetManager) Reconcile(ctx context.Context) error {
+// The global targets are evaluated for their healthiness
+// and unhealthy targets are filtered out.
+func (t *manager) Reconcile(ctx context.Context) error {
 	log := logger.FromContext(ctx)
-	log.Info("Starting global gitlabTargetManager reconciler")
 
 	checkTimer := startTimer(t.cfg.CheckInterval)
 	registrationTimer := startTimer(t.cfg.RegistrationInterval)
@@ -84,13 +79,14 @@ func (t *gitlabTargetManager) Reconcile(ctx context.Context) error {
 	defer registrationTimer.Stop()
 	defer updateTimer.Stop()
 
+	log.Info("Starting target manager reconciliation")
 	for {
 		select {
 		case <-ctx.Done():
-			log.Error("Error while reconciling gitlab targets", "err", ctx.Err())
+			log.Error("Error while reconciling targets", "err", ctx.Err())
 			return ctx.Err()
 		case <-t.done:
-			log.Info("Gitlab target reconciliation ended")
+			log.Info("Target manager reconciliation stopped")
 			return nil
 		case <-checkTimer.C:
 			err := t.refreshTargets(ctx)
@@ -114,16 +110,15 @@ func (t *gitlabTargetManager) Reconcile(ctx context.Context) error {
 	}
 }
 
-// GetTargets returns the current targets of the gitlabTargetManager
-func (t *gitlabTargetManager) GetTargets() []checks.GlobalTarget {
+// GetTargets returns the current global targets
+func (t *manager) GetTargets() []checks.GlobalTarget {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
 	return t.targets
 }
 
-// Shutdown shuts down the gitlabTargetManager and deletes the file containing
-// the sparrow's registration from Gitlab
-func (t *gitlabTargetManager) Shutdown(ctx context.Context) error {
+// Shutdown shuts down the target manager
+func (t *manager) Shutdown(ctx context.Context) error {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
@@ -134,14 +129,14 @@ func (t *gitlabTargetManager) Shutdown(ctx context.Context) error {
 	defer cancel()
 
 	if t.registered {
-		f := gitlab.File{
+		f := remote.File{
 			Branch:        "main",
 			AuthorEmail:   fmt.Sprintf("%s@sparrow", t.name),
 			AuthorName:    t.name,
 			CommitMessage: "Unregistering global target",
 		}
 		f.SetFileName(fmt.Sprintf("%s.json", t.name))
-		err := t.gitlab.DeleteFile(ctxS, f)
+		err := t.interactor.DeleteFile(ctxS, f)
 		if err != nil {
 			log.Error("Failed to shutdown gracefully", "error", err)
 			return fmt.Errorf("failed to shutdown gracefully: %w", errors.Join(errC, err))
@@ -159,9 +154,9 @@ func (t *gitlabTargetManager) Shutdown(ctx context.Context) error {
 }
 
 // register registers the current instance as a global target
-// in the gitlab repository
-func (t *gitlabTargetManager) register(ctx context.Context) error {
+func (t *manager) register(ctx context.Context) error {
 	log := logger.FromContext(ctx)
+
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
@@ -170,8 +165,7 @@ func (t *gitlabTargetManager) register(ctx context.Context) error {
 		return nil
 	}
 
-	log.Debug("Registering as global target")
-	f := gitlab.File{
+	f := remote.File{
 		Branch:        "main",
 		AuthorEmail:   fmt.Sprintf("%s@sparrow", t.name),
 		AuthorName:    t.name,
@@ -180,22 +174,21 @@ func (t *gitlabTargetManager) register(ctx context.Context) error {
 	}
 	f.SetFileName(fmt.Sprintf("%s.json", t.name))
 
-	err := t.gitlab.PostFile(ctx, f)
+	log.Debug("Registering as global target")
+	err := t.interactor.PostFile(ctx, f)
 	if err != nil {
 		log.Error("Failed to register global gitlabTargetManager", "error", err)
 		return err
 	}
-
 	log.Debug("Successfully registered")
 	t.registered = true
+
 	return nil
 }
 
 // update updates the registration file of the current sparrow instance
-// in the gitlab repository
-func (t *gitlabTargetManager) update(ctx context.Context) error {
+func (t *manager) update(ctx context.Context) error {
 	log := logger.FromContext(ctx)
-	log.Debug("Updating registration")
 
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -204,7 +197,7 @@ func (t *gitlabTargetManager) update(ctx context.Context) error {
 		return nil
 	}
 
-	f := gitlab.File{
+	f := remote.File{
 		Branch:        "main",
 		AuthorEmail:   fmt.Sprintf("%s@sparrow", t.name),
 		AuthorName:    t.name,
@@ -213,7 +206,8 @@ func (t *gitlabTargetManager) update(ctx context.Context) error {
 	}
 	f.SetFileName(fmt.Sprintf("%s.json", t.name))
 
-	err := t.gitlab.PutFile(ctx, f)
+	log.Debug("Updating instance registration")
+	err := t.interactor.PutFile(ctx, f)
 	if err != nil {
 		log.Error("Failed to update registration", "error", err)
 		return err
@@ -222,14 +216,13 @@ func (t *gitlabTargetManager) update(ctx context.Context) error {
 	return nil
 }
 
-// refreshTargets updates the targets of the gitlabTargetManager
-// with the latest available healthy targets
-func (t *gitlabTargetManager) refreshTargets(ctx context.Context) error {
+// refreshTargets updates the targets with the latest available healthy targets
+func (t *manager) refreshTargets(ctx context.Context) error {
 	log := logger.FromContext(ctx)
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	var healthyTargets []checks.GlobalTarget
-	targets, err := t.gitlab.FetchFiles(ctx)
+	targets, err := t.interactor.FetchFiles(ctx)
 	if err != nil {
 		log.Error("Failed to update global targets", "error", err)
 		return err
