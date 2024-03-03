@@ -20,11 +20,14 @@ package interactor
 
 import (
 	"github.com/caas-team/sparrow/pkg/sparrow/targets/remote"
+	"github.com/caas-team/sparrow/pkg/sparrow/targets/remote/git"
 	"github.com/caas-team/sparrow/pkg/sparrow/targets/remote/gitlab"
 )
 
-// Config contains the configuration for the remote interactor
+// Config contains the configuration for the available remote interactors
 type Config struct {
+	// Git contains the configuration for the git interactor
+	Git git.Config `yaml:"git" mapstructure:"git"`
 	// Gitlab contains the configuration for the gitlab interactor
 	Gitlab gitlab.Config `yaml:"gitlab" mapstructure:"gitlab"`
 }
@@ -32,7 +35,9 @@ type Config struct {
 type Type string
 
 func (t Type) Interactor(cfg *Config) remote.Interactor {
-	switch t { //nolint:gocritic // won't be a single switch case with the implementation of #66
+	switch t {
+	case "git":
+		return git.New(cfg.Git)
 	case "gitlab":
 		return gitlab.New(cfg.Gitlab)
 	}

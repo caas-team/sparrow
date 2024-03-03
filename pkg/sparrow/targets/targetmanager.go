@@ -86,6 +86,8 @@ func (c *TargetManagerConfig) Validate(ctx context.Context) error {
 	}
 
 	switch c.Type {
+	case "git":
+		return nil
 	case "gitlab":
 		return nil
 	default:
