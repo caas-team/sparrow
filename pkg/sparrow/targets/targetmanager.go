@@ -22,6 +22,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/caas-team/sparrow/internal/logger"
 	"github.com/caas-team/sparrow/pkg/checks"
 )
 
@@ -54,22 +55,30 @@ type Config struct {
 	UnhealthyThreshold time.Duration `yaml:"unhealthyThreshold" mapstructure:"unhealthyThreshold"`
 }
 
+// TargetManagerConfig is the configuration for the target manager
 type TargetManagerConfig struct {
+	// Config is the general configuration of the target manager
 	Config `yaml:",inline" mapstructure:",squash"`
+	// Gitlab is the configuration for the Gitlab target manager
 	Gitlab GitlabTargetManagerConfig `yaml:"gitlab" mapstructure:"gitlab"`
 }
 
-func (tmc *Config) Validate() error {
-	if tmc.CheckInterval <= 0 {
+func (c *TargetManagerConfig) Validate(ctx context.Context) error {
+	log := logger.FromContext(ctx)
+	if c.CheckInterval <= 0 {
+		log.Error("The check interval should be above 0", "interval", c.CheckInterval)
 		return ErrInvalidCheckInterval
 	}
-	if tmc.RegistrationInterval < 0 {
+	if c.RegistrationInterval < 0 {
+		log.Error("The registration interval should be equal or above 0", "interval", c.RegistrationInterval)
 		return ErrInvalidRegistrationInterval
 	}
-	if tmc.UnhealthyThreshold < 0 {
+	if c.UnhealthyThreshold < 0 {
+		log.Error("The unhealthy threshold should be equal or above 0", "threshold", c.UnhealthyThreshold)
 		return ErrInvalidUnhealthyThreshold
 	}
-	if tmc.UpdateInterval < 0 {
+	if c.UpdateInterval < 0 {
+		log.Error("The update interval should be equal or above 0", "interval", c.UpdateInterval)
 		return ErrInvalidUpdateInterval
 	}
 	return nil
