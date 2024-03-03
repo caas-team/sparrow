@@ -37,7 +37,7 @@ func TestTargetManagerConfig_Validate(t *testing.T) {
 		{
 			name: "valid config - non-zero values",
 			cfg: TargetManagerConfig{
-				Type: "gitlab",
+				Type: "git",
 				General: General{
 					UnhealthyThreshold:   1 * time.Second,
 					CheckInterval:        1 * time.Second,
@@ -74,7 +74,7 @@ func TestTargetManagerConfig_Validate(t *testing.T) {
 		{
 			name: "invalid config - negative values",
 			cfg: TargetManagerConfig{
-				Type: "gitlab",
+				Type: "git",
 				General: General{
 					UnhealthyThreshold:   -1 * time.Second,
 					CheckInterval:        1 * time.Second,
