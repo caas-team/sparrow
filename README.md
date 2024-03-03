@@ -1,10 +1,12 @@
 # Sparrow - Infrastructure Monitoring<!-- omit from toc -->
 
+<!-- markdownlint-disable MD033 -->
 <p align="center">
-    <a href="/../../commits/" title="Last Commit"><img src="https://img.shields.io/github/last-commit/caas-team/sparrow?style=flat"></a>
-    <a href="/../../issues" title="Open Issues"><img src="https://img.shields.io/github/issues/caas-team/sparrow?style=flat"></a>
-    <a href="./LICENSE" title="License"><img src="https://img.shields.io/badge/License-Apache%202.0-green.svg?style=flat"></a>
+  <a href="/../../commits/" title="Last Commit"><img alt="Last Commit" src="https://img.shields.io/github/last-commit/caas-team/sparrow?style=flat"></a>
+  <a href="/../../issues" title="Open Issues"><img alt="Open Issues" src="https://img.shields.io/github/issues/caas-team/sparrow?style=flat"></a>
+  <a href="./LICENSE" title="License"><img alt="License" src="https://img.shields.io/badge/License-Apache%202.0-green.svg?style=flat"></a>
 </p>
+<!-- markdownlint-enable MD037 -->
 
 - [About this component](#about-this-component)
 - [Installation](#installation)
@@ -15,7 +17,7 @@
   - [Image](#image)
 - [Configuration](#configuration)
   - [Startup](#startup)
-    - [Example startup configuration](#example-startup-configuration)
+    - [Example Startup Configuration](#example-startup-configuration)
     - [Loader](#loader)
   - [Checks](#checks)
   - [Target Manager](#target-manager)
@@ -28,6 +30,9 @@
   - [Check: DNS](#check-dns)
     - [Example configuration](#example-configuration-2)
     - [DNS Metrics](#dns-metrics)
+  - [Check: Traceroute](#check-traceroute)
+    - [Example configuration](#example-configuration-3)
+    - [Required Capabilities](#required-capabilities)
 - [API](#api)
 - [Metrics](#metrics)
 - [Code of Conduct](#code-of-conduct)
@@ -185,23 +190,24 @@ Just write out the path to the attribute, delimited by `_`.
 
 You can set the `LOG_LEVEL` environment variable to adjust the log level.
 
-#### Example startup configuration
+#### Example Startup Configuration
 
 ```yaml
 # DNS sparrow is exposed on 
 name: sparrow.example.com
+
 # Selects and configures a loader to continuously fetch the checks' configuration at runtime
 loader:
-  # defines which loader to use. Options: "file | http" 
+  # Defines which loader to use. Options: "file | http"
   type: http
-  # the interval in which sparrow tries to fetch a new configuration
-  # if this isn't set or set to 0, the loader will only retrieve the configuration once
+  # The interval in which sparrow tries to fetch a new configuration
+  # If this isn't set or set to 0, the loader will only retrieve the configuration once
   interval: 30s
-  # config specific to the http loader
+  # Config specific to the http loader
   http:
-    # The url where the config is located
+    # The URL where the config is located
     url: https://myconfig.example.com/config.yaml
-    # This token is passed in the Authorization header, when refreshing the config
+    # This token is passed in the Authorization header when refreshing the config
     token: xxxxxxx
     # A timeout for the config refresh
     timeout: 30s
@@ -211,42 +217,51 @@ loader:
       # How many times to retry
       count: 3
 
-  # config specific to the file loader
+  # Config specific to the file loader
   # The file loader is not intended for production use
   file:
-    # location of the file in the local filesystem
+    # Location of the file in the local filesystem
     path: ./config.yaml
 
-# Configures the api
+# Configures the API
 api:
-  # Which address to expose sparrows rest api on
+  # Which address to expose Sparrow's REST API on
   address: :8080
 
 # Configures the target manager
+# Omitting this section will disable the target manager
 targetManager:
+  # Defines which target manager to use. Options: "gitlab | git"
+  type: gitlab
   # The interval for the target reconciliation process
   checkInterval: 1m
-  # How often the instance should register itself as a global target.
-  # A duration of 0 means no registration.
+  # How often the instance should register itself as a global target
+  # A duration of 0 means no registration
   registrationInterval: 1m
-  # How often the instance should update its registration as a global target.
-  # A duration of 0 means no update.
+  # How often the instance should update its registration as a global target
+  # A duration of 0 means no update
   updateInterval: 120m
   # The amount of time a target can be unhealthy
-  # before it is removed from the global target list.
-  # A duration of 0 means no removal.
+  # before it is removed from the global target list
+  # A duration of 0 means no removal
   unhealthyThreshold: 360m
-  # Configuration options for the gitlab target manager
+  # Configuration options for the GitLab target manager
   gitlab:
-    # The url of your gitlab host
+    # The URL of your GitLab host
     baseUrl: https://gitlab.com
-    # Your gitlab api token 
-    # you can also set this value through the 
-    # SPARROW_TARGETMANAGER_GITLAB_TOKEN environment variable
+    # Your GitLab API token
+    # You can also set this value through the SPARROW_TARGETMANAGER_GITLAB_TOKEN environment variable
     token: glpat-xxxxxxxx
-    # the id of your gitlab project. This is where sparrow will register itself
-    # and grab the list of other sparrows from
+    # The ID of your GitLab project. This is where Sparrow will register itself
+    # and grab the list of other Sparrows from
     projectId: 18923
+  # Configuration options for the Git target manager
+  git:
+    # The URL of your Git repository
+    repoUrl: https://my-git-instance.sparrow.com/my-repo.git
+    # Your Git Personal Access Token
+    # You can also set this value through the SPARROW_TARGETMANAGER_GIT_TOKEN environment variable
+    token: gitpat-xxxxxxxxxxxx
 ```
 
 #### Loader
@@ -257,22 +272,18 @@ You select which loader is used by setting the `loaderType` parameter.
 
 Available loaders:
 
-- `http` (default): Retrieves the checks' configuration from a remote endpoint during runtime. Additional configuration
-  parameters are set in the `loader.http` section.
+- `http` (default): Retrieves the checks' configuration from a remote endpoint during runtime. Additional configuration parameters are set in the `loader.http` section.
 
 - `file`: Loads the checks' configuration from a local file during runtime. Additional configuration
   parameters are set in the `loader.file` section.
 
-If you want to retrieve the checks' configuration only once, you can set `loader.interval` to 0.
-The target manager is currently not functional in combination with this configuration.
+If you want to retrieve the checks' configuration only once, you can set `loader.interval` to 0. The target manager is currently not functional in combination with this configuration.
 
 ### Checks
 
-In addition to the technical startup configuration, the `sparrow` checks' configuration can be dynamically loaded during runtime.
-The `loader` is capable of dynamically loading and configuring checks.
+In addition to the technical startup configuration, the `sparrow` checks' configuration can be dynamically loaded during runtime. The `loader` is capable of dynamically loading and configuring checks.
 
-For detailed information on available loader configuration options, please refer
-to [this documentation](docs/sparrow_run.md).
+For detailed information on available loader configuration options, please refer to [this documentation](docs/sparrow_run.md).
 
 Example format of a configuration file for the checks:
 
@@ -283,26 +294,30 @@ health:
 
 ### Target Manager
 
-The `sparrow` can optionally manage targets for checks and register itself as a target on a (remote) backend through
-the `TargetManager` interface. This feature is optional; if the startup configuration does not include
-the `targetManager`, it will not be used. When configured, it offers various settings, detailed below, which can be set
-in the startup YAML configuration file as shown in the [example configuration](#example-startup-configuration).
+The `sparrow` allows to optionally manage targets for checks and register itself as a target on a (remote) backend through the `TargetManager` interface. You can set the configuration settings for the `targetManager` in the startup YAML configuration file, as shown in the [example startup configuration](#example-startup-configuration). If the startup configuration does not include the `targetManager`, it will not be used.
+
+The `TargetManager` supports both GitLab and Git as remote state backends, allowing `sparrow` instances to register themselves, discover new targets, and update their status. This functionality ensures dynamic instance management across various platforms and environments.
+
+The following table details the configuration options available for the `TargetManager`:
 
 | Type                                 | Description                                                                                  |
 | ------------------------------------ | -------------------------------------------------------------------------------------------- |
+| `targetManager.type`                 | Type of the target manager. Options: `gitlab` or `git`                                       |
 | `targetManager.checkInterval`        | Interval for checking new targets.                                                           |
 | `targetManager.unhealthyThreshold`   | Threshold for marking a target as unhealthy. 0 means no cleanup.                             |
 | `targetManager.registrationInterval` | Interval for registering the current sparrow at the target backend. 0 means no registration. |
 | `targetManager.updateInterval`       | Interval for updating the registration of the current sparrow. 0 means no update.            |
-| `targetManager.gitlab.token`         | Token for authenticating with the GitLab instance.                                           |
+| `targetManager.git.repoUrl`          | URL of the Git repository used as a remote state backend.                                    |
+| `targetManager.git.token`            | Token for authenticating with the Git repository.                                            |
 | `targetManager.gitlab.baseUrl`       | Base URL of the GitLab instance.                                                             |
+| `targetManager.gitlab.token`         | Token for authenticating with the GitLab instance.                                           |
 | `targetManager.gitlab.projectId`     | Project ID for the GitLab project used as a remote state backend.                            |
 
-Currently, only one target manager exists: the Gitlab target manager. It uses a gitlab project as the remote state
-backend. The various `sparrow` instances can register themselves as targets in the project.
-The `sparrow` instances will also check the project for new targets and add them to the local state.
-The registration is done by committing a "state" file in the main branch of the repository,
-which is named after the DNS name of the `sparrow`. The state file contains the following information:
+By configuring the `TargetManager`, `sparrow` instances can seamlessly integrate with your chosen Git-based remote repository, whether hosted on GitLab or another Git service. This enables efficient synchronization and management of global targets across your distributed `sparrow` instances.
+
+The registration of a `sparrow` instance is accomplished by committing a "state" file in the `main` branch of the repository, named after the DNS name of the `sparrow`. The state file contains essential information such as the instance's URL and the last seen timestamp, allowing for effective target management and health checks.
+
+Example state file content for a registered `sparrow` instance:
 
 ```json
 {
@@ -310,6 +325,8 @@ which is named after the DNS name of the `sparrow`. The state file contains the 
   "lastSeen": "2021-09-30T12:00:00Z"
 }
 ```
+
+This configuration enables dynamic and scalable management of `sparrow` instances across diverse operational environments, facilitating robust health checks and target management.
 
 ### Check: Health
 
@@ -356,7 +373,9 @@ Available configuration options:
 | `retry.delay` | `duration`        | Initial delay between retries for the latency check.                                                                                                         |
 | `targets`     | `list of strings` | List of targets to send latency probe. Needs to be a valid URL. Can be another `sparrow` instance. Automatically updated when a targetManager is configured. |
 
+<!-- markdownlint-disable MD024 -->
 #### Example configuration
+<!-- markdownlint-enable MD024 -->
 
 ```yaml
 latency:
@@ -399,7 +418,9 @@ Available configuration options:
 | `retry.delay` | `duration`        | Initial delay between retries for the DNS check.                                                                                                          |
 | `targets`     | `list of strings` | List of targets to lookup. Needs to be a valid domain or IP. Can be another `sparrow` instance. Automatically updated when a targetManager is configured. |
 
+<!-- markdownlint-disable MD024 -->
 #### Example configuration
+<!-- markdownlint-enable MD024 -->
 
 ```yaml
 dns:
@@ -437,17 +458,19 @@ dns:
 
 ### Check: Traceroute
 
-| Field             | Type              | Description                                                                                                                                               |
-| ----------------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `interval`        | `duration`        | Interval to perform the Traceroute check.                                                                                                                 |
-| `timeout`         | `duration`        | Timeout for every hop.                                                                                                                                    |
-| `retries`         | `integer`         | Number of times to retry the traceroute for a target, if it fails.                                                                                        |
-| `maxHops`         | `integer`         | Maximum number of hops to try before giving up.                                                                                                           |
-| `targets`         | `list of objects` | List of targets to traceroute to.                                                                                                                         |
-| `targets[].addr`  | `string`          | The address of the target to traceroute to. Can be an IP address or DNS name                                                                              |
-| `targets[].port`  | `uint16`          | The port of the target to traceroute to. Default is 80                                                                                                    |
+| Field            | Type              | Description                                                                  |
+| ---------------- | ----------------- | ---------------------------------------------------------------------------- |
+| `interval`       | `duration`        | Interval to perform the Traceroute check.                                    |
+| `timeout`        | `duration`        | Timeout for every hop.                                                       |
+| `retries`        | `integer`         | Number of times to retry the traceroute for a target, if it fails.           |
+| `maxHops`        | `integer`         | Maximum number of hops to try before giving up.                              |
+| `targets`        | `list of objects` | List of targets to traceroute to.                                            |
+| `targets[].addr` | `string`          | The address of the target to traceroute to. Can be an IP address or DNS name |
+| `targets[].port` | `uint16`          | The port of the target to traceroute to. Default is 80                       |
 
+<!-- markdownlint-disable MD024 -->
 #### Example configuration
+<!-- markdownlint-enable MD024 -->
 
 ```yaml
  traceroute:
@@ -463,6 +486,7 @@ dns:
 ```
 
 #### Required Capabilities
+
 To use this check, sparrow needs to be run with the `CAP_NET_RAW` capability or elevated privileges to be able to send raw packets.
 Using the `CAP_NET_RAW` capability is recommended over running sparrow as sudo
 
@@ -499,9 +523,9 @@ The application itself and all end-user facing content will be made available in
 
 The following channels are available for discussions, feedback, and support requests:
 
-| Type       | Channel                                                                                                                                                |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Issues** | <a href="/../../issues/new/choose" title="General Discussion"><img src="https://img.shields.io/github/issues/caas-team/sparrow?style=flat-square"></a> |
+| Type       | Channel                                                                                                                                                             |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Issues** | <a href="/../../issues/new/choose" title="General Discussion"><img alt="Issues" src="https://img.shields.io/github/issues/caas-team/sparrow?style=flat-square"></a> |
 
 ## How to Contribute
 
