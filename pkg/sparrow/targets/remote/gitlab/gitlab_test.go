@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/caas-team/sparrow/pkg/checks"
+	"github.com/caas-team/sparrow/pkg/sparrow/targets/remote"
 
 	"github.com/jarcoal/httpmock"
 )
@@ -109,7 +110,7 @@ func Test_gitlab_fetchFileList(t *testing.T) {
 			}
 			httpmock.RegisterResponder("GET", "http://test/api/v4/projects/1/repository/tree?ref=main", resp)
 
-			g := &Client{
+			g := &client{
 				baseUrl:   "http://test",
 				projectID: 1,
 				token:     "test",
@@ -189,7 +190,7 @@ func Test_gitlab_FetchFiles(t *testing.T) {
 
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
-	g := &Client{
+	g := &client{
 		baseUrl:   "http://test",
 		projectID: 1,
 		token:     "test",
@@ -275,7 +276,7 @@ func Test_gitlab_fetchFiles_error_cases(t *testing.T) {
 
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
-	g := &Client{
+	g := &client{
 		baseUrl:   "http://test",
 		projectID: 1,
 		token:     "test",
@@ -309,13 +310,13 @@ func TestClient_PutFile(t *testing.T) { //nolint:dupl // no need to refactor yet
 	now := time.Now()
 	tests := []struct {
 		name     string
-		file     File
+		file     remote.File
 		mockCode int
 		wantErr  bool
 	}{
 		{
 			name: "success",
-			file: File{
+			file: remote.File{
 				Branch:      "main",
 				AuthorEmail: "test@sparrow",
 				AuthorName:  "sparrpw",
@@ -324,13 +325,13 @@ func TestClient_PutFile(t *testing.T) { //nolint:dupl // no need to refactor yet
 					LastSeen: now,
 				},
 				CommitMessage: "test-commit",
-				fileName:      "test.de.json",
+				Name:          "test.de.json",
 			},
 			mockCode: http.StatusOK,
 		},
 		{
 			name: "failure - API error",
-			file: File{
+			file: remote.File{
 				Branch:      "main",
 				AuthorEmail: "test@sparrow",
 				AuthorName:  "sparrpw",
@@ -339,7 +340,7 @@ func TestClient_PutFile(t *testing.T) { //nolint:dupl // no need to refactor yet
 					LastSeen: now,
 				},
 				CommitMessage: "test-commit",
-				fileName:      "test.de.json",
+				Name:          "test.de.json",
 			},
 			mockCode: http.StatusInternalServerError,
 			wantErr:  true,
@@ -352,7 +353,7 @@ func TestClient_PutFile(t *testing.T) { //nolint:dupl // no need to refactor yet
 
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
-	g := &Client{
+	g := &client{
 		baseUrl:   "http://test",
 		projectID: 1,
 		token:     "test",
@@ -363,13 +364,13 @@ func TestClient_PutFile(t *testing.T) { //nolint:dupl // no need to refactor yet
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.wantErr {
 				resp := httpmock.NewStringResponder(tt.mockCode, "")
-				httpmock.RegisterResponder("PUT", fmt.Sprintf("http://test/api/v4/projects/1/repository/files/%s", tt.file.fileName), resp)
+				httpmock.RegisterResponder("PUT", fmt.Sprintf("http://test/api/v4/projects/1/repository/files/%s", tt.file.Name), resp)
 			} else {
 				resp, err := httpmock.NewJsonResponder(tt.mockCode, tt.file)
 				if err != nil {
 					t.Fatalf("error creating mock response: %v", err)
 				}
-				httpmock.RegisterResponder("PUT", fmt.Sprintf("http://test/api/v4/projects/1/repository/files/%s", tt.file.fileName), resp)
+				httpmock.RegisterResponder("PUT", fmt.Sprintf("http://test/api/v4/projects/1/repository/files/%s", tt.file.Name), resp)
 			}
 
 			if err := g.PutFile(context.Background(), tt.file); (err != nil) != tt.wantErr {
@@ -383,13 +384,13 @@ func TestClient_PostFile(t *testing.T) { //nolint:dupl // no need to refactor ye
 	now := time.Now()
 	tests := []struct {
 		name     string
-		file     File
+		file     remote.File
 		mockCode int
 		wantErr  bool
 	}{
 		{
 			name: "success",
-			file: File{
+			file: remote.File{
 				Branch:      "main",
 				AuthorEmail: "test@sparrow",
 				AuthorName:  "sparrpw",
@@ -398,13 +399,13 @@ func TestClient_PostFile(t *testing.T) { //nolint:dupl // no need to refactor ye
 					LastSeen: now,
 				},
 				CommitMessage: "test-commit",
-				fileName:      "test.de.json",
+				Name:          "test.de.json",
 			},
 			mockCode: http.StatusCreated,
 		},
 		{
 			name: "failure - API error",
-			file: File{
+			file: remote.File{
 				Branch:      "main",
 				AuthorEmail: "test@sparrow",
 				AuthorName:  "sparrpw",
@@ -413,7 +414,7 @@ func TestClient_PostFile(t *testing.T) { //nolint:dupl // no need to refactor ye
 					LastSeen: now,
 				},
 				CommitMessage: "test-commit",
-				fileName:      "test.de.json",
+				Name:          "test.de.json",
 			},
 			mockCode: http.StatusInternalServerError,
 			wantErr:  true,
@@ -426,7 +427,7 @@ func TestClient_PostFile(t *testing.T) { //nolint:dupl // no need to refactor ye
 
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
-	g := &Client{
+	g := &client{
 		baseUrl:   "http://test",
 		projectID: 1,
 		token:     "test",
@@ -437,13 +438,13 @@ func TestClient_PostFile(t *testing.T) { //nolint:dupl // no need to refactor ye
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.wantErr {
 				resp := httpmock.NewStringResponder(tt.mockCode, "")
-				httpmock.RegisterResponder("POST", fmt.Sprintf("http://test/api/v4/projects/1/repository/files/%s", tt.file.fileName), resp)
+				httpmock.RegisterResponder("POST", fmt.Sprintf("http://test/api/v4/projects/1/repository/files/%s", tt.file.Name), resp)
 			} else {
 				resp, err := httpmock.NewJsonResponder(tt.mockCode, tt.file)
 				if err != nil {
 					t.Fatalf("error creating mock response: %v", err)
 				}
-				httpmock.RegisterResponder("POST", fmt.Sprintf("http://test/api/v4/projects/1/repository/files/%s", tt.file.fileName), resp)
+				httpmock.RegisterResponder("POST", fmt.Sprintf("http://test/api/v4/projects/1/repository/files/%s", tt.file.Name), resp)
 			}
 
 			if err := g.PostFile(context.Background(), tt.file); (err != nil) != tt.wantErr {
@@ -481,7 +482,7 @@ func TestClient_DeleteFile(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	projID := 1
-	g := &Client{
+	g := &client{
 		baseUrl:   "http://test",
 		projectID: projID,
 		token:     "test",
@@ -493,8 +494,8 @@ func TestClient_DeleteFile(t *testing.T) {
 			resp := httpmock.NewStringResponder(tt.mockCode, "")
 			httpmock.RegisterResponder("DELETE", fmt.Sprintf("http://test/api/v4/projects/%d/repository/files/%s", projID, tt.fileName), resp)
 
-			f := File{
-				fileName:      tt.fileName,
+			f := remote.File{
+				Name:          tt.fileName,
 				CommitMessage: "Deleted registration file",
 				AuthorName:    "sparrow-test",
 				AuthorEmail:   "sparrow-test@sparrow",

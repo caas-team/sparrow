@@ -16,16 +16,16 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package gitlabmock
+package remotemock
 
 import (
 	"context"
 	"sync"
 
 	"github.com/caas-team/sparrow/pkg/checks"
+	"github.com/caas-team/sparrow/pkg/sparrow/targets/remote"
 
 	"github.com/caas-team/sparrow/internal/logger"
-	"github.com/caas-team/sparrow/pkg/sparrow/gitlab"
 )
 
 type MockClient struct {
@@ -39,7 +39,7 @@ type MockClient struct {
 	postFileCalled bool
 }
 
-func (m *MockClient) PutFile(ctx context.Context, _ gitlab.File) error { //nolint: gocritic // irrelevant
+func (m *MockClient) PutFile(ctx context.Context, _ remote.File) error { //nolint: gocritic // irrelevant
 	log := logger.FromContext(ctx)
 	log.Info("MockPutFile called", "err", m.putFileErr)
 	m.mu.Lock()
@@ -48,7 +48,7 @@ func (m *MockClient) PutFile(ctx context.Context, _ gitlab.File) error { //nolin
 	return m.putFileErr
 }
 
-func (m *MockClient) PostFile(ctx context.Context, _ gitlab.File) error { //nolint: gocritic // irrelevant
+func (m *MockClient) PostFile(ctx context.Context, _ remote.File) error { //nolint: gocritic // irrelevant
 	log := logger.FromContext(ctx)
 	log.Info("MockPostFile called", "err", m.postFileErr)
 	m.mu.Lock()
@@ -63,7 +63,7 @@ func (m *MockClient) FetchFiles(ctx context.Context) ([]checks.GlobalTarget, err
 	return m.targets, m.fetchFilesErr
 }
 
-func (m *MockClient) DeleteFile(ctx context.Context, file gitlab.File) error { //nolint: gocritic // irrelevant
+func (m *MockClient) DeleteFile(ctx context.Context, file remote.File) error { //nolint: gocritic // irrelevant
 	log := logger.FromContext(ctx)
 	log.Info("MockDeleteFile called", "filename", file, "err", m.deleteFileErr)
 	return m.deleteFileErr
@@ -98,7 +98,7 @@ func (m *MockClient) PostFileCalled() bool {
 	return m.postFileCalled
 }
 
-// New creates a new MockClient to mock Gitlab interaction
+// New creates a new MockClient to mock the remote.Interactor
 func New(targets []checks.GlobalTarget) *MockClient {
 	return &MockClient{
 		targets: targets,

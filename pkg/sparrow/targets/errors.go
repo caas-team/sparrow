@@ -29,4 +29,6 @@ var (
 	ErrInvalidUnhealthyThreshold = errors.New("invalid unhealthy threshold")
 	// ErrInvalidUpdateInterval is returned when the update interval is invalid
 	ErrInvalidUpdateInterval = errors.New("invalid update interval")
+	// ErrInvalidInteractorType is returned when the interactor type isn't recognized
+	ErrInvalidInteractorType = errors.New("invalid interactor type")
 )
