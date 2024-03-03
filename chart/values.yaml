@@ -120,7 +120,7 @@ sparrowConfig:
 #   type: http | file
 #   interval: 30s
 #   http:
-#     url: ""
+#     url: https://myconfig.example.com/config.yaml
 #     token: ""
 #     timeout: 30s
 #     retry:
@@ -133,6 +133,9 @@ sparrowConfig:
 #   unhealthyThreshold: 600s
 #   registrationInterval: 300s
 #   updateInterval: 900s
+#   git:
+#     repoUrl: https://mygit.example.com/myrepo.git
+#     token: ""
 #   gitlab:
 #     token: ""
 #     baseUrl: https://gitlab.com
