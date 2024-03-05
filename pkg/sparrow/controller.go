@@ -177,11 +177,7 @@ func (cc *ChecksController) UnregisterCheck(ctx context.Context, check checks.Ch
 		}
 	}
 
-	err := check.Shutdown(ctx)
-	if err != nil {
-		log.ErrorContext(ctx, "Failed to shutdown check", "error", err)
-		return err
-	}
+	check.Shutdown()
 
 	cc.checks.Delete(check)
 	return nil

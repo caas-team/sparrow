@@ -107,11 +107,9 @@ func (d *DNS) Run(ctx context.Context, cResult chan checks.ResultDTO) error {
 	}
 }
 
-func (d *DNS) Shutdown(_ context.Context) error {
+func (d *DNS) Shutdown() {
 	d.DoneChan <- struct{}{}
 	close(d.DoneChan)
-
-	return nil
 }
 
 func (d *DNS) SetConfig(cfg checks.Runtime) error {

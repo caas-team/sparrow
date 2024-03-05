@@ -160,10 +160,9 @@ func (tr *Traceroute) check(ctx context.Context) map[string]result {
 }
 
 // Shutdown is called once when the check is unregistered or sparrow shuts down
-func (tr *Traceroute) Shutdown(_ context.Context) error {
+func (tr *Traceroute) Shutdown() {
 	tr.DoneChan <- struct{}{}
 	close(tr.DoneChan)
-	return nil
 }
 
 // SetConfig is called once when the check is registered
