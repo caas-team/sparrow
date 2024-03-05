@@ -20,51 +20,67 @@ package config
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/url"
 	"regexp"
 
 	"github.com/caas-team/sparrow/internal/logger"
+	"github.com/caas-team/sparrow/pkg/sparrow/targets"
 )
 
 // Validate validates the startup config
-func (c *Config) Validate(ctx context.Context) error {
-	ctx, cancel := logger.NewContextWithLogger(ctx)
-	defer cancel()
+func (c *Config) Validate(ctx context.Context) (err error) {
+	log := logger.FromContext(ctx)
+	if !isDNSName(c.SparrowName) {
+		log.Error("The name of the sparrow must be DNS compliant")
+		err = errors.Join(err, ErrInvalidSparrowName)
+	}
+
+	if vErr := c.Loader.Validate(ctx); vErr != nil {
+		log.Error("The loader configuration is invalid")
+		err = errors.Join(err, vErr)
+	}
+
+	if c.TargetManager != (targets.TargetManagerConfig{}) {
+		if vErr := c.TargetManager.Validate(ctx); vErr != nil {
+			log.Error("The target manager configuration is invalid")
+			err = errors.Join(err, vErr)
+		}
+	}
+
+	if err != nil {
+		return fmt.Errorf("validation of configuration failed: %w", err)
+	}
+	return nil
+}
+
+// Validate validates the loader configuration
+func (c *LoaderConfig) Validate(ctx context.Context) error {
 	log := logger.FromContext(ctx)
 
-	ok := true
-
-	if !isDNSName(c.SparrowName) {
-		ok = false
-		log.Error("The name of the sparrow must be DNS compliant")
+	if c.Interval < 0 {
+		log.Error("The loader interval should be equal or above 0", "interval", c.Interval)
+		return ErrInvalidLoaderInterval
 	}
 
-	if c.Loader.Interval < 0 {
-		ok = false
-		log.Error("The loader interval should be equal or above 0", "interval", c.Loader.Interval)
-	}
-
-	switch c.Loader.Type {
+	switch c.Type {
 	case "http":
-		if _, err := url.ParseRequestURI(c.Loader.Http.Url); err != nil {
-			ok = false
+		if _, err := url.ParseRequestURI(c.Http.Url); err != nil {
 			log.Error("The loader http url is not a valid url")
+			return ErrInvalidLoaderHttpURL
 		}
-		if c.Loader.Http.RetryCfg.Count < 0 || c.Loader.Http.RetryCfg.Count >= 5 {
-			ok = false
-			log.Error("The amount of loader http retries should be above 0 and below 6", "retryCount", c.Loader.Http.RetryCfg.Count)
+		if c.Http.RetryCfg.Count < 0 || c.Http.RetryCfg.Count >= 5 {
+			log.Error("The amount of loader http retries should be above 0 and below 6", "retryCount", c.Http.RetryCfg.Count)
+			return ErrInvalidLoaderHttpRetryCount
 		}
 	case "file":
-		if c.Loader.File.Path == "" {
-			ok = false
+		if c.File.Path == "" {
 			log.Error("The loader file path cannot be empty")
+			return ErrInvalidLoaderFilePath
 		}
 	}
 
-	if !ok {
-		return fmt.Errorf("validation of configuration failed")
-	}
 	return nil
 }
 

@@ -24,24 +24,20 @@ import (
 	"time"
 
 	"github.com/caas-team/sparrow/internal/helper"
-	"github.com/caas-team/sparrow/internal/logger"
 )
 
 func TestConfig_Validate(t *testing.T) {
-	ctx, cancel := logger.NewContextWithLogger(context.Background())
-	defer cancel()
+	ctx := context.Background()
 
-	type fields struct {
-		Loader LoaderConfig
-	}
 	tests := []struct {
 		name    string
-		fields  fields
+		config  Config
 		wantErr bool
 	}{
 		{
 			name: "config ok",
-			fields: fields{
+			config: Config{
+				SparrowName: "sparrow.com",
 				Loader: LoaderConfig{
 					Type: "http",
 					Http: HttpLoaderConfig{
@@ -55,11 +51,13 @@ func TestConfig_Validate(t *testing.T) {
 					Interval: time.Second,
 				},
 			},
+
 			wantErr: false,
 		},
 		{
-			name: "url missing",
-			fields: fields{
+			name: "loader - url missing",
+			config: Config{
+				SparrowName: "sparrow.com",
 				Loader: LoaderConfig{
 					Type: "http",
 					Http: HttpLoaderConfig{
@@ -73,11 +71,13 @@ func TestConfig_Validate(t *testing.T) {
 					Interval: time.Second,
 				},
 			},
+
 			wantErr: true,
 		},
 		{
-			name: "url malformed",
-			fields: fields{
+			name: "loader - url malformed",
+			config: Config{
+				SparrowName: "sparrow.com",
 				Loader: LoaderConfig{
 					Type: "http",
 					Http: HttpLoaderConfig{
@@ -94,8 +94,9 @@ func TestConfig_Validate(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "retry count to high",
-			fields: fields{
+			name: "loader - retry count to high",
+			config: Config{
+				SparrowName: "sparrow.com",
 				Loader: LoaderConfig{
 					Type: "http",
 					Http: HttpLoaderConfig{
@@ -112,8 +113,9 @@ func TestConfig_Validate(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "file path malformed",
-			fields: fields{
+			name: "loader - file path malformed",
+			config: Config{
+				SparrowName: "sparrow.com",
 				Loader: LoaderConfig{
 					Type: "file",
 					File: FileLoaderConfig{
@@ -127,11 +129,7 @@ func TestConfig_Validate(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c := &Config{
-				SparrowName: "cool-dns-name.org",
-				Loader:      tt.fields.Loader,
-			}
-			if err := c.Validate(ctx); (err != nil) != tt.wantErr {
+			if err := tt.config.Validate(ctx); (err != nil) != tt.wantErr {
 				t.Errorf("Validate() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})

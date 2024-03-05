@@ -20,14 +20,13 @@ package targets
 
 import "errors"
 
-// ErrInvalidCheckInterval is returned when the check interval is invalid
-var ErrInvalidCheckInterval = errors.New("invalid check interval")
-
-// ErrInvalidRegistrationInterval is returned when the registration interval is invalid
-var ErrInvalidRegistrationInterval = errors.New("invalid registration interval")
-
-// ErrInvalidUnhealthyThreshold is returned when the unhealthy threshold is invalid
-var ErrInvalidUnhealthyThreshold = errors.New("invalid unhealthy threshold")
-
-// ErrInvalidUpdateInterval is returned when the update interval is invalid
-var ErrInvalidUpdateInterval = errors.New("invalid update interval")
+var (
+	// ErrInvalidCheckInterval is returned when the check interval is invalid
+	ErrInvalidCheckInterval = errors.New("invalid check interval")
+	// ErrInvalidRegistrationInterval is returned when the registration interval is invalid
+	ErrInvalidRegistrationInterval = errors.New("invalid registration interval")
+	// ErrInvalidUnhealthyThreshold is returned when the unhealthy threshold is invalid
+	ErrInvalidUnhealthyThreshold = errors.New("invalid unhealthy threshold")
+	// ErrInvalidUpdateInterval is returned when the update interval is invalid
+	ErrInvalidUpdateInterval = errors.New("invalid update interval")
+)
