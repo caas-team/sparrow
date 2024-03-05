@@ -306,10 +306,7 @@ func TestChecksController_UnregisterCheck(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			cc := tt.setup(t)
 
-			err := cc.UnregisterCheck(context.Background(), tt.check)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("UnregisterCheck() error = %v, wantErr %v", err, tt.wantErr)
-			}
+			cc.UnregisterCheck(context.Background(), tt.check)
 
 			if !tt.wantErr && len(cc.checks.Iter()) != 0 {
 				t.Errorf("Expected check to be unregistered")
