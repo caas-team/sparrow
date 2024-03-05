@@ -12,6 +12,9 @@ For additional information look at the commits.
 
 <!-- Explain what tests you've done and if your tests worked -->
 
+- [ ] Unit tests succeeded
+- [ ] E2E tests succeeded
+
 ## TODO
 
 - [ ] I've assigned this PR to myself

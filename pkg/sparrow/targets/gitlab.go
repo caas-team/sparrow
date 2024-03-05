@@ -97,16 +97,19 @@ func (t *gitlabTargetManager) Reconcile(ctx context.Context) error {
 			if err != nil {
 				log.Warn("Failed to get global targets", "error", err)
 			}
+			checkTimer.Reset(t.cfg.CheckInterval)
 		case <-registrationTimer.C:
 			err := t.register(ctx)
 			if err != nil {
 				log.Warn("Failed to register self as global target", "error", err)
 			}
+			registrationTimer.Reset(t.cfg.RegistrationInterval)
 		case <-updateTimer.C:
 			err := t.update(ctx)
 			if err != nil {
 				log.Warn("Failed to update registration", "error", err)
 			}
+			updateTimer.Reset(t.cfg.UpdateInterval)
 		}
 	}
 }
@@ -130,7 +133,7 @@ func (t *gitlabTargetManager) Shutdown(ctx context.Context) error {
 	ctxS, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 	defer cancel()
 
-	if t.Registered() {
+	if t.registered {
 		f := gitlab.File{
 			Branch:        "main",
 			AuthorEmail:   fmt.Sprintf("%s@sparrow", t.name),
@@ -159,10 +162,15 @@ func (t *gitlabTargetManager) Shutdown(ctx context.Context) error {
 // in the gitlab repository
 func (t *gitlabTargetManager) register(ctx context.Context) error {
 	log := logger.FromContext(ctx)
-	log.Debug("Registering as global target")
-
 	t.mu.Lock()
 	defer t.mu.Unlock()
+
+	if t.registered {
+		log.Debug("Already registered as global target")
+		return nil
+	}
+
+	log.Debug("Registering as global target")
 	f := gitlab.File{
 		Branch:        "main",
 		AuthorEmail:   fmt.Sprintf("%s@sparrow", t.name),
@@ -191,25 +199,26 @@ func (t *gitlabTargetManager) update(ctx context.Context) error {
 
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	f := gitlab.File{
-		Branch:      "main",
-		AuthorEmail: fmt.Sprintf("%s@sparrow", t.name),
-		AuthorName:  t.name,
-		Content:     checks.GlobalTarget{Url: fmt.Sprintf("https://%s", t.name), LastSeen: time.Now().UTC()},
-	}
-	f.SetFileName(fmt.Sprintf("%s.json", t.name))
-
-	if t.Registered() {
-		f.CommitMessage = "Updated registration"
-		err := t.gitlab.PutFile(ctx, f)
-		if err != nil {
-			log.Error("Failed to update registration", "error", err)
-			return err
-		}
-		log.Debug("Successfully updated registration")
+	if !t.registered {
+		log.Debug("Not registered as global target, no update done.")
 		return nil
 	}
 
+	f := gitlab.File{
+		Branch:        "main",
+		AuthorEmail:   fmt.Sprintf("%s@sparrow", t.name),
+		AuthorName:    t.name,
+		CommitMessage: "Updated registration",
+		Content:       checks.GlobalTarget{Url: fmt.Sprintf("https://%s", t.name), LastSeen: time.Now().UTC()},
+	}
+	f.SetFileName(fmt.Sprintf("%s.json", t.name))
+
+	err := t.gitlab.PutFile(ctx, f)
+	if err != nil {
+		log.Error("Failed to update registration", "error", err)
+		return err
+	}
+	log.Debug("Successfully updated registration")
 	return nil
 }
 
@@ -228,7 +237,7 @@ func (t *gitlabTargetManager) refreshTargets(ctx context.Context) error {
 
 	// filter unhealthy targets - this may be removed in the future
 	for _, target := range targets {
-		if !t.Registered() && target.Url == fmt.Sprintf("https://%s", t.name) {
+		if !t.registered && target.Url == fmt.Sprintf("https://%s", t.name) {
 			log.Debug("Found self as global target", "lastSeenMin", time.Since(target.LastSeen).Minutes())
 			t.registered = true
 		}
@@ -248,11 +257,6 @@ func (t *gitlabTargetManager) refreshTargets(ctx context.Context) error {
 	t.targets = healthyTargets
 	log.Debug("Updated global targets", "targets", len(t.targets))
 	return nil
-}
-
-// Registered returns whether the instance is registered as a global target
-func (t *gitlabTargetManager) Registered() bool {
-	return t.registered
 }
 
 // startTimer creates a new timer with the given duration.

@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 )
 
 type logger struct{}
@@ -37,10 +38,7 @@ func NewLogger(h ...slog.Handler) *slog.Logger {
 	if len(h) > 0 {
 		handler = h[0]
 	} else {
-		handler = slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{
-			AddSource: true,
-			Level:     getLevel(os.Getenv("LOG_LEVEL")),
-		})
+		handler = newHandler()
 	}
 	return slog.New(handler)
 }
@@ -80,6 +78,27 @@ func Middleware(ctx context.Context) func(http.Handler) http.Handler {
 			next.ServeHTTP(w, r.WithContext(reqCtx))
 		})
 	}
+}
+
+// newHandler creates a new slog.Handler based on the environment variables.
+func newHandler() slog.Handler {
+	opts := &slog.HandlerOptions{
+		AddSource: true,
+		Level:     getLevel(os.Getenv("LOG_LEVEL")),
+	}
+
+	if strings.ToUpper(os.Getenv("LOG_FORMAT")) == "TEXT" {
+		opts.ReplaceAttr = func(_ []string, a slog.Attr) slog.Attr {
+			if a.Key == slog.TimeKey {
+				v := a.Value.Any().(time.Time)
+				a.Value = slog.StringValue(v.Format(time.TimeOnly))
+			}
+			return a
+		}
+		return slog.NewTextHandler(os.Stderr, opts)
+	}
+
+	return slog.NewJSONHandler(os.Stderr, opts)
 }
 
 // getLevel takes a level string and maps it to the corresponding slog.Level

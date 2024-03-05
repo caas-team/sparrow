@@ -17,6 +17,7 @@
   - [Startup](#startup)
     - [Example startup configuration](#example-startup-configuration)
     - [Loader](#loader)
+    - [Logging Configuration](#logging-configuration)
   - [Checks](#checks)
   - [Target Manager](#target-manager)
   - [Check: Health](#check-health)
@@ -28,6 +29,9 @@
   - [Check: DNS](#check-dns)
     - [Example configuration](#example-configuration-2)
     - [DNS Metrics](#dns-metrics)
+  - [Check: Traceroute](#check-traceroute)
+    - [Example configuration](#example-configuration-3)
+    - [Required Capabilities](#required-capabilities)
 - [API](#api)
 - [Metrics](#metrics)
 - [Code of Conduct](#code-of-conduct)
@@ -52,6 +56,9 @@ The following checks are available:
 
 3. [DNS check](#check-dns) - `dns`: The `sparrow` is able to perform DNS resolution checks to monitor domain name system
    performance and reliability. The check has the ability to target specific domains or IPs for monitoring.
+
+4. [Traceroute Check](#check-traceroute) - `traceroute`: The `sparrow` is able to perform traceroute checks to monitor
+   the network path to a target. The check has the ability to target specific domains or IPs for monitoring.
 
 Each check is designed to provide comprehensive insights into the various aspects of network and service health,
 ensuring robust monitoring and quick detection of potential issues.
@@ -180,8 +187,6 @@ export SPARROW_ANY_OTHER_OPTION="Some value"
 
 Just write out the path to the attribute, delimited by `_`.
 
-You can set the `LOG_LEVEL` environment variable to adjust the log level.
-
 #### Example startup configuration
 
 ```yaml
@@ -262,6 +267,15 @@ Available loaders:
 
 If you want to retrieve the checks' configuration only once, you can set `loader.interval` to 0.
 The target manager is currently not functional in combination with this configuration.
+
+#### Logging Configuration
+
+You can configure the logging behavior of the sparrow instance by setting the following environment variables:
+
+- `LOG_LEVEL`: Adjusts the minimum log level.
+  Available options: `DEBUG`, `INFO`, `WARNING`, `ERROR`.
+- `LOG_FORMAT`: Sets the log format. This allows you to customize the format of the log messages.
+  Available options: `JSON`, `TEXT`.
 
 ### Checks
 
@@ -431,6 +445,42 @@ dns:
   - Type: Histogram
   - Description: Histogram of response times for DNS checks
   - Labelled with `target`
+
+### Check: Traceroute
+
+| Field            | Type              | Description                                                                  |
+| ---------------- | ----------------- | ---------------------------------------------------------------------------- |
+| `interval`       | `duration`        | Interval to perform the Traceroute check.                                    |
+| `timeout`        | `duration`        | Timeout for every hop.                                                       |
+| `retries`        | `integer`         | Number of times to retry the traceroute for a target, if it fails.           |
+| `maxHops`        | `integer`         | Maximum number of hops to try before giving up.                              |
+| `targets`        | `list of objects` | List of targets to traceroute to.                                            |
+| `targets[].addr` | `string`          | The address of the target to traceroute to. Can be an IP address or DNS name |
+| `targets[].port` | `uint16`          | The port of the target to traceroute to. Default is 80                       |
+
+#### Example configuration
+
+```yaml
+ traceroute:
+  interval: 5s
+  timeout: 3s
+  retries: 3
+  maxHops: 8
+  targets:
+    - addr: 8.8.8.8
+      port: 53
+    - addr: www.google.com
+      port: 80
+```
+
+#### Required Capabilities
+
+To use this check, sparrow needs to be run with the `CAP_NET_RAW` capability or elevated privileges to be able to send raw packets.
+Using the `CAP_NET_RAW` capability is recommended over running sparrow as sudo.
+
+```bash
+sudo setcap 'cap_net_raw=ep' sparrow
+```
 
 ## API
 

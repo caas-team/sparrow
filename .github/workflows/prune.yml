@@ -2,7 +2,7 @@ name: Prune GHCR
 
 on:
   schedule:
-    - cron: '0 0 * * *'
+    - cron: "0 0 * * *"
 
 permissions:
   contents: write
@@ -15,12 +15,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    
       - name: Prune Images
         uses: vlaurin/action-ghcr-prune@v0.5.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          organization: caas-team
+          organization: ${{ github.repository_owner }}
           container: sparrow
           keep-younger-than: 7 # days
           prune-untagged: true
@@ -31,7 +30,7 @@ jobs:
         uses: vlaurin/action-ghcr-prune@v0.5.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          organization: caas-team
+          organization: ${{ github.repository_owner }}
           container: charts/sparrow
           keep-younger-than: 7 # days
           prune-untagged: true
