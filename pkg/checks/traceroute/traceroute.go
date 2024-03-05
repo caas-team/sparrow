@@ -25,12 +25,13 @@ type Target struct {
 
 func NewCheck() checks.Check {
 	return &Traceroute{
-		config:     Config{},
-		traceroute: newTraceroute,
 		CheckBase: checks.CheckBase{
 			Mu:       sync.Mutex{},
+			Running:  false,
 			DoneChan: make(chan struct{}),
 		},
+		config:     Config{},
+		traceroute: newTraceroute,
 	}
 }
 
@@ -69,8 +70,9 @@ func (tr *Traceroute) Run(ctx context.Context, cResult chan checks.ResultDTO) er
 	ctx, cancel := logger.NewContextWithLogger(ctx)
 	defer cancel()
 	log := logger.FromContext(ctx)
-	log.Info("Starting traceroute check", "interval", tr.config.Interval.String())
 
+	log.Info("Starting traceroute check", "interval", tr.config.Interval.String())
+	tr.Running = true
 	for {
 		select {
 		case <-ctx.Done():
@@ -196,4 +198,8 @@ func (tr *Traceroute) GetMetricCollectors() []prometheus.Collector {
 // Name returns the name of the check
 func (tr *Traceroute) Name() string {
 	return CheckName
+}
+
+func (tr *Traceroute) IsRunning() bool {
+	return tr.Running
 }
