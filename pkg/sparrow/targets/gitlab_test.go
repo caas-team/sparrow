@@ -126,8 +126,8 @@ func Test_gitlabTargetManager_refreshTargets(t *testing.T) {
 				t.Fatalf("refreshTargets() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
-			if gtm.Registered() != tt.expectedRegisteredAfter {
-				t.Fatalf("expected registered to be %v, got %v", tt.expectedRegisteredAfter, gtm.Registered())
+			if gtm.registered != tt.expectedRegisteredAfter {
+				t.Fatalf("expected registered to be %v, got %v", tt.expectedRegisteredAfter, gtm.registered)
 			}
 		})
 	}
@@ -198,8 +198,8 @@ func Test_gitlabTargetManager_refreshTargets_No_Threshold(t *testing.T) {
 				t.Fatalf("refreshTargets() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
-			if gtm.Registered() != tt.expectedRegisteredAfter {
-				t.Fatalf("expected registered to be %v, got %v", tt.expectedRegisteredAfter, gtm.Registered())
+			if gtm.registered != tt.expectedRegisteredAfter {
+				t.Fatalf("expected registered to be %v, got %v", tt.expectedRegisteredAfter, gtm.registered)
 			}
 		})
 	}
@@ -310,7 +310,7 @@ func Test_gitlabTargetManager_register(t *testing.T) {
 			}
 
 			if !tt.wantErr {
-				if !gtm.Registered() {
+				if !gtm.registered {
 					t.Fatalf("register() did not register the instance")
 				}
 			}
@@ -399,7 +399,7 @@ func Test_gitlabTargetManager_Reconcile_success(t *testing.T) {
 			}
 
 			gtm.mu.Lock()
-			if !gtm.Registered() {
+			if !gtm.registered {
 				t.Fatalf("Reconcile() did not register")
 			}
 			gtm.mu.Unlock()
@@ -443,7 +443,7 @@ func Test_gitlabTargetManager_Reconcile_Registration_Update(t *testing.T) {
 	time.Sleep(gtm.cfg.UpdateInterval * 3)
 
 	gtm.mu.Lock()
-	if !gtm.Registered() {
+	if !gtm.registered {
 		t.Fatalf("Reconcile() should be registered")
 	}
 	gtm.mu.Unlock()
@@ -459,7 +459,7 @@ func Test_gitlabTargetManager_Reconcile_Registration_Update(t *testing.T) {
 	}
 
 	gtm.mu.Lock()
-	if !gtm.Registered() {
+	if !gtm.registered {
 		t.Fatalf("Reconcile() should have registered the sparrow")
 	}
 	gtm.mu.Unlock()
@@ -517,11 +517,11 @@ func Test_gitlabTargetManager_Reconcile_failure(t *testing.T) {
 			time.Sleep(time.Millisecond * 300)
 
 			gtm.mu.Lock()
-			if tt.postErr != nil && gtm.Registered() {
+			if tt.postErr != nil && gtm.registered {
 				t.Fatalf("Reconcile() should not have registered")
 			}
 
-			if tt.putError != nil && !gtm.Registered() {
+			if tt.putError != nil && !gtm.registered {
 				t.Fatalf("Reconcile() should still be registered")
 			}
 			gtm.mu.Unlock()
@@ -563,7 +563,7 @@ func Test_gitlabTargetManager_Reconcile_Context_Canceled(t *testing.T) {
 	time.Sleep(time.Millisecond * 250)
 
 	gtm.mu.Lock()
-	if !gtm.Registered() {
+	if !gtm.registered {
 		t.Fatalf("Reconcile() should still be registered")
 	}
 	gtm.mu.Unlock()
@@ -601,7 +601,7 @@ func Test_gitlabTargetManager_Reconcile_Context_Done(t *testing.T) {
 	time.Sleep(time.Millisecond * 15)
 
 	gtm.mu.Lock()
-	if gtm.Registered() {
+	if gtm.registered {
 		t.Fatalf("Reconcile() should not be registered")
 	}
 	gtm.mu.Unlock()
@@ -643,7 +643,7 @@ func Test_gitlabTargetManager_Reconcile_Shutdown(t *testing.T) {
 	}
 
 	gtm.mu.Lock()
-	if gtm.Registered() {
+	if gtm.registered {
 		t.Fatalf("Reconcile() should not be registered")
 	}
 	gtm.mu.Unlock()
@@ -688,7 +688,7 @@ func Test_gitlabTargetManager_Reconcile_Shutdown_Fail_Unregister(t *testing.T) {
 
 	gtm.mu.Lock()
 	// instance should still be registered because the unregister failed
-	if !gtm.Registered() {
+	if !gtm.registered {
 		t.Fatalf("Reconcile() should still be registered")
 	}
 	gtm.mu.Unlock()
@@ -726,7 +726,7 @@ func Test_gitlabTargetManager_Reconcile_No_Registration(t *testing.T) {
 	time.Sleep(time.Millisecond * 250)
 
 	gtm.mu.Lock()
-	if gtm.Registered() {
+	if gtm.registered {
 		t.Fatalf("Reconcile() should not be registered")
 	}
 	gtm.mu.Unlock()
@@ -764,7 +764,7 @@ func Test_gitlabTargetManager_Reconcile_No_Update(t *testing.T) {
 	time.Sleep(time.Millisecond * 250)
 
 	gtm.mu.Lock()
-	if !gtm.Registered() {
+	if !gtm.registered {
 		t.Fatalf("Reconcile() should be registered")
 	}
 	gtm.mu.Unlock()
@@ -807,7 +807,7 @@ func Test_gitlabTargetManager_Reconcile_No_Registration_No_Update(t *testing.T) 
 	time.Sleep(time.Millisecond * 250)
 
 	gtm.mu.Lock()
-	if gtm.Registered() {
+	if gtm.registered {
 		t.Fatalf("Reconcile() should not be registered")
 	}
 	gtm.mu.Unlock()

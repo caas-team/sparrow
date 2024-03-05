@@ -133,7 +133,7 @@ func (t *gitlabTargetManager) Shutdown(ctx context.Context) error {
 	ctxS, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 	defer cancel()
 
-	if t.Registered() {
+	if t.registered {
 		f := gitlab.File{
 			Branch:        "main",
 			AuthorEmail:   fmt.Sprintf("%s@sparrow", t.name),
@@ -199,7 +199,7 @@ func (t *gitlabTargetManager) update(ctx context.Context) error {
 
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	if !t.Registered() {
+	if !t.registered {
 		log.Debug("Not registered as global target, no update done.")
 		return nil
 	}
@@ -237,7 +237,7 @@ func (t *gitlabTargetManager) refreshTargets(ctx context.Context) error {
 
 	// filter unhealthy targets - this may be removed in the future
 	for _, target := range targets {
-		if !t.Registered() && target.Url == fmt.Sprintf("https://%s", t.name) {
+		if !t.registered && target.Url == fmt.Sprintf("https://%s", t.name) {
 			log.Debug("Found self as global target", "lastSeenMin", time.Since(target.LastSeen).Minutes())
 			t.registered = true
 		}
@@ -257,11 +257,6 @@ func (t *gitlabTargetManager) refreshTargets(ctx context.Context) error {
 	t.targets = healthyTargets
 	log.Debug("Updated global targets", "targets", len(t.targets))
 	return nil
-}
-
-// Registered returns whether the instance is registered as a global target
-func (t *gitlabTargetManager) Registered() bool {
-	return t.registered
 }
 
 // startTimer creates a new timer with the given duration.
