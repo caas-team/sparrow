@@ -144,14 +144,21 @@ func (s *Sparrow) handleCheckMetrics(w http.ResponseWriter, r *http.Request) {
 // handleHealthz returns a 200 if all checks are running and healthy
 func (s *Sparrow) handleHealthz(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	if s.checker.CheckOverallHealth(ctx, s.controller.GetChecks()) {
+	healthy := true
+	for _, c := range s.controller.GetChecks() {
+		if !c.IsRunning() {
+			healthy = false
+			break
+		}
+	}
+	if !healthy {
 		api.OkHandler(ctx).ServeHTTP(w, r)
-		return
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_, err := w.Write([]byte(http.StatusText(http.StatusServiceUnavailable)))
+		if err != nil {
+			logger.FromContext(ctx).Error("Failed to write response", "error", err)
+		}
 	}
 
-	w.WriteHeader(http.StatusServiceUnavailable)
-	_, err := w.Write([]byte(http.StatusText(http.StatusServiceUnavailable)))
-	if err != nil {
-		logger.FromContext(ctx).Error("Failed to write response", "error", err)
-	}
+	api.OkHandler(ctx).ServeHTTP(w, r)
 }

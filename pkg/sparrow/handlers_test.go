@@ -32,7 +32,6 @@ import (
 	"github.com/caas-team/sparrow/pkg/checks"
 	"github.com/caas-team/sparrow/pkg/checks/runtime"
 	"github.com/caas-team/sparrow/pkg/db"
-	"github.com/caas-team/sparrow/pkg/healthz"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/go-chi/chi/v5"
 	"gopkg.in/yaml.v3"
@@ -166,26 +165,51 @@ func TestSparrow_handleCheckMetrics(t *testing.T) {
 func TestSparrow_handleHealthz(t *testing.T) {
 	tests := []struct {
 		name     string
+		checks   []checks.Check
 		wantCode int
 	}{
 		{
-			name:     "healthy",
+			name: "all checks healthy",
+			checks: []checks.Check{
+				&checks.CheckMock{
+					IsRunningFunc: func() bool {
+						return true
+					},
+				},
+				&checks.CheckMock{
+					IsRunningFunc: func() bool {
+						return true
+					},
+				},
+			},
 			wantCode: http.StatusOK,
 		},
 		{
-			name:     "unhealthy",
+			name: "one check unhealthy",
+			checks: []checks.Check{
+				&checks.CheckMock{
+					IsRunningFunc: func() bool {
+						return false
+					},
+				},
+				&checks.CheckMock{
+					IsRunningFunc: func() bool {
+						return true
+					},
+				},
+			},
 			wantCode: http.StatusServiceUnavailable,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &Sparrow{
-				controller: NewChecksController(db.NewInMemory(), NewMetrics()),
-				checker: &healthz.CheckerMock{
-					CheckOverallHealthFunc: func(ctx context.Context, cks []checks.Check) bool {
-						return tt.wantCode == http.StatusOK
-					},
+				controller: &ChecksController{
+					checks: runtime.Checks{},
 				},
+			}
+			for _, c := range tt.checks {
+				s.controller.checks.Add(c)
 			}
 
 			w := httptest.NewRecorder()

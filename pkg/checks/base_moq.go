@@ -26,6 +26,9 @@ var _ Check = &CheckMock{}
 //			GetMetricCollectorsFunc: func() []prometheus.Collector {
 //				panic("mock out the GetMetricCollectors method")
 //			},
+//			IsRunningFunc: func() bool {
+//				panic("mock out the IsRunning method")
+//			},
 //			NameFunc: func() string {
 //				panic("mock out the Name method")
 //			},
@@ -54,6 +57,9 @@ type CheckMock struct {
 	// GetMetricCollectorsFunc mocks the GetMetricCollectors method.
 	GetMetricCollectorsFunc func() []prometheus.Collector
 
+	// IsRunningFunc mocks the IsRunning method.
+	IsRunningFunc func() bool
+
 	// NameFunc mocks the Name method.
 	NameFunc func() string
 
@@ -76,6 +82,9 @@ type CheckMock struct {
 		}
 		// GetMetricCollectors holds details about calls to the GetMetricCollectors method.
 		GetMetricCollectors []struct {
+		}
+		// IsRunning holds details about calls to the IsRunning method.
+		IsRunning []struct {
 		}
 		// Name holds details about calls to the Name method.
 		Name []struct {
@@ -103,6 +112,7 @@ type CheckMock struct {
 	}
 	lockGetConfig           sync.RWMutex
 	lockGetMetricCollectors sync.RWMutex
+	lockIsRunning           sync.RWMutex
 	lockName                sync.RWMutex
 	lockRun                 sync.RWMutex
 	lockSchema              sync.RWMutex
@@ -161,6 +171,33 @@ func (mock *CheckMock) GetMetricCollectorsCalls() []struct {
 	mock.lockGetMetricCollectors.RLock()
 	calls = mock.calls.GetMetricCollectors
 	mock.lockGetMetricCollectors.RUnlock()
+	return calls
+}
+
+// IsRunning calls IsRunningFunc.
+func (mock *CheckMock) IsRunning() bool {
+	if mock.IsRunningFunc == nil {
+		panic("CheckMock.IsRunningFunc: method is nil but Check.IsRunning was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockIsRunning.Lock()
+	mock.calls.IsRunning = append(mock.calls.IsRunning, callInfo)
+	mock.lockIsRunning.Unlock()
+	return mock.IsRunningFunc()
+}
+
+// IsRunningCalls gets all the calls that were made to IsRunning.
+// Check the length with:
+//
+//	len(mockedCheck.IsRunningCalls())
+func (mock *CheckMock) IsRunningCalls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockIsRunning.RLock()
+	calls = mock.calls.IsRunning
+	mock.lockIsRunning.RUnlock()
 	return calls
 }
 

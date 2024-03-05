@@ -56,6 +56,7 @@ func NewCheck() checks.Check {
 	return &Health{
 		CheckBase: checks.CheckBase{
 			Mu:       sync.Mutex{},
+			Running:  false,
 			DoneChan: make(chan struct{}, 1),
 		},
 		config: Config{
@@ -75,8 +76,9 @@ func (h *Health) Run(ctx context.Context, cResult chan checks.ResultDTO) error {
 	ctx, cancel := logger.NewContextWithLogger(ctx)
 	defer cancel()
 	log := logger.FromContext(ctx)
-	log.Info("Starting healthcheck", "interval", h.config.Interval.String())
 
+	log.Info("Starting healthcheck", "interval", h.config.Interval.String())
+	h.Running = true
 	for {
 		select {
 		case <-ctx.Done():
@@ -133,6 +135,10 @@ func (h *Health) GetConfig() checks.Runtime {
 // Name returns the name of the check
 func (h *Health) Name() string {
 	return CheckName
+}
+
+func (h *Health) IsRunning() bool {
+	return h.Running
 }
 
 // Schema provides the schema of the data that will be provided
