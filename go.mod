@@ -12,6 +12,8 @@ require (
 	gopkg.in/yaml.v3 v3.0.1
 )
 
+require github.com/google/go-cmp v0.6.0 // indirect
+
 require (
 	github.com/aeden/traceroute v0.0.0-20210211061815-03f5f7cb7908
 	github.com/google/go-cmp v0.6.0
