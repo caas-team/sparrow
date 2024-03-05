@@ -152,7 +152,6 @@ func (s *Sparrow) handleHealthz(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if !healthy {
-		api.OkHandler(ctx).ServeHTTP(w, r)
 		w.WriteHeader(http.StatusServiceUnavailable)
 		_, err := w.Write([]byte(http.StatusText(http.StatusServiceUnavailable)))
 		if err != nil {
