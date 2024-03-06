@@ -87,6 +87,36 @@ resources: {}
 #     cpu: 100m
 #     memory: 128Mi
 
+# -- Specifies the configuration for a readiness probe to check if the sparrow is ready to serve traffic.
+# Ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
+readinessProbe:
+  enabled: true
+  failureThreshold: 3
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  successThreshold: 1
+  timeoutSeconds: 1
+
+# -- Specifies the configuration for a liveness probe to check if the sparrow is still running.
+# Ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
+livenessProbe:
+  enabled: false
+  failureThreshold: 3
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  successThreshold: 1
+  timeoutSeconds: 1
+
+# -- Specifies the configuration for a startup probe to check if the sparrow application is started.
+# Ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
+startupProbe:
+  enabled: false
+  failureThreshold: 10
+  initialDelaySeconds: 10
+  periodSeconds: 5
+  successThreshold: 1
+  timeoutSeconds: 1
+
 nodeSelector: {}
 
 tolerations: []
@@ -113,6 +143,7 @@ sparrowConfig:
   name: sparrow.com
   loader:
     type: file
+    interval: 30s
     file:
       path: /config/checks.yaml
 # name: sparrow.com
