@@ -120,9 +120,6 @@ func (cc *ChecksController) Reconcile(ctx context.Context, cfg runtime.Config) {
 	// Unregister checks not in the new config
 	for _, c := range unregList {
 		cc.UnregisterCheck(ctx, c)
-		if err != nil {
-			log.ErrorContext(ctx, "Failed to unregister check", "check", c.Name(), "error", err)
-		}
 	}
 
 	// Register new checks
