@@ -43,7 +43,7 @@ type Check interface {
 	// Returning a non-nil error will cause the shutdown of the check.
 	Run(ctx context.Context, cResult chan ResultDTO) error
 	// Shutdown is called once when the check is unregistered or sparrow shuts down
-	Shutdown(ctx context.Context) error
+	Shutdown()
 	// SetConfig is called once when the check is registered
 	// This is also called while the check is running, if the remote config is updated
 	// This should return an error if the config is invalid

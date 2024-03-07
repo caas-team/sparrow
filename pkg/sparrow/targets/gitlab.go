@@ -186,7 +186,7 @@ func (t *gitlabTargetManager) register(ctx context.Context) error {
 		return err
 	}
 
-	log.Debug("Successfully registered")
+	log.Info("Successfully registered instance as global target")
 	t.registered = true
 	return nil
 }
