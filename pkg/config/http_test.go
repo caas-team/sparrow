@@ -50,7 +50,7 @@ func TestHttpLoader_GetRuntimeConfig(t *testing.T) {
 		name          string
 		cfg           *Config
 		httpResponder httpResponder
-		want          *runtime.Config
+		want          runtime.Config
 		wantErr       bool
 	}{
 		{
@@ -65,7 +65,7 @@ func TestHttpLoader_GetRuntimeConfig(t *testing.T) {
 				statusCode: 200,
 				response:   httpmock.File("test/data/config.yaml").String(),
 			},
-			want: &runtime.Config{
+			want: runtime.Config{
 				Health: &health.Config{
 					Targets:  []string{"http://localhost:8080/health"},
 					Interval: 1 * time.Second,
@@ -88,7 +88,7 @@ func TestHttpLoader_GetRuntimeConfig(t *testing.T) {
 				statusCode: 200,
 				response:   httpmock.File("test/data/config.yaml").String(),
 			},
-			want: &runtime.Config{
+			want: runtime.Config{
 				Health: &health.Config{
 					Targets:  []string{"http://localhost:8080/health"},
 					Interval: 1 * time.Second,
@@ -161,27 +161,27 @@ func TestHttpLoader_Run(t *testing.T) {
 	tests := []struct {
 		name     string
 		interval time.Duration
-		response *runtime.Config
+		response runtime.Config
 		code     int
 		wantErr  bool
 	}{
 		{
 			name:     "non-200 response",
 			interval: 500 * time.Millisecond,
-			response: nil,
+			response: runtime.Config{},
 			code:     http.StatusInternalServerError,
 			wantErr:  false,
 		},
 		{
 			name:     "empty checks' configuration",
 			interval: 500 * time.Millisecond,
-			response: &runtime.Config{},
+			response: runtime.Config{},
 			code:     http.StatusOK,
 		},
 		{
 			name:     "config with health check",
 			interval: 500 * time.Millisecond,
-			response: &runtime.Config{
+			response: runtime.Config{
 				Health: &health.Config{
 					Targets:  []string{"http://localhost:8080/health"},
 					Interval: 1 * time.Second,
@@ -192,7 +192,7 @@ func TestHttpLoader_Run(t *testing.T) {
 		{
 			name:     "continuous loading disabled",
 			interval: 0,
-			response: &runtime.Config{
+			response: runtime.Config{
 				Health: &health.Config{
 					Targets:  []string{"http://localhost:8080/health"},
 					Interval: 1 * time.Second,
@@ -348,7 +348,7 @@ func TestHttpLoader_Run_config_not_sent_to_channel_500(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 
-	resp, err := httpmock.NewJsonResponder(500, nil)
+	resp, err := httpmock.NewJsonResponder(http.StatusInternalServerError, nil)
 	if err != nil {
 		t.Fatalf("Failed creating json responder: %v", err)
 	}
