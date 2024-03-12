@@ -341,10 +341,10 @@ func TestHttpLoader_Run_config_sent_to_channel(t *testing.T) {
 	hl.Shutdown(ctx)
 }
 
-// TestHttpLoader_Run_config_not_sent_to_channel_500 tests if the config is not sent to the channel
+// TestHttpLoader_Run_empty_config_sent_to_channel_500 tests if the config is not sent to the channel
 // when the Run method is called
 // and the remote endpoint returns a non-200 response
-func TestHttpLoader_Run_config_not_sent_to_channel_500(t *testing.T) {
+func TestHttpLoader_Run_empty_config_sent_to_channel_500(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 
@@ -384,22 +384,18 @@ func TestHttpLoader_Run_config_not_sent_to_channel_500(t *testing.T) {
 		}
 	}()
 
-	// check if the config is sent to the channel
-	select {
-	// make sure you wait for at least an interval
-	case <-time.After(time.Second):
-		t.Log("Config not sent to channel")
-	case c := <-cRuntime:
-		t.Errorf("Config sent to channel: %v", c)
+	cfg := <-cRuntime
+	if cfg != (runtime.Config{}) {
+		t.Errorf("Config sent to channel: %v", cfg)
 	}
 
 	hl.Shutdown(ctx)
 }
 
-// TestHttpLoader_Run_config_not_sent_to_channel_client_error tests if the config is not sent to the channel
+// TestHttpLoader_Run_empty_config_sent_to_channel_client_error tests if the config is not sent to the channel
 // when the Run method is called
 // and the client can't execute the requests
-func TestHttpLoader_Run_config_not_sent_to_channel_client_error(t *testing.T) {
+func TestHttpLoader_Run_empty_config_sent_to_channel_client_error(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 
@@ -435,13 +431,9 @@ func TestHttpLoader_Run_config_not_sent_to_channel_client_error(t *testing.T) {
 		}
 	}()
 
-	// check if the config is sent to the channel
-	select {
-	// make sure you wait for at least an interval
-	case <-time.After(time.Second):
-		t.Log("Config not sent to channel")
-	case c := <-cRuntime:
-		t.Errorf("Config sent to channel: %v", c)
+	cfg := <-cRuntime
+	if cfg != (runtime.Config{}) {
+		t.Errorf("Config sent to channel: %v", cfg)
 	}
 
 	hl.Shutdown(ctx)
