@@ -81,8 +81,8 @@ func (l *Latency) Run(ctx context.Context, cResult chan checks.ResultDTO) error 
 	ctx, cancel := logger.NewContextWithLogger(ctx)
 	defer cancel()
 	log := logger.FromContext(ctx)
-	log.Info("Starting latency check", "interval", l.config.Interval.String())
 
+	log.Info("Starting latency check", "interval", l.config.Interval.String())
 	for {
 		select {
 		case <-ctx.Done():

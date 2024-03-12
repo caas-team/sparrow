@@ -83,8 +83,8 @@ func (d *DNS) Run(ctx context.Context, cResult chan checks.ResultDTO) error {
 	ctx, cancel := logger.NewContextWithLogger(ctx)
 	defer cancel()
 	log := logger.FromContext(ctx)
-	log.Info("Starting dns check", "interval", d.config.Interval.String())
 
+	log.Info("Starting dns check", "interval", d.config.Interval.String())
 	for {
 		select {
 		case <-ctx.Done():

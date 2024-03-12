@@ -75,8 +75,8 @@ func (h *Health) Run(ctx context.Context, cResult chan checks.ResultDTO) error {
 	ctx, cancel := logger.NewContextWithLogger(ctx)
 	defer cancel()
 	log := logger.FromContext(ctx)
-	log.Info("Starting healthcheck", "interval", h.config.Interval.String())
 
+	log.Info("Starting healthcheck", "interval", h.config.Interval.String())
 	for {
 		select {
 		case <-ctx.Done():

@@ -25,12 +25,12 @@ type Target struct {
 
 func NewCheck() checks.Check {
 	return &Traceroute{
-		config:     Config{},
-		traceroute: newTraceroute,
 		CheckBase: checks.CheckBase{
 			Mu:       sync.Mutex{},
 			DoneChan: make(chan struct{}),
 		},
+		config:     Config{},
+		traceroute: newTraceroute,
 	}
 }
 
@@ -69,8 +69,8 @@ func (tr *Traceroute) Run(ctx context.Context, cResult chan checks.ResultDTO) er
 	ctx, cancel := logger.NewContextWithLogger(ctx)
 	defer cancel()
 	log := logger.FromContext(ctx)
-	log.Info("Starting traceroute check", "interval", tr.config.Interval.String())
 
+	log.Info("Starting traceroute check", "interval", tr.config.Interval.String())
 	for {
 		select {
 		case <-ctx.Done():
