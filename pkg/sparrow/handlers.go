@@ -54,10 +54,6 @@ func (s *Sparrow) startupAPI(ctx context.Context) error {
 				promhttp.HandlerOpts{Registry: s.metrics.GetRegistry()},
 			).ServeHTTP,
 		},
-		{
-			Path: "/healthz", Method: http.MethodGet,
-			Handler: s.handleHealthz,
-		},
 	}
 
 	err := s.api.RegisterRoutes(ctx, routes...)
@@ -139,25 +135,4 @@ func (s *Sparrow) handleCheckMetrics(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Add("Content-Type", "application/json")
-}
-
-// handleHealthz returns a 200 if all checks are running and healthy
-func (s *Sparrow) handleHealthz(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	healthy := true
-	for _, c := range s.controller.GetChecks() {
-		if !c.IsRunning() {
-			healthy = false
-			break
-		}
-	}
-	if !healthy {
-		w.WriteHeader(http.StatusServiceUnavailable)
-		_, err := w.Write([]byte(http.StatusText(http.StatusServiceUnavailable)))
-		if err != nil {
-			logger.FromContext(ctx).Error("Failed to write response", "error", err)
-		}
-	}
-
-	api.OkHandler(ctx).ServeHTTP(w, r)
 }

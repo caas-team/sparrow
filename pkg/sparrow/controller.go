@@ -187,13 +187,6 @@ func (cc *ChecksController) UnregisterCheck(ctx context.Context, check checks.Ch
 	return nil
 }
 
-// GetChecks returns a copy of all checks.
-func (cc *ChecksController) GetChecks() []checks.Check {
-	cks := make([]checks.Check, len(cc.checks.Iter()))
-	_ = copy(cks, cc.checks.Iter())
-	return cks
-}
-
 var oapiBoilerplate = openapi3.T{
 	// this object should probably be user defined
 	OpenAPI: "3.0.0",

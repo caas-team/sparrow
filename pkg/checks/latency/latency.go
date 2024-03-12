@@ -53,7 +53,6 @@ func NewCheck() checks.Check {
 	return &Latency{
 		CheckBase: checks.CheckBase{
 			Mu:       sync.Mutex{},
-			Running:  false,
 			DoneChan: make(chan struct{}, 1),
 		},
 		config: Config{
@@ -84,7 +83,6 @@ func (l *Latency) Run(ctx context.Context, cResult chan checks.ResultDTO) error 
 	log := logger.FromContext(ctx)
 
 	log.Info("Starting latency check", "interval", l.config.Interval.String())
-	l.Running = true
 	for {
 		select {
 		case <-ctx.Done():
@@ -139,10 +137,6 @@ func (l *Latency) GetConfig() checks.Runtime {
 // Name returns the name of the check
 func (l *Latency) Name() string {
 	return CheckName
-}
-
-func (l *Latency) IsRunning() bool {
-	return l.Running
 }
 
 // Schema provides the schema of the data that will be provided

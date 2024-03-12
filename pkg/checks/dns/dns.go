@@ -56,16 +56,11 @@ func (d *DNS) Name() string {
 	return CheckName
 }
 
-func (d *DNS) IsRunning() bool {
-	return d.Running
-}
-
 // NewCheck creates a new instance of the dns check
 func NewCheck() checks.Check {
 	return &DNS{
 		CheckBase: checks.CheckBase{
 			Mu:       sync.Mutex{},
-			Running:  false,
 			DoneChan: make(chan struct{}, 1),
 		},
 		config: Config{
@@ -90,7 +85,6 @@ func (d *DNS) Run(ctx context.Context, cResult chan checks.ResultDTO) error {
 	log := logger.FromContext(ctx)
 
 	log.Info("Starting dns check", "interval", d.config.Interval.String())
-	d.Running = true
 	for {
 		select {
 		case <-ctx.Done():

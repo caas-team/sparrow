@@ -52,8 +52,6 @@ type Check interface {
 	GetConfig() Runtime
 	// Name returns the name of the check
 	Name() string
-	// IsRunning returns true if the check is currently running
-	IsRunning() bool
 	// Schema returns an openapi3.SchemaRef of the result type returned by the check
 	Schema() (*openapi3.SchemaRef, error)
 	// GetMetricCollectors allows the check to provide prometheus metric collectors
@@ -65,8 +63,6 @@ type Check interface {
 type CheckBase struct {
 	// Mutex for thread-safe access to shared resources within the check implementation
 	Mu sync.Mutex
-	// Running is a flag indicating if the check is currently running
-	Running bool
 	// Signal channel used to notify about shutdown of a check
 	DoneChan chan struct{}
 }
