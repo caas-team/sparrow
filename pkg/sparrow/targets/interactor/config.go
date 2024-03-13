@@ -31,9 +31,13 @@ type Config struct {
 
 type Type string
 
+const (
+	Gitlab Type = "gitlab"
+)
+
 func (t Type) Interactor(cfg *Config) remote.Interactor {
 	switch t { //nolint:gocritic // won't be a single switch case with the implementation of #66
-	case "gitlab":
+	case Gitlab:
 		return gitlab.New(cfg.Gitlab)
 	}
 	return nil

@@ -86,7 +86,7 @@ func (c *TargetManagerConfig) Validate(ctx context.Context) error {
 	}
 
 	switch c.Type {
-	case "gitlab":
+	case interactor.Gitlab:
 		return nil
 	default:
 		log.Error("Invalid interactor type", "type", c.Type)
