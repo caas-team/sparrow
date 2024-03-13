@@ -65,10 +65,7 @@ func (cc *ChecksController) Run(ctx context.Context) error {
 		case err := <-cc.cErr:
 			var runErr *ErrRunningCheck
 			if errors.As(err, &runErr) {
-				uErr := cc.UnregisterCheck(ctx, runErr.Check)
-				if uErr != nil {
-					log.ErrorContext(ctx, "Failed to unregister check", "check", runErr.Check.Name(), "error", uErr)
-				}
+				cc.UnregisterCheck(ctx, runErr.Check)
 			}
 			log.ErrorContext(ctx, "Error while running check", "error", err)
 		case <-ctx.Done():
@@ -83,13 +80,10 @@ func (cc *ChecksController) Run(ctx context.Context) error {
 // Shutdown shuts down the ChecksController.
 func (cc *ChecksController) Shutdown(ctx context.Context) (err error) {
 	log := logger.FromContext(ctx)
+	log.Info("Shutting down checks controller")
 
 	for _, c := range cc.checks.Iter() {
-		cErr := cc.UnregisterCheck(ctx, c)
-		if cErr != nil {
-			log.Error("Failed to unregister check while shutting down", "error", cErr)
-			err = errors.Join(err, cErr)
-		}
+		cc.UnregisterCheck(ctx, c)
 	}
 	cc.done <- struct{}{}
 	close(cc.done)
@@ -125,10 +119,7 @@ func (cc *ChecksController) Reconcile(ctx context.Context, cfg runtime.Config) {
 
 	// Unregister checks not in the new config
 	for _, c := range unregList {
-		err = cc.UnregisterCheck(ctx, c)
-		if err != nil {
-			log.ErrorContext(ctx, "Failed to unregister check", "check", c.Name(), "error", err)
-		}
+		cc.UnregisterCheck(ctx, c)
 	}
 
 	// Register new checks
@@ -167,7 +158,7 @@ func (cc *ChecksController) RegisterCheck(ctx context.Context, check checks.Chec
 }
 
 // UnregisterCheck unregisters a check.
-func (cc *ChecksController) UnregisterCheck(ctx context.Context, check checks.Check) error {
+func (cc *ChecksController) UnregisterCheck(ctx context.Context, check checks.Check) {
 	log := logger.FromContext(ctx).With("check", check.Name())
 
 	// Remove prometheus collectors of check from registry
@@ -177,14 +168,8 @@ func (cc *ChecksController) UnregisterCheck(ctx context.Context, check checks.Ch
 		}
 	}
 
-	err := check.Shutdown(ctx)
-	if err != nil {
-		log.ErrorContext(ctx, "Failed to shutdown check", "error", err)
-		return err
-	}
-
+	check.Shutdown()
 	cc.checks.Delete(check)
-	return nil
 }
 
 var oapiBoilerplate = openapi3.T{

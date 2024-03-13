@@ -75,8 +75,8 @@ func (h *Health) Run(ctx context.Context, cResult chan checks.ResultDTO) error {
 	ctx, cancel := logger.NewContextWithLogger(ctx)
 	defer cancel()
 	log := logger.FromContext(ctx)
-	log.Info("Starting healthcheck", "interval", h.config.Interval.String())
 
+	log.Info("Starting healthcheck", "interval", h.config.Interval.String())
 	for {
 		select {
 		case <-ctx.Done():
@@ -101,11 +101,9 @@ func (h *Health) Run(ctx context.Context, cResult chan checks.ResultDTO) error {
 }
 
 // Shutdown is called once when the check is unregistered or sparrow shuts down
-func (h *Health) Shutdown(_ context.Context) error {
+func (h *Health) Shutdown() {
 	h.DoneChan <- struct{}{}
 	close(h.DoneChan)
-
-	return nil
 }
 
 // SetConfig sets the configuration for the health check

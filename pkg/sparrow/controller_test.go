@@ -50,9 +50,7 @@ func TestRun_CheckRunError(t *testing.T) {
 		GetMetricCollectorsFunc: func() []prometheus.Collector {
 			return []prometheus.Collector{}
 		},
-		ShutdownFunc: func(ctx context.Context) error {
-			return nil
-		},
+		ShutdownFunc: func() {},
 	}
 
 	err := cc.RegisterCheck(ctx, mockCheck)
@@ -302,45 +300,13 @@ func TestChecksController_UnregisterCheck(t *testing.T) {
 			check:   health.NewCheck(),
 			wantErr: false,
 		},
-		{
-			name: "error during check shutdown",
-			setup: func(t *testing.T) *ChecksController {
-				cc := NewChecksController(db.NewInMemory(), NewMetrics())
-				check := &checks.CheckMock{
-					NameFunc:                func() string { return "check" },
-					GetMetricCollectorsFunc: func() []prometheus.Collector { return []prometheus.Collector{} },
-					RunFunc:                 func(ctx context.Context, cResult chan checks.ResultDTO) error { return nil },
-					ShutdownFunc: func(ctx context.Context) error {
-						return fmt.Errorf("some error")
-					},
-				}
-				err := cc.RegisterCheck(context.Background(), check)
-				if err != nil {
-					t.Fatalf("RegisterCheck() error = %v", err)
-				}
-				return cc
-			},
-			check: &checks.CheckMock{
-				NameFunc: func() string { return "check" },
-				GetMetricCollectorsFunc: func() []prometheus.Collector {
-					return []prometheus.Collector{}
-				},
-				ShutdownFunc: func(ctx context.Context) error {
-					return fmt.Errorf("some error")
-				},
-			},
-			wantErr: true,
-		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cc := tt.setup(t)
 
-			err := cc.UnregisterCheck(context.Background(), tt.check)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("UnregisterCheck() error = %v, wantErr %v", err, tt.wantErr)
-			}
+			cc.UnregisterCheck(context.Background(), tt.check)
 
 			if !tt.wantErr && len(cc.checks.Iter()) != 0 {
 				t.Errorf("Expected check to be unregistered")

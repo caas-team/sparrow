@@ -4,9 +4,9 @@ repos:
       - id: go-generate-repo
         name: go generate
         entry: go
-        args: [ generate, ./... ]
+        args: [generate, ./...]
         language: system
-        types: [ go ]
+        types: [go]
         pass_filenames: false
         always_run: true
   - repo: https://github.com/tekwizely/pre-commit-golang
@@ -14,12 +14,12 @@ repos:
     hooks:
       - id: go-mod-tidy-repo
       - id: go-test-repo-mod
-        args: [ -race, -count=1 ]
+        args: [-race, -count=1, -timeout 30s]
       - id: go-vet-repo-mod
       - id: go-fumpt-repo
-        args: [ -l, -w ]
+        args: [-l, -w]
       - id: golangci-lint-repo-mod
-        args: [ --config, .golangci.yaml, --, --fix ]
+        args: [--config, .golangci.yaml, --, --fix]
   - repo: https://github.com/norwoodj/helm-docs
     rev: v1.13.1
     hooks:

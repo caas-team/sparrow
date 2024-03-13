@@ -185,11 +185,7 @@ func TestDNS_Run(t *testing.T) {
 				}
 			}()
 			defer func() {
-				err := c.Shutdown(ctx)
-				if err != nil {
-					t.Errorf("DNS.Shutdown() error = %v", err)
-					return
-				}
+				c.Shutdown()
 			}()
 
 			r := <-cResult
@@ -252,10 +248,7 @@ func TestDNS_Shutdown(t *testing.T) {
 			DoneChan: cDone,
 		},
 	}
-	err := c.Shutdown(context.Background())
-	if err != nil {
-		t.Errorf("Shutdown() error = %v", err)
-	}
+	c.Shutdown()
 
 	_, ok := <-cDone
 	if !ok {

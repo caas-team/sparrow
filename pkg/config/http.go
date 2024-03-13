@@ -20,6 +20,7 @@ package config
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -51,36 +52,37 @@ func NewHttpLoader(cfg *Config, cRuntime chan<- runtime.Config) *HttpLoader {
 
 // Run gets the runtime configuration from the remote file of the configured http endpoint.
 // The config will be loaded periodically defined by the loader interval configuration.
-// Returns an error if the loader is shutdown or the context is done.
-func (hl *HttpLoader) Run(ctx context.Context) error {
+// If the interval is 0, the configuration is only fetched once and the loader is disabled.
+func (h *HttpLoader) Run(ctx context.Context) error {
 	ctx, cancel := logger.NewContextWithLogger(ctx)
 	defer cancel()
 	log := logger.FromContext(ctx)
 
-	var runtimeCfg *runtime.Config
+	var cfg runtime.Config
 	getConfigRetry := helper.Retry(func(ctx context.Context) (err error) {
-		runtimeCfg, err = hl.getRuntimeConfig(ctx)
+		cfg, err = h.getRuntimeConfig(ctx)
 		return err
-	}, hl.cfg.Http.RetryCfg)
+	}, h.cfg.Http.RetryCfg)
 
-	if hl.cfg.Interval == 0 {
-		err := getConfigRetry(ctx)
-		if err != nil {
-			log.Warn("Could not get remote runtime configuration", "error", err)
-			return fmt.Errorf("could not get remote runtime configuration: %w", err)
-		}
+	// Get the runtime configuration once on startup
+	err := getConfigRetry(ctx)
+	if err != nil {
+		log.Warn("Could not get remote runtime configuration", "error", err)
+		err = fmt.Errorf("could not get remote runtime configuration: %w", err)
+	}
+	h.cRuntime <- cfg
 
-		hl.cRuntime <- *runtimeCfg
+	if h.cfg.Interval == 0 {
 		log.Info("HTTP Loader disabled")
-		return nil
+		return err
 	}
 
-	tick := time.NewTicker(hl.cfg.Interval)
+	tick := time.NewTicker(h.cfg.Interval)
 	defer tick.Stop()
 
 	for {
 		select {
-		case <-hl.done:
+		case <-h.done:
 			log.Info("HTTP Loader terminated")
 			return nil
 		case <-ctx.Done():
@@ -88,24 +90,24 @@ func (hl *HttpLoader) Run(ctx context.Context) error {
 		case <-tick.C:
 			if err := getConfigRetry(ctx); err != nil {
 				log.Warn("Could not get remote runtime configuration", "error", err)
-				tick.Reset(hl.cfg.Interval)
+				tick.Reset(h.cfg.Interval)
 				continue
 			}
 
 			log.Info("Successfully got remote runtime configuration")
-			hl.cRuntime <- *runtimeCfg
-			tick.Reset(hl.cfg.Interval)
+			h.cRuntime <- cfg
+			tick.Reset(h.cfg.Interval)
 		}
 	}
 }
 
 // GetRuntimeConfig gets the remote runtime configuration
-func (hl *HttpLoader) getRuntimeConfig(ctx context.Context) (*runtime.Config, error) {
+func (hl *HttpLoader) getRuntimeConfig(ctx context.Context) (cfg runtime.Config, err error) {
 	log := logger.FromContext(ctx).With("url", hl.cfg.Http.Url)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, hl.cfg.Http.Url, http.NoBody)
 	if err != nil {
 		log.Error("Could not create http GET request", "error", err.Error())
-		return nil, err
+		return cfg, err
 	}
 	if hl.cfg.Http.Token != "" {
 		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", hl.cfg.Http.Token))
@@ -114,34 +116,34 @@ func (hl *HttpLoader) getRuntimeConfig(ctx context.Context) (*runtime.Config, er
 	res, err := hl.client.Do(req) //nolint:bodyclose
 	if err != nil {
 		log.Error("Http get request failed", "error", err.Error())
-		return nil, err
+		return cfg, err
 	}
 	defer func(Body io.ReadCloser) {
-		err = Body.Close()
-		if err != nil {
-			log.Error("Failed to close response body", "error", err.Error())
+		cErr := Body.Close()
+		if cErr != nil {
+			log.Error("Failed to close response body", "error", cErr)
+			err = errors.Join(cErr, err)
 		}
 	}(res.Body)
 
 	if res.StatusCode != http.StatusOK {
 		log.Error("Http get request failed", "status", res.Status)
-		return nil, fmt.Errorf("request failed, status is %s", res.Status)
+		return cfg, fmt.Errorf("request failed, status is %s", res.Status)
 	}
 
-	body, err := io.ReadAll(res.Body)
+	b, err := io.ReadAll(res.Body)
 	if err != nil {
 		log.Error("Could not read response body", "error", err.Error())
-		return nil, err
+		return cfg, err
 	}
 	log.Debug("Successfully got response")
 
-	runtimeCfg := &runtime.Config{}
-	if err := yaml.Unmarshal(body, &runtimeCfg); err != nil {
+	if err := yaml.Unmarshal(b, &cfg); err != nil {
 		log.Error("Could not unmarshal response", "error", err.Error())
-		return nil, err
+		return cfg, err
 	}
 
-	return runtimeCfg, nil
+	return cfg, nil
 }
 
 // Shutdown stops the loader

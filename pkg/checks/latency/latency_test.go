@@ -146,11 +146,7 @@ func TestLatency_Run(t *testing.T) {
 				}
 			}()
 			defer func() {
-				err := c.Shutdown(tt.ctx)
-				if err != nil {
-					t.Errorf("Latency.Shutdown() error = %v", err)
-					return
-				}
+				c.Shutdown()
 			}()
 
 			res := <-cResult
@@ -316,10 +312,7 @@ func TestLatency_Shutdown(t *testing.T) {
 			DoneChan: cDone,
 		},
 	}
-	err := c.Shutdown(context.Background())
-	if err != nil {
-		t.Errorf("Shutdown() error = %v", err)
-	}
+	c.Shutdown()
 
 	_, ok := <-cDone
 	if !ok {
