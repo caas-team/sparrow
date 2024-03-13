@@ -91,6 +91,7 @@ resources: {}
 # Ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
 readinessProbe:
   enabled: true
+  path: /
   failureThreshold: 3
   initialDelaySeconds: 5
   periodSeconds: 10
@@ -101,6 +102,7 @@ readinessProbe:
 # Ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
 livenessProbe:
   enabled: false
+  path: /
   failureThreshold: 3
   initialDelaySeconds: 30
   periodSeconds: 10
@@ -111,6 +113,7 @@ livenessProbe:
 # Ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
 startupProbe:
   enabled: false
+  path: /
   failureThreshold: 10
   initialDelaySeconds: 10
   periodSeconds: 5
