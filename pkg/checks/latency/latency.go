@@ -81,8 +81,8 @@ func (l *Latency) Run(ctx context.Context, cResult chan checks.ResultDTO) error 
 	ctx, cancel := logger.NewContextWithLogger(ctx)
 	defer cancel()
 	log := logger.FromContext(ctx)
-	log.Info("Starting latency check", "interval", l.config.Interval.String())
 
+	log.Info("Starting latency check", "interval", l.config.Interval.String())
 	for {
 		select {
 		case <-ctx.Done():
@@ -105,11 +105,9 @@ func (l *Latency) Run(ctx context.Context, cResult chan checks.ResultDTO) error 
 	}
 }
 
-func (l *Latency) Shutdown(_ context.Context) error {
+func (l *Latency) Shutdown() {
 	l.DoneChan <- struct{}{}
 	close(l.DoneChan)
-
-	return nil
 }
 
 // SetConfig sets the configuration for the latency check

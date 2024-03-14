@@ -30,43 +30,43 @@ import (
 
 func TestNewLogger(t *testing.T) {
 	tests := []struct {
-		name        string
-		handlers    []slog.Handler
-		expectedErr bool
-		logLevelEnv string
+		name     string
+		handlers []slog.Handler
+		wantErr  bool
+		logLevel string
 	}{
 		{
-			name:        "No handler with default log level",
-			handlers:    nil,
-			expectedErr: false,
-			logLevelEnv: "",
+			name:     "No handler with default log level",
+			handlers: nil,
+			wantErr:  false,
+			logLevel: "",
 		},
 		{
-			name:        "No handler with DEBUG log level",
-			handlers:    nil,
-			expectedErr: false,
-			logLevelEnv: "DEBUG",
+			name:     "No handler with DEBUG log level",
+			handlers: nil,
+			wantErr:  false,
+			logLevel: "DEBUG",
 		},
 		{
-			name:        "Custom handler provided",
-			handlers:    []slog.Handler{slog.NewJSONHandler(os.Stdout, nil)},
-			expectedErr: false,
-			logLevelEnv: "",
+			name:     "Custom handler provided",
+			handlers: []slog.Handler{slog.NewJSONHandler(os.Stdout, nil)},
+			wantErr:  false,
+			logLevel: "",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Setenv("LOG_LEVEL", tt.logLevelEnv)
+			t.Setenv("LOG_LEVEL", tt.logLevel)
 
 			log := NewLogger(tt.handlers...)
 
-			if (log == nil) != tt.expectedErr {
-				t.Errorf("NewLogger() error = %v, expectedErr %v", log == nil, tt.expectedErr)
+			if (log == nil) != tt.wantErr {
+				t.Errorf("NewLogger() error = %v, expectedErr %v", log == nil, tt.wantErr)
 			}
 
-			if tt.logLevelEnv != "" {
-				want := getLevel(tt.logLevelEnv)
+			if tt.logLevel != "" {
+				want := getLevel(tt.logLevel)
 				got := log.Enabled(context.Background(), want)
 				if !got {
 					t.Errorf("Expected log level: %v", want)
@@ -82,19 +82,16 @@ func TestNewLogger(t *testing.T) {
 
 func TestNewContextWithLogger(t *testing.T) {
 	tests := []struct {
-		name         string
-		parentCtx    context.Context
-		expectedType *slog.Logger
+		name      string
+		parentCtx context.Context
 	}{
 		{
-			name:         "With Background context",
-			parentCtx:    context.Background(),
-			expectedType: (*slog.Logger)(nil),
+			name:      "With Background context",
+			parentCtx: context.Background(),
 		},
 		{
-			name:         "With already set logger in context",
-			parentCtx:    context.WithValue(context.Background(), logger{}, NewLogger()),
-			expectedType: (*slog.Logger)(nil),
+			name:      "With already set logger in context",
+			parentCtx: context.WithValue(context.Background(), logger{}, NewLogger()),
 		},
 	}
 
@@ -116,32 +113,33 @@ func TestNewContextWithLogger(t *testing.T) {
 
 func TestFromContext(t *testing.T) {
 	tests := []struct {
-		name   string
-		ctx    context.Context
-		expect *slog.Logger
+		name string
+		ctx  context.Context
+		want *slog.Logger
 	}{
 		{
-			name:   "Context with logger",
-			ctx:    IntoContext(context.Background(), NewLogger(slog.NewJSONHandler(os.Stdout, nil))),
-			expect: NewLogger(slog.NewJSONHandler(os.Stdout, nil)),
+			name: "Context with logger",
+			ctx:  IntoContext(context.Background(), NewLogger(slog.NewJSONHandler(os.Stdout, nil))),
+			want: NewLogger(slog.NewJSONHandler(os.Stdout, nil)),
 		},
 		{
-			name:   "Context without logger",
-			ctx:    context.Background(),
-			expect: NewLogger(),
+			name: "Context without logger",
+			ctx:  context.Background(),
+			want: NewLogger(),
 		},
 		{
-			name:   "Nil context",
-			ctx:    nil,
-			expect: NewLogger(),
+			name: "Nil context",
+			ctx:  nil,
+			want: NewLogger(),
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := FromContext(tt.ctx)
-			if !reflect.DeepEqual(got, tt.expect) {
-				t.Errorf("FromContext() = %v, want %v", got, tt.expect)
+			_, ok := got.Handler().(*slog.JSONHandler)
+			if !ok {
+				t.Errorf("FromContext() = %T, want %T", got, tt.want)
 			}
 		})
 	}
@@ -183,11 +181,69 @@ func TestMiddleware(t *testing.T) {
 	}
 }
 
+func TestNewHandler(t *testing.T) {
+	tests := []struct {
+		name      string
+		format    string
+		level     string
+		wantLevel slog.Level
+	}{
+		{
+			name:      "Default handler",
+			format:    "",
+			level:     "",
+			wantLevel: slog.LevelInfo,
+		},
+		{
+			name:      "Text handler with custom log level",
+			format:    "TEXT",
+			level:     "DEBUG",
+			wantLevel: slog.LevelDebug,
+		},
+		{
+			name:      "JSON handler with custom log level",
+			format:    "JSON",
+			level:     "WARN",
+			wantLevel: slog.LevelWarn,
+		},
+		{
+			name:      "Invalid log level",
+			format:    "TEXT",
+			level:     "UNKNOWN",
+			wantLevel: slog.LevelInfo,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv("LOG_FORMAT", tt.format)
+			t.Setenv("LOG_LEVEL", tt.level)
+
+			handler := newHandler()
+
+			if tt.format == "TEXT" {
+				if _, ok := handler.(*slog.TextHandler); !ok {
+					t.Errorf("Expected handler to be of type *log.Logger")
+				}
+			} else {
+				if _, ok := handler.(*slog.JSONHandler); !ok {
+					t.Errorf("Expected handler to be of type *slog.JSONHandler")
+				}
+			}
+
+			ok := handler.Enabled(context.Background(), tt.wantLevel)
+			if !ok {
+				t.Errorf("Expected log level: %v", tt.wantLevel)
+			}
+		})
+	}
+}
+
 func TestGetLevel(t *testing.T) {
 	tests := []struct {
-		name   string
-		input  string
-		expect slog.Level
+		name  string
+		input string
+		want  slog.Level
 	}{
 		{"Empty string", "", slog.LevelInfo},
 		{"Debug level", "DEBUG", slog.LevelDebug},
@@ -201,8 +257,8 @@ func TestGetLevel(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := getLevel(tt.input)
-			if got != tt.expect {
-				t.Errorf("getLevel(%s) = %v, want %v", tt.input, got, tt.expect)
+			if got != tt.want {
+				t.Errorf("getLevel(%s) = %v, want %v", tt.input, got, tt.want)
 			}
 		})
 	}

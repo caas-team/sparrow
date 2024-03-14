@@ -24,7 +24,7 @@ import (
 	"github.com/caas-team/sparrow/pkg/sparrow/targets/remote/gitlab"
 )
 
-// Config contains the configuration for the available remote interactors
+// Config contains the configuration for the remote interactor
 type Config struct {
 	// Git contains the configuration for the git interactor
 	Git git.Config `yaml:"git" mapstructure:"git"`
@@ -34,11 +34,16 @@ type Config struct {
 
 type Type string
 
+const (
+	Git    Type = "git"
+	Gitlab Type = "gitlab"
+)
+
 func (t Type) Interactor(cfg *Config) remote.Interactor {
 	switch t {
-	case "git":
+	case Git:
 		return git.New(cfg.Git)
-	case "gitlab":
+	case Gitlab:
 		return gitlab.New(cfg.Gitlab)
 	}
 	return nil

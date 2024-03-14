@@ -20,7 +20,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           organization: ${{ github.repository_owner }}
-          container: ${{ github.repository.name }}
+          container: sparrow
           keep-younger-than: 7 # days
           prune-untagged: true
           prune-tags-regexes: |
@@ -31,7 +31,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           organization: ${{ github.repository_owner }}
-          container: charts/${{ github.repository.name }}
+          container: charts/sparrow
           keep-younger-than: 7 # days
           prune-untagged: true
           prune-tags-regexes: |

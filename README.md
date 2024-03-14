@@ -19,6 +19,7 @@
   - [Startup](#startup)
     - [Example Startup Configuration](#example-startup-configuration)
     - [Loader](#loader)
+    - [Logging Configuration](#logging-configuration)
   - [Checks](#checks)
   - [Target Manager](#target-manager)
   - [Check: Health](#check-health)
@@ -188,8 +189,6 @@ export SPARROW_ANY_OTHER_OPTION="Some value"
 
 Just write out the path to the attribute, delimited by `_`.
 
-You can set the `LOG_LEVEL` environment variable to adjust the log level.
-
 #### Example Startup Configuration
 
 ```yaml
@@ -278,6 +277,15 @@ Available loaders:
   parameters are set in the `loader.file` section.
 
 If you want to retrieve the checks' configuration only once, you can set `loader.interval` to 0. The target manager is currently not functional in combination with this configuration.
+
+#### Logging Configuration
+
+You can configure the logging behavior of the sparrow instance by setting the following environment variables:
+
+- `LOG_LEVEL`: Adjusts the minimum log level.
+  Available options: `DEBUG`, `INFO`, `WARNING`, `ERROR`.
+- `LOG_FORMAT`: Sets the log format. This allows you to customize the format of the log messages.
+  Available options: `JSON`, `TEXT`.
 
 ### Checks
 
@@ -488,7 +496,7 @@ dns:
 #### Required Capabilities
 
 To use this check, sparrow needs to be run with the `CAP_NET_RAW` capability or elevated privileges to be able to send raw packets.
-Using the `CAP_NET_RAW` capability is recommended over running sparrow as sudo
+Using the `CAP_NET_RAW` capability is recommended over running sparrow as sudo.
 
 ```bash
 sudo setcap 'cap_net_raw=ep' sparrow

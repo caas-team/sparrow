@@ -35,15 +35,15 @@ type MockClient struct {
 	putFileErr     error
 	postFileErr    error
 	deleteFileErr  error
-	putFileCalled  bool
-	postFileCalled bool
+	putFileCalled  int
+	postFileCalled int
 }
 
 func (m *MockClient) PutFile(ctx context.Context, _ remote.File) error { //nolint: gocritic // irrelevant
 	log := logger.FromContext(ctx)
 	log.Info("MockPutFile called", "err", m.putFileErr)
 	m.mu.Lock()
-	m.putFileCalled = true
+	m.putFileCalled++
 	m.mu.Unlock()
 	return m.putFileErr
 }
@@ -52,7 +52,7 @@ func (m *MockClient) PostFile(ctx context.Context, _ remote.File) error { //noli
 	log := logger.FromContext(ctx)
 	log.Info("MockPostFile called", "err", m.postFileErr)
 	m.mu.Lock()
-	m.postFileCalled = true
+	m.postFileCalled++
 	m.mu.Unlock()
 	return m.postFileErr
 }
@@ -91,10 +91,20 @@ func (m *MockClient) SetDeleteFileErr(err error) {
 
 // PutFileCalled returns true if PutFile was called
 func (m *MockClient) PutFileCalled() bool {
-	return m.putFileCalled
+	return m.putFileCalled != 0
 }
 
 func (m *MockClient) PostFileCalled() bool {
+	return m.postFileCalled != 0
+}
+
+// PutFileCount returns the number of times PutFile was called
+func (m *MockClient) PutFileCount() int {
+	return m.putFileCalled
+}
+
+// PostFileCount returns the number of times PostFile was called
+func (m *MockClient) PostFileCount() int {
 	return m.postFileCalled
 }
 

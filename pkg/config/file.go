@@ -53,21 +53,23 @@ func NewFileLoader(cfg *Config, cRuntime chan<- runtime.Config) *FileLoader {
 
 // Run gets the runtime configuration from the local file.
 // The config will be loaded periodically defined by the loader interval configuration.
+// If the interval is 0, the configuration is only fetched once and the loader is disabled.
 func (f *FileLoader) Run(ctx context.Context) error {
 	ctx, cancel := logger.NewContextWithLogger(ctx)
 	defer cancel()
 	log := logger.FromContext(ctx)
 
-	if f.config.Interval == 0 {
-		cfg, err := f.getRuntimeConfig(ctx)
-		if err != nil {
-			log.Warn("Could not get local runtime configuration", "error", err)
-			return fmt.Errorf("could not get local runtime configuration: %w", err)
-		}
+	// Get the runtime configuration once on startup
+	cfg, err := f.getRuntimeConfig(ctx)
+	if err != nil {
+		log.Warn("Could not get local runtime configuration", "error", err)
+		err = fmt.Errorf("could not get local runtime configuration: %w", err)
+	}
+	f.cRuntime <- cfg
 
-		f.cRuntime <- cfg
+	if f.config.Interval == 0 {
 		log.Info("File Loader disabled")
-		return nil
+		return err
 	}
 
 	tick := time.NewTicker(f.config.Interval)

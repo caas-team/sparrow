@@ -31,6 +31,12 @@ import (
 	remotemock "github.com/caas-team/sparrow/pkg/sparrow/targets/remote/test"
 )
 
+const (
+	testCheckInterval        = 100 * time.Millisecond
+	testRegistrationInterval = 150 * time.Millisecond
+	testUpdateInterval       = 150 * time.Millisecond
+)
+
 // Test_gitlabTargetManager_refreshTargets tests that the refreshTargets method
 // will fetch the targets from the remote instance and update the local
 // targets list. When an unhealthyTheshold is set, it will also unregister
@@ -120,8 +126,8 @@ func Test_gitlabTargetManager_refreshTargets(t *testing.T) {
 				t.Fatalf("refreshTargets() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
-			if gtm.Registered() != tt.expectedRegisteredAfter {
-				t.Fatalf("expected registered to be %v, got %v", tt.expectedRegisteredAfter, gtm.Registered())
+			if gtm.registered != tt.expectedRegisteredAfter {
+				t.Fatalf("expected registered to be %v, got %v", tt.expectedRegisteredAfter, gtm.registered)
 			}
 		})
 	}
@@ -192,8 +198,8 @@ func Test_gitlabTargetManager_refreshTargets_No_Threshold(t *testing.T) {
 				t.Fatalf("refreshTargets() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
-			if gtm.Registered() != tt.expectedRegisteredAfter {
-				t.Fatalf("expected registered to be %v, got %v", tt.expectedRegisteredAfter, gtm.Registered())
+			if gtm.registered != tt.expectedRegisteredAfter {
+				t.Fatalf("expected registered to be %v, got %v", tt.expectedRegisteredAfter, gtm.registered)
 			}
 		})
 	}
@@ -304,7 +310,7 @@ func Test_gitlabTargetManager_register(t *testing.T) {
 			}
 
 			if !tt.wantErr {
-				if !gtm.Registered() {
+				if !gtm.registered {
 					t.Fatalf("register() did not register the instance")
 				}
 			}
@@ -386,13 +392,13 @@ func Test_gitlabTargetManager_Reconcile_success(t *testing.T) {
 				}
 			}()
 
-			time.Sleep(time.Millisecond * 300)
+			time.Sleep(testUpdateInterval * 2)
 			if gtm.GetTargets()[0].Url != testTarget {
 				t.Fatalf("Reconcile() did not receive the correct target")
 			}
 
 			gtm.mu.Lock()
-			if !gtm.Registered() {
+			if !gtm.registered {
 				t.Fatalf("Reconcile() did not register")
 			}
 			gtm.mu.Unlock()
@@ -402,6 +408,64 @@ func Test_gitlabTargetManager_Reconcile_success(t *testing.T) {
 				t.Fatalf("Reconcile() failed to shutdown")
 			}
 		})
+	}
+}
+
+// Test_gitlabTargetManager_Reconcile_Registration_Update tests that the Reconcile
+// method will register the sparrow, and then update the registration after the
+// registration interval has passed
+func Test_gitlabTargetManager_Reconcile_Registration_Update(t *testing.T) {
+	glmock := remotemock.New(
+		[]checks.GlobalTarget{
+			{
+				Url:      "https://some.sparrow",
+				LastSeen: time.Now(),
+			},
+		},
+	)
+
+	gtm := mockGitlabTargetManager(glmock, "test")
+	gtm.cfg.RegistrationInterval = 10 * time.Millisecond
+	gtm.cfg.UpdateInterval = 100 * time.Millisecond
+
+	ctx := context.Background()
+	go func() {
+		err := gtm.Reconcile(ctx)
+		if err != nil {
+			t.Error("Reconcile() should not have returned an error")
+			return
+		}
+	}()
+
+	// sleep enough time for 1 registration and 2 updates
+	// to take place
+	time.Sleep(gtm.cfg.UpdateInterval * 3)
+
+	gtm.mu.Lock()
+	if !gtm.registered {
+		t.Fatalf("Reconcile() should be registered")
+	}
+	gtm.mu.Unlock()
+
+	// check that the post call was made once, to create the registration
+	if glmock.PostFileCount() != 1 {
+		t.Fatalf("Reconcile() should have registered the instance once")
+	}
+
+	// check that the put call was made twice, to update the registration
+	if glmock.PutFileCount() != 2 {
+		t.Fatalf("Reconcile() should have updated the registration twice")
+	}
+
+	gtm.mu.Lock()
+	if !gtm.registered {
+		t.Fatalf("Reconcile() should have registered the sparrow")
+	}
+	gtm.mu.Unlock()
+
+	err := gtm.Shutdown(ctx)
+	if err != nil {
+		t.Fatalf("Reconcile() failed to shutdown")
 	}
 }
 
@@ -452,11 +516,11 @@ func Test_gitlabTargetManager_Reconcile_failure(t *testing.T) {
 			time.Sleep(time.Millisecond * 300)
 
 			gtm.mu.Lock()
-			if tt.postErr != nil && gtm.Registered() {
+			if tt.postErr != nil && gtm.registered {
 				t.Fatalf("Reconcile() should not have registered")
 			}
 
-			if tt.putError != nil && !gtm.Registered() {
+			if tt.putError != nil && !gtm.registered {
 				t.Fatalf("Reconcile() should still be registered")
 			}
 			gtm.mu.Unlock()
@@ -498,10 +562,15 @@ func Test_gitlabTargetManager_Reconcile_Context_Canceled(t *testing.T) {
 	time.Sleep(time.Millisecond * 250)
 
 	gtm.mu.Lock()
-	if !gtm.Registered() {
+	if !gtm.registered {
 		t.Fatalf("Reconcile() should still be registered")
 	}
 	gtm.mu.Unlock()
+
+	// assert mock calls
+	if !glmock.PostFileCalled() || !glmock.PutFileCalled() {
+		t.Fatalf("Reconcile() should have made calls to the gitlab API")
+	}
 }
 
 // Test_gitlabTargetManager_Reconcile_Context_Done tests that the Reconcile
@@ -531,10 +600,15 @@ func Test_gitlabTargetManager_Reconcile_Context_Done(t *testing.T) {
 	time.Sleep(time.Millisecond * 15)
 
 	gtm.mu.Lock()
-	if gtm.Registered() {
+	if gtm.registered {
 		t.Fatalf("Reconcile() should not be registered")
 	}
 	gtm.mu.Unlock()
+
+	// assert mock calls
+	if glmock.PostFileCalled() || glmock.PutFileCalled() {
+		t.Fatalf("Reconcile() should not have made calls to the gitlab API")
+	}
 }
 
 // Test_gitlabTargetManager_Reconcile_Shutdown tests that the Reconcile
@@ -568,10 +642,15 @@ func Test_gitlabTargetManager_Reconcile_Shutdown(t *testing.T) {
 	}
 
 	gtm.mu.Lock()
-	if gtm.Registered() {
+	if gtm.registered {
 		t.Fatalf("Reconcile() should not be registered")
 	}
 	gtm.mu.Unlock()
+
+	// assert mock calls
+	if !glmock.PostFileCalled() || !glmock.PutFileCalled() {
+		t.Fatalf("Reconcile() should have made calls to the gitlab API")
+	}
 }
 
 // Test_gitlabTargetManager_Reconcile_Shutdown_Fail_Unregister tests that the Reconcile
@@ -608,10 +687,15 @@ func Test_gitlabTargetManager_Reconcile_Shutdown_Fail_Unregister(t *testing.T) {
 
 	gtm.mu.Lock()
 	// instance should still be registered because the unregister failed
-	if !gtm.Registered() {
+	if !gtm.registered {
 		t.Fatalf("Reconcile() should still be registered")
 	}
 	gtm.mu.Unlock()
+
+	// assert mock calls
+	if !glmock.PostFileCalled() || !glmock.PutFileCalled() {
+		t.Fatalf("Reconcile() should have made calls to the gitlab API")
+	}
 }
 
 // Test_gitlabTargetManager_Reconcile_No_Registration tests that the Reconcile
@@ -641,10 +725,15 @@ func Test_gitlabTargetManager_Reconcile_No_Registration(t *testing.T) {
 	time.Sleep(time.Millisecond * 250)
 
 	gtm.mu.Lock()
-	if gtm.Registered() {
+	if gtm.registered {
 		t.Fatalf("Reconcile() should not be registered")
 	}
 	gtm.mu.Unlock()
+
+	// check that no calls were made
+	if glmock.PostFileCalled() || glmock.PutFileCalled() {
+		t.Fatalf("Reconcile() should not have registered the instance")
+	}
 }
 
 // Test_gitlabTargetManager_Reconcile_No_Update tests that the Reconcile
@@ -674,14 +763,17 @@ func Test_gitlabTargetManager_Reconcile_No_Update(t *testing.T) {
 	time.Sleep(time.Millisecond * 250)
 
 	gtm.mu.Lock()
-	if !gtm.Registered() {
+	if !gtm.registered {
 		t.Fatalf("Reconcile() should be registered")
 	}
 	gtm.mu.Unlock()
 
-	// check that no calls were made with the PutFile method
+	// assert mock calls
 	if glmock.PutFileCalled() {
 		t.Fatalf("Reconcile() should not have updated the registration")
+	}
+	if glmock.PostFileCount() != 1 {
+		t.Fatalf("Reconcile() should have registered the instance")
 	}
 }
 
@@ -714,17 +806,15 @@ func Test_gitlabTargetManager_Reconcile_No_Registration_No_Update(t *testing.T) 
 	time.Sleep(time.Millisecond * 250)
 
 	gtm.mu.Lock()
-	if gtm.Registered() {
+	if gtm.registered {
 		t.Fatalf("Reconcile() should not be registered")
 	}
 	gtm.mu.Unlock()
 
-	// check that no calls were made with the PostFile method
+	// assert mock calls
 	if glmock.PostFileCalled() {
 		t.Fatalf("Reconcile() should not have registered the instance")
 	}
-
-	// check that no calls were made with the PutFile method
 	if glmock.PutFileCalled() {
 		t.Fatalf("Reconcile() should not have updated the registration")
 	}
@@ -740,8 +830,8 @@ func mockGitlabTargetManager(g *remotemock.MockClient, name string) *manager { /
 		cfg: General{
 			CheckInterval:        100 * time.Millisecond,
 			UnhealthyThreshold:   1 * time.Second,
-			RegistrationInterval: 150 * time.Millisecond,
-			UpdateInterval:       150 * time.Millisecond,
+			RegistrationInterval: testRegistrationInterval,
+			UpdateInterval:       testUpdateInterval,
 		},
 		registered: false,
 	}

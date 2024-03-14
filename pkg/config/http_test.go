@@ -50,7 +50,7 @@ func TestHttpLoader_GetRuntimeConfig(t *testing.T) {
 		name          string
 		cfg           *Config
 		httpResponder httpResponder
-		want          *runtime.Config
+		want          runtime.Config
 		wantErr       bool
 	}{
 		{
@@ -65,7 +65,7 @@ func TestHttpLoader_GetRuntimeConfig(t *testing.T) {
 				statusCode: 200,
 				response:   httpmock.File("test/data/config.yaml").String(),
 			},
-			want: &runtime.Config{
+			want: runtime.Config{
 				Health: &health.Config{
 					Targets:  []string{"http://localhost:8080/health"},
 					Interval: 1 * time.Second,
@@ -88,7 +88,7 @@ func TestHttpLoader_GetRuntimeConfig(t *testing.T) {
 				statusCode: 200,
 				response:   httpmock.File("test/data/config.yaml").String(),
 			},
-			want: &runtime.Config{
+			want: runtime.Config{
 				Health: &health.Config{
 					Targets:  []string{"http://localhost:8080/health"},
 					Interval: 1 * time.Second,
@@ -161,27 +161,27 @@ func TestHttpLoader_Run(t *testing.T) {
 	tests := []struct {
 		name     string
 		interval time.Duration
-		response *runtime.Config
+		response runtime.Config
 		code     int
 		wantErr  bool
 	}{
 		{
 			name:     "non-200 response",
 			interval: 500 * time.Millisecond,
-			response: nil,
+			response: runtime.Config{},
 			code:     http.StatusInternalServerError,
 			wantErr:  false,
 		},
 		{
 			name:     "empty checks' configuration",
 			interval: 500 * time.Millisecond,
-			response: &runtime.Config{},
+			response: runtime.Config{},
 			code:     http.StatusOK,
 		},
 		{
 			name:     "config with health check",
 			interval: 500 * time.Millisecond,
-			response: &runtime.Config{
+			response: runtime.Config{
 				Health: &health.Config{
 					Targets:  []string{"http://localhost:8080/health"},
 					Interval: 1 * time.Second,
@@ -192,7 +192,7 @@ func TestHttpLoader_Run(t *testing.T) {
 		{
 			name:     "continuous loading disabled",
 			interval: 0,
-			response: &runtime.Config{
+			response: runtime.Config{
 				Health: &health.Config{
 					Targets:  []string{"http://localhost:8080/health"},
 					Interval: 1 * time.Second,
@@ -224,7 +224,7 @@ func TestHttpLoader_Run(t *testing.T) {
 						},
 					},
 				},
-				cRuntime: make(chan<- runtime.Config, 1),
+				cRuntime: make(chan<- runtime.Config, 2),
 				client: &http.Client{
 					Transport: http.DefaultTransport,
 				},
@@ -341,14 +341,14 @@ func TestHttpLoader_Run_config_sent_to_channel(t *testing.T) {
 	hl.Shutdown(ctx)
 }
 
-// TestHttpLoader_Run_config_not_sent_to_channel_500 tests if the config is not sent to the channel
+// TestHttpLoader_Run_empty_config_sent_to_channel_500 tests if the config is not sent to the channel
 // when the Run method is called
 // and the remote endpoint returns a non-200 response
-func TestHttpLoader_Run_config_not_sent_to_channel_500(t *testing.T) {
+func TestHttpLoader_Run_empty_config_sent_to_channel_500(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 
-	resp, err := httpmock.NewJsonResponder(500, nil)
+	resp, err := httpmock.NewJsonResponder(http.StatusInternalServerError, nil)
 	if err != nil {
 		t.Fatalf("Failed creating json responder: %v", err)
 	}
@@ -384,22 +384,18 @@ func TestHttpLoader_Run_config_not_sent_to_channel_500(t *testing.T) {
 		}
 	}()
 
-	// check if the config is sent to the channel
-	select {
-	// make sure you wait for at least an interval
-	case <-time.After(time.Second):
-		t.Log("Config not sent to channel")
-	case c := <-cRuntime:
-		t.Errorf("Config sent to channel: %v", c)
+	cfg := <-cRuntime
+	if cfg != (runtime.Config{}) {
+		t.Errorf("Config sent to channel: %v", cfg)
 	}
 
 	hl.Shutdown(ctx)
 }
 
-// TestHttpLoader_Run_config_not_sent_to_channel_client_error tests if the config is not sent to the channel
+// TestHttpLoader_Run_empty_config_sent_to_channel_client_error tests if the config is not sent to the channel
 // when the Run method is called
 // and the client can't execute the requests
-func TestHttpLoader_Run_config_not_sent_to_channel_client_error(t *testing.T) {
+func TestHttpLoader_Run_empty_config_sent_to_channel_client_error(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 
@@ -435,13 +431,9 @@ func TestHttpLoader_Run_config_not_sent_to_channel_client_error(t *testing.T) {
 		}
 	}()
 
-	// check if the config is sent to the channel
-	select {
-	// make sure you wait for at least an interval
-	case <-time.After(time.Second):
-		t.Log("Config not sent to channel")
-	case c := <-cRuntime:
-		t.Errorf("Config sent to channel: %v", c)
+	cfg := <-cRuntime
+	if cfg != (runtime.Config{}) {
+		t.Errorf("Config sent to channel: %v", cfg)
 	}
 
 	hl.Shutdown(ctx)

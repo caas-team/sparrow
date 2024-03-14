@@ -93,16 +93,19 @@ func (t *manager) Reconcile(ctx context.Context) error {
 			if err != nil {
 				log.Warn("Failed to get global targets", "error", err)
 			}
+			checkTimer.Reset(t.cfg.CheckInterval)
 		case <-registrationTimer.C:
 			err := t.register(ctx)
 			if err != nil {
 				log.Warn("Failed to register self as global target", "error", err)
 			}
+			registrationTimer.Reset(t.cfg.RegistrationInterval)
 		case <-updateTimer.C:
 			err := t.update(ctx)
 			if err != nil {
 				log.Warn("Failed to update registration", "error", err)
 			}
+			updateTimer.Reset(t.cfg.UpdateInterval)
 		}
 	}
 }
@@ -125,7 +128,7 @@ func (t *manager) Shutdown(ctx context.Context) error {
 	ctxS, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 	defer cancel()
 
-	if t.Registered() {
+	if t.registered {
 		f := remote.File{
 			Branch:        "main",
 			AuthorEmail:   fmt.Sprintf("%s@sparrow", t.name),
@@ -156,6 +159,12 @@ func (t *manager) register(ctx context.Context) error {
 
 	t.mu.Lock()
 	defer t.mu.Unlock()
+
+	if t.registered {
+		log.Debug("Already registered as global target")
+		return nil
+	}
+
 	f := remote.File{
 		Branch:        "main",
 		AuthorEmail:   fmt.Sprintf("%s@sparrow", t.name),
@@ -165,16 +174,15 @@ func (t *manager) register(ctx context.Context) error {
 	}
 	f.SetFileName(fmt.Sprintf("%s.json", t.name))
 
-	if !t.Registered() {
-		log.Debug("Registering as global target")
-		err := t.interactor.PostFile(ctx, f)
-		if err != nil {
-			log.Error("Failed to register global gitlabTargetManager", "error", err)
-			return err
-		}
-		log.Debug("Successfully registered")
-		t.registered = true
+	log.Debug("Registering as global target")
+	err := t.interactor.PostFile(ctx, f)
+	if err != nil {
+		log.Error("Failed to register global gitlabTargetManager", "error", err)
+		return err
 	}
+	log.Debug("Successfully registered")
+	t.registered = true
+
 	return nil
 }
 
@@ -184,6 +192,11 @@ func (t *manager) update(ctx context.Context) error {
 
 	t.mu.Lock()
 	defer t.mu.Unlock()
+	if !t.registered {
+		log.Debug("Not registered as global target, no update done.")
+		return nil
+	}
+
 	f := remote.File{
 		Branch:        "main",
 		AuthorEmail:   fmt.Sprintf("%s@sparrow", t.name),
@@ -193,15 +206,13 @@ func (t *manager) update(ctx context.Context) error {
 	}
 	f.SetFileName(fmt.Sprintf("%s.json", t.name))
 
-	if t.Registered() {
-		log.Debug("Updating registration")
-		err := t.interactor.PutFile(ctx, f)
-		if err != nil {
-			log.Error("Failed to update registration", "error", err)
-			return err
-		}
-		log.Debug("Successfully updated registration")
+	log.Debug("Updating instance registration")
+	err := t.interactor.PutFile(ctx, f)
+	if err != nil {
+		log.Error("Failed to update registration", "error", err)
+		return err
 	}
+	log.Debug("Successfully updated registration")
 	return nil
 }
 
@@ -219,7 +230,7 @@ func (t *manager) refreshTargets(ctx context.Context) error {
 
 	// filter unhealthy targets - this may be removed in the future
 	for _, target := range targets {
-		if !t.Registered() && target.Url == fmt.Sprintf("https://%s", t.name) {
+		if !t.registered && target.Url == fmt.Sprintf("https://%s", t.name) {
 			log.Debug("Found self as global target", "lastSeenMin", time.Since(target.LastSeen).Minutes())
 			t.registered = true
 		}
@@ -239,11 +250,6 @@ func (t *manager) refreshTargets(ctx context.Context) error {
 	t.targets = healthyTargets
 	log.Debug("Updated global targets", "targets", len(t.targets))
 	return nil
-}
-
-// Registered returns whether the instance is registered as a global target
-func (t *manager) Registered() bool {
-	return t.registered
 }
 
 // startTimer creates a new timer with the given duration.

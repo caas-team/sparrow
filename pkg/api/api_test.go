@@ -212,7 +212,7 @@ func TestAPI_ShutdownWhenContextCanceled(t *testing.T) {
 	}
 }
 
-func Test_okHandler(t *testing.T) {
+func TestAPI_OkHandler(t *testing.T) {
 	ctx := context.Background()
 
 	req, err := http.NewRequestWithContext(ctx, "GET", "/okHandler", http.NoBody)
@@ -221,7 +221,7 @@ func Test_okHandler(t *testing.T) {
 	}
 
 	rr := httptest.NewRecorder()
-	handler := okHandler(ctx)
+	handler := OkHandler(ctx)
 
 	handler.ServeHTTP(rr, req)
 

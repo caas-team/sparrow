@@ -38,7 +38,7 @@ var _ Check = &CheckMock{}
 //			SetConfigFunc: func(config Runtime) error {
 //				panic("mock out the SetConfig method")
 //			},
-//			ShutdownFunc: func(ctx context.Context) error {
+//			ShutdownFunc: func()  {
 //				panic("mock out the Shutdown method")
 //			},
 //		}
@@ -67,7 +67,7 @@ type CheckMock struct {
 	SetConfigFunc func(config Runtime) error
 
 	// ShutdownFunc mocks the Shutdown method.
-	ShutdownFunc func(ctx context.Context) error
+	ShutdownFunc func()
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -97,8 +97,6 @@ type CheckMock struct {
 		}
 		// Shutdown holds details about calls to the Shutdown method.
 		Shutdown []struct {
-			// Ctx is the ctx argument value.
-			Ctx context.Context
 		}
 	}
 	lockGetConfig           sync.RWMutex
@@ -287,19 +285,16 @@ func (mock *CheckMock) SetConfigCalls() []struct {
 }
 
 // Shutdown calls ShutdownFunc.
-func (mock *CheckMock) Shutdown(ctx context.Context) error {
+func (mock *CheckMock) Shutdown() {
 	if mock.ShutdownFunc == nil {
 		panic("CheckMock.ShutdownFunc: method is nil but Check.Shutdown was just called")
 	}
 	callInfo := struct {
-		Ctx context.Context
-	}{
-		Ctx: ctx,
-	}
+	}{}
 	mock.lockShutdown.Lock()
 	mock.calls.Shutdown = append(mock.calls.Shutdown, callInfo)
 	mock.lockShutdown.Unlock()
-	return mock.ShutdownFunc(ctx)
+	mock.ShutdownFunc()
 }
 
 // ShutdownCalls gets all the calls that were made to Shutdown.
@@ -307,10 +302,8 @@ func (mock *CheckMock) Shutdown(ctx context.Context) error {
 //
 //	len(mockedCheck.ShutdownCalls())
 func (mock *CheckMock) ShutdownCalls() []struct {
-	Ctx context.Context
 } {
 	var calls []struct {
-		Ctx context.Context
 	}
 	mock.lockShutdown.RLock()
 	calls = mock.calls.Shutdown
