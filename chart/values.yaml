@@ -165,6 +165,7 @@ sparrowConfig:
 #   file:
 #     path: /config/checks.yaml
 # targetManager:
+#   type: git | gitlab
 #   checkInterval: 300s
 #   unhealthyThreshold: 600s
 #   registrationInterval: 300s
