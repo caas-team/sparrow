@@ -21,7 +21,7 @@ repos:
       - id: golangci-lint-repo-mod
         args: [--config, .golangci.yaml, --, --fix]
   - repo: https://github.com/norwoodj/helm-docs
-    rev: v1.13.0
+    rev: v1.13.1
     hooks:
       - id: helm-docs
         args:

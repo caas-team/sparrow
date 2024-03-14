@@ -28,7 +28,7 @@ import (
 
 	"github.com/caas-team/sparrow/pkg/checks"
 
-	gitlabmock "github.com/caas-team/sparrow/pkg/sparrow/gitlab/test"
+	remotemock "github.com/caas-team/sparrow/pkg/sparrow/targets/remote/test"
 )
 
 const (
@@ -38,7 +38,7 @@ const (
 )
 
 // Test_gitlabTargetManager_refreshTargets tests that the refreshTargets method
-// will fetch the targets from the remote gitlab instance and update the local
+// will fetch the targets from the remote instance and update the local
 // targets list. When an unhealthyTheshold is set, it will also unregister
 // unhealthy targets
 func Test_gitlabTargetManager_refreshTargets(t *testing.T) {
@@ -112,15 +112,15 @@ func Test_gitlabTargetManager_refreshTargets(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gitlab := gitlabmock.New(tt.mockTargets)
+			remote := remotemock.New(tt.mockTargets)
 			if tt.wantErr != nil {
-				gitlab.SetFetchFilesErr(tt.wantErr)
+				remote.SetFetchFilesErr(tt.wantErr)
 			}
-			gtm := &gitlabTargetManager{
-				targets: nil,
-				gitlab:  gitlab,
-				name:    "test",
-				cfg:     Config{UnhealthyThreshold: time.Hour},
+			gtm := &manager{
+				targets:    nil,
+				interactor: remote,
+				name:       "test",
+				cfg:        General{UnhealthyThreshold: time.Hour},
 			}
 			if err := gtm.refreshTargets(context.Background()); (err != nil) != (tt.wantErr != nil) {
 				t.Fatalf("refreshTargets() error = %v, wantErr %v", err, tt.wantErr)
@@ -187,12 +187,12 @@ func Test_gitlabTargetManager_refreshTargets_No_Threshold(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gitlab := gitlabmock.New(tt.mockTargets)
-			gtm := &gitlabTargetManager{
-				targets: nil,
-				gitlab:  gitlab,
-				name:    "test",
-				cfg:     Config{UnhealthyThreshold: 0},
+			remote := remotemock.New(tt.mockTargets)
+			gtm := &manager{
+				targets:    nil,
+				interactor: remote,
+				name:       "test",
+				cfg:        General{UnhealthyThreshold: 0},
 			}
 			if err := gtm.refreshTargets(context.Background()); (err != nil) != (tt.wantErr != nil) {
 				t.Fatalf("refreshTargets() error = %v, wantErr %v", err, tt.wantErr)
@@ -258,7 +258,7 @@ func Test_gitlabTargetManager_GetTargets(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gtm := &gitlabTargetManager{
+			gtm := &manager{
 				targets: tt.targets,
 			}
 			got := gtm.GetTargets()
@@ -280,7 +280,7 @@ func Test_gitlabTargetManager_GetTargets(t *testing.T) {
 }
 
 // Test_gitlabTargetManager_registerSparrow tests that the register method will
-// register the sparrow instance in the remote gitlab instance
+// register the sparrow instance in the remote instance
 func Test_gitlabTargetManager_register(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -298,12 +298,12 @@ func Test_gitlabTargetManager_register(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			glmock := gitlabmock.New(nil)
+			glmock := remotemock.New(nil)
 			if tt.wantPutErr {
 				glmock.SetPostFileErr(fmt.Errorf("failed to register"))
 			}
-			gtm := &gitlabTargetManager{
-				gitlab: glmock,
+			gtm := &manager{
+				interactor: glmock,
 			}
 			if err := gtm.register(context.Background()); (err != nil) != tt.wantErr {
 				t.Fatalf("register() error = %v, wantErr %v", err, tt.wantErr)
@@ -319,8 +319,7 @@ func Test_gitlabTargetManager_register(t *testing.T) {
 }
 
 // Test_gitlabTargetManager_update tests that the update
-// method will update the registration of the sparrow instance in the remote
-// gitlab instance
+// method will update the registration of the sparrow instance in the remote instance
 func Test_gitlabTargetManager_update(t *testing.T) {
 	tests := []struct {
 		name         string
@@ -336,12 +335,12 @@ func Test_gitlabTargetManager_update(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			glmock := gitlabmock.New(nil)
+			glmock := remotemock.New(nil)
 			if tt.wantPutError {
 				glmock.SetPutFileErr(fmt.Errorf("failed to update registration"))
 			}
-			gtm := &gitlabTargetManager{
-				gitlab:     glmock,
+			gtm := &manager{
+				interactor: glmock,
 				registered: true,
 			}
 			wantErr := tt.wantPutError
@@ -372,7 +371,7 @@ func Test_gitlabTargetManager_Reconcile_success(t *testing.T) {
 	}
 
 	testTarget := "https://some.target"
-	glmock := gitlabmock.New(
+	glmock := remotemock.New(
 		[]checks.GlobalTarget{
 			{
 				Url:      testTarget,
@@ -416,7 +415,7 @@ func Test_gitlabTargetManager_Reconcile_success(t *testing.T) {
 // method will register the sparrow, and then update the registration after the
 // registration interval has passed
 func Test_gitlabTargetManager_Reconcile_Registration_Update(t *testing.T) {
-	glmock := gitlabmock.New(
+	glmock := remotemock.New(
 		[]checks.GlobalTarget{
 			{
 				Url:      "https://some.sparrow",
@@ -499,7 +498,7 @@ func Test_gitlabTargetManager_Reconcile_failure(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			glmock := gitlabmock.New(tt.targets)
+			glmock := remotemock.New(tt.targets)
 
 			gtm := mockGitlabTargetManager(glmock, "test")
 			glmock.SetPostFileErr(tt.postErr)
@@ -537,7 +536,7 @@ func Test_gitlabTargetManager_Reconcile_failure(t *testing.T) {
 // Test_gitlabTargetManager_Reconcile_Context_Canceled tests that the Reconcile
 // method will shutdown gracefully when the context is canceled.
 func Test_gitlabTargetManager_Reconcile_Context_Canceled(t *testing.T) {
-	glmock := gitlabmock.New(
+	glmock := remotemock.New(
 		[]checks.GlobalTarget{
 			{
 				Url:      "https://some.sparrow",
@@ -577,7 +576,7 @@ func Test_gitlabTargetManager_Reconcile_Context_Canceled(t *testing.T) {
 // Test_gitlabTargetManager_Reconcile_Context_Done tests that the Reconcile
 // method will shut down gracefully when the context is done.
 func Test_gitlabTargetManager_Reconcile_Context_Done(t *testing.T) {
-	glmock := gitlabmock.New(
+	glmock := remotemock.New(
 		[]checks.GlobalTarget{
 			{
 				Url:      "https://some.sparrow",
@@ -615,7 +614,7 @@ func Test_gitlabTargetManager_Reconcile_Context_Done(t *testing.T) {
 // Test_gitlabTargetManager_Reconcile_Shutdown tests that the Reconcile
 // method will shut down gracefully when the Shutdown method is called.
 func Test_gitlabTargetManager_Reconcile_Shutdown(t *testing.T) {
-	glmock := gitlabmock.New(
+	glmock := remotemock.New(
 		[]checks.GlobalTarget{
 			{
 				Url:      "https://some.sparrow",
@@ -658,7 +657,7 @@ func Test_gitlabTargetManager_Reconcile_Shutdown(t *testing.T) {
 // method will fail the graceful shutdown when the Shutdown method is called
 // and the unregistering fails.
 func Test_gitlabTargetManager_Reconcile_Shutdown_Fail_Unregister(t *testing.T) {
-	glmock := gitlabmock.New(
+	glmock := remotemock.New(
 		[]checks.GlobalTarget{
 			{
 				Url:      "https://some.sparrow",
@@ -702,7 +701,7 @@ func Test_gitlabTargetManager_Reconcile_Shutdown_Fail_Unregister(t *testing.T) {
 // Test_gitlabTargetManager_Reconcile_No_Registration tests that the Reconcile
 // method will not register the instance if the registration interval is 0
 func Test_gitlabTargetManager_Reconcile_No_Registration(t *testing.T) {
-	glmock := gitlabmock.New(
+	glmock := remotemock.New(
 		[]checks.GlobalTarget{
 			{
 				Url:      "https://some.sparrow",
@@ -740,7 +739,7 @@ func Test_gitlabTargetManager_Reconcile_No_Registration(t *testing.T) {
 // Test_gitlabTargetManager_Reconcile_No_Update tests that the Reconcile
 // method will not update the registration if the update interval is 0
 func Test_gitlabTargetManager_Reconcile_No_Update(t *testing.T) {
-	glmock := gitlabmock.New(
+	glmock := remotemock.New(
 		[]checks.GlobalTarget{
 			{
 				Url:      "https://some.sparrow",
@@ -782,7 +781,7 @@ func Test_gitlabTargetManager_Reconcile_No_Update(t *testing.T) {
 // method will not register the instance if the registration interval is 0
 // and will not update the registration if the update interval is 0
 func Test_gitlabTargetManager_Reconcile_No_Registration_No_Update(t *testing.T) {
-	glmock := gitlabmock.New(
+	glmock := remotemock.New(
 		[]checks.GlobalTarget{
 			{
 				Url:      "https://some.sparrow",
@@ -821,15 +820,15 @@ func Test_gitlabTargetManager_Reconcile_No_Registration_No_Update(t *testing.T) 
 	}
 }
 
-func mockGitlabTargetManager(g *gitlabmock.MockClient, name string) *gitlabTargetManager { //nolint: unparam // irrelevant
-	return &gitlabTargetManager{
-		targets: nil,
-		mu:      sync.RWMutex{},
-		done:    make(chan struct{}, 1),
-		gitlab:  g,
-		name:    name,
-		cfg: Config{
-			CheckInterval:        testCheckInterval,
+func mockGitlabTargetManager(g *remotemock.MockClient, name string) *manager { //nolint: unparam // irrelevant
+	return &manager{
+		targets:    nil,
+		mu:         sync.RWMutex{},
+		done:       make(chan struct{}, 1),
+		interactor: g,
+		name:       name,
+		cfg: General{
+			CheckInterval:        100 * time.Millisecond,
 			UnhealthyThreshold:   1 * time.Second,
 			RegistrationInterval: testRegistrationInterval,
 			UpdateInterval:       testUpdateInterval,
