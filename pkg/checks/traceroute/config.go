@@ -37,13 +37,12 @@ func (c *Config) Validate() error {
 
 	for i, t := range c.Targets {
 		ip := net.ParseIP(t.Addr)
-
 		if ip != nil {
 			continue
 		}
 
 		_, err := url.Parse(t.Addr)
-		if err != nil && ip == nil {
+		if err != nil {
 			return checks.ErrInvalidConfig{CheckName: CheckName, Field: fmt.Sprintf("traceroute.targets[%d].addr", i), Reason: "invalid url or ip"}
 		}
 	}
