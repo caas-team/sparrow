@@ -60,7 +60,11 @@ func (g *client) syncWithRemote(ctx context.Context) error {
 		return err
 	}
 
-	err = g.repo.remote.PullContext(ctx, w, &git.PullOptions{RemoteName: "origin", Auth: g.auth})
+	err = g.repo.remote.PullContext(ctx, w, &git.PullOptions{
+		RemoteName: "origin",
+		Auth:       g.auth,
+		Depth:      1,
+	})
 	if err != nil && err != git.NoErrAlreadyUpToDate {
 		log.Error("Failed to pull from repository", "error", err)
 		return err
@@ -160,13 +164,13 @@ type mode string
 
 const (
 	// modeAdd is the mode for adding a file
-	modeAdd mode = "create"
+	modeAdd mode = "add"
 	// modeDelete is the mode for deleting a file
 	modeDelete mode = "delete"
 )
 
 // commitFile commits the file to the repository with the given mode
-// The mode is used to determine if the file should be created or deleted
+// The mode is used to determine if the file should be added or deleted
 func (g *client) commitFile(ctx context.Context, file *remote.File, mode mode) error {
 	log := logger.FromContext(ctx)
 
