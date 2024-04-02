@@ -21,6 +21,9 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -70,17 +73,30 @@ func run() func(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("failed to parse config: %w", err)
 		}
 
-		log := logger.NewLogger()
-		ctx := logger.IntoContext(context.Background(), log)
+		ctx, cancel := logger.NewContextWithLogger(context.Background())
+		log := logger.FromContext(ctx)
+		defer cancel()
 
 		if err = cfg.Validate(ctx); err != nil {
 			return fmt.Errorf("error while validating the config: %w", err)
 		}
 
+		sigChan := make(chan os.Signal, 1)
+		signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
 		s := sparrow.New(cfg)
+		cErr := make(chan error, 1)
 		log.Info("Running sparrow")
-		if err = s.Run(ctx); err != nil {
-			err = fmt.Errorf("error while running sparrow: %w", err)
+		go func() {
+			cErr <- s.Run(ctx)
+		}()
+
+		select {
+		case <-sigChan:
+			log.Info("Signal received, shutting down")
+			cancel()
+			<-cErr
+		case err := <-cErr:
 			return err
 		}
 
