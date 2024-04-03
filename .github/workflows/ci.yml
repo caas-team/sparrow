@@ -46,7 +46,7 @@ jobs:
         with:
           sarif_file: "trivy-results.sarif"
 
-      - name: GHRC Registry login
+      - name: GHCR login
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
