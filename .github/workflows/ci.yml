@@ -101,4 +101,4 @@ jobs:
       - name: Push helm package
         run: |
           helm push $(ls ./chart/*.tgz| head -1) oci://ghcr.io/${{ github.repository_owner }}/charts
-          helm push $(ls ./chart/*.tgz| head -1) oci://mtr.devops.telekom.de/sparrow/charts
+          helm push $(ls ./chart/*.tgz| head -1) oci://mtr.devops.telekom.de/sparrow/chart
