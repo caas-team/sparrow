@@ -63,6 +63,7 @@ jobs:
       - name: Push snapshot container image
         run: |
           docker push ghcr.io/${{ github.repository }}:${{ steps.version.outputs.value }}
+          docker tag ghcr.io/${{ github.repository }}:${{ steps.version.outputs.value }} mtr.devops.telekom.de/sparrow/sparrow:${{ steps.version.outputs.value }}
           docker push mtr.devops.telekom.de/sparrow/sparrow:${{ steps.version.outputs.value }}
 
 
