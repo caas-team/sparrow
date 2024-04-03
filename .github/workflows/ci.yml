@@ -46,15 +46,26 @@ jobs:
         with:
           sarif_file: "trivy-results.sarif"
 
-      - name: Registry login
+      - name: GHRC Registry login
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Login to MTR
+        uses: docker/login-action@v3
+        with:
+          registry: mtr.devops.telekom.de
+          username: ${{ secrets.MTR_USERNAME }}
+          password: ${{ secrets.MTR_PASSWORD }}
+
       - name: Push snapshot container image
-        run: docker push ghcr.io/${{ github.repository }}:${{ steps.version.outputs.value }}
+        run: |
+          docker push ghcr.io/${{ github.repository }}:${{ steps.version.outputs.value }}
+          docker push mtr.devops.telekom.de/sparrow/sparrow:${{ steps.version.outputs.value }}
+
+        
 
   helm:
     runs-on: ubuntu-latest
