@@ -15,6 +15,10 @@ dockers:
       - "ghcr.io/caas-team/sparrow:{{ .Tag }}"
       - "ghcr.io/caas-team/sparrow:v{{ .Major }}.{{ .Minor }}"
       - "ghcr.io/caas-team/sparrow:v{{ .Major }}"
+      - "mtr.devops.telekom.de/sparrow/sparrow:latest"
+      - "mtr.devops.telekom.de/sparrow/sparrow:{{ .Tag }}"
+      - "mtr.devops.telekom.de/sparrow/sparrow:v{{ .Major }}.{{ .Minor }}"
+      - "mtr.devops.telekom.de/sparrow/sparrow:v{{ .Major }}"
     dockerfile: Dockerfile
     build_flag_templates:
       - --label=org.opencontainers.image.title={{ .ProjectName }}
