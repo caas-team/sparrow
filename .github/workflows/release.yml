@@ -17,17 +17,25 @@ jobs:
 
       - name: Checkout repository
         uses: actions/checkout@v4
-      
+
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
           go-version-file: go.mod
 
       - uses: docker/login-action@v3
+        name: Login to GHCR
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/login-action@v3
+        name: Login to MTR
+        with:
+          registry: mtr.devops.telekom.de
+          username: ${{ secrets.MTR_USERNAME }}
+          password: ${{ secrets.MTR_PASSWORD }}
 
       - name: Build, push & release
         uses: goreleaser/goreleaser-action@v5
@@ -42,15 +50,19 @@ jobs:
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v4
-      
+
       - name: Registry login
-        run: helm registry login ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          helm registry login ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
+          helm registry login mtr.devops.telekom.de -u ${{ secrets.MTR_USERNAME }} -p ${{ secrets.MTR_PASSWORD }}
 
       - name: Helm lint
         run: helm lint ./chart
-      
+
       - name: Helm package
         run: helm package ./chart -d ./chart
-        
+
       - name: Push helm package
-        run: helm push $(ls ./chart/*.tgz| head -1) oci://ghcr.io/${{ github.repository_owner }}/charts
+        run: |
+          helm push $(ls ./chart/*.tgz| head -1) oci://ghcr.io/${{ github.repository_owner }}/charts
+          helm push $(ls ./chart/*.tgz| head -1) oci://mtr.devops.telekom.de/sparrow/chart

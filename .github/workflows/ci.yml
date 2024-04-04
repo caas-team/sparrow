@@ -46,15 +46,26 @@ jobs:
         with:
           sarif_file: "trivy-results.sarif"
 
-      - name: Registry login
+      - name: GHCR login
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Login to MTR
+        uses: docker/login-action@v3
+        with:
+          registry: mtr.devops.telekom.de
+          username: ${{ secrets.MTR_USERNAME }}
+          password: ${{ secrets.MTR_PASSWORD }}
+
       - name: Push snapshot container image
-        run: docker push ghcr.io/${{ github.repository }}:${{ steps.version.outputs.value }}
+        run: |
+          docker push ghcr.io/${{ github.repository }}:${{ steps.version.outputs.value }}
+          docker tag ghcr.io/${{ github.repository }}:${{ steps.version.outputs.value }} mtr.devops.telekom.de/sparrow/sparrow:${{ steps.version.outputs.value }}
+          docker push mtr.devops.telekom.de/sparrow/sparrow:${{ steps.version.outputs.value }}
+
 
   helm:
     runs-on: ubuntu-latest
@@ -77,7 +88,9 @@ jobs:
         run: echo "value=$(git tag --sort=taggerdate | tail -1 | cut -c 2-)-commit-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
 
       - name: Registry login
-        run: helm registry login ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          helm registry login ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
+          helm registry login mtr.devops.telekom.de -u ${{ secrets.MTR_USERNAME }} -p ${{ secrets.MTR_PASSWORD }}
 
       - name: Helm lint
         run: helm lint ./chart
@@ -86,4 +99,6 @@ jobs:
         run: helm package ./chart -d ./chart --version ${{ steps.chartVersion.outputs.value }} --app-version ${{ steps.appVersion.outputs.value }}
 
       - name: Push helm package
-        run: helm push $(ls ./chart/*.tgz| head -1) oci://ghcr.io/${{ github.repository_owner }}/charts
+        run: |
+          helm push $(ls ./chart/*.tgz| head -1) oci://ghcr.io/${{ github.repository_owner }}/charts
+          helm push $(ls ./chart/*.tgz| head -1) oci://mtr.devops.telekom.de/sparrow/charts
