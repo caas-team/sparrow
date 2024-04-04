@@ -14,6 +14,7 @@ builds:
 dockers:
   - image_templates:
       - "ghcr.io/caas-team/sparrow:{{ .Version }}"
+      - "mtr.devops.telekom.de/sparrow/sparrow:{{ .Version }}"
     dockerfile: Dockerfile
     build_flag_templates:
       - --label=org.opencontainers.image.title={{ .ProjectName }}
