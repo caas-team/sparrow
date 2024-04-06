@@ -232,19 +232,19 @@ func TestChecksController_Reconcile(t *testing.T) {
 func TestChecksController_RegisterCheck(t *testing.T) {
 	tests := []struct {
 		name  string
-		setup func(t *testing.T) *ChecksController
+		setup func() *ChecksController
 		check checks.Check
 	}{
 		{
 			name: "valid check",
-			setup: func(_ *testing.T) *ChecksController {
+			setup: func() *ChecksController {
 				return NewChecksController(db.NewInMemory(), NewMetrics())
 			},
 			check: health.NewCheck(),
 		},
 		{
 			name: "duplicate check registration",
-			setup: func(t *testing.T) *ChecksController {
+			setup: func() *ChecksController {
 				cc := NewChecksController(db.NewInMemory(), NewMetrics())
 				check := health.NewCheck()
 				cc.RegisterCheck(context.Background(), check)
@@ -256,7 +256,7 @@ func TestChecksController_RegisterCheck(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cc := tt.setup(t)
+			cc := tt.setup()
 
 			cc.RegisterCheck(context.Background(), tt.check)
 		})
@@ -266,28 +266,21 @@ func TestChecksController_RegisterCheck(t *testing.T) {
 func TestChecksController_UnregisterCheck(t *testing.T) {
 	tests := []struct {
 		name  string
-		setup func(t *testing.T) *ChecksController
 		check checks.Check
 	}{
 		{
-			name: "valid check",
-			setup: func(_ *testing.T) *ChecksController {
-				return NewChecksController(db.NewInMemory(), NewMetrics())
-			},
+			name:  "valid check",
 			check: health.NewCheck(),
 		},
 		{
-			name: "unregister non-existent check",
-			setup: func(_ *testing.T) *ChecksController {
-				return NewChecksController(db.NewInMemory(), NewMetrics())
-			},
+			name:  "unregister non-existent check",
 			check: health.NewCheck(),
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cc := tt.setup(t)
+			cc := NewChecksController(db.NewInMemory(), NewMetrics())
 
 			cc.UnregisterCheck(context.Background(), tt.check)
 
