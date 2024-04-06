@@ -78,7 +78,7 @@ func (cc *ChecksController) Run(ctx context.Context) error {
 }
 
 // Shutdown shuts down the ChecksController.
-func (cc *ChecksController) Shutdown(ctx context.Context) (err error) {
+func (cc *ChecksController) Shutdown(ctx context.Context) {
 	log := logger.FromContext(ctx)
 	log.Info("Shutting down checks controller")
 
@@ -88,7 +88,6 @@ func (cc *ChecksController) Shutdown(ctx context.Context) (err error) {
 	cc.done <- struct{}{}
 	close(cc.done)
 	close(cc.cResult)
-	return err
 }
 
 // Reconcile reconciles the checks.
@@ -124,15 +123,12 @@ func (cc *ChecksController) Reconcile(ctx context.Context, cfg runtime.Config) {
 
 	// Register new checks
 	for _, c := range newChecks {
-		err = cc.RegisterCheck(ctx, c)
-		if err != nil {
-			log.ErrorContext(ctx, "Failed to register check", "check", c.Name(), "error", err)
-		}
+		cc.RegisterCheck(ctx, c)
 	}
 }
 
 // RegisterCheck registers a new check.
-func (cc *ChecksController) RegisterCheck(ctx context.Context, check checks.Check) error {
+func (cc *ChecksController) RegisterCheck(ctx context.Context, check checks.Check) {
 	log := logger.FromContext(ctx).With("check", check.Name())
 
 	// Add prometheus collectors of check to registry
@@ -154,7 +150,6 @@ func (cc *ChecksController) RegisterCheck(ctx context.Context, check checks.Chec
 	}()
 
 	cc.checks.Add(check)
-	return nil
 }
 
 // UnregisterCheck unregisters a check.

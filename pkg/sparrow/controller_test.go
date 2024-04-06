@@ -53,10 +53,7 @@ func TestRun_CheckRunError(t *testing.T) {
 		ShutdownFunc: func() {},
 	}
 
-	err := cc.RegisterCheck(ctx, mockCheck)
-	if err != nil {
-		t.Fatalf("RegisterCheck() error = %v", err)
-	}
+	cc.RegisterCheck(ctx, mockCheck)
 
 	go func() {
 		err := cc.Run(ctx)
@@ -78,9 +75,7 @@ func TestRun_CheckRunError(t *testing.T) {
 	if found {
 		t.Errorf("Expected check to be unregistered after encountering a run error")
 	}
-	if err := cc.Shutdown(ctx); err != nil {
-		t.Fatalf("Shutdown() error = %v", err)
-	}
+	cc.Shutdown(ctx)
 }
 
 func TestRun_ContextCancellation(t *testing.T) {
@@ -236,79 +231,60 @@ func TestChecksController_Reconcile(t *testing.T) {
 
 func TestChecksController_RegisterCheck(t *testing.T) {
 	tests := []struct {
-		name    string
-		setup   func(t *testing.T) *ChecksController
-		check   checks.Check
-		wantErr bool
+		name  string
+		setup func() *ChecksController
+		check checks.Check
 	}{
 		{
 			name: "valid check",
-			setup: func(_ *testing.T) *ChecksController {
+			setup: func() *ChecksController {
 				return NewChecksController(db.NewInMemory(), NewMetrics())
 			},
-			check:   health.NewCheck(),
-			wantErr: false,
+			check: health.NewCheck(),
 		},
 		{
 			name: "duplicate check registration",
-			setup: func(t *testing.T) *ChecksController {
+			setup: func() *ChecksController {
 				cc := NewChecksController(db.NewInMemory(), NewMetrics())
 				check := health.NewCheck()
-				err := cc.RegisterCheck(context.Background(), check)
-				if err != nil {
-					t.Fatalf("RegisterCheck() error = %v", err)
-				}
+				cc.RegisterCheck(context.Background(), check)
 				return cc
 			},
-			check:   health.NewCheck(),
-			wantErr: false,
+			check: health.NewCheck(),
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cc := tt.setup(t)
+			cc := tt.setup()
 
-			err := cc.RegisterCheck(context.Background(), tt.check)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("RegisterCheck() error = %v, wantErr %v", err, tt.wantErr)
-			}
+			cc.RegisterCheck(context.Background(), tt.check)
 		})
 	}
 }
 
 func TestChecksController_UnregisterCheck(t *testing.T) {
 	tests := []struct {
-		name    string
-		setup   func(t *testing.T) *ChecksController
-		check   checks.Check
-		wantErr bool
+		name  string
+		check checks.Check
 	}{
 		{
-			name: "valid check",
-			setup: func(_ *testing.T) *ChecksController {
-				return NewChecksController(db.NewInMemory(), NewMetrics())
-			},
-			check:   health.NewCheck(),
-			wantErr: false,
+			name:  "valid check",
+			check: health.NewCheck(),
 		},
 		{
-			name: "unregister non-existent check",
-			setup: func(_ *testing.T) *ChecksController {
-				return NewChecksController(db.NewInMemory(), NewMetrics())
-			},
-			check:   health.NewCheck(),
-			wantErr: false,
+			name:  "unregister non-existent check",
+			check: health.NewCheck(),
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cc := tt.setup(t)
+			cc := NewChecksController(db.NewInMemory(), NewMetrics())
 
 			cc.UnregisterCheck(context.Background(), tt.check)
 
-			if !tt.wantErr && len(cc.checks.Iter()) != 0 {
+			if len(cc.checks.Iter()) != 0 {
 				t.Errorf("Expected check to be unregistered")
 			}
 		})
