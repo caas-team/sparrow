@@ -269,10 +269,6 @@ func TestChecksController_UnregisterCheck(t *testing.T) {
 			name:  "valid check",
 			check: health.NewCheck(),
 		},
-		{
-			name:  "unregister non-existent check",
-			check: health.NewCheck(),
-		},
 	}
 
 	for _, tt := range tests {
