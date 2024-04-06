@@ -124,9 +124,6 @@ func (cc *ChecksController) Reconcile(ctx context.Context, cfg runtime.Config) {
 	// Register new checks
 	for _, c := range newChecks {
 		cc.RegisterCheck(ctx, c)
-		if err != nil {
-			log.ErrorContext(ctx, "Failed to register check", "check", c.Name(), "error", err)
-		}
 	}
 }
 
