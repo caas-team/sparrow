@@ -172,7 +172,7 @@ func (s *Sparrow) shutdown(ctx context.Context) {
 		}
 		sErrs.errAPI = s.api.Shutdown(ctx)
 		s.loader.Shutdown(ctx)
-		sErrs.errCheckCont = s.controller.Shutdown(ctx)
+		s.controller.Shutdown(ctx)
 
 		if sErrs.HasError() {
 			log.Error("Failed to shutdown gracefully", "contextError", errC, "errors", sErrs)
