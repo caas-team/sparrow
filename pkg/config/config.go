@@ -21,6 +21,7 @@ package config
 import (
 	"time"
 
+	"github.com/caas-team/sparrow/pkg/sparrow/metrics"
 	"github.com/caas-team/sparrow/pkg/sparrow/targets"
 
 	"github.com/caas-team/sparrow/internal/helper"
@@ -33,6 +34,7 @@ type Config struct {
 	Loader        LoaderConfig                `yaml:"loader" mapstructure:"loader"`
 	Api           api.Config                  `yaml:"api" mapstructure:"api"`
 	TargetManager targets.TargetManagerConfig `yaml:"targetManager" mapstructure:"targetManager"`
+	Telemetry     metrics.Config              `yaml:"telemetry" mapstructure:"telemetry"`
 }
 
 // LoaderConfig is the configuration for loader
@@ -59,4 +61,8 @@ type FileLoaderConfig struct {
 // HasTargetManager returns true if the config has a target manager
 func (c *Config) HasTargetManager() bool {
 	return c.TargetManager != targets.TargetManagerConfig{}
+}
+
+func (c *Config) HasTelemetry() bool {
+	return c.Telemetry != metrics.Config{}
 }
