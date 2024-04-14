@@ -87,7 +87,7 @@ func (m *metrics) InitTracing(ctx context.Context) error {
 		return fmt.Errorf("failed to create resource: %v", err)
 	}
 
-	exporter, err := m.createExporter(ctx)
+	exporter, err := m.config.Exporter.Create(ctx, &m.config)
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to create exporter", "error", err)
 		return fmt.Errorf("failed to create exporter: %v", err)
@@ -108,12 +108,15 @@ func (m *metrics) InitTracing(ctx context.Context) error {
 
 // Shutdown closes the metrics and tracing
 func (m *metrics) Shutdown(ctx context.Context) error {
+	log := logger.FromContext(ctx)
 	if m.tp != nil {
 		err := m.tp.Shutdown(ctx)
 		if err != nil {
+			log.ErrorContext(ctx, "Failed to shutdown tracer provider", "error", err)
 			return fmt.Errorf("failed to shutdown tracer provider: %v", err)
 		}
 	}
 
+	log.DebugContext(ctx, "Tracing shutdown")
 	return nil
 }

@@ -95,11 +95,9 @@ func (s *Sparrow) Run(ctx context.Context) error {
 	log := logger.FromContext(ctx)
 	defer cancel()
 
-	if s.config.HasTelemetry() {
-		err := s.metrics.InitTracing(ctx)
-		if err != nil {
-			return fmt.Errorf("failed to initialize tracing: %w", err)
-		}
+	err := s.metrics.InitTracing(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to initialize tracing: %w", err)
 	}
 
 	go func() {

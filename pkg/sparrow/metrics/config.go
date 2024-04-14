@@ -15,6 +15,8 @@ type Config struct {
 	Url string `yaml:"url" mapstructure:"url"`
 	// Token is the token used to authenticate with the collector
 	Token string `yaml:"token" mapstructure:"token"`
+	// CertPath is the path to the tls certificate file
+	CertPath string `yaml:"certPath" mapstructure:"certPath"`
 }
 
 func (c *Config) Validate(ctx context.Context) error {
