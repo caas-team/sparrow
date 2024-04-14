@@ -69,49 +69,6 @@ func (e Exporter) IsExporting() bool {
 	return e == HTTP || e == GRPC
 }
 
-// FileOpener is the function used to open a file
-type FileOpener func(string) (fs.File, error)
-
-// openFile is the function used to open a file
-var openFile FileOpener = func() FileOpener {
-	return func(name string) (fs.File, error) {
-		return os.Open(name) // #nosec G304 // TODO: Can we hide this behind an interface instead?
-	}
-}()
-
-// TLSConfig returns the TLS configuration based on the certificate file
-func (e Exporter) TLSConfig(certFile string) (conf *tls.Config, err error) {
-	if certFile == "" || certFile == "insecure" {
-		return nil, nil
-	}
-
-	file, err := openFile(certFile)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open certificate file: %w", err)
-	}
-	defer func() {
-		if cErr := file.Close(); cErr != nil {
-			err = errors.Join(err, cErr)
-		}
-	}()
-
-	b, err := io.ReadAll(file)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read certificate file: %w", err)
-	}
-
-	certPool := x509.NewCertPool()
-	if !certPool.AppendCertsFromPEM(b) {
-		return nil, fmt.Errorf("failed to append certificate from file: %s", certFile)
-	}
-
-	return &tls.Config{
-		RootCAs:            certPool,
-		InsecureSkipVerify: false,
-		MinVersion:         tls.VersionTLS12,
-	}, nil
-}
-
 // exporterFactory is a function that creates a new exporter
 type exporterFactory func(ctx context.Context, config *Config) (sdktrace.SpanExporter, error)
 
@@ -172,21 +129,6 @@ func newGRPCExporter(ctx context.Context, config *Config) (sdktrace.SpanExporter
 	return otlptracegrpc.New(ctx, opts...)
 }
 
-// getCommonConfig returns the common configuration for the exporters
-func getCommonConfig(config *Config) (map[string]string, *tls.Config, error) {
-	headers := make(map[string]string)
-	if config.Token != "" {
-		headers["Authorization"] = fmt.Sprintf("Bearer %s", config.Token)
-	}
-
-	tlsCfg, err := config.Exporter.TLSConfig(config.CertPath)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create TLS configuration: %w", err)
-	}
-
-	return headers, tlsCfg, nil
-}
-
 // newStdoutExporter creates a new stdout exporter
 func newStdoutExporter(_ context.Context, _ *Config) (sdktrace.SpanExporter, error) {
 	return stdouttrace.New(stdouttrace.WithPrettyPrint())
@@ -195,4 +137,61 @@ func newStdoutExporter(_ context.Context, _ *Config) (sdktrace.SpanExporter, err
 // newNoopExporter creates a new noop exporter
 func newNoopExporter(_ context.Context, _ *Config) (sdktrace.SpanExporter, error) {
 	return nil, nil
+}
+
+// getCommonConfig returns the common configuration for the exporters
+func getCommonConfig(config *Config) (map[string]string, *tls.Config, error) {
+	headers := make(map[string]string)
+	if config.Token != "" {
+		headers["Authorization"] = fmt.Sprintf("Bearer %s", config.Token)
+	}
+
+	tlsCfg, err := getTLSConfig(config.CertPath)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create TLS configuration: %w", err)
+	}
+
+	return headers, tlsCfg, nil
+}
+
+// FileOpener is the function used to open a file
+type FileOpener func(string) (fs.File, error)
+
+// openFile is the function used to open a file
+var openFile FileOpener = func() FileOpener {
+	return func(name string) (fs.File, error) {
+		return os.Open(name) // #nosec G304 // How else to open the file?
+	}
+}()
+
+func getTLSConfig(certFile string) (conf *tls.Config, err error) {
+	if certFile == "" || certFile == "insecure" {
+		return nil, nil
+	}
+
+	file, err := openFile(certFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open certificate file: %w", err)
+	}
+	defer func() {
+		if cErr := file.Close(); cErr != nil {
+			err = errors.Join(err, cErr)
+		}
+	}()
+
+	b, err := io.ReadAll(file)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read certificate file: %w", err)
+	}
+
+	pool := x509.NewCertPool()
+	if !pool.AppendCertsFromPEM(b) {
+		return nil, fmt.Errorf("failed to append certificate(s) from file: %s", certFile)
+	}
+
+	return &tls.Config{
+		RootCAs:            pool,
+		InsecureSkipVerify: false,
+		MinVersion:         tls.VersionTLS12,
+	}, nil
 }
