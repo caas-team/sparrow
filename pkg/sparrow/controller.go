@@ -134,7 +134,7 @@ func (cc *ChecksController) RegisterCheck(ctx context.Context, check checks.Chec
 	// Add prometheus collectors of check to registry
 	for _, collector := range check.GetMetricCollectors() {
 		if err := cc.metrics.GetRegistry().Register(collector); err != nil {
-			log.ErrorContext(ctx, "Could not add metrics collector to registry")
+			log.ErrorContext(ctx, "Could not add metrics collector to registry", "error", err)
 		}
 	}
 
