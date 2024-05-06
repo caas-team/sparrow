@@ -1,6 +1,8 @@
 project_name: sparrow
 builds:
   - env: [CGO_ENABLED=0]
+    flags:
+      - -tags=viper_bind_struct
     ldflags:
       - -s -w -X main.version={{ .Tag }}
       - -extldflags "-static"
