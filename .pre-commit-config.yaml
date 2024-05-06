@@ -9,6 +9,7 @@ repos:
         types: [go]
         pass_filenames: false
         always_run: true
+
   - repo: https://github.com/tekwizely/pre-commit-golang
     rev: v1.0.0-rc.1
     hooks:
@@ -20,6 +21,11 @@ repos:
         args: [-l, -w]
       - id: golangci-lint-repo-mod
         args: [--config, .golangci.yaml, --, --fix]
+
+  # You need to install helm-docs manually via the go toolchain:
+  # go install github.com/norwoodj/helm-docs/cmd/helm-docs@latest
+  # If you have installed it in a different way, you should use the binary of the
+  # go toolchain instead, because behavior may differ.
   - repo: https://github.com/norwoodj/helm-docs
     rev: v1.13.1
     hooks:
