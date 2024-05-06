@@ -6,6 +6,7 @@ updates:
       interval: "daily"
     labels:
       - "housekeeping"
+      - "dependencies"
     commit-message:
       prefix: "chore"
       include: "scope"
