@@ -2,137 +2,113 @@ package traceroute
 
 import (
 	"context"
+	"errors"
 	"net"
-	"sync"
 	"testing"
 	"time"
 
-	"github.com/google/go-cmp/cmp"
-
-	"github.com/aeden/traceroute"
+	"github.com/caas-team/sparrow/internal/traceroute"
 	"github.com/caas-team/sparrow/pkg/checks"
+	"github.com/google/go-cmp/cmp"
 )
 
-func TestCheck(t *testing.T) {
-	cases := []struct {
-		name string
-		c    *Traceroute
-		want map[string]result
+func TestTraceroute_Check(t *testing.T) {
+	tests := []struct {
+		name       string
+		targets    []Target
+		tracerFunc func(ctx context.Context, addr string, port uint16) ([]traceroute.Hop, error)
+		want       map[string]result
+		wantErr    bool
 	}{
 		{
-			name: "Success 5 hops",
-			c:    newForTest(success(5), []string{"8.8.8.8"}),
+			name: "single successful traceroute",
+			targets: []Target{
+				{Addr: "example.com", Port: 80},
+			},
+			tracerFunc: func(ctx context.Context, addr string, port uint16) ([]traceroute.Hop, error) {
+				return []traceroute.Hop{{IP: net.ParseIP("192.168.1.1"), Duration: 10 * time.Millisecond}}, nil
+			},
 			want: map[string]result{
-				"8.8.8.8": {
-					NumHops: 5,
-					Hops: []hop{
-						{Addr: "0.0.0.0", Latency: 0 * time.Second, Success: false},
-						{Addr: "0.0.0.1", Latency: 1 * time.Second, Success: false},
-						{Addr: "0.0.0.2", Latency: 2 * time.Second, Success: false},
-						{Addr: "0.0.0.3", Latency: 3 * time.Second, Success: false},
-						{Addr: "google-public-dns-a.google.com", Latency: 69 * time.Second, Success: true},
-					},
+				"example.com": {
+					Target: "example.com",
+					Hops:   []traceroute.Hop{{IP: net.ParseIP("192.168.1.1"), Duration: 10 * time.Millisecond}},
 				},
 			},
 		},
 		{
-			name: "Traceroute internal error fails silently",
-			c:    newForTest(returnError(&net.DNSError{Err: "no such host", Name: "google.com", IsNotFound: true}), []string{"google.com"}),
+			name: "traceroute with error",
+			targets: []Target{
+				{Addr: "example.com", Port: 80},
+			},
+			tracerFunc: func(ctx context.Context, addr string, port uint16) ([]traceroute.Hop, error) {
+				return nil, errors.New("traceroute error")
+			},
 			want: map[string]result{
-				"google.com": {Hops: []hop{}},
+				"example.com": {
+					Target: "example.com",
+					Hops:   nil,
+				},
 			},
+			wantErr: true,
+		},
+		{
+			name: "multiple traceroutes",
+			targets: []Target{
+				{Addr: "example.com", Port: 80},
+				{Addr: "test.com", Port: 80},
+			},
+			tracerFunc: func(ctx context.Context, addr string, port uint16) ([]traceroute.Hop, error) {
+				if addr == "example.com" {
+					return []traceroute.Hop{{IP: net.ParseIP("192.168.1.1"), Duration: 10 * time.Millisecond}}, nil
+				}
+				return []traceroute.Hop{{IP: net.ParseIP("192.168.1.2"), Duration: 20 * time.Millisecond}}, nil
+			},
+			want: map[string]result{
+				"example.com": {
+					Target: "example.com",
+					Hops:   []traceroute.Hop{{IP: net.ParseIP("192.168.1.1"), Duration: 10 * time.Millisecond}},
+				},
+				"test.com": {
+					Target: "test.com",
+					Hops:   []traceroute.Hop{{IP: net.ParseIP("192.168.1.2"), Duration: 20 * time.Millisecond}},
+				},
+			},
+		},
+		{
+			name:    "no targets defined",
+			targets: []Target{},
+			tracerFunc: func(ctx context.Context, addr string, port uint16) ([]traceroute.Hop, error) {
+				t.Error("traceroute.Run should not be called")
+				return nil, nil
+			},
+			want: map[string]result{},
 		},
 	}
 
-	for _, c := range cases {
-		res := c.c.check(context.Background())
-
-		if !cmp.Equal(res, c.want) {
-			diff := cmp.Diff(res, c.want)
-			t.Errorf("unexpected result: +want -got\n%s", diff)
-		}
-	}
-}
-
-func newForTest(f tracerouteFactory, targets []string) *Traceroute {
-	t := make([]Target, len(targets))
-	for i, target := range targets {
-		t[i] = Target{Addr: target}
-	}
-	return &Traceroute{
-		traceroute: f,
-		Base: checks.Base[*Config]{
-			Config: &Config{
-				Targets: t,
-			},
-			Mu:       sync.Mutex{},
-			DoneChan: make(chan struct{}),
-		},
-	}
-}
-
-// success produces a tracerouteFactory that returns a traceroute result with nHops hops
-func success(nHops int) tracerouteFactory {
-	return func(dest string, port, timeout, retries, maxHops int) (traceroute.TracerouteResult, error) {
-		hops := make([]traceroute.TracerouteHop, nHops)
-		for i := 0; i < nHops-1; i++ {
-			hops[i] = traceroute.TracerouteHop{
-				Success:     false,
-				N:           nHops,
-				Host:        ipFromInt(i),
-				ElapsedTime: time.Duration(i) * time.Second,
-				TTL:         i,
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tr := &Traceroute{
+				Base: checks.NewBase(CheckName, &Config{
+					Targets: tt.targets,
+					Retry:   checks.DefaultRetry,
+				}),
+				tracer: &traceroute.TracerMock{
+					RunFunc: tt.tracerFunc,
+				},
+				metrics: newMetrics(),
 			}
-		}
-		hops[nHops-1] = traceroute.TracerouteHop{
-			Success:     true,
-			Address:     [4]byte{8, 8, 8, 8},
-			N:           nHops,
-			Host:        "google-public-dns-a.google.com",
-			ElapsedTime: 69 * time.Second,
-			TTL:         nHops,
-		}
 
-		return traceroute.TracerouteResult{
-			DestinationAddress: hops[nHops-1].Address,
-			Hops:               hops,
-		}, nil
-	}
-}
+			results := tr.check(context.Background())
+			if !cmp.Equal(tt.want, results) {
+				t.Error(cmp.Diff(tt.want, results))
+			}
 
-func returnError(err error) tracerouteFactory {
-	return func(dest string, port, timeout, retries, maxHops int) (traceroute.TracerouteResult, error) {
-		return traceroute.TracerouteResult{}, err
-	}
-}
-
-// ipFromInt takes in an int and builds an IP address from it
-// Example:
-// ipFromInt(300) -> 0.0.1.44
-func ipFromInt(i int) string {
-	b1 := i >> 24 & 0xFF
-	b2 := i >> 16 & 0xFF
-	b3 := i >> 8 & 0xFF
-	b4 := i & 0xFF
-
-	return net.IPv4(byte(b1), byte(b2), byte(b3), byte(b4)).String()
-}
-
-func TestIpFromInt(t *testing.T) {
-	cases := []struct {
-		In       int
-		Expected string
-	}{
-		{In: 300, Expected: "0.0.1.44"},
-		{In: 0, Expected: "0.0.0.0"},
-		{In: (1 << 33) - 1, Expected: "255.255.255.255"},
-	}
-
-	for _, c := range cases {
-		t.Run("ipFromInt", func(t *testing.T) {
-			actual := ipFromInt(c.In)
-			if c.Expected != actual {
-				t.Errorf("expected: %v, actual: %v", c.Expected, actual)
+			wantCalls := len(tt.targets)
+			if tt.wantErr {
+				wantCalls *= (tr.Config.Retry.Count + 1)
+			}
+			if len(tr.tracer.(*traceroute.TracerMock).RunCalls()) != wantCalls {
+				t.Errorf("expected %d calls to tracer.Run, got %d", wantCalls, len(tr.tracer.(*traceroute.TracerMock).RunCalls()))
 			}
 		})
 	}

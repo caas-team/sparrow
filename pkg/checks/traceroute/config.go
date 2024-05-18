@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/caas-team/sparrow/internal/helper"
 	"github.com/caas-team/sparrow/pkg/checks"
 )
 
@@ -13,14 +14,14 @@ import (
 type Config struct {
 	// Targets is a list of targets to traceroute to
 	Targets []Target `json:"targets" yaml:"targets" mapstructure:"targets"`
-	// Retries is the number of times to retry the traceroute for a target, if it fails
-	Retries int `json:"retries" yaml:"retries" mapstructure:"retries"`
-	// MaxHops is the maximum number of hops to try before giving up
-	MaxHops int `json:"maxHops" yaml:"maxHops" mapstructure:"maxHops"`
 	// Interval is the time to wait between check iterations
 	Interval time.Duration `json:"interval" yaml:"interval" mapstructure:"interval"`
 	// Timeout is the maximum time to wait for a response from a hop
 	Timeout time.Duration `json:"timeout" yaml:"timeout" mapstructure:"timeout"`
+	// MaxHops is the maximum number of hops to try before giving up
+	MaxHops int `json:"maxHops" yaml:"maxHops" mapstructure:"maxHops"`
+	// Retry is the configuration for the retry mechanism for each target
+	Retry helper.RetryConfig `json:"retry" yaml:"retry" mapstructure:"retry"`
 }
 
 func (c *Config) For() string {
