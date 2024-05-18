@@ -64,24 +64,9 @@ type hop struct {
 
 // Run runs the check in a loop sending results to the provided channel
 func (tr *Traceroute) Run(ctx context.Context, cResult chan checks.ResultDTO) error {
-	ctx, cancel := logger.NewContextWithLogger(ctx)
-	defer cancel()
-	log := logger.FromContext(ctx)
-
-	log.Info("Starting traceroute check", "interval", tr.Config.Interval.String())
-	for {
-		select {
-		case <-ctx.Done():
-			log.Error("Context canceled", "error", ctx.Err())
-			return ctx.Err()
-		case <-tr.DoneChan:
-			return nil
-		case <-time.After(tr.Config.Interval):
-			res := tr.check(ctx)
-			tr.SendResult(cResult, res)
-			log.Debug("Successfully finished traceroute check run")
-		}
-	}
+	return tr.StartCheck(ctx, cResult, tr.Config.Interval, func(ctx context.Context) any {
+		return tr.check(ctx)
+	})
 }
 
 func (tr *Traceroute) check(ctx context.Context) map[string]result {
@@ -145,7 +130,7 @@ func (tr *Traceroute) check(ctx context.Context) map[string]result {
 
 // Schema returns an openapi3.SchemaRef of the result type returned by the check
 func (tr *Traceroute) Schema() (*openapi3.SchemaRef, error) {
-	return checks.OpenapiFromPerfData[map[string]result](map[string]result{})
+	return checks.OpenapiFromPerfData(map[string]result{})
 }
 
 // GetMetricCollectors allows the check to provide prometheus metric collectors

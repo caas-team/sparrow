@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/caas-team/sparrow/internal/helper"
+	"github.com/caas-team/sparrow/internal/logger"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -112,6 +113,32 @@ func (b *Base[T]) SendResult(channel chan ResultDTO, data any) {
 	channel <- ResultDTO{
 		Name:   b.Name(),
 		Result: &Result{Data: data, Timestamp: time.Now()},
+	}
+}
+
+// CheckFunc is a function that performs a check and returns the result
+type CheckFunc func(ctx context.Context) any
+
+// StartCheck runs the check indefinitely, sending results to the provided channel at the specified interval
+func (b *Base[T]) StartCheck(ctx context.Context, cResult chan ResultDTO, interval time.Duration, check CheckFunc) error {
+	ctx, cancel := logger.NewContextWithLogger(ctx)
+	defer cancel()
+	log := logger.FromContext(ctx).With("check", b.Name())
+
+	log.InfoContext(ctx, "Starting check", "interval", interval.String())
+	for {
+		select {
+		case <-ctx.Done():
+			log.ErrorContext(ctx, "Context canceled", "error", ctx.Err())
+			return ctx.Err()
+		case <-b.DoneChan:
+			log.InfoContext(ctx, "Shutdown signal received")
+			return nil
+		case <-time.After(interval):
+			res := check(ctx)
+			b.SendResult(cResult, res)
+			log.DebugContext(ctx, "Check run completed")
+		}
 	}
 }
 

@@ -65,24 +65,9 @@ type result struct {
 
 // Run starts the dns check
 func (d *DNS) Run(ctx context.Context, cResult chan checks.ResultDTO) error {
-	ctx, cancel := logger.NewContextWithLogger(ctx)
-	defer cancel()
-	log := logger.FromContext(ctx)
-
-	log.Info("Starting dns check", "interval", d.Config.Interval.String())
-	for {
-		select {
-		case <-ctx.Done():
-			log.Error("Context canceled", "err", ctx.Err())
-			return ctx.Err()
-		case <-d.DoneChan:
-			return nil
-		case <-time.After(d.Config.Interval):
-			res := d.check(ctx)
-			d.SendResult(cResult, res)
-			log.Debug("Successfully finished dns check run")
-		}
-	}
+	return d.StartCheck(ctx, cResult, d.Config.Interval, func(ctx context.Context) any {
+		return d.check(ctx)
+	})
 }
 
 // Schema provides the schema of the data that will be provided

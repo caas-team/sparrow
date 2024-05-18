@@ -24,7 +24,6 @@ import (
 	"io"
 	"net/http"
 	"sync"
-	"time"
 
 	"github.com/caas-team/sparrow/internal/helper"
 	"github.com/caas-team/sparrow/internal/logger"
@@ -68,31 +67,15 @@ type metrics struct {
 
 // Run starts the health check
 func (h *Health) Run(ctx context.Context, cResult chan checks.ResultDTO) error {
-	ctx, cancel := logger.NewContextWithLogger(ctx)
-	defer cancel()
-	log := logger.FromContext(ctx)
-
-	log.Info("Starting healthcheck", "interval", h.Config.Interval.String())
-	for {
-		select {
-		case <-ctx.Done():
-			log.Error("Context canceled", "err", ctx.Err())
-			return ctx.Err()
-		case <-h.DoneChan:
-			log.Debug("Soft shut down")
-			return nil
-		case <-time.After(h.Config.Interval):
-			res := h.check(ctx)
-			h.SendResult(cResult, res)
-			log.Debug("Successfully finished health check run")
-		}
-	}
+	return h.StartCheck(ctx, cResult, h.Config.Interval, func(ctx context.Context) any {
+		return h.check(ctx)
+	})
 }
 
 // Schema provides the schema of the data that will be provided
 // by the health check
 func (h *Health) Schema() (*openapi3.SchemaRef, error) {
-	return checks.OpenapiFromPerfData[map[string]string](map[string]string{})
+	return checks.OpenapiFromPerfData(map[string]string{})
 }
 
 // newMetrics initializes metric collectors of the health check

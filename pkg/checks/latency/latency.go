@@ -73,30 +73,15 @@ type metrics struct {
 
 // Run starts the latency check
 func (l *Latency) Run(ctx context.Context, cResult chan checks.ResultDTO) error {
-	ctx, cancel := logger.NewContextWithLogger(ctx)
-	defer cancel()
-	log := logger.FromContext(ctx)
-
-	log.Info("Starting latency check", "interval", l.Config.Interval.String())
-	for {
-		select {
-		case <-ctx.Done():
-			log.Error("Context canceled", "err", ctx.Err())
-			return ctx.Err()
-		case <-l.DoneChan:
-			return nil
-		case <-time.After(l.Config.Interval):
-			res := l.check(ctx)
-			l.SendResult(cResult, res)
-			log.Debug("Successfully finished latency check run")
-		}
-	}
+	return l.StartCheck(ctx, cResult, l.Config.Interval, func(ctx context.Context) any {
+		return l.check(ctx)
+	})
 }
 
 // Schema provides the schema of the data that will be provided
 // by the latency check
 func (l *Latency) Schema() (*openapi3.SchemaRef, error) {
-	return checks.OpenapiFromPerfData[map[string]result](make(map[string]result))
+	return checks.OpenapiFromPerfData(make(map[string]result))
 }
 
 // newMetrics initializes metric collectors of the latency check
