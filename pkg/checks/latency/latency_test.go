@@ -22,7 +22,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"reflect"
 	"testing"
 	"time"
 
@@ -275,7 +274,9 @@ func TestLatency_check(t *testing.T) {
 			}
 
 			l := &Latency{
-				config:  Config{Targets: tt.targets, Interval: time.Second * 120, Timeout: time.Second * 1},
+				Base: checks.Base[*Config]{
+					Config: &Config{Targets: tt.targets, Interval: time.Second * 120, Timeout: time.Second * 1},
+				},
 				metrics: newMetrics(),
 			}
 
@@ -302,36 +303,6 @@ func TestLatency_check(t *testing.T) {
 			// Resetting httpmock for the next iteration
 			httpmock.Reset()
 		})
-	}
-}
-
-func TestLatency_Shutdown(t *testing.T) {
-	cDone := make(chan struct{}, 1)
-	c := Latency{
-		CheckBase: checks.CheckBase{
-			DoneChan: cDone,
-		},
-	}
-	c.Shutdown()
-
-	_, ok := <-cDone
-	if !ok {
-		t.Error("Shutdown() should be ok")
-	}
-}
-
-func TestLatency_SetConfig(t *testing.T) {
-	c := Latency{}
-	wantCfg := Config{
-		Targets: []string{"http://localhost:9090"},
-	}
-
-	err := c.SetConfig(&wantCfg)
-	if err != nil {
-		t.Errorf("SetConfig() error = %v", err)
-	}
-	if !reflect.DeepEqual(c.config, wantCfg) {
-		t.Errorf("SetConfig() = %v, want %v", c.config, wantCfg)
 	}
 }
 

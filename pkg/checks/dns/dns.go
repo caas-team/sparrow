@@ -40,32 +40,17 @@ const CheckName = "dns"
 
 // DNS is a check that resolves the names and addresses
 type DNS struct {
-	checks.CheckBase
-	config  Config
+	checks.Base[*Config]
 	metrics metrics
 	client  Resolver
-}
-
-func (d *DNS) GetConfig() checks.Runtime {
-	d.Mu.Lock()
-	defer d.Mu.Unlock()
-	return &d.config
-}
-
-func (d *DNS) Name() string {
-	return CheckName
 }
 
 // NewCheck creates a new instance of the dns check
 func NewCheck() checks.Check {
 	return &DNS{
-		CheckBase: checks.CheckBase{
-			Mu:       sync.Mutex{},
-			DoneChan: make(chan struct{}, 1),
-		},
-		config: Config{
+		Base: checks.NewBase(CheckName, &Config{
 			Retry: checks.DefaultRetry,
-		},
+		}),
 		metrics: newMetrics(),
 		client:  NewResolver(),
 	}
@@ -84,7 +69,7 @@ func (d *DNS) Run(ctx context.Context, cResult chan checks.ResultDTO) error {
 	defer cancel()
 	log := logger.FromContext(ctx)
 
-	log.Info("Starting dns check", "interval", d.config.Interval.String())
+	log.Info("Starting dns check", "interval", d.Config.Interval.String())
 	for {
 		select {
 		case <-ctx.Done():
@@ -92,37 +77,11 @@ func (d *DNS) Run(ctx context.Context, cResult chan checks.ResultDTO) error {
 			return ctx.Err()
 		case <-d.DoneChan:
 			return nil
-		case <-time.After(d.config.Interval):
+		case <-time.After(d.Config.Interval):
 			res := d.check(ctx)
-
-			cResult <- checks.ResultDTO{
-				Name: d.Name(),
-				Result: &checks.Result{
-					Data:      res,
-					Timestamp: time.Now(),
-				},
-			}
+			d.SendResult(cResult, res)
 			log.Debug("Successfully finished dns check run")
 		}
-	}
-}
-
-func (d *DNS) Shutdown() {
-	d.DoneChan <- struct{}{}
-	close(d.DoneChan)
-}
-
-func (d *DNS) SetConfig(cfg checks.Runtime) error {
-	if c, ok := cfg.(*Config); ok {
-		d.Mu.Lock()
-		defer d.Mu.Unlock()
-		d.config = *c
-		return nil
-	}
-
-	return checks.ErrConfigMismatch{
-		Expected: CheckName,
-		Current:  cfg.For(),
 	}
 }
 
@@ -142,7 +101,7 @@ func (d *DNS) GetMetricCollectors() []prometheus.Collector {
 func (d *DNS) check(ctx context.Context) map[string]result {
 	log := logger.FromContext(ctx)
 	log.Debug("Checking dns")
-	if len(d.config.Targets) == 0 {
+	if len(d.Config.Targets) == 0 {
 		log.Debug("No targets defined")
 		return map[string]result{}
 	}
@@ -152,11 +111,11 @@ func (d *DNS) check(ctx context.Context) map[string]result {
 	results := map[string]result{}
 
 	d.client.SetDialer(&net.Dialer{
-		Timeout: d.config.Timeout,
+		Timeout: d.Config.Timeout,
 	})
 
-	log.Debug("Getting dns status for each target in separate routine", "amount", len(d.config.Targets))
-	for _, t := range d.config.Targets {
+	log.Debug("Getting dns status for each target in separate routine", "amount", len(d.Config.Targets))
+	for _, t := range d.Config.Targets {
 		target := t
 		wg.Add(1)
 		lo := log.With("target", target)
@@ -170,7 +129,7 @@ func (d *DNS) check(ctx context.Context) map[string]result {
 				return err
 			}
 			return nil
-		}, d.config.Retry)
+		}, d.Config.Retry)
 
 		go func() {
 			defer wg.Done()

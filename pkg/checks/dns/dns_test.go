@@ -28,7 +28,6 @@ import (
 	"time"
 
 	"github.com/caas-team/sparrow/pkg/checks"
-	"github.com/caas-team/sparrow/pkg/checks/health"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -51,7 +50,7 @@ func TestDNS_Run(t *testing.T) {
 			name: "success with no targets",
 			mockSetup: func() *DNS {
 				return &DNS{
-					CheckBase: checks.CheckBase{
+					Base: checks.Base[*Config]{
 						Mu:       sync.Mutex{},
 						DoneChan: make(chan struct{}, 1),
 					},
@@ -241,74 +240,6 @@ func TestDNS_Run_Context_Done(t *testing.T) {
 	time.Sleep(time.Millisecond * 30)
 }
 
-func TestDNS_Shutdown(t *testing.T) {
-	cDone := make(chan struct{}, 1)
-	c := DNS{
-		CheckBase: checks.CheckBase{
-			DoneChan: cDone,
-		},
-	}
-	c.Shutdown()
-
-	_, ok := <-cDone
-	if !ok {
-		t.Error("Shutdown() should be ok")
-	}
-}
-
-func TestDNS_SetConfig(t *testing.T) {
-	tests := []struct {
-		name    string
-		input   checks.Runtime
-		want    Config
-		wantErr bool
-	}{
-		{
-			name: "simple config",
-			input: &Config{
-				Targets: []string{
-					exampleURL,
-					sparrowURL,
-				},
-				Interval: 10 * time.Second,
-				Timeout:  30 * time.Second,
-			},
-			want: Config{
-				Targets:  []string{exampleURL, sparrowURL},
-				Interval: 10 * time.Second,
-				Timeout:  30 * time.Second,
-			},
-			wantErr: false,
-		},
-		{
-			name:    "empty config",
-			input:   &Config{},
-			want:    Config{},
-			wantErr: false,
-		},
-		{
-			name: "wrong type",
-			input: &health.Config{
-				Targets: []string{
-					exampleURL,
-				},
-			},
-			want:    Config{},
-			wantErr: true,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			c := &DNS{}
-
-			if err := c.SetConfig(tt.input); (err != nil) != tt.wantErr {
-				t.Errorf("DNS.SetConfig() error = %v, wantErr %v", err, tt.wantErr)
-			}
-			assert.Equal(t, tt.want, c.config, "Config is not equal")
-		})
-	}
-}
-
 func TestNewCheck(t *testing.T) {
 	c := NewCheck()
 	if c == nil {
@@ -322,7 +253,7 @@ func stringPointer(s string) *string {
 
 func newCommonDNS() *DNS {
 	return &DNS{
-		CheckBase: checks.CheckBase{
+		Base: checks.Base[*Config]{
 			Mu:       sync.Mutex{},
 			DoneChan: make(chan struct{}, 1),
 		},
