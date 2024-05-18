@@ -5,10 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"syscall"
+	"os"
 	"time"
 
-	"golang.org/x/sys/unix"
+	"golang.org/x/net/icmp"
+	"golang.org/x/net/ipv4"
+	"golang.org/x/net/ipv6"
 )
 
 var _ Tracer = (*tracer)(nil)
@@ -88,7 +90,7 @@ func (t *tracer) Run(ctx context.Context, address string, port uint16) ([]Hop, e
 		case <-ctx.Done():
 			return hops, ctx.Err()
 		default:
-			hop, err := t.performHop(ctx, destAddr, port, ttl)
+			hop, err := t.doHop(ctx, destAddr, port, ttl)
 			if err != nil {
 				hop.IP = destAddr.IP
 				hop.ReachedTarget = false
@@ -103,22 +105,6 @@ func (t *tracer) Run(ctx context.Context, address string, port uint16) ([]Hop, e
 	}
 
 	return hops, nil
-}
-
-// performHop performs a single hop in the traceroute to the given address with the specified TTL.
-func (t *tracer) performHop(ctx context.Context, destAddr *net.IPAddr, port uint16, ttl int) (Hop, error) {
-	ctx, cancel := context.WithTimeout(ctx, t.Timeout)
-	defer cancel()
-
-	hop, err := t.doHop(ctx, destAddr, port, ttl)
-	if err != nil {
-		hop.IP = destAddr.IP
-		hop.ReachedTarget = false
-		hop.Error = err.Error()
-		return hop, err
-	}
-
-	return hop, nil
 }
 
 // ErrClosingConn represents an error that occurred while closing a connection
@@ -144,59 +130,103 @@ func (e ErrClosingConn) Is(target error) bool {
 // doHop performs a single hop in the traceroute to the given address with the specified TTL.
 func (t *tracer) doHop(ctx context.Context, destAddr *net.IPAddr, port uint16, ttl int) (hop Hop, err error) {
 	hop.Tracepoint = ttl
-	network := "tcp4"
+	network := "ip4:icmp"
 	if destAddr.IP.To4() == nil {
-		network = "tcp6"
+		network = "ip6:ipv6-icmp"
 	}
 
-	dialer := &net.Dialer{
-		Timeout: t.Timeout,
-		ControlContext: func(_ context.Context, nw, _ string, c syscall.RawConn) error {
-			return c.Control(func(fd uintptr) {
-				if nw == "tcp4" {
-					err = unix.SetsockoptInt(int(fd), unix.IPPROTO_IP, unix.IP_TTL, ttl)
-				} else {
-					err = unix.SetsockoptInt(int(fd), unix.IPPROTO_IPV6, unix.IPV6_UNICAST_HOPS, ttl)
-				}
-			})
-		},
-	}
-	if err != nil {
-		return hop, fmt.Errorf("error setting TTL: %w", err)
-	}
+	ctx, cancel := context.WithTimeout(ctx, t.Timeout)
+	defer cancel()
 
-	conn, err := dialer.DialContext(ctx, network, fmt.Sprintf("%s:%d", destAddr.String(), port))
+	icmpConn, err := icmp.ListenPacket(network, "0.0.0.0")
 	if err != nil {
-		return hop, fmt.Errorf("error dialing: %w", err)
+		return hop, fmt.Errorf("error creating ICMP listener: %w", err)
+	}
+	defer func() {
+		cErr := icmpConn.Close()
+		if cErr != nil {
+			err = errors.Join(err, ErrClosingConn{Err: cErr})
+		}
+	}()
+
+	conn, err := net.DialIP(network, nil, destAddr)
+	if err != nil {
+		return hop, fmt.Errorf("error creating raw socket: %w", err)
 	}
 	defer func() {
 		cErr := conn.Close()
 		if cErr != nil {
-			err = errors.Join(err, &ErrClosingConn{Err: cErr})
+			err = errors.Join(err, ErrClosingConn{Err: cErr})
 		}
 	}()
 
-	start := time.Now()
-	_, err = conn.Write([]byte("GET / HTTP/1.1\r\n\r\n"))
+	if network == "ip4:icmp" {
+		pc := ipv4.NewPacketConn(conn)
+		if err := pc.SetControlMessage(ipv4.FlagTTL, true); err != nil {
+			return hop, fmt.Errorf("error setting control message: %w", err)
+		}
+		if err := pc.SetTTL(ttl); err != nil {
+			return hop, fmt.Errorf("error setting TTL: %w", err)
+		}
+	} else {
+		pc := ipv6.NewPacketConn(conn)
+		if err := pc.SetControlMessage(ipv6.FlagHopLimit, true); err != nil {
+			return hop, fmt.Errorf("error setting control message: %w", err)
+		}
+		if err := pc.SetHopLimit(ttl); err != nil {
+			return hop, fmt.Errorf("error setting hop limit: %w", err)
+		}
+	}
+
+	var icmpType icmp.Type
+	if network == "ip4:icmp" {
+		icmpType = ipv4.ICMPTypeEcho
+	} else {
+		icmpType = ipv6.ICMPTypeEchoRequest
+	}
+
+	wm := icmp.Message{
+		Type: icmpType,
+		Code: 0,
+		Body: &icmp.Echo{
+			ID: os.Getpid() & 0xffff, Seq: ttl,
+			Data: []byte("HELLO-R-U-THERE"),
+		},
+	}
+
+	wb, err := wm.Marshal(nil)
 	if err != nil {
-		return hop, fmt.Errorf("error writing to connection: %w", err)
+		return hop, fmt.Errorf("error marshalling ICMP message: %w", err)
+	}
+
+	start := time.Now()
+	if _, err := conn.Write(wb); err != nil {
+		return hop, fmt.Errorf("error sending packet: %w", err)
 	}
 
 	recvBuffer := make([]byte, bufferSize)
-	err = conn.SetReadDeadline(time.Now().Add(t.Timeout))
-	if err != nil {
-		return hop, fmt.Errorf("error setting read deadline: %w", err)
-	}
+	icmpConn.SetReadDeadline(time.Now().Add(t.Timeout))
 
-	n, err := conn.Read(recvBuffer)
+	n, peer, err := icmpConn.ReadFrom(recvBuffer)
 	if err != nil {
-		return hop, fmt.Errorf("error reading from connection: %w", err)
+		return hop, fmt.Errorf("error reading from ICMP connection: %w", err)
 	}
 	hop.Duration = time.Since(start)
 
-	srcAddr := conn.RemoteAddr().(*net.TCPAddr)
-	hop.IP = srcAddr.IP
-	hop.ReachedTarget = n > 0
+	rm, err := icmp.ParseMessage(1, recvBuffer[:n])
+	if err != nil {
+		return hop, fmt.Errorf("error parsing ICMP message: %w", err)
+	}
+
+	switch rm.Type {
+	case ipv4.ICMPTypeTimeExceeded, ipv6.ICMPTypeTimeExceeded:
+		hop.IP = peer.(*net.IPAddr).IP
+	case ipv4.ICMPTypeEchoReply, ipv6.ICMPTypeEchoReply:
+		hop.IP = peer.(*net.IPAddr).IP
+		hop.ReachedTarget = true
+	default:
+		return hop, fmt.Errorf("unexpected ICMP message type: %v", rm.Type)
+	}
 
 	return hop, nil
 }
