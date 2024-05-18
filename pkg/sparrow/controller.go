@@ -48,7 +48,7 @@ func NewChecksController(dbase db.DB, metrics Metrics) *ChecksController {
 		db:      dbase,
 		metrics: metrics,
 		checks:  runtime.Checks{},
-		cResult: make(chan checks.ResultDTO, 8), //nolint:mnd,gomnd // Buffered channel to avoid blocking the checks
+		cResult: make(chan checks.ResultDTO, 8), //nolint:mnd // Buffered channel to avoid blocking the checks
 		cErr:    make(chan error, 1),
 		done:    make(chan struct{}, 1),
 	}

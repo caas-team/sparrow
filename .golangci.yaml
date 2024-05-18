@@ -131,12 +131,6 @@ linters:
   # - wsl
 
 issues:
-  # Excluding configuration per-path, per-linter, per-text and per-source
-  exclude-dirs:
-    - test/testdata_etc # test files
-    - internal/cache # extracted from Go code
-    - internal/renameio # extracted from Go code
-    - internal/robustio # extracted from Go code
   exclude-rules:
     - path: _test\.go
       linters:
