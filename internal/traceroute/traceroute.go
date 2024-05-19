@@ -19,8 +19,10 @@ var _ Tracer = (*tracer)(nil)
 type Protocol int
 
 const (
+	// ICMP represents the ICMP protocol
+	ICMP Protocol = iota
 	// UDP represents the UDP protocol
-	UDP Protocol = iota
+	UDP
 	// TCP represents the TCP protocol
 	TCP
 	// bufferSize represents the buffer size for the received data
@@ -31,8 +33,8 @@ const (
 //
 //go:generate moq -out traceroute_moq.go . Tracer
 type Tracer interface {
-	// Run performs a traceroute to the given address using the specified protocol and port
-	Run(ctx context.Context, address string, port uint16) ([]Hop, error)
+	// Run performs a traceroute to the given address using the specified protocol
+	Run(ctx context.Context, address string) ([]Hop, error)
 }
 
 // tracer implements the Tracer interface
@@ -73,12 +75,8 @@ type Hop struct {
 	ReachedTarget bool
 }
 
-// Run performs a traceroute to the given address using the specified protocol and port
-func (t *tracer) Run(ctx context.Context, address string, port uint16) ([]Hop, error) {
-	if t.Protocol == UDP {
-		return nil, errors.New("UDP protocol is not supported yet")
-	}
-
+// Run performs a traceroute to the given address using the specified protocol
+func (t *tracer) Run(ctx context.Context, address string) ([]Hop, error) {
 	destAddr, err := net.ResolveIPAddr("ip", address)
 	if err != nil {
 		return nil, fmt.Errorf("error resolving IP address: %w", err)
@@ -90,7 +88,7 @@ func (t *tracer) Run(ctx context.Context, address string, port uint16) ([]Hop, e
 		case <-ctx.Done():
 			return hops, ctx.Err()
 		default:
-			hop, err := t.doHop(ctx, destAddr, port, ttl)
+			hop, err := t.doHop(ctx, destAddr, ttl)
 			if err != nil {
 				hop.IP = destAddr.IP
 				hop.ReachedTarget = false
@@ -107,106 +105,103 @@ func (t *tracer) Run(ctx context.Context, address string, port uint16) ([]Hop, e
 	return hops, nil
 }
 
-// ErrClosingConn represents an error that occurred while closing a connection
-type ErrClosingConn struct {
-	Err error
-}
-
-func (e ErrClosingConn) Error() string {
-	return fmt.Sprintf("error closing connection: %v", e.Err)
-}
-
-// Unwrap returns the wrapped error
-func (e ErrClosingConn) Unwrap() error {
-	return e.Err
-}
-
-// Is checks if the target error is an ErrClosingConn
-func (e ErrClosingConn) Is(target error) bool {
-	_, ok := target.(*ErrClosingConn)
-	return ok
-}
-
 // doHop performs a single hop in the traceroute to the given address with the specified TTL.
-func (t *tracer) doHop(ctx context.Context, destAddr *net.IPAddr, port uint16, ttl int) (hop Hop, err error) {
-	hop.Tracepoint = ttl
-	network := "ip4:icmp"
-	if destAddr.IP.To4() == nil {
-		network = "ip6:ipv6-icmp"
-	}
-
-	ctx, cancel := context.WithTimeout(ctx, t.Timeout)
-	defer cancel()
-
-	icmpConn, err := icmp.ListenPacket(network, "0.0.0.0")
+func (t *tracer) doHop(_ context.Context, destAddr *net.IPAddr, ttl int) (hop Hop, err error) {
+	// TODO: use the context to timeout the traceroute if it takes too long
+	network, icmpType := getNetworkAndICMPType(destAddr)
+	icmpConn, err := icmp.ListenPacket(network, "")
 	if err != nil {
 		return hop, fmt.Errorf("error creating ICMP listener: %w", err)
 	}
 	defer func() {
-		cErr := icmpConn.Close()
-		if cErr != nil {
+		if cErr := icmpConn.Close(); cErr != nil {
 			err = errors.Join(err, ErrClosingConn{Err: cErr})
 		}
 	}()
 
-	conn, err := net.DialIP(network, nil, destAddr)
+	conn, err := createRawConn(network, destAddr, ttl)
 	if err != nil {
 		return hop, fmt.Errorf("error creating raw socket: %w", err)
 	}
 	defer func() {
-		cErr := conn.Close()
-		if cErr != nil {
+		if cErr := conn.Close(); cErr != nil {
 			err = errors.Join(err, ErrClosingConn{Err: cErr})
 		}
 	}()
 
-	if network == "ip4:icmp" {
-		pc := ipv4.NewPacketConn(conn)
-		if err := pc.SetControlMessage(ipv4.FlagTTL, true); err != nil {
-			return hop, fmt.Errorf("error setting control message: %w", err)
-		}
-		if err := pc.SetTTL(ttl); err != nil {
-			return hop, fmt.Errorf("error setting TTL: %w", err)
-		}
-	} else {
-		pc := ipv6.NewPacketConn(conn)
-		if err := pc.SetControlMessage(ipv6.FlagHopLimit, true); err != nil {
-			return hop, fmt.Errorf("error setting control message: %w", err)
-		}
-		if err := pc.SetHopLimit(ttl); err != nil {
-			return hop, fmt.Errorf("error setting hop limit: %w", err)
-		}
-	}
-
-	var icmpType icmp.Type
-	if network == "ip4:icmp" {
-		icmpType = ipv4.ICMPTypeEcho
-	} else {
-		icmpType = ipv6.ICMPTypeEchoRequest
-	}
-
-	wm := icmp.Message{
+	start := time.Now()
+	if err = sendICMPMessage(conn, icmp.Message{
 		Type: icmpType,
 		Code: 0,
 		Body: &icmp.Echo{
 			ID: os.Getpid() & 0xffff, Seq: ttl,
 			Data: []byte("HELLO-R-U-THERE"),
 		},
-	}
-
-	wb, err := wm.Marshal(nil)
-	if err != nil {
-		return hop, fmt.Errorf("error marshalling ICMP message: %w", err)
-	}
-
-	start := time.Now()
-	if _, err := conn.Write(wb); err != nil {
-		return hop, fmt.Errorf("error sending packet: %w", err)
+	}); err != nil {
+		return hop, fmt.Errorf("error sending ICMP message: %w", err)
 	}
 
 	recvBuffer := make([]byte, bufferSize)
 	icmpConn.SetReadDeadline(time.Now().Add(t.Timeout))
 
+	hop, err = receiveICMPResponse(icmpConn, recvBuffer, start)
+	hop.Tracepoint = ttl
+	if err != nil {
+		return hop, err
+	}
+
+	return hop, nil
+}
+
+// getNetworkAndICMPType returns the network and ICMP type based on the destination address
+func getNetworkAndICMPType(destAddr *net.IPAddr) (string, icmp.Type) {
+	if destAddr.IP.To4() != nil {
+		return "ip4:icmp", ipv4.ICMPTypeEcho
+	}
+	return "ip6:ipv6-icmp", ipv6.ICMPTypeEchoRequest
+}
+
+// createRawConn creates a raw connection to the given address with the specified TTL
+func createRawConn(network string, destAddr *net.IPAddr, ttl int) (*net.IPConn, error) {
+	conn, err := net.DialIP(network, nil, destAddr)
+	if err != nil {
+		return nil, err
+	}
+
+	if network == "ip4:icmp" {
+		pc := ipv4.NewPacketConn(conn)
+		if err := pc.SetControlMessage(ipv4.FlagTTL, true); err != nil {
+			return nil, err
+		}
+		if err := pc.SetTTL(ttl); err != nil {
+			return nil, err
+		}
+	} else {
+		pc := ipv6.NewPacketConn(conn)
+		if err := pc.SetControlMessage(ipv6.FlagHopLimit, true); err != nil {
+			return nil, err
+		}
+		if err := pc.SetHopLimit(ttl); err != nil {
+			return nil, err
+		}
+	}
+	return conn, nil
+}
+
+// sendICMPMessage sends an ICMP message to the given connection
+func sendICMPMessage(conn *net.IPConn, wm icmp.Message) error {
+	wb, err := wm.Marshal(nil)
+	if err != nil {
+		return err
+	}
+
+	_, err = conn.Write(wb)
+	return err
+}
+
+// receiveICMPResponse reads the response from the ICMP connection
+func receiveICMPResponse(icmpConn *icmp.PacketConn, recvBuffer []byte, start time.Time) (Hop, error) {
+	hop := Hop{}
 	n, peer, err := icmpConn.ReadFrom(recvBuffer)
 	if err != nil {
 		return hop, fmt.Errorf("error reading from ICMP connection: %w", err)

@@ -2,7 +2,6 @@ package traceroute
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	"github.com/caas-team/sparrow/internal/helper"
@@ -19,14 +18,6 @@ var (
 )
 
 const CheckName = "traceroute"
-
-// Target represents a target to traceroute to
-type Target struct {
-	// The address of the target to traceroute to. Can be a DNS name or an IP address
-	Addr string `json:"addr" yaml:"addr" mapstructure:"addr"`
-	// The port to traceroute to
-	Port uint16 `json:"port" yaml:"port" mapstructure:"port"`
-}
 
 // Traceroute is a check that performs a TCP traceroute to a list of targets
 type Traceroute struct {
@@ -64,7 +55,7 @@ func (tr *Traceroute) SetConfig(config checks.Runtime) error {
 	if err != nil {
 		return err
 	}
-	tr.tracer = traceroute.New(tr.Config.MaxHops, tr.Config.Timeout, traceroute.TCP)
+	tr.tracer = traceroute.New(tr.Config.MaxHops, tr.Config.Timeout, traceroute.ICMP)
 	return nil
 }
 
@@ -95,14 +86,14 @@ func (tr *Traceroute) check(ctx context.Context) map[string]result {
 	for _, t := range tr.Config.Targets {
 		target := t
 		wg.Add(1)
-		lo := log.With("target", fmt.Sprintf("%s:%d", target.Addr, target.Port))
+		lo := log.With("target", target)
 
 		retryExecutor := helper.Retry(func(ctx context.Context) error {
-			hops, err := tr.tracer.Run(ctx, target.Addr, target.Port)
+			hops, err := tr.tracer.Run(ctx, target)
 			mu.Lock()
 			defer mu.Unlock()
-			results[target.Addr] = result{
-				Target: target.Addr,
+			results[target] = result{
+				Target: target,
 				Hops:   hops,
 			}
 			if err != nil {
@@ -122,7 +113,7 @@ func (tr *Traceroute) check(ctx context.Context) map[string]result {
 			lo.DebugContext(ctx, "Finished traceroute to target")
 			mu.Lock()
 			defer mu.Unlock()
-			tr.metrics.Set(target.Addr, results[target.Addr].Hops)
+			tr.metrics.Set(target, results[target].Hops)
 		}()
 	}
 

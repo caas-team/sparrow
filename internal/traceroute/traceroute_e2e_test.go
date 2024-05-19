@@ -17,73 +17,61 @@ func TestTracer_Run_E2E(t *testing.T) {
 	}
 
 	tests := []struct {
-		name     string
-		address  string
-		port     uint16
-		maxHops  int
-		timeout  time.Duration
-		protocol traceroute.Protocol
-		wantErr  bool
-		wantIPs  []net.IP
+		name    string
+		address string
+		maxHops int
+		timeout time.Duration
+		wantErr bool
+		wantIPs []net.IP
 	}{
 		{
-			name:     "IPv4 Google",
-			address:  "google.com",
-			port:     80,
-			maxHops:  30,
-			timeout:  2 * time.Second,
-			protocol: traceroute.TCP,
-			wantErr:  false,
-			wantIPs:  lookupIP(t, "google.com"),
+			name:    "IPv4 Google",
+			address: "google.com",
+			maxHops: 30,
+			timeout: 2 * time.Second,
+			wantErr: false,
+			wantIPs: lookupIP(t, "google.com"),
 		},
 		{
-			name:     "IPv6 Google",
-			address:  "google.com",
-			port:     80,
-			maxHops:  30,
-			timeout:  2 * time.Second,
-			protocol: traceroute.TCP,
-			wantErr:  false,
-			wantIPs:  lookupIP(t, "google.com"),
+			name:    "IPv6 Google",
+			address: "google.com",
+			maxHops: 30,
+			timeout: 2 * time.Second,
+			wantErr: false,
+			wantIPs: lookupIP(t, "google.com"),
 		},
 		{
-			name:     "Invalid address",
-			address:  "invalid.address",
-			port:     80,
-			maxHops:  30,
-			timeout:  2 * time.Second,
-			protocol: traceroute.TCP,
-			wantErr:  true,
+			name:    "Invalid address",
+			address: "invalid.address",
+			maxHops: 30,
+			timeout: 2 * time.Second,
+			wantErr: true,
 		},
 		{
-			name:     "IPv4 Localhost",
-			address:  "localhost",
-			port:     80,
-			maxHops:  30,
-			timeout:  2 * time.Second,
-			protocol: traceroute.TCP,
-			wantErr:  false,
-			wantIPs:  []net.IP{net.ParseIP("127.0.0.1")},
+			name:    "IPv4 Localhost",
+			address: "localhost",
+			maxHops: 30,
+			timeout: 2 * time.Second,
+			wantErr: false,
+			wantIPs: []net.IP{net.ParseIP("127.0.0.1")},
 		},
 		{
-			name:     "IPv6 Localhost",
-			address:  "::1",
-			port:     80,
-			maxHops:  30,
-			timeout:  2 * time.Second,
-			protocol: traceroute.TCP,
-			wantErr:  false,
-			wantIPs:  []net.IP{net.ParseIP("::1")},
+			name:    "IPv6 Localhost",
+			address: "::1",
+			maxHops: 30,
+			timeout: 2 * time.Second,
+			wantErr: false,
+			wantIPs: []net.IP{net.ParseIP("::1")},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tracer := traceroute.New(tt.maxHops, tt.timeout, tt.protocol)
+			tracer := traceroute.New(tt.maxHops, tt.timeout, traceroute.ICMP)
 			ctx, cancel := context.WithTimeout(context.Background(), tt.timeout)
 			defer cancel()
 
-			hops, err := tracer.Run(ctx, tt.address, tt.port)
+			hops, err := tracer.Run(ctx, tt.address)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("expected error: %v, got: %v", tt.wantErr, err)

@@ -15,17 +15,15 @@ import (
 func TestTraceroute_Check(t *testing.T) {
 	tests := []struct {
 		name       string
-		targets    []Target
-		tracerFunc func(ctx context.Context, addr string, port uint16) ([]traceroute.Hop, error)
+		targets    []string
+		tracerFunc func(ctx context.Context, addr string) ([]traceroute.Hop, error)
 		want       map[string]result
 		wantErr    bool
 	}{
 		{
-			name: "single successful traceroute",
-			targets: []Target{
-				{Addr: "example.com", Port: 80},
-			},
-			tracerFunc: func(ctx context.Context, addr string, port uint16) ([]traceroute.Hop, error) {
+			name:    "single successful traceroute",
+			targets: []string{"example.com"},
+			tracerFunc: func(ctx context.Context, addr string) ([]traceroute.Hop, error) {
 				return []traceroute.Hop{{IP: net.ParseIP("192.168.1.1"), Duration: 10 * time.Millisecond}}, nil
 			},
 			want: map[string]result{
@@ -36,11 +34,9 @@ func TestTraceroute_Check(t *testing.T) {
 			},
 		},
 		{
-			name: "traceroute with error",
-			targets: []Target{
-				{Addr: "example.com", Port: 80},
-			},
-			tracerFunc: func(ctx context.Context, addr string, port uint16) ([]traceroute.Hop, error) {
+			name:    "traceroute with error",
+			targets: []string{"example.com"},
+			tracerFunc: func(ctx context.Context, addr string) ([]traceroute.Hop, error) {
 				return nil, errors.New("traceroute error")
 			},
 			want: map[string]result{
@@ -52,12 +48,9 @@ func TestTraceroute_Check(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "multiple traceroutes",
-			targets: []Target{
-				{Addr: "example.com", Port: 80},
-				{Addr: "test.com", Port: 80},
-			},
-			tracerFunc: func(ctx context.Context, addr string, port uint16) ([]traceroute.Hop, error) {
+			name:    "multiple traceroutes",
+			targets: []string{"example.com", "test.com"},
+			tracerFunc: func(ctx context.Context, addr string) ([]traceroute.Hop, error) {
 				if addr == "example.com" {
 					return []traceroute.Hop{{IP: net.ParseIP("192.168.1.1"), Duration: 10 * time.Millisecond}}, nil
 				}
@@ -76,8 +69,8 @@ func TestTraceroute_Check(t *testing.T) {
 		},
 		{
 			name:    "no targets defined",
-			targets: []Target{},
-			tracerFunc: func(ctx context.Context, addr string, port uint16) ([]traceroute.Hop, error) {
+			targets: []string{},
+			tracerFunc: func(ctx context.Context, addr string) ([]traceroute.Hop, error) {
 				t.Error("traceroute.Run should not be called")
 				return nil, nil
 			},

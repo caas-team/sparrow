@@ -13,7 +13,7 @@ import (
 // Config is the configuration for the traceroute check
 type Config struct {
 	// Targets is a list of targets to traceroute to
-	Targets []Target `json:"targets" yaml:"targets" mapstructure:"targets"`
+	Targets []string `json:"targets" yaml:"targets" mapstructure:"targets"`
 	// Interval is the time to wait between check iterations
 	Interval time.Duration `json:"interval" yaml:"interval" mapstructure:"interval"`
 	// Timeout is the maximum time to wait for a response from a hop
@@ -29,6 +29,10 @@ func (c *Config) For() string {
 }
 
 func (c *Config) Validate() error {
+	if !c.hasElevatedCapabilities() {
+		return checks.ErrInvalidConfig{CheckName: CheckName, Field: "traceroute", Reason: "requires either elevated capabilities (CAP_NET_RAW) or running as root"}
+	}
+
 	if c.Timeout <= 0 {
 		return checks.ErrInvalidConfig{CheckName: CheckName, Field: "traceroute.timeout", Reason: "must be greater than 0"}
 	}
@@ -37,15 +41,19 @@ func (c *Config) Validate() error {
 	}
 
 	for i, t := range c.Targets {
-		ip := net.ParseIP(t.Addr)
+		ip := net.ParseIP(t)
 		if ip != nil {
 			continue
 		}
 
-		_, err := url.Parse(t.Addr)
+		_, err := url.Parse(t)
 		if err != nil {
 			return checks.ErrInvalidConfig{CheckName: CheckName, Field: fmt.Sprintf("traceroute.targets[%d].addr", i), Reason: "invalid url or ip"}
 		}
 	}
 	return nil
+}
+
+func (c *Config) hasElevatedCapabilities() bool {
+	return helper.HasCapabilities(helper.CAP_NET_RAW)
 }
