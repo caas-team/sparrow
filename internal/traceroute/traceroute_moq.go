@@ -18,7 +18,7 @@ var _ Tracer = &TracerMock{}
 //
 //		// make and configure a mocked Tracer
 //		mockedTracer := &TracerMock{
-//			RunFunc: func(ctx context.Context, address string) ([]Hop, error) {
+//			RunFunc: func(ctx context.Context, address string, port uint16) ([]Hop, error) {
 //				panic("mock out the Run method")
 //			},
 //		}
@@ -29,7 +29,7 @@ var _ Tracer = &TracerMock{}
 //	}
 type TracerMock struct {
 	// RunFunc mocks the Run method.
-	RunFunc func(ctx context.Context, address string) ([]Hop, error)
+	RunFunc func(ctx context.Context, address string, port uint16) ([]Hop, error)
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -39,27 +39,31 @@ type TracerMock struct {
 			Ctx context.Context
 			// Address is the address argument value.
 			Address string
+			// Port is the port argument value.
+			Port uint16
 		}
 	}
 	lockRun sync.RWMutex
 }
 
 // Run calls RunFunc.
-func (mock *TracerMock) Run(ctx context.Context, address string) ([]Hop, error) {
+func (mock *TracerMock) Run(ctx context.Context, address string, port uint16) ([]Hop, error) {
 	if mock.RunFunc == nil {
 		panic("TracerMock.RunFunc: method is nil but Tracer.Run was just called")
 	}
 	callInfo := struct {
 		Ctx     context.Context
 		Address string
+		Port    uint16
 	}{
 		Ctx:     ctx,
 		Address: address,
+		Port:    port,
 	}
 	mock.lockRun.Lock()
 	mock.calls.Run = append(mock.calls.Run, callInfo)
 	mock.lockRun.Unlock()
-	return mock.RunFunc(ctx, address)
+	return mock.RunFunc(ctx, address, port)
 }
 
 // RunCalls gets all the calls that were made to Run.
@@ -69,10 +73,12 @@ func (mock *TracerMock) Run(ctx context.Context, address string) ([]Hop, error) 
 func (mock *TracerMock) RunCalls() []struct {
 	Ctx     context.Context
 	Address string
+	Port    uint16
 } {
 	var calls []struct {
 		Ctx     context.Context
 		Address string
+		Port    uint16
 	}
 	mock.lockRun.RLock()
 	calls = mock.calls.Run

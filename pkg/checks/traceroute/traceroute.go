@@ -2,6 +2,7 @@ package traceroute
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"github.com/caas-team/sparrow/internal/helper"
@@ -55,7 +56,7 @@ func (tr *Traceroute) SetConfig(config checks.Runtime) error {
 	if err != nil {
 		return err
 	}
-	tr.tracer = traceroute.New(tr.Config.MaxHops, tr.Config.Timeout, traceroute.ICMP)
+	tr.tracer = traceroute.New(tr.Config.MaxHops, tr.Config.Timeout, tr.Config.Protocol.ToProtocol())
 	return nil
 }
 
@@ -87,13 +88,14 @@ func (tr *Traceroute) check(ctx context.Context) map[string]result {
 		target := t
 		wg.Add(1)
 		lo := log.With("target", target)
+		fqAddr := fmt.Sprintf("%s:%d", target.Addr, target.Port)
 
 		retryExecutor := helper.Retry(func(ctx context.Context) error {
-			hops, err := tr.tracer.Run(ctx, target)
+			hops, err := tr.tracer.Run(ctx, target.Addr, target.Port)
 			mu.Lock()
 			defer mu.Unlock()
-			results[target] = result{
-				Target: target,
+			results[fqAddr] = result{
+				Target: fqAddr,
 				Hops:   hops,
 			}
 			if err != nil {
@@ -113,7 +115,7 @@ func (tr *Traceroute) check(ctx context.Context) map[string]result {
 			lo.DebugContext(ctx, "Finished traceroute to target")
 			mu.Lock()
 			defer mu.Unlock()
-			tr.metrics.Set(target, results[target].Hops)
+			tr.metrics.Set(fqAddr, results[fqAddr].Hops)
 		}()
 	}
 

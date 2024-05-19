@@ -71,7 +71,7 @@ func TestTracer_Run_E2E(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), tt.timeout)
 			defer cancel()
 
-			hops, err := tracer.Run(ctx, tt.address)
+			hops, err := tracer.Run(ctx, tt.address, 0)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("expected error: %v, got: %v", tt.wantErr, err)
