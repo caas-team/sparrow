@@ -2,7 +2,6 @@ package traceroute
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net"
 	"sort"
@@ -202,6 +201,11 @@ func (t *tracer) filterHops(hops []Hop) []Hop {
 	return filtered
 }
 
+// hopper represents an interface for a hopper
+type hopper interface {
+	Hop(ctx context.Context, destAddr *net.IPAddr, port uint16, ttl int) (Hop, error)
+}
+
 // hop performs a single hop in the traceroute to the given address with the specified TTL.
 func (t *tracer) hop(ctx context.Context, destAddr *net.IPAddr, port uint16, ttl int) (Hop, error) {
 	ctx, cancel := context.WithTimeout(ctx, t.Timeout)
@@ -214,15 +218,24 @@ func (t *tracer) hop(ctx context.Context, destAddr *net.IPAddr, port uint16, ttl
 			Error:      fmt.Sprintf("timeout after %fs", t.Timeout.Seconds()),
 		}, ctx.Err()
 	default:
-		switch t.Protocol {
-		case ICMP:
-			return t.hopICMP(destAddr, ttl)
-		case UDP:
-			return Hop{}, errors.New("UDP not supported yet")
-		case TCP:
-			return t.hopTCP(ctx, destAddr, port, ttl)
-		default:
-			return Hop{}, errors.New("protocol not supported")
+		h := t.newHopper()
+		if h == nil {
+			return Hop{}, fmt.Errorf("unsupported protocol: %d", t.Protocol)
 		}
+		return h.Hop(ctx, destAddr, port, ttl)
+	}
+}
+
+// newHopper returns the hopper based on the protocol
+func (t *tracer) newHopper() hopper {
+	switch t.Protocol {
+	case ICMP:
+		return &icmpHopper{tracer: t}
+	case UDP:
+		return &udpHopper{tracer: t}
+	case TCP:
+		return &tcpHopper{tracer: t}
+	default:
+		return nil
 	}
 }
