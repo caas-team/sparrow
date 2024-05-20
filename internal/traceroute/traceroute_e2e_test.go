@@ -18,7 +18,7 @@ func TestTracer_Run_E2E(t *testing.T) {
 	}
 
 	server := &http.Server{
-		Addr:              ":9090",
+		Addr:              ":50505",
 		ReadHeaderTimeout: 1 * time.Second,
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
@@ -72,7 +72,7 @@ func TestTracer_Run_E2E(t *testing.T) {
 		{
 			name:    "IPv4 Localhost",
 			address: "localhost",
-			port:    9090,
+			port:    50505,
 			maxHops: 30,
 			timeout: 1 * time.Minute,
 			wantErr: false,
@@ -81,7 +81,7 @@ func TestTracer_Run_E2E(t *testing.T) {
 		{
 			name:    "IPv6 Localhost",
 			address: "::1",
-			port:    9090,
+			port:    50505,
 			maxHops: 30,
 			timeout: 1 * time.Minute,
 			wantErr: false,
