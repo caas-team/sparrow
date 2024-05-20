@@ -232,7 +232,7 @@ func (t *tracer) newHopper() hopper {
 	case ICMP:
 		return &icmpHopper{tracer: t}
 	case UDP:
-		return &udpHopper{tracer: t}
+		return &udpHopper{icmpHopper: &icmpHopper{tracer: t}}
 	case TCP:
 		return &tcpHopper{tracer: t}
 	default:

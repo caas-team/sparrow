@@ -82,19 +82,19 @@ func (*icmpHopper) newConn(network string, destAddr *net.IPAddr, ttl int) (*net.
 	}
 
 	if network == "ip4:icmp" {
-		cv4 := ipv4.NewPacketConn(conn)
-		if err := cv4.SetControlMessage(ipv4.FlagTTL, true); err != nil {
+		p := ipv4.NewPacketConn(conn)
+		if err := p.SetControlMessage(ipv4.FlagTTL, true); err != nil {
 			return nil, err
 		}
-		if err := cv4.SetTTL(ttl); err != nil {
+		if err := p.SetTTL(ttl); err != nil {
 			return nil, err
 		}
 	} else {
-		cv6 := ipv6.NewPacketConn(conn)
-		if err := cv6.SetControlMessage(ipv6.FlagHopLimit, true); err != nil {
+		p := ipv6.NewPacketConn(conn)
+		if err := p.SetControlMessage(ipv6.FlagHopLimit, true); err != nil {
 			return nil, err
 		}
-		if err := cv6.SetHopLimit(ttl); err != nil {
+		if err := p.SetHopLimit(ttl); err != nil {
 			return nil, err
 		}
 	}
