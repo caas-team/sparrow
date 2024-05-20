@@ -62,12 +62,12 @@ func (c *Config) For() string {
 }
 
 func (c *Config) Validate() error {
-	if !c.hasElevatedCapabilities() {
-		return checks.ErrInvalidConfig{CheckName: CheckName, Field: "traceroute", Reason: "requires either elevated capabilities (CAP_NET_RAW) or running as root"}
-	}
-
 	switch c.Protocol {
-	case "icmp", "udp", "tcp":
+	case "tcp":
+	case "icmp", "udp":
+		if !helper.HasCapabilities(helper.CAP_NET_RAW) {
+			return checks.ErrInvalidConfig{CheckName: CheckName, Field: "traceroute.protocol", Reason: fmt.Sprintf("protocol %q requires either elevated capabilities (CAP_NET_RAW) or running as root", c.Protocol)}
+		}
 	default:
 		return checks.ErrInvalidConfig{CheckName: CheckName, Field: "traceroute.protocol", Reason: "must be one of 'icmp', 'udp', 'tcp'"}
 	}
@@ -91,8 +91,4 @@ func (c *Config) Validate() error {
 		}
 	}
 	return nil
-}
-
-func (c *Config) hasElevatedCapabilities() bool {
-	return helper.HasCapabilities(helper.CAP_NET_RAW)
 }
