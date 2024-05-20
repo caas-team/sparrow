@@ -7,6 +7,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/caas-team/sparrow/internal/logger"
 	"golang.org/x/net/icmp"
 	"golang.org/x/net/ipv4"
 	"golang.org/x/net/ipv6"
@@ -17,12 +18,17 @@ var _ hopper = (*icmpHopper)(nil)
 
 type icmpHopper struct{ *tracer }
 
-func (h *icmpHopper) Hop(_ context.Context, destAddr *net.IPAddr, _ uint16, ttl int) (hop Hop, err error) {
+func (h *icmpHopper) Hop(ctx context.Context, destAddr *net.IPAddr, _ uint16, ttl int) (hop Hop, err error) {
+	log := logger.FromContext(ctx)
 	network, typ := h.resolveType(destAddr)
+	log.DebugContext(ctx, "Resolved network and ICMP type", "network", network, "type", typ)
+
 	recvConn, err := icmp.ListenPacket(network, "")
 	if err != nil {
+		log.ErrorContext(ctx, "Error creating ICMP listener", "error", err)
 		return hop, fmt.Errorf("error creating ICMP listener: %w", err)
 	}
+	log.DebugContext(ctx, "ICMP listener created", "address", recvConn.LocalAddr().String())
 	defer func() {
 		if cErr := recvConn.Close(); cErr != nil {
 			err = errors.Join(err, ErrClosingConn{Err: cErr})
@@ -31,8 +37,10 @@ func (h *icmpHopper) Hop(_ context.Context, destAddr *net.IPAddr, _ uint16, ttl 
 
 	conn, err := h.newConn(network, destAddr, ttl)
 	if err != nil {
+		log.ErrorContext(ctx, "Error creating raw socket", "error", err)
 		return hop, fmt.Errorf("error creating raw socket: %w", err)
 	}
+	log.DebugContext(ctx, "Raw socket created", "address", destAddr.String(), "ttl", ttl)
 	defer func() {
 		if cErr := conn.Close(); cErr != nil {
 			err = errors.Join(err, ErrClosingConn{Err: cErr})
@@ -48,20 +56,25 @@ func (h *icmpHopper) Hop(_ context.Context, destAddr *net.IPAddr, _ uint16, ttl 
 			Data: []byte("HELLO-R-U-THERE"),
 		},
 	}); err != nil {
+		log.ErrorContext(ctx, "Error sending ICMP message", "error", err)
 		return hop, fmt.Errorf("error sending ICMP message: %w", err)
 	}
+	log.DebugContext(ctx, "ICMP message sent", "address", destAddr.String(), "ttl", ttl)
 
 	recvBuffer := make([]byte, bufferSize)
 	err = recvConn.SetReadDeadline(time.Now().Add(h.Timeout))
 	if err != nil {
+		log.ErrorContext(ctx, "Error setting read deadline", "error", err)
 		return hop, fmt.Errorf("error setting read deadline: %w", err)
 	}
 
 	hop, err = h.receive(recvConn, recvBuffer, start)
 	hop.Tracepoint = ttl
 	if err != nil {
+		log.ErrorContext(ctx, "Error receiving ICMP message", "error", err)
 		return hop, err
 	}
+	log.DebugContext(ctx, "ICMP message received", "address", destAddr.String(), "ttl", ttl, "hop", hop)
 
 	return hop, nil
 }
@@ -76,6 +89,8 @@ func (*icmpHopper) resolveType(destAddr *net.IPAddr) (network string, typ icmp.T
 
 // newConn creates a raw connection to the given address with the specified TTL
 func (*icmpHopper) newConn(network string, destAddr *net.IPAddr, ttl int) (*net.IPConn, error) {
+	// Unfortunately, the net package does not provide a context-aware DialIP function
+	// TODO: Switch to the net.DialIPContext function as soon as https://github.com/golang/go/issues/49097 is implemented
 	conn, err := net.DialIP(network, nil, destAddr)
 	if err != nil {
 		return nil, err

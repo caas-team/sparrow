@@ -7,20 +7,59 @@ import (
 	"sort"
 	"sync"
 	"time"
+
+	"github.com/caas-team/sparrow/internal/helper"
 )
 
 var _ Tracer = (*tracer)(nil)
 
 // Protocol defines the protocol used for the traceroute
-type Protocol int
+type Protocol string
+
+// String returns the string representation of the protocol
+func (p Protocol) String() string {
+	return string(p)
+}
+
+// Validate validates the protocol
+func (p Protocol) Validate() error {
+	if p == "" {
+		return fmt.Errorf("protocol cannot be empty")
+	}
+
+	isValid := false
+	for _, proto := range Protocols() {
+		if p == proto {
+			isValid = true
+			break
+		}
+	}
+
+	if !isValid {
+		return fmt.Errorf("invalid protocol %q, must be one of %v", p, Protocols())
+	}
+
+	if p == ICMP || p == UDP {
+		if !helper.HasCapabilities(helper.CAP_NET_RAW) {
+			return fmt.Errorf("protocol %q requires either elevated capabilities (CAP_NET_RAW) or running as root", p)
+		}
+	}
+
+	return nil
+}
+
+// Protocols returns the list of supported protocols
+func Protocols() []Protocol {
+	return []Protocol{ICMP, UDP, TCP}
+}
 
 const (
 	// ICMP represents the ICMP protocol
-	ICMP Protocol = iota
+	ICMP Protocol = "icmp"
 	// UDP represents the UDP protocol
-	UDP
+	UDP Protocol = "udp"
 	// TCP represents the TCP protocol
-	TCP
+	TCP Protocol = "tcp"
 	// bufferSize represents the buffer size for the received data
 	bufferSize = 1500
 )
@@ -206,6 +245,20 @@ type hopper interface {
 	Hop(ctx context.Context, destAddr *net.IPAddr, port uint16, ttl int) (Hop, error)
 }
 
+// newHopper returns the hopper based on the protocol
+func (t *tracer) newHopper() hopper {
+	switch t.Protocol {
+	case ICMP:
+		return &icmpHopper{tracer: t}
+	case UDP:
+		return &udpHopper{icmpHopper: &icmpHopper{tracer: t}}
+	case TCP:
+		return &tcpHopper{tracer: t}
+	default:
+		return nil
+	}
+}
+
 // hop performs a single hop in the traceroute to the given address with the specified TTL.
 func (t *tracer) hop(ctx context.Context, destAddr *net.IPAddr, port uint16, ttl int) (Hop, error) {
 	ctx, cancel := context.WithTimeout(ctx, t.Timeout)
@@ -220,22 +273,8 @@ func (t *tracer) hop(ctx context.Context, destAddr *net.IPAddr, port uint16, ttl
 	default:
 		h := t.newHopper()
 		if h == nil {
-			return Hop{}, fmt.Errorf("unsupported protocol: %d", t.Protocol)
+			return Hop{}, fmt.Errorf("unsupported protocol: %q", t.Protocol)
 		}
 		return h.Hop(ctx, destAddr, port, ttl)
-	}
-}
-
-// newHopper returns the hopper based on the protocol
-func (t *tracer) newHopper() hopper {
-	switch t.Protocol {
-	case ICMP:
-		return &icmpHopper{tracer: t}
-	case UDP:
-		return &udpHopper{icmpHopper: &icmpHopper{tracer: t}}
-	case TCP:
-		return &tcpHopper{tracer: t}
-	default:
-		return nil
 	}
 }

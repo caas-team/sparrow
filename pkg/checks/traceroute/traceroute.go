@@ -57,7 +57,7 @@ func (tr *Traceroute) SetConfig(config checks.Runtime) error {
 	if err != nil {
 		return err
 	}
-	tr.tracer = traceroute.New(tr.Config.MaxHops, tr.Config.Timeout, tr.Config.Protocol.ToProtocol())
+	tr.tracer = traceroute.New(tr.Config.MaxHops, tr.Config.Timeout, tr.Config.Protocol)
 	return nil
 }
 

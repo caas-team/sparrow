@@ -11,34 +11,12 @@ import (
 	"github.com/caas-team/sparrow/pkg/checks"
 )
 
-// ProtocolType is the type for the protocol to use for the traceroute
-type ProtocolType string
-
-// String returns the string representation of the protocol type
-func (p ProtocolType) String() string {
-	return string(p)
-}
-
-// ToProtocol converts the protocol type to a traceroute protocol
-func (p ProtocolType) ToProtocol() traceroute.Protocol {
-	switch p {
-	case "icmp":
-		return traceroute.ICMP
-	case "udp":
-		return traceroute.UDP
-	case "tcp":
-		return traceroute.TCP
-	default:
-		return -1
-	}
-}
-
 // Config is the configuration for the traceroute check
 type Config struct {
 	// Targets is a list of targets to traceroute to
 	Targets []Target `json:"targets" yaml:"targets" mapstructure:"targets"`
 	// Protocol is the protocol to use for the traceroute
-	Protocol ProtocolType `json:"protocol" yaml:"protocol" mapstructure:"protocol"`
+	Protocol traceroute.Protocol `json:"protocol" yaml:"protocol" mapstructure:"protocol"`
 	// Interval is the time to wait between check iterations
 	Interval time.Duration `json:"interval" yaml:"interval" mapstructure:"interval"`
 	// Timeout is the maximum time to wait for a response from a hop
@@ -62,14 +40,8 @@ func (c *Config) For() string {
 }
 
 func (c *Config) Validate() error {
-	switch c.Protocol {
-	case "tcp":
-	case "icmp", "udp":
-		if !helper.HasCapabilities(helper.CAP_NET_RAW) {
-			return checks.ErrInvalidConfig{CheckName: CheckName, Field: "traceroute.protocol", Reason: fmt.Sprintf("protocol %q requires either elevated capabilities (CAP_NET_RAW) or running as root", c.Protocol)}
-		}
-	default:
-		return checks.ErrInvalidConfig{CheckName: CheckName, Field: "traceroute.protocol", Reason: "must be one of 'icmp', 'udp', 'tcp'"}
+	if err := c.Protocol.Validate(); err != nil {
+		return checks.ErrInvalidConfig{CheckName: CheckName, Field: "traceroute.protocol", Reason: err.Error()}
 	}
 
 	if c.Timeout <= 0 {
@@ -80,15 +52,18 @@ func (c *Config) Validate() error {
 	}
 
 	for i, t := range c.Targets {
-		ip := net.ParseIP(t.Addr)
-		if ip != nil {
+		if ip := net.ParseIP(t.Addr); ip != nil {
 			continue
 		}
 
-		_, err := url.Parse(t.Addr)
-		if err != nil {
+		if _, err := url.Parse(t.Addr); err != nil {
 			return checks.ErrInvalidConfig{CheckName: CheckName, Field: fmt.Sprintf("traceroute.targets[%d].addr", i), Reason: "invalid url or ip"}
 		}
+
+		if t.Port == 0 {
+			c.Targets[i].Port = 80
+		}
 	}
+
 	return nil
 }
