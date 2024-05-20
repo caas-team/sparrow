@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"sort"
+	"sync"
 	"time"
 )
 
@@ -23,6 +25,9 @@ const (
 	// bufferSize represents the buffer size for the received data
 	bufferSize = 1500
 )
+
+// MaxConcurrentHops represents the maximum number of concurrent hops to perform
+var MaxConcurrentHops = 10
 
 // Tracer represents a traceroute implementation
 //
@@ -77,27 +82,124 @@ func (t *tracer) Run(ctx context.Context, address string, port uint16) ([]Hop, e
 		return nil, fmt.Errorf("error resolving IP address: %w", err)
 	}
 
-	var hops []Hop
-	for ttl := 1; ttl <= t.MaxHops; ttl++ {
-		select {
-		case <-ctx.Done():
-			return hops, ctx.Err()
-		default:
-			hop, err := t.hop(ctx, destAddr, port, ttl)
-			if err != nil {
-				hop.IP = destAddr.IP
-				hop.ReachedTarget = false
-				hop.Error = err.Error()
-				return append(hops, hop), err
-			}
-			hops = append(hops, hop)
-			if hop.ReachedTarget {
-				return hops, nil
-			}
-		}
+	hopCh := make(chan Hop, t.MaxHops)
+	errCh := make(chan error, t.MaxHops)
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	reached := false
+	p := &performer{
+		wg:            &sync.WaitGroup{},
+		mu:            &sync.Mutex{},
+		sem:           make(chan struct{}, MaxConcurrentHops),
+		hopCh:         hopCh,
+		errCh:         errCh,
+		reachedTarget: &reached,
+		cancel:        cancel,
 	}
 
-	return hops, nil
+	for ttl := 1; ttl <= t.MaxHops; ttl++ {
+		p.wg.Add(1)
+		go p.hop(ctx, destAddr, port, ttl, t.hop)
+	}
+
+	p.wg.Wait()
+	close(hopCh)
+	close(errCh)
+
+	return t.processResults(hopCh, errCh)
+}
+
+// performer represents a performer of the traceroute
+type performer struct {
+	// wg is the WaitGroup for the performer
+	wg *sync.WaitGroup
+	// mu is the Mutex for the performer
+	mu *sync.Mutex
+	// sem is the semaphore to limit the number of concurrent hops
+	sem chan struct{}
+	// hopCh is the channel to send the hops
+	hopCh chan<- Hop
+	// errCh is the channel to send the errors
+	errCh chan<- error
+	// reachedTarget is a pointer to a boolean indicating whether the target was reached
+	reachedTarget *bool
+	// cancel is the cancel function for the context to stop the traceroute
+	cancel context.CancelFunc
+}
+
+// hopperFunc represents a function that performs a hop in the traceroute
+type hopperFunc func(context.Context, *net.IPAddr, uint16, int) (Hop, error)
+
+// hop performs a single hop in the traceroute to the given address with the specified TTL
+func (p *performer) hop(ctx context.Context, destAddr *net.IPAddr, port uint16, ttl int, hopper hopperFunc) {
+	defer p.wg.Done()
+
+	select {
+	case <-ctx.Done():
+		return
+	case p.sem <- struct{}{}:
+	}
+	defer func() { <-p.sem }()
+
+	hop, err := hopper(ctx, destAddr, port, ttl)
+	if err != nil {
+		hop.IP = destAddr.IP
+		hop.ReachedTarget = false
+		hop.Error = err.Error()
+		p.errCh <- err
+	}
+	p.hopCh <- hop
+
+	if hop.ReachedTarget {
+		p.mu.Lock()
+		if !*p.reachedTarget {
+			*p.reachedTarget = true
+			p.cancel()
+		}
+		p.mu.Unlock()
+	}
+}
+
+// processResults processes the results from the hop channel and error channel
+func (t *tracer) processResults(hopCh <-chan Hop, errCh <-chan error) ([]Hop, error) {
+	hops := t.collectHops(hopCh)
+	filteredHops := t.filterHops(hops)
+
+	for err := range errCh {
+		if err != nil {
+			return filteredHops, err
+		}
+	}
+	return filteredHops, nil
+}
+
+// collectHops collects the hops from the hop channel
+func (t *tracer) collectHops(hopCh <-chan Hop) []Hop {
+	var hops []Hop
+	for hop := range hopCh {
+		hops = append(hops, hop)
+	}
+	sort.Slice(hops, func(i, j int) bool {
+		return hops[i].Tracepoint < hops[j].Tracepoint
+	})
+	return hops
+}
+
+// filterHops filters the hops to remove the ones that are after the target has been reached
+func (t *tracer) filterHops(hops []Hop) []Hop {
+	var filtered []Hop
+	reached := false
+	for _, hop := range hops {
+		if reached && hop.ReachedTarget {
+			continue
+		}
+		if hop.ReachedTarget {
+			reached = true
+		}
+		filtered = append(filtered, hop)
+	}
+	return filtered
 }
 
 // hop performs a single hop in the traceroute to the given address with the specified TTL.
