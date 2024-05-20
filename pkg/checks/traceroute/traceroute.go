@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/caas-team/sparrow/internal/helper"
 	"github.com/caas-team/sparrow/internal/logger"
@@ -37,8 +38,8 @@ func NewCheck() checks.Check {
 
 // result represents the result of a single hop in the traceroute
 type result struct {
-	// Target represents the target address
-	Target string
+	// Duration represents the total duration of the traceroute
+	Duration float64
 	// Hops represents the hops to the target
 	Hops []traceroute.Hop
 }
@@ -91,12 +92,14 @@ func (tr *Traceroute) check(ctx context.Context) map[string]result {
 		fqAddr := fmt.Sprintf("%s:%d", target.Addr, target.Port)
 
 		retryExecutor := helper.Retry(func(ctx context.Context) error {
+			start := time.Now()
 			hops, err := tr.tracer.Run(ctx, target.Addr, target.Port)
+			rtt := time.Since(start).Seconds()
 			mu.Lock()
 			defer mu.Unlock()
 			results[fqAddr] = result{
-				Target: fqAddr,
-				Hops:   hops,
+				Duration: rtt,
+				Hops:     hops,
 			}
 			if err != nil {
 				return err

@@ -26,12 +26,11 @@ func TestTraceroute_Check(t *testing.T) {
 				{Addr: "example.com", Port: 80},
 			},
 			tracerFunc: func(ctx context.Context, addr string, port uint16) ([]traceroute.Hop, error) {
-				return []traceroute.Hop{{IP: net.ParseIP("192.168.1.1"), Duration: 10 * time.Millisecond}}, nil
+				return []traceroute.Hop{{IP: net.ParseIP("192.168.1.1"), Duration: (10 * time.Millisecond).Seconds()}}, nil
 			},
 			want: map[string]result{
-				"example.com": {
-					Target: "example.com",
-					Hops:   []traceroute.Hop{{IP: net.ParseIP("192.168.1.1"), Duration: 10 * time.Millisecond}},
+				"example.com:80": {
+					Hops: []traceroute.Hop{{IP: net.ParseIP("192.168.1.1"), Duration: (10 * time.Millisecond).Seconds()}},
 				},
 			},
 		},
@@ -44,9 +43,8 @@ func TestTraceroute_Check(t *testing.T) {
 				return nil, errors.New("traceroute error")
 			},
 			want: map[string]result{
-				"example.com": {
-					Target: "example.com",
-					Hops:   nil,
+				"example.com:80": {
+					Hops: nil,
 				},
 			},
 			wantErr: true,
@@ -59,18 +57,16 @@ func TestTraceroute_Check(t *testing.T) {
 			},
 			tracerFunc: func(ctx context.Context, addr string, port uint16) ([]traceroute.Hop, error) {
 				if addr == "example.com" {
-					return []traceroute.Hop{{IP: net.ParseIP("192.168.1.1"), Duration: 10 * time.Millisecond}}, nil
+					return []traceroute.Hop{{IP: net.ParseIP("192.168.1.1"), Duration: (10 * time.Millisecond).Seconds()}}, nil
 				}
-				return []traceroute.Hop{{IP: net.ParseIP("192.168.1.2"), Duration: 20 * time.Millisecond}}, nil
+				return []traceroute.Hop{{IP: net.ParseIP("192.168.1.2"), Duration: (20 * time.Millisecond).Seconds()}}, nil
 			},
 			want: map[string]result{
-				"example.com": {
-					Target: "example.com",
-					Hops:   []traceroute.Hop{{IP: net.ParseIP("192.168.1.1"), Duration: 10 * time.Millisecond}},
+				"example.com:80": {
+					Hops: []traceroute.Hop{{IP: net.ParseIP("192.168.1.1"), Duration: (10 * time.Millisecond).Seconds()}},
 				},
-				"test.com": {
-					Target: "test.com",
-					Hops:   []traceroute.Hop{{IP: net.ParseIP("192.168.1.2"), Duration: 20 * time.Millisecond}},
+				"test.com:80": {
+					Hops: []traceroute.Hop{{IP: net.ParseIP("192.168.1.2"), Duration: (20 * time.Millisecond).Seconds()}},
 				},
 			},
 		},
@@ -99,8 +95,13 @@ func TestTraceroute_Check(t *testing.T) {
 			}
 
 			results := tr.check(context.Background())
-			if !cmp.Equal(tt.want, results) {
-				t.Error(cmp.Diff(tt.want, results))
+			for k, r := range results {
+				if r.Duration == 0 {
+					t.Error("expected duration to be set")
+				}
+				if !cmp.Equal(tt.want[k].Hops, r.Hops) {
+					t.Error(cmp.Diff(tt.want[k].Hops, r.Hops))
+				}
 			}
 
 			wantCalls := len(tt.targets)

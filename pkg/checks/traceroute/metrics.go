@@ -29,7 +29,7 @@ func newMetrics() metrics {
 func (m *metrics) Set(target string, hops []traceroute.Hop) {
 	for _, hop := range hops {
 		if hop.Error == "" {
-			m.WithLabelValues(target, fmt.Sprintf("%d", hop.Tracepoint)).Set(float64(hop.Duration.Seconds()))
+			m.WithLabelValues(target, fmt.Sprintf("%d", hop.Tracepoint)).Set(hop.Duration)
 		}
 	}
 }

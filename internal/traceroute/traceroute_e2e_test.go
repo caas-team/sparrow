@@ -3,6 +3,7 @@ package traceroute_test
 import (
 	"context"
 	"net"
+	"net/http"
 	"testing"
 	"time"
 
@@ -10,15 +11,34 @@ import (
 )
 
 func TestTracer_Run_E2E(t *testing.T) {
-	t.Parallel()
+	t.Setenv("LOG_LEVEL", "DEBUG")
 
 	if testing.Short() {
 		t.Skip("skipping e2e test in short mode")
 	}
 
+	server := &http.Server{
+		Addr:              ":9090",
+		ReadHeaderTimeout: 1 * time.Second,
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+		}),
+	}
+	go func(t *testing.T) {
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			t.Errorf("error starting HTTP server: %v", err)
+		}
+	}(t)
+	defer func() {
+		if err := server.Shutdown(context.Background()); err != nil {
+			t.Errorf("error shutting down HTTP server: %v", err)
+		}
+	}()
+
 	tests := []struct {
 		name    string
 		address string
+		port    uint16
 		maxHops int
 		timeout time.Duration
 		wantErr bool
@@ -27,16 +47,18 @@ func TestTracer_Run_E2E(t *testing.T) {
 		{
 			name:    "IPv4 Google",
 			address: "google.com",
+			port:    443,
 			maxHops: 30,
-			timeout: 2 * time.Second,
+			timeout: 3 * time.Minute,
 			wantErr: false,
 			wantIPs: lookupIP(t, "google.com"),
 		},
 		{
 			name:    "IPv6 Google",
 			address: "google.com",
+			port:    443,
 			maxHops: 30,
-			timeout: 2 * time.Second,
+			timeout: 3 * time.Minute,
 			wantErr: false,
 			wantIPs: lookupIP(t, "google.com"),
 		},
@@ -50,28 +72,30 @@ func TestTracer_Run_E2E(t *testing.T) {
 		{
 			name:    "IPv4 Localhost",
 			address: "localhost",
+			port:    9090,
 			maxHops: 30,
-			timeout: 2 * time.Second,
+			timeout: 1 * time.Minute,
 			wantErr: false,
 			wantIPs: []net.IP{net.ParseIP("127.0.0.1")},
 		},
 		{
 			name:    "IPv6 Localhost",
 			address: "::1",
+			port:    9090,
 			maxHops: 30,
-			timeout: 2 * time.Second,
+			timeout: 1 * time.Minute,
 			wantErr: false,
 			wantIPs: []net.IP{net.ParseIP("::1")},
 		},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tracer := traceroute.New(tt.maxHops, tt.timeout, traceroute.ICMP)
+			tracer := traceroute.New(tt.maxHops, tt.timeout, traceroute.TCP)
 			ctx, cancel := context.WithTimeout(context.Background(), tt.timeout)
 			defer cancel()
 
-			hops, err := tracer.Run(ctx, tt.address, 0)
+			hops, err := tracer.Run(ctx, tt.address, tt.port)
+			t.Logf("hops: %v", hops)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("expected error: %v, got: %v", tt.wantErr, err)

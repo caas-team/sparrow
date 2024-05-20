@@ -13,21 +13,21 @@ const (
 )
 
 // HasCapabilities checks if the current process has the specified capabilities.
-func HasCapabilities(cap Capability) bool {
+func HasCapabilities(ca Capability) bool {
 	if unix.Geteuid() == 0 {
 		return true
 	}
 
-	var hdr unix.CapUserHeader
-	var data unix.CapUserData
+	hdr := &unix.CapUserHeader{
+		Pid:     int32(unix.Getpid()),
+		Version: unix.LINUX_CAPABILITY_VERSION_3,
+	}
+	data := &unix.CapUserData{}
 
-	hdr.Version = unix.LINUX_CAPABILITY_VERSION_3
-	hdr.Pid = 0
-
-	err := unix.Capget(&hdr, &data)
+	err := unix.Capget(hdr, data)
 	if err != nil {
 		return false
 	}
 
-	return !(data.Effective&uint32(cap) == 0)
+	return data.Effective&uint32(ca) != 0
 }

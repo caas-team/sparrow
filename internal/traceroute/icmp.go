@@ -47,7 +47,10 @@ func (t *tracer) hopICMP(destAddr *net.IPAddr, ttl int) (hop Hop, err error) {
 	}
 
 	recvBuffer := make([]byte, bufferSize)
-	icmpConn.SetReadDeadline(time.Now().Add(t.Timeout))
+	err = icmpConn.SetReadDeadline(time.Now().Add(t.Timeout))
+	if err != nil {
+		return hop, fmt.Errorf("error setting read deadline: %w", err)
+	}
 
 	hop, err = receiveICMPResponse(icmpConn, recvBuffer, start)
 	hop.Tracepoint = ttl
@@ -111,7 +114,7 @@ func receiveICMPResponse(icmpConn *icmp.PacketConn, recvBuffer []byte, start tim
 	if err != nil {
 		return hop, fmt.Errorf("error reading from ICMP connection: %w", err)
 	}
-	hop.Duration = time.Since(start)
+	hop.Duration = time.Since(start).Seconds()
 
 	rm, err := icmp.ParseMessage(1, recvBuffer[:n])
 	if err != nil {

@@ -65,7 +65,7 @@ type Hop struct {
 	// Error represents the error that occurred during the hop
 	Error string
 	// Duration represents the time it took to reach the hop
-	Duration time.Duration
+	Duration float64
 	// ReachedTarget indicates whether the target was reached with this hop
 	ReachedTarget bool
 }
@@ -107,7 +107,10 @@ func (t *tracer) hop(ctx context.Context, destAddr *net.IPAddr, port uint16, ttl
 
 	select {
 	case <-ctx.Done():
-		return Hop{}, ctx.Err()
+		return Hop{
+			Tracepoint: ttl,
+			Error:      fmt.Sprintf("timeout after %fs", t.Timeout.Seconds()),
+		}, ctx.Err()
 	default:
 		switch t.Protocol {
 		case ICMP:
@@ -115,7 +118,7 @@ func (t *tracer) hop(ctx context.Context, destAddr *net.IPAddr, port uint16, ttl
 		case UDP:
 			return Hop{}, errors.New("UDP not supported yet")
 		case TCP:
-			return t.hopTCP(destAddr, port, ttl)
+			return t.hopTCP(ctx, destAddr, port, ttl)
 		default:
 			return Hop{}, errors.New("protocol not supported")
 		}
