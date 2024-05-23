@@ -32,6 +32,7 @@ func (h *udpHopper) Hop(ctx context.Context, destAddr *net.IPAddr, port uint16, 
 		}
 	}()
 
+	start := time.Now()
 	conn, err := h.newConn(destAddr, port, ttl)
 	if err != nil {
 		log.ErrorContext(ctx, "Error creating UDP connection", "error", err)
@@ -43,13 +44,6 @@ func (h *udpHopper) Hop(ctx context.Context, destAddr *net.IPAddr, port uint16, 
 			err = errors.Join(err, ErrClosingConn{Err: cErr})
 		}
 	}()
-
-	start := time.Now()
-	if err = h.send(conn, destAddr, port); err != nil {
-		log.ErrorContext(ctx, "Error sending UDP message", "error", err)
-		return hop, fmt.Errorf("error sending UDP message: %w", err)
-	}
-	log.DebugContext(ctx, "UDP message sent", "address", destAddr.String(), "port", port, "ttl", ttl)
 
 	recvBuffer := make([]byte, bufferSize)
 	err = recvConn.SetReadDeadline(time.Now().Add(h.Timeout))
@@ -91,10 +85,4 @@ func (*udpHopper) newConn(destAddr *net.IPAddr, port uint16, ttl int) (*net.UDPC
 	}
 
 	return conn, nil
-}
-
-// send sends a UDP message to the given address
-func (*udpHopper) send(conn *net.UDPConn, destAddr *net.IPAddr, port uint16) error {
-	_, err := conn.WriteToUDP([]byte{0}, &net.UDPAddr{IP: destAddr.IP, Port: int(port)})
-	return err
 }
