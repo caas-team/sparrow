@@ -226,6 +226,16 @@ loader:
 api:
   # Which address to expose Sparrow's REST API on
   address: :8080
+  # Configures tls for the http server
+  # including prometheus metrics etc
+  tls:
+    # whether to enable tls, default is false
+    enabled: true
+    # path to your x509 certificate
+    certPath: mycert.pem
+    # path to your certificate key
+    keyPath: mykey.key
+
 
 # Configures the target manager
 # Omitting this section will disable the target manager
