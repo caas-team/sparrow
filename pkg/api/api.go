@@ -20,7 +20,6 @@ package api
 
 import (
 	"context"
-	"crypto/tls"
 	"errors"
 	"fmt"
 	"net/http"
@@ -75,26 +74,12 @@ func (a *Config) Validate() error {
 	return nil
 }
 
-func buildTlsConfig(cfg TLSConfig) (*tls.Config, error) {
-	cert, err := tls.LoadX509KeyPair(cfg.CertPath, cfg.KeyPath)
-	if err != nil {
-		return nil, err
-	}
-
-	tlsConfig := &tls.Config{
-		Certificates: []tls.Certificate{cert},
-	}
-
-	return tlsConfig, nil
-}
-
 // New creates a new api
 func New(cfg Config) API {
 	r := chi.NewRouter()
-	var tlsconfig *tls.Config
 
 	return &api{
-		server:    &http.Server{Addr: cfg.ListeningAddress, Handler: r, ReadHeaderTimeout: readHeaderTimeout, TLSConfig: tlsconfig},
+		server:    &http.Server{Addr: cfg.ListeningAddress, Handler: r, ReadHeaderTimeout: readHeaderTimeout},
 		router:    r,
 		tlsConfig: cfg.Tls,
 	}
