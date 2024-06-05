@@ -254,7 +254,7 @@ targetManager:
   # before it is removed from the global target list
   # A duration of 0 means no removal
   unhealthyThreshold: 360m
-  # Scheme defines with which scheme sparrow should register itself (default to http)
+  # Scheme defines with which scheme sparrow should register itself
   scheme: http
   # Configuration options for the GitLab target manager
   gitlab:
@@ -326,6 +326,7 @@ in the startup YAML configuration file as shown in the [example configuration](#
 | `targetManager.gitlab.baseUrl`       | Base URL of the GitLab instance.                                                             |
 | `targetManager.gitlab.token`         | Token for authenticating with the GitLab instance.                                           |
 | `targetManager.gitlab.projectId`     | Project ID for the GitLab project used as a remote state backend.                            |
+| `targetManager.scheme`               | Should the target register itself as http or https. Can be `http` or `https`. This needs to be set to `https`, when `api.tls.enabled` == `true`|
 
 Currently, only one target manager exists: the Gitlab target manager. It uses a gitlab project as the remote state
 backend. The various `sparrow` instances can register themselves as targets in the project.
@@ -335,7 +336,7 @@ which is named after the DNS name of the `sparrow`. The state file contains the 
 
 ```json
 {
-  "url": "https://<SPARROW_DNS_NAME>",
+  "url": "<SCHEME>://<SPARROW_DNS_NAME>",
   "lastSeen": "2021-09-30T12:00:00Z"
 }
 ```
