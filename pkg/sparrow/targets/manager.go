@@ -202,7 +202,7 @@ func (t *manager) update(ctx context.Context) error {
 		AuthorEmail:   fmt.Sprintf("%s@sparrow", t.name),
 		AuthorName:    t.name,
 		CommitMessage: "Updated registration",
-		Content:       checks.GlobalTarget{Url: fmt.Sprintf("https://%s", t.name), LastSeen: time.Now().UTC()},
+		Content:       checks.GlobalTarget{Url: fmt.Sprintf("%s://%s", t.cfg.Scheme, t.name), LastSeen: time.Now().UTC()},
 	}
 	f.SetFileName(fmt.Sprintf("%s.json", t.name))
 
@@ -230,7 +230,9 @@ func (t *manager) refreshTargets(ctx context.Context) error {
 
 	// filter unhealthy targets - this may be removed in the future
 	for _, target := range targets {
-		if !t.registered && target.Url == fmt.Sprintf("https://%s", t.name) {
+		// FIXME: this should be a more reliable check ideally
+		// this would report false negatives if sparrows dns stays the same but scheme change from http to https
+		if !t.registered && target.Url == fmt.Sprintf("%s://%s", t.cfg.Scheme, t.name) {
 			log.Debug("Found self as global target", "lastSeenMin", time.Since(target.LastSeen).Minutes())
 			t.registered = true
 		}

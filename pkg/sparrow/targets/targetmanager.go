@@ -54,6 +54,9 @@ type General struct {
 	// before it is removed from the global target list.
 	// A duration of 0 means no removal.
 	UnhealthyThreshold time.Duration `yaml:"unhealthyThreshold" mapstructure:"unhealthyThreshold"`
+	// Scheme is the scheme used for the remote target manager
+	// Can either be http or https
+	Scheme string `yaml:"scheme" mapstructure:"scheme"`
 }
 
 // TargetManagerConfig is the configuration for the target manager
@@ -83,6 +86,17 @@ func (c *TargetManagerConfig) Validate(ctx context.Context) error {
 	if c.UpdateInterval < 0 {
 		log.Error("The update interval should be equal or above 0", "interval", c.UpdateInterval)
 		return ErrInvalidUpdateInterval
+	}
+
+	if c.Scheme == "" {
+		// BUG: mapstructure, which viper uses to decode the config file does not have a unmarshaling interface like json.UnmarshalJSON or yaml.UnmarshalYAML
+		// so we need to set the default value here, which is stupid, but maybe this gets implemented upstream someday
+		c.Scheme = "http"
+	}
+
+	if c.Scheme != "http" && c.Scheme != "https" {
+		log.Error("The scheme should be either of: 'http', 'https'", "scheme", c.Scheme)
+		return ErrInvalidScheme
 	}
 
 	switch c.Type {

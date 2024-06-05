@@ -254,6 +254,8 @@ targetManager:
   # before it is removed from the global target list
   # A duration of 0 means no removal
   unhealthyThreshold: 360m
+  # Scheme defines with which scheme sparrow should register itself (default to http)
+  scheme: http
   # Configuration options for the GitLab target manager
   gitlab:
     # The URL of your GitLab host
