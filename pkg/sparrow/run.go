@@ -21,6 +21,7 @@ package sparrow
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"slices"
 	"strings"
 	"sync"
@@ -114,7 +115,7 @@ func (s *Sparrow) Run(ctx context.Context) error {
 	for {
 		select {
 		case cfg := <-s.cRuntime:
-			cfg = s.enrichTargets(cfg)
+			cfg = s.enrichTargets(ctx, cfg)
 			s.controller.Reconcile(ctx, cfg)
 		case <-ctx.Done():
 			s.shutdown(ctx)
@@ -131,24 +132,36 @@ func (s *Sparrow) Run(ctx context.Context) error {
 
 // enrichTargets updates the targets of the sparrow's checks with the
 // global targets. Per default, the two target lists are merged.
-func (s *Sparrow) enrichTargets(cfg runtime.Config) runtime.Config {
+func (s *Sparrow) enrichTargets(ctx context.Context, cfg runtime.Config) runtime.Config {
+	l := logger.FromContext(ctx)
 	if cfg.Empty() || s.tarMan == nil {
 		return cfg
 	}
 
+	fmt.Println("iaiaiai", s.tarMan.GetTargets())
+
 	for _, gt := range s.tarMan.GetTargets() {
-		if gt.Url == fmt.Sprintf("https://%s", s.config.SparrowName) {
+		l.Info("Enriching targets with global targets", "url", gt)
+		u, err := url.Parse(gt.Url)
+		if err != nil {
+			l.Error("Failed to parse global target URL", "error", err, "url", gt.Url)
 			continue
 		}
-		if cfg.HasHealthCheck() && !slices.Contains(cfg.Health.Targets, gt.Url) {
-			cfg.Health.Targets = append(cfg.Health.Targets, gt.Url)
+
+		// split off hostWithoutPort because it could contain a port
+		hostWithoutPort := strings.Split(u.Host, ":")[0]
+		if hostWithoutPort == s.config.SparrowName {
+			continue
 		}
-		if cfg.HasLatencyCheck() && !slices.Contains(cfg.Latency.Targets, gt.Url) {
-			cfg.Latency.Targets = append(cfg.Latency.Targets, gt.Url)
+
+		if cfg.HasHealthCheck() && !slices.Contains(cfg.Health.Targets, u.String()) {
+			cfg.Health.Targets = append(cfg.Health.Targets, u.String())
 		}
-		if cfg.HasDNSCheck() && !slices.Contains(cfg.Dns.Targets, gt.Url) {
-			t, _ := strings.CutPrefix(gt.Url, "https://")
-			cfg.Dns.Targets = append(cfg.Dns.Targets, t)
+		if cfg.HasLatencyCheck() && !slices.Contains(cfg.Latency.Targets, u.String()) {
+			cfg.Latency.Targets = append(cfg.Latency.Targets, u.String())
+		}
+		if cfg.HasDNSCheck() && !slices.Contains(cfg.Dns.Targets, hostWithoutPort) {
+			cfg.Dns.Targets = append(cfg.Dns.Targets, hostWithoutPort)
 		}
 	}
 

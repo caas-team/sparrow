@@ -249,7 +249,7 @@ func TestSparrow_enrichTargets(t *testing.T) {
 					SparrowName: "sparrow.com",
 				},
 			}
-			got := s.enrichTargets(tt.config)
+			got := s.enrichTargets(context.Background(), tt.config)
 			assert.Equal(t, tt.expected, got)
 		})
 	}
