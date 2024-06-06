@@ -150,7 +150,7 @@ func newMetrics() metrics {
 		duration: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
 				Name: "sparrow_latency_duration_seconds",
-				Help: "DEPRECATED Latency with status information of targets",
+				Help: "DEPRECATED Latency with status information of targets. Use sparrow_latency_seconds.",
 			},
 			[]string{
 				"target",
