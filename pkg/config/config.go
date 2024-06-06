@@ -58,5 +58,5 @@ type FileLoaderConfig struct {
 
 // HasTargetManager returns true if the config has a target manager
 func (c *Config) HasTargetManager() bool {
-	return c.TargetManager != targets.TargetManagerConfig{}
+	return c.TargetManager.Enabled
 }

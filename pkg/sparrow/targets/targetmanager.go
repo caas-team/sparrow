@@ -61,6 +61,7 @@ type General struct {
 
 // TargetManagerConfig is the configuration for the target manager
 type TargetManagerConfig struct {
+	Enabled bool `yaml:"enabled" mapstructure:"enabled"`
 	// Type defines which target manager to use
 	Type interactor.Type `yaml:"type" mapstructure:"type"`
 	// General is the general configuration of the target manager
