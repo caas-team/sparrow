@@ -138,10 +138,7 @@ func (s *Sparrow) enrichTargets(ctx context.Context, cfg runtime.Config) runtime
 		return cfg
 	}
 
-	fmt.Println("iaiaiai", s.tarMan.GetTargets())
-
 	for _, gt := range s.tarMan.GetTargets() {
-		l.Info("Enriching targets with global targets", "url", gt)
 		u, err := url.Parse(gt.Url)
 		if err != nil {
 			l.Error("Failed to parse global target URL", "error", err, "url", gt.Url)
