@@ -74,7 +74,6 @@ type metrics struct {
 	duration      *prometheus.GaugeVec
 	totalDuration *prometheus.GaugeVec
 	count         *prometheus.CounterVec
-	totalCount    *prometheus.CounterVec
 	histogram     *prometheus.HistogramVec
 }
 
@@ -151,7 +150,7 @@ func newMetrics() metrics {
 		duration: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
 				Name: "sparrow_latency_duration_seconds",
-				Help: "Latency with status information of targets",
+				Help: "DEPRECATED Latency with status information of targets",
 			},
 			[]string{
 				"target",
@@ -170,16 +169,6 @@ func newMetrics() metrics {
 		count: prometheus.NewCounterVec(
 			prometheus.CounterOpts{
 				Name: "sparrow_latency_count",
-				Help: "Count of latency checks including the status of targets",
-			},
-			[]string{
-				"target",
-				"status",
-			},
-		),
-		totalCount: prometheus.NewCounterVec(
-			prometheus.CounterOpts{
-				Name: "sparrow_latency_total_count",
 				Help: "Count of latency checks done",
 			},
 			[]string{
@@ -204,7 +193,6 @@ func (l *Latency) GetMetricCollectors() []prometheus.Collector {
 		l.metrics.duration,
 		l.metrics.totalDuration,
 		l.metrics.count,
-		l.metrics.totalCount,
 		l.metrics.histogram,
 	}
 }
@@ -258,10 +246,9 @@ func (l *Latency) check(ctx context.Context) map[string]result {
 			l.metrics.duration.DeletePartialMatch(prometheus.Labels{"target": target})
 			l.metrics.duration.WithLabelValues(target, strconv.Itoa(results[target].Code)).Set(results[target].Total)
 			l.metrics.totalDuration.WithLabelValues(target).Set(results[target].Total)
-			l.metrics.count.WithLabelValues(target, strconv.Itoa(results[target].Code)).Inc()
-			l.metrics.totalCount.WithLabelValues(target).Inc()
+			l.metrics.count.WithLabelValues(target).Inc()
 			l.metrics.histogram.WithLabelValues(target).Observe(results[target].Total)
-			l.metrics.totalCount.WithLabelValues(target).Inc()
+			l.metrics.count.WithLabelValues(target).Inc()
 		}()
 	}
 
