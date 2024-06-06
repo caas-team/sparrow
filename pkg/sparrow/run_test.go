@@ -48,7 +48,8 @@ func TestSparrow_Run_FullComponentStart(t *testing.T) {
 			Interval: time.Second * 1,
 		},
 		TargetManager: targets.TargetManagerConfig{
-			Type: "gitlab",
+			Enabled: true,
+			Type:    "gitlab",
 			General: targets.General{
 				CheckInterval:        time.Second * 1,
 				RegistrationInterval: time.Second * 1,

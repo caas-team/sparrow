@@ -226,10 +226,22 @@ loader:
 api:
   # Which address to expose Sparrow's REST API on
   address: :8080
+  # Configures tls for the http server
+  # including prometheus metrics etc
+  tls:
+    # whether to enable tls, default is false
+    enabled: true
+    # path to your x509 certificate
+    certPath: mycert.pem
+    # path to your certificate key
+    keyPath: mykey.key
+
 
 # Configures the target manager
 # Omitting this section will disable the target manager
 targetManager:
+  # whether to enable the target manager. defaults to false
+  enabled: true
   # Defines which target manager to use.
   type: gitlab
   # The interval for the target reconciliation process
@@ -244,6 +256,8 @@ targetManager:
   # before it is removed from the global target list
   # A duration of 0 means no removal
   unhealthyThreshold: 360m
+  # Scheme defines with which scheme sparrow should register itself
+  scheme: http
   # Configuration options for the GitLab target manager
   gitlab:
     # The URL of your GitLab host
@@ -304,16 +318,18 @@ the `TargetManager` interface. This feature is optional; if the startup configur
 the `targetManager`, it will not be used. When configured, it offers various settings, detailed below, which can be set
 in the startup YAML configuration file as shown in the [example configuration](#example-startup-configuration).
 
-| Type                                 | Description                                                                                  |
-| ------------------------------------ | -------------------------------------------------------------------------------------------- |
-| `targetManager.type`                 | Type of the target manager. Options: `gitlab`                                                |
-| `targetManager.checkInterval`        | Interval for checking new targets.                                                           |
-| `targetManager.unhealthyThreshold`   | Threshold for marking a target as unhealthy. 0 means no cleanup.                             |
-| `targetManager.registrationInterval` | Interval for registering the current sparrow at the target backend. 0 means no registration. |
-| `targetManager.updateInterval`       | Interval for updating the registration of the current sparrow. 0 means no update.            |
-| `targetManager.gitlab.baseUrl`       | Base URL of the GitLab instance.                                                             |
-| `targetManager.gitlab.token`         | Token for authenticating with the GitLab instance.                                           |
-| `targetManager.gitlab.projectId`     | Project ID for the GitLab project used as a remote state backend.                            |
+| Type                                 | Description                                                                                                                                     |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `targetManager.enabled`              | Whether to enable the target manager. Defaults to false                                                                                         |
+| `targetManager.type`                 | Type of the target manager. Options: `gitlab`                                                                                                   |
+| `targetManager.checkInterval`        | Interval for checking new targets.                                                                                                              |
+| `targetManager.unhealthyThreshold`   | Threshold for marking a target as unhealthy. 0 means no cleanup.                                                                                |
+| `targetManager.registrationInterval` | Interval for registering the current sparrow at the target backend. 0 means no registration.                                                    |
+| `targetManager.updateInterval`       | Interval for updating the registration of the current sparrow. 0 means no update.                                                               |
+| `targetManager.gitlab.baseUrl`       | Base URL of the GitLab instance.                                                                                                                |
+| `targetManager.gitlab.token`         | Token for authenticating with the GitLab instance.                                                                                              |
+| `targetManager.gitlab.projectId`     | Project ID for the GitLab project used as a remote state backend.                                                                               |
+| `targetManager.scheme`               | Should the target register itself as http or https. Can be `http` or `https`. This needs to be set to `https`, when `api.tls.enabled` == `true` |
 
 Currently, only one target manager exists: the Gitlab target manager. It uses a gitlab project as the remote state
 backend. The various `sparrow` instances can register themselves as targets in the project.
@@ -323,7 +339,7 @@ which is named after the DNS name of the `sparrow`. The state file contains the 
 
 ```json
 {
-  "url": "https://<SPARROW_DNS_NAME>",
+  "url": "<SCHEME>://<SPARROW_DNS_NAME>",
   "lastSeen": "2021-09-30T12:00:00Z"
 }
 ```

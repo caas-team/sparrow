@@ -26,7 +26,6 @@ import (
 	"regexp"
 
 	"github.com/caas-team/sparrow/internal/logger"
-	"github.com/caas-team/sparrow/pkg/sparrow/targets"
 )
 
 // Validate validates the startup config
@@ -42,11 +41,16 @@ func (c *Config) Validate(ctx context.Context) (err error) {
 		err = errors.Join(err, vErr)
 	}
 
-	if c.TargetManager != (targets.TargetManagerConfig{}) {
+	if c.HasTargetManager() {
 		if vErr := c.TargetManager.Validate(ctx); vErr != nil {
 			log.Error("The target manager configuration is invalid")
 			err = errors.Join(err, vErr)
 		}
+	}
+
+	if vErr := c.Api.Validate(); vErr != nil {
+		log.Error("The api configuration is invalid")
+		err = errors.Join(err, vErr)
 	}
 
 	if err != nil {

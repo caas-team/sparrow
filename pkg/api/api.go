@@ -37,13 +37,21 @@ type API interface {
 }
 
 type api struct {
-	server *http.Server
-	router chi.Router
+	server    *http.Server
+	router    chi.Router
+	tlsConfig TLSConfig
 }
 
 // Config is the configuration for the data API
 type Config struct {
-	ListeningAddress string `yaml:"address" mapstructure:"address"`
+	ListeningAddress string    `yaml:"address" mapstructure:"address"`
+	Tls              TLSConfig `yaml:"tls" mapstructure:"tls"`
+}
+
+type TLSConfig struct {
+	Enabled  bool   `yaml:"enabled" mapstructure:"enabled"`
+	CertPath string `yaml:"certPath" mapstructure:"certPath"`
+	KeyPath  string `yaml:"keyPath" mapstructure:"keyPath"`
 }
 
 const (
@@ -51,12 +59,29 @@ const (
 	shutdownTimeout   = 30 * time.Second
 )
 
+func (a *Config) Validate() error {
+	if a.ListeningAddress == "" {
+		return fmt.Errorf("listening address cannot be empty")
+	}
+	if a.Tls.Enabled {
+		if a.Tls.CertPath == "" {
+			return fmt.Errorf("tls cert path cannot be empty")
+		}
+		if a.Tls.KeyPath == "" {
+			return fmt.Errorf("tls key path cannot be empty")
+		}
+	}
+	return nil
+}
+
 // New creates a new api
 func New(cfg Config) API {
 	r := chi.NewRouter()
+
 	return &api{
-		server: &http.Server{Addr: cfg.ListeningAddress, Handler: r, ReadHeaderTimeout: readHeaderTimeout},
-		router: r,
+		server:    &http.Server{Addr: cfg.ListeningAddress, Handler: r, ReadHeaderTimeout: readHeaderTimeout},
+		router:    r,
+		tlsConfig: cfg.Tls,
 	}
 }
 
@@ -74,8 +99,15 @@ func (a *api) Run(ctx context.Context) error {
 	go func(cErr chan error) {
 		defer close(cErr)
 		log.Info("Serving Api", "addr", a.server.Addr)
+		if a.tlsConfig.Enabled {
+			if err := a.server.ListenAndServeTLS(a.tlsConfig.CertPath, a.tlsConfig.KeyPath); err != nil {
+				log.Error("Failed to serve api", "error", err, "scheme", "https")
+				cErr <- err
+			}
+			return
+		}
 		if err := a.server.ListenAndServe(); err != nil {
-			log.Error("Failed to serve api", "error", err)
+			log.Error("Failed to serve api", "error", err, "scheme", "http")
 			cErr <- err
 		}
 	}(cErr)
