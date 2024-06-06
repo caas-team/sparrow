@@ -393,7 +393,7 @@ latency:
 
 - `sparrow_latency_duration_seconds`
   - Type: Gauge
-  - Description: Latency with status information of targets
+  - Description: Latency with status information of targets. This metric is DEPRECATED
   - Labelled with `target` and `status`
 
 - `sparrow_latency_seconds`
@@ -402,11 +402,6 @@ latency:
   - Labelled with `target`
 
 - `sparrow_latency_count`
-  - Type: Counter
-  - Description: Count of latency checks including the status of targets
-  - Labelled with `target` and `status`
-
-- `sparrow_latency_total_count`
   - Type: Counter
   - Description: Count of latency checks done
   - Labelled with `target`
