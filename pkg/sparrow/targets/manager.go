@@ -230,8 +230,6 @@ func (t *manager) refreshTargets(ctx context.Context) error {
 
 	// filter unhealthy targets - this may be removed in the future
 	for _, target := range targets {
-		// FIXME: this should be a more reliable check ideally
-		// this would report false negatives if sparrows dns stays the same but scheme change from http to https
 		if !t.registered && target.Url == fmt.Sprintf("%s://%s", t.cfg.Scheme, t.name) {
 			log.Debug("Found self as global target", "lastSeenMin", time.Since(target.LastSeen).Minutes())
 			t.registered = true
