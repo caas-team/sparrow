@@ -112,6 +112,7 @@ func TestSparrow_Run_ContextCancel(t *testing.T) {
 // TestSparrow_enrichTargets tests that the enrichTargets method
 // updates the targets of the configured checks.
 func TestSparrow_enrichTargets(t *testing.T) {
+	t.Parallel()
 	now := time.Now()
 	testTarget := "https://localhost.de"
 	gt := []checks.GlobalTarget{
@@ -234,6 +235,28 @@ func TestSparrow_enrichTargets(t *testing.T) {
 			expected: runtime.Config{
 				Health: &health.Config{
 					Targets: []string{testTarget},
+				},
+			},
+		},
+		{
+			name: "global targets contains http and https - dns validation still works does not fail and splits off scheme",
+			config: runtime.Config{
+				Dns: &dns.Config{
+					Targets: []string{},
+				},
+			},
+			globalTargets: []checks.GlobalTarget{
+				{
+					Url:      "http://az1.sparrow.com",
+					LastSeen: now,
+				},
+				{
+					Url: "https://az2.sparrow.com",
+				},
+			},
+			expected: runtime.Config{
+				Dns: &dns.Config{
+					Targets: []string{"az1.sparrow.com", "az2.sparrow.com"},
 				},
 			},
 		},
