@@ -137,9 +137,8 @@ func TestFromContext(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := FromContext(tt.ctx)
-			_, ok := got.Handler().(*slog.JSONHandler)
-			if !ok {
-				t.Errorf("FromContext() = %T, want %T", got, tt.want)
+			if reflect.TypeOf(got.Handler()) != reflect.TypeOf(tt.want.Handler()) {
+				t.Errorf("FromContext() = %T, want %T", got.Handler(), tt.want.Handler())
 			}
 		})
 	}
