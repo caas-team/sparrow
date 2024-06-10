@@ -170,7 +170,7 @@ func (t *manager) register(ctx context.Context) error {
 		AuthorEmail:   fmt.Sprintf("%s@sparrow", t.name),
 		AuthorName:    t.name,
 		CommitMessage: "Initial registration",
-		Content:       checks.GlobalTarget{Url: fmt.Sprintf("https://%s", t.name), LastSeen: time.Now().UTC()},
+		Content:       checks.GlobalTarget{Url: fmt.Sprintf("%s://%s", t.cfg.Scheme, t.name), LastSeen: time.Now().UTC()},
 	}
 	f.SetFileName(fmt.Sprintf("%s.json", t.name))
 
