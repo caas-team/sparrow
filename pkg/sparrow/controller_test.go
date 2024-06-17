@@ -303,7 +303,7 @@ func TestGenerateCheckSpecs(t *testing.T) {
 							name string
 						}
 						res := CheckResultSpec{name: "check1"}
-						return checks.OpenapiFromPerfData[CheckResultSpec](res)
+						return checks.OpenapiFromPerfData(res)
 					},
 				},
 				&checks.CheckMock{
@@ -315,16 +315,16 @@ func TestGenerateCheckSpecs(t *testing.T) {
 							name string
 						}
 						res := CheckResultSpec{name: "check2"}
-						return checks.OpenapiFromPerfData[CheckResultSpec](res)
+						return checks.OpenapiFromPerfData(res)
 					},
 				},
 			},
 			wantErr: false,
 			validate: func(t *testing.T, doc openapi3.T) {
-				if _, ok := doc.Paths["/v1/metrics/check1"]; !ok {
+				if _, ok := doc.Paths.Extensions["/v1/metrics/check1"]; !ok {
 					t.Errorf("Expected path '/v1/metrics/check1' not found")
 				}
-				if _, ok := doc.Paths["/v1/metrics/check2"]; !ok {
+				if _, ok := doc.Paths.Extensions["/v1/metrics/check2"]; !ok {
 					t.Errorf("Expected path '/v1/metrics/check2' not found")
 				}
 			},
