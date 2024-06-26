@@ -12,7 +12,10 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-var _ checks.Check = (*Traceroute)(nil)
+var (
+	_ checks.Check   = (*Traceroute)(nil)
+	_ checks.Runtime = (*Config)(nil)
+)
 
 const CheckName = "traceroute"
 
@@ -25,18 +28,13 @@ type Target struct {
 
 func NewCheck() checks.Check {
 	return &Traceroute{
-		CheckBase: checks.CheckBase{
-			Mu:       sync.Mutex{},
-			DoneChan: make(chan struct{}),
-		},
-		config:     Config{},
+		Base:       checks.NewBase(CheckName, &Config{}),
 		traceroute: newTraceroute,
 	}
 }
 
 type Traceroute struct {
-	checks.CheckBase
-	config     Config
+	checks.Base[*Config]
 	traceroute tracerouteFactory
 }
 
@@ -66,38 +64,9 @@ type hop struct {
 
 // Run runs the check in a loop sending results to the provided channel
 func (tr *Traceroute) Run(ctx context.Context, cResult chan checks.ResultDTO) error {
-	ctx, cancel := logger.NewContextWithLogger(ctx)
-	defer cancel()
-	log := logger.FromContext(ctx)
-
-	log.Info("Starting traceroute check", "interval", tr.config.Interval.String())
-	for {
-		select {
-		case <-ctx.Done():
-			log.Error("Context canceled", "error", ctx.Err())
-			return ctx.Err()
-		case <-tr.DoneChan:
-			return nil
-		case <-time.After(tr.config.Interval):
-			res := tr.check(ctx)
-
-			cResult <- checks.ResultDTO{
-				Name: tr.Name(),
-				Result: &checks.Result{
-					Data:      res,
-					Timestamp: time.Now(),
-				},
-			}
-			log.Debug("Successfully finished traceroute check run")
-		}
-	}
-}
-
-// GetConfig returns the current configuration of the check
-func (tr *Traceroute) GetConfig() checks.Runtime {
-	tr.Mu.Lock()
-	defer tr.Mu.Unlock()
-	return &tr.config
+	return tr.StartCheck(ctx, cResult, tr.Config.Interval, func(ctx context.Context) any {
+		return tr.check(ctx)
+	})
 }
 
 func (tr *Traceroute) check(ctx context.Context) map[string]result {
@@ -110,16 +79,16 @@ func (tr *Traceroute) check(ctx context.Context) map[string]result {
 	}
 
 	var wg sync.WaitGroup
-	cResult := make(chan internalResult, len(tr.config.Targets))
+	cResult := make(chan internalResult, len(tr.Config.Targets))
 
-	for _, t := range tr.config.Targets {
+	for _, t := range tr.Config.Targets {
 		wg.Add(1)
 		go func(t Target) {
 			l := log.With("target", t.Addr)
 			defer wg.Done()
 			l.Debug("Running traceroute")
 			start := time.Now()
-			trace, err := tr.traceroute(t.Addr, int(t.Port), int(tr.config.Timeout/time.Millisecond), tr.config.Retries, tr.config.MaxHops)
+			trace, err := tr.traceroute(t.Addr, int(t.Port), int(tr.Config.Timeout/time.Millisecond), tr.Config.Retries, tr.Config.MaxHops)
 			duration := time.Since(start)
 			if err != nil {
 				l.Error("Error running traceroute", "error", err)
@@ -159,40 +128,12 @@ func (tr *Traceroute) check(ctx context.Context) map[string]result {
 	return res
 }
 
-// Shutdown is called once when the check is unregistered or sparrow shuts down
-func (tr *Traceroute) Shutdown() {
-	tr.DoneChan <- struct{}{}
-	close(tr.DoneChan)
-}
-
-// SetConfig is called once when the check is registered
-// This is also called while the check is running, if the remote config is updated
-// This should return an error if the config is invalid
-func (tr *Traceroute) SetConfig(cfg checks.Runtime) error {
-	if cfg, ok := cfg.(*Config); ok {
-		tr.Mu.Lock()
-		defer tr.Mu.Unlock()
-		tr.config = *cfg
-		return nil
-	}
-
-	return checks.ErrConfigMismatch{
-		Expected: CheckName,
-		Current:  cfg.For(),
-	}
-}
-
 // Schema returns an openapi3.SchemaRef of the result type returned by the check
 func (tr *Traceroute) Schema() (*openapi3.SchemaRef, error) {
-	return checks.OpenapiFromPerfData[map[string]result](map[string]result{})
+	return checks.OpenapiFromPerfData(map[string]result{})
 }
 
 // GetMetricCollectors allows the check to provide prometheus metric collectors
 func (tr *Traceroute) GetMetricCollectors() []prometheus.Collector {
 	return []prometheus.Collector{}
-}
-
-// Name returns the name of the check
-func (tr *Traceroute) Name() string {
-	return CheckName
 }
