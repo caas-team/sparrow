@@ -25,11 +25,11 @@ func TestCheck(t *testing.T) {
 				"8.8.8.8": {
 					NumHops: 5,
 					Hops: []Hop{
-						{Addr: &net.TCPAddr{IP: net.ParseIP("0.0.0.0")}, Latency: 0 * time.Second, Reached: false},
-						{Addr: &net.TCPAddr{IP: net.ParseIP("0.0.0.1")}, Latency: 1 * time.Second, Reached: false},
-						{Addr: &net.TCPAddr{IP: net.ParseIP("0.0.0.2")}, Latency: 2 * time.Second, Reached: false},
-						{Addr: &net.TCPAddr{IP: net.ParseIP("0.0.0.3")}, Latency: 3 * time.Second, Reached: false},
-						{Name: "google-public-dns-a.google.com", Latency: 69 * time.Second, Reached: true},
+						{Addr: &net.TCPAddr{IP: net.ParseIP("0.0.0.0")}, Latency: 0 * time.Second, Reached: false, Ttl: 1},
+						{Addr: &net.TCPAddr{IP: net.ParseIP("0.0.0.1")}, Latency: 1 * time.Second, Reached: false, Ttl: 2},
+						{Addr: &net.TCPAddr{IP: net.ParseIP("0.0.0.2")}, Latency: 2 * time.Second, Reached: false, Ttl: 3},
+						{Addr: &net.TCPAddr{IP: net.ParseIP("0.0.0.3")}, Latency: 3 * time.Second, Reached: false, Ttl: 4},
+						{Addr: &net.TCPAddr{IP: net.ParseIP("123.0.0.123"), Port: 53}, Name: "google-public-dns-a.google.com", Latency: 69 * time.Second, Reached: true, Ttl: 5},
 					},
 				},
 			},
@@ -44,12 +44,14 @@ func TestCheck(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		res := c.c.check(context.Background())
+		t.Run(c.name, func(t *testing.T) {
+			res := c.c.check(context.Background())
 
-		if !cmp.Equal(res, c.want) {
-			diff := cmp.Diff(res, c.want)
-			t.Errorf("unexpected result: +want -got\n%s", diff)
-		}
+			if !cmp.Equal(res, c.want) {
+				diff := cmp.Diff(res, c.want)
+				t.Errorf("unexpected result: +want -got\n%s", diff)
+			}
+		})
 	}
 }
 
