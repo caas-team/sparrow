@@ -80,6 +80,7 @@ func readIcmpMessage(icmpListener *icmp.PacketConn, timeout time.Duration) (int,
 
 	return destPort, routerAddr, nil
 }
+
 func TraceRoute(host string, port, timeout, retries, maxHops int) ([]Hop, error) {
 	// TraceRoute performs a traceroute to the specified host using TCP and listens for ICMP Time Exceeded messages using datagram-oriented ICMP.
 	// func TraceRoute(host string, port int, maxHops int, timeout time.Duration) ([]Hop, error) {

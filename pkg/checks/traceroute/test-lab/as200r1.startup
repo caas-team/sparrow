@@ -1,0 +1,4 @@
+ip address add 11.0.0.33/30 dev eth0
+ip address add 200.2.0.1/16 dev eth1
+ip address add 11.0.0.9/30 dev eth2
+systemctl start quagga
