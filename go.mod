@@ -3,7 +3,6 @@ module github.com/caas-team/sparrow
 go 1.22
 
 require (
-	github.com/aeden/traceroute v0.0.0-20210211061815-03f5f7cb7908
 	github.com/getkin/kin-openapi v0.120.0
 	github.com/go-chi/chi/v5 v5.0.14
 	github.com/google/go-cmp v0.6.0
@@ -11,6 +10,7 @@ require (
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/viper v1.19.0
 	github.com/stretchr/testify v1.9.0
+	golang.org/x/net v0.23.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 

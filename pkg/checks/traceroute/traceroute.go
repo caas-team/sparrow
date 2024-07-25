@@ -1,198 +1,226 @@
 package traceroute
 
 import (
-	"context"
+	"errors"
+	"fmt"
+	"math/rand"
+	"net"
+	"slices"
 	"sync"
+	"syscall"
 	"time"
 
-	"github.com/aeden/traceroute"
-	"github.com/caas-team/sparrow/internal/logger"
-	"github.com/caas-team/sparrow/pkg/checks"
-	"github.com/getkin/kin-openapi/openapi3"
-	"github.com/prometheus/client_golang/prometheus"
+	"golang.org/x/net/icmp"
+	"golang.org/x/net/ipv4"
 )
 
-var _ checks.Check = (*Traceroute)(nil)
-
-const CheckName = "traceroute"
-
-type Target struct {
-	// The address of the target to traceroute to. Can be a DNS name or an IP address
-	Addr string `json:"addr" yaml:"addr" mapstructure:"addr"`
-	// The port to traceroute to
-	Port uint16 `json:"port" yaml:"port" mapstructure:"port"`
+// randomPort returns a random port in the interval [ 30_000, 40_000 [
+func randomPort() int {
+	return rand.Intn(10_000) + 30_000
 }
 
-func NewCheck() checks.Check {
-	return &Traceroute{
-		CheckBase: checks.CheckBase{
-			Mu:       sync.Mutex{},
-			DoneChan: make(chan struct{}),
-		},
-		config:     Config{},
-		traceroute: newTraceroute,
-	}
-}
-
-type Traceroute struct {
-	checks.CheckBase
-	config     Config
-	traceroute tracerouteFactory
-}
-
-type tracerouteFactory func(dest string, port, timeout, retries, maxHops int) (traceroute.TracerouteResult, error)
-
-func newTraceroute(dest string, port, timeout, retries, maxHops int) (traceroute.TracerouteResult, error) {
-	opts := &traceroute.TracerouteOptions{}
-	opts.SetTimeoutMs(timeout)
-	opts.SetRetries(retries)
-	opts.SetMaxHops(maxHops)
-	opts.SetPort(port)
-	return traceroute.Traceroute(dest, opts)
-}
-
-type result struct {
-	// The minimum number of hops required to reach the target
-	NumHops int
-	// The path taken to the destination
-	Hops []hop
-}
-
-type hop struct {
-	Addr    string
-	Latency time.Duration
-	Success bool
-}
-
-// Run runs the check in a loop sending results to the provided channel
-func (tr *Traceroute) Run(ctx context.Context, cResult chan checks.ResultDTO) error {
-	ctx, cancel := logger.NewContextWithLogger(ctx)
-	defer cancel()
-	log := logger.FromContext(ctx)
-
-	log.Info("Starting traceroute check", "interval", tr.config.Interval.String())
+func tcpHop(addr net.Addr, ttl int, timeout time.Duration) (net.Conn, int, error) {
 	for {
-		select {
-		case <-ctx.Done():
-			log.Error("Context canceled", "error", ctx.Err())
-			return ctx.Err()
-		case <-tr.DoneChan:
-			return nil
-		case <-time.After(tr.config.Interval):
-			res := tr.check(ctx)
+		port := randomPort()
+		// Dialer with control function to set IP_TTL
+		dialer := net.Dialer{
+			LocalAddr: &net.TCPAddr{
+				Port: port,
+			},
+			Timeout: timeout,
+			Control: func(network, address string, c syscall.RawConn) error {
+				var opErr error
+				if err := c.Control(func(fd uintptr) {
+					opErr = syscall.SetsockoptInt(int(fd), syscall.IPPROTO_IP, syscall.IP_TTL, ttl)
+				}); err != nil {
+					return err
+				}
+				return opErr
+			},
+		}
 
-			cResult <- checks.ResultDTO{
-				Name: tr.Name(),
-				Result: &checks.Result{
-					Data:      res,
-					Timestamp: time.Now(),
-				},
-			}
-			log.Debug("Successfully finished traceroute check run")
+		// Attempt to connect to the target host
+		conn, err := dialer.Dial("tcp", addr.String())
+		if !errors.Is(err, syscall.Errno(syscall.EADDRINUSE)) {
+			return conn, port, err
 		}
 	}
 }
 
-// GetConfig returns the current configuration of the check
-func (tr *Traceroute) GetConfig() checks.Runtime {
-	tr.Mu.Lock()
-	defer tr.Mu.Unlock()
-	return &tr.config
-}
-
-func (tr *Traceroute) check(ctx context.Context) map[string]result {
-	res := make(map[string]result)
-	log := logger.FromContext(ctx)
-
-	type internalResult struct {
-		addr string
-		res  result
+// readIcmpMessage reads a packet from the provided icmp Connection. If the packet is 'Time Exceeded',
+// it reads the address of the router that dropped created the icmp packet. It also reads the source port
+// from the payload and finds the source port used by the previous tcp connection. If any error is returned,
+// an icmp packet was either not received, or the received packet was not a time exceeded.
+func readIcmpMessage(icmpListener *icmp.PacketConn, timeout time.Duration) (int, net.Addr, error) {
+	// Expected to fail due to TTL expiry, listen for ICMP response
+	icmpListener.SetReadDeadline(time.Now().Add(timeout))
+	buffer := make([]byte, 1500) // Standard MTU size
+	n, routerAddr, err := icmpListener.ReadFrom(buffer)
+	if err != nil {
+		// we probably timed out so return
+		return 0, nil, fmt.Errorf("Failed to read from icmp connection: %w", err)
 	}
 
+	// Parse the ICMP message
+	msg, err := icmp.ParseMessage(ipv4.ICMPTypeTimeExceeded.Protocol(), buffer[:n])
+	if err != nil {
+		return 0, nil, err
+	}
+
+	// Ensure the message is an ICMP Time Exceeded message
+	if msg.Type != ipv4.ICMPTypeTimeExceeded {
+		return 0, nil, errors.New("Message is not 'Time Exceeded'")
+	}
+
+	// The first 20 bytes of Data are the IP header, so the TCP segment starts at byte 20
+	tcpSegment := msg.Body.(*icmp.TimeExceeded).Data[20:]
+
+	// Extract the source port from the TCP segment
+	destPort := int(tcpSegment[0])<<8 + int(tcpSegment[1])
+
+	return destPort, routerAddr, nil
+}
+func TraceRoute(host string, port, timeout, retries, maxHops int) ([]Hop, error) {
+	// TraceRoute performs a traceroute to the specified host using TCP and listens for ICMP Time Exceeded messages using datagram-oriented ICMP.
+	// func TraceRoute(host string, port int, maxHops int, timeout time.Duration) ([]Hop, error) {
+	var hops []Hop
+
+	toDuration := time.Duration(timeout) * time.Second
+
+	addr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("%s:%d", host, port))
+	if err != nil {
+		return nil, err
+	}
+
+	results := make(chan Hop, maxHops)
 	var wg sync.WaitGroup
-	cResult := make(chan internalResult, len(tr.config.Targets))
 
-	for _, t := range tr.config.Targets {
+	for ttl := 1; ttl <= maxHops; ttl++ {
 		wg.Add(1)
-		go func(t Target) {
-			l := log.With("target", t.Addr)
+		go func() {
 			defer wg.Done()
-			l.Debug("Running traceroute")
-			start := time.Now()
-			trace, err := tr.traceroute(t.Addr, int(t.Port), int(tr.config.Timeout/time.Millisecond), tr.config.Retries, tr.config.MaxHops)
-			duration := time.Since(start)
-			if err != nil {
-				l.Error("Error running traceroute", "error", err)
-			}
-
-			l.Debug("Ran traceroute", "result", trace, "duration", duration)
-
-			r := result{
-				NumHops: len(trace.Hops),
-				Hops:    []hop{},
-			}
-
-			for _, h := range trace.Hops {
-				r.Hops = append(r.Hops, hop{
-					Addr:    h.Host,
-					Latency: h.ElapsedTime,
-					Success: h.Success,
-				})
-			}
-			cResult <- internalResult{addr: t.Addr, res: r}
-		}(t)
+			traceroute(results, addr, ttl, toDuration)
+		}()
 	}
 
-	log.Debug("Waiting for traceroute checks to finish")
+	wg.Wait()
+	close(results)
 
-	go func() {
-		wg.Wait()
-		close(cResult)
-	}()
-
-	log.Debug("All traceroute checks finished")
-
-	for r := range cResult {
-		res[r.addr] = r.res
+	for r := range results {
+		hops = append(hops, r)
 	}
 
-	return res
+	slices.SortFunc(hops, func(a, b Hop) int {
+		return a.Ttl - b.Ttl
+	})
+
+	PrintHops(hops)
+
+	return hops, nil
 }
 
-// Shutdown is called once when the check is unregistered or sparrow shuts down
-func (tr *Traceroute) Shutdown() {
-	tr.DoneChan <- struct{}{}
-	close(tr.DoneChan)
+func ipFromAddr(remoteAddr net.Addr) net.IP {
+	switch addr := remoteAddr.(type) {
+	case *net.UDPAddr:
+		return addr.IP
+	case *net.TCPAddr:
+		return addr.IP
+	case *net.IPAddr:
+		return addr.IP
+	}
+	return nil
 }
 
-// SetConfig is called once when the check is registered
-// This is also called while the check is running, if the remote config is updated
-// This should return an error if the config is invalid
-func (tr *Traceroute) SetConfig(cfg checks.Runtime) error {
-	if cfg, ok := cfg.(*Config); ok {
-		tr.Mu.Lock()
-		defer tr.Mu.Unlock()
-		tr.config = *cfg
+func traceroute(results chan Hop, addr net.Addr, ttl int, timeout time.Duration) error {
+	icmpListener, err := icmp.ListenPacket("ip4:icmp", "0.0.0.0")
+	if err != nil {
+		return err
+	}
+	defer icmpListener.Close()
+	start := time.Now()
+	conn, clientPort, err := tcpHop(addr, ttl, timeout)
+	latency := time.Since(start)
+	if err == nil {
+		conn.Close()
+
+		ipaddr := ipFromAddr(addr)
+		names, _ := net.LookupAddr(ipaddr.String()) // we don't care about this lookup failling
+
+		name := ""
+		if len(names) >= 1 {
+			name = names[0]
+		}
+
+		results <- Hop{
+			Latency: latency,
+			Ttl:     ttl,
+			Addr:    addr,
+			Name:    name,
+			Reached: true,
+		}
 		return nil
 	}
 
-	return checks.ErrConfigMismatch{
-		Expected: CheckName,
-		Current:  cfg.For(),
+	found := false
+	deadline := time.Now().Add(5 * time.Second)
+
+	for time.Now().Unix() < deadline.Unix() && !found {
+		gotPort, addr, err := readIcmpMessage(icmpListener, timeout)
+		if err != nil {
+			results <- Hop{
+				Latency: latency,
+				Ttl:     ttl,
+				Reached: false,
+			}
+			return nil
+		}
+
+		// Check if the destination port matches our dialer's source port
+		if gotPort == clientPort {
+			ipaddr := ipFromAddr(addr)
+			names, _ := net.LookupAddr(ipaddr.String()) // we don't really care if this lookup works, so ignore the error
+
+			name := ""
+			if len(names) >= 1 {
+				name = names[0]
+			}
+
+			results <- Hop{
+				Latency: latency,
+				Ttl:     ttl,
+				Addr:    addr,
+				Reached: false,
+				Name:    name,
+			}
+			found = true
+			break
+		}
 	}
+	if !found {
+		results <- Hop{
+			Latency: latency,
+			Ttl:     ttl,
+			Reached: false,
+		}
+	}
+
+	return nil
 }
 
-// Schema returns an openapi3.SchemaRef of the result type returned by the check
-func (tr *Traceroute) Schema() (*openapi3.SchemaRef, error) {
-	return checks.OpenapiFromPerfData[map[string]result](map[string]result{})
+type Hop struct {
+	Latency time.Duration
+	Addr    net.Addr
+	Name    string
+	Ttl     int
+	Reached bool
 }
 
-// GetMetricCollectors allows the check to provide prometheus metric collectors
-func (tr *Traceroute) GetMetricCollectors() []prometheus.Collector {
-	return []prometheus.Collector{}
-}
-
-// Name returns the name of the check
-func (tr *Traceroute) Name() string {
-	return CheckName
+func PrintHops(hops []Hop) {
+	for _, hop := range hops {
+		fmt.Printf("%d %s %s %v ", hop.Ttl, hop.Addr, hop.Name, hop.Latency)
+		if hop.Reached {
+			fmt.Print("( Reached )")
+		}
+		fmt.Println()
+	}
 }

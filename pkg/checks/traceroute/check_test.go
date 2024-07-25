@@ -9,7 +9,6 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
-	"github.com/aeden/traceroute"
 	"github.com/caas-team/sparrow/pkg/checks"
 )
 
@@ -25,12 +24,12 @@ func TestCheck(t *testing.T) {
 			want: map[string]result{
 				"8.8.8.8": {
 					NumHops: 5,
-					Hops: []hop{
-						{Addr: "0.0.0.0", Latency: 0 * time.Second, Success: false},
-						{Addr: "0.0.0.1", Latency: 1 * time.Second, Success: false},
-						{Addr: "0.0.0.2", Latency: 2 * time.Second, Success: false},
-						{Addr: "0.0.0.3", Latency: 3 * time.Second, Success: false},
-						{Addr: "google-public-dns-a.google.com", Latency: 69 * time.Second, Success: true},
+					Hops: []Hop{
+						{Addr: &net.TCPAddr{IP: net.ParseIP("0.0.0.0")}, Latency: 0 * time.Second, Reached: false},
+						{Addr: &net.TCPAddr{IP: net.ParseIP("0.0.0.1")}, Latency: 1 * time.Second, Reached: false},
+						{Addr: &net.TCPAddr{IP: net.ParseIP("0.0.0.2")}, Latency: 2 * time.Second, Reached: false},
+						{Addr: &net.TCPAddr{IP: net.ParseIP("0.0.0.3")}, Latency: 3 * time.Second, Reached: false},
+						{Name: "google-public-dns-a.google.com", Latency: 69 * time.Second, Reached: true},
 					},
 				},
 			},
@@ -39,7 +38,7 @@ func TestCheck(t *testing.T) {
 			name: "Traceroute internal error fails silently",
 			c:    newForTest(returnError(&net.DNSError{Err: "no such host", Name: "google.com", IsNotFound: true}), []string{"google.com"}),
 			want: map[string]result{
-				"google.com": {Hops: []hop{}},
+				"google.com": {Hops: []Hop{}},
 			},
 		},
 	}
@@ -73,36 +72,35 @@ func newForTest(f tracerouteFactory, targets []string) *Traceroute {
 
 // success produces a tracerouteFactory that returns a traceroute result with nHops hops
 func success(nHops int) tracerouteFactory {
-	return func(dest string, port, timeout, retries, maxHops int) (traceroute.TracerouteResult, error) {
-		hops := make([]traceroute.TracerouteHop, nHops)
+	return func(dest string, port, timeout, retries, maxHops int) ([]Hop, error) {
+		hops := make([]Hop, nHops)
 		for i := 0; i < nHops-1; i++ {
-			hops[i] = traceroute.TracerouteHop{
-				Success:     false,
-				N:           nHops,
-				Host:        ipFromInt(i),
-				ElapsedTime: time.Duration(i) * time.Second,
-				TTL:         i,
+			hops[i] = Hop{
+				Latency: time.Second * time.Duration(i),
+				Addr:    &net.TCPAddr{IP: net.ParseIP(ipFromInt(i))},
+				Name:    "",
+				Ttl:     i + 1,
+				Reached: false,
 			}
 		}
-		hops[nHops-1] = traceroute.TracerouteHop{
-			Success:     true,
-			Address:     [4]byte{8, 8, 8, 8},
-			N:           nHops,
-			Host:        "google-public-dns-a.google.com",
-			ElapsedTime: 69 * time.Second,
-			TTL:         nHops,
+		hops[nHops-1] = Hop{
+			Latency: 69 * time.Second,
+			Addr: &net.TCPAddr{
+				IP:   net.ParseIP("123.0.0.123"),
+				Port: 53,
+			},
+			Name:    "google-public-dns-a.google.com",
+			Ttl:     nHops,
+			Reached: true,
 		}
 
-		return traceroute.TracerouteResult{
-			DestinationAddress: hops[nHops-1].Address,
-			Hops:               hops,
-		}, nil
+		return hops, nil
 	}
 }
 
 func returnError(err error) tracerouteFactory {
-	return func(dest string, port, timeout, retries, maxHops int) (traceroute.TracerouteResult, error) {
-		return traceroute.TracerouteResult{}, err
+	return func(dest string, port, timeout, retries, maxHops int) ([]Hop, error) {
+		return []Hop{}, err
 	}
 }
 
