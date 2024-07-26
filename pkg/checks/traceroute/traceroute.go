@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/caas-team/sparrow/internal/helper"
+	"github.com/caas-team/sparrow/internal/logger"
 	"golang.org/x/net/icmp"
 	"golang.org/x/net/ipv4"
 )
@@ -83,15 +84,17 @@ func readIcmpMessage(icmpListener *icmp.PacketConn, timeout time.Duration) (int,
 }
 
 // TraceRoute performs a traceroute to the specified host using TCP and listens for ICMP Time Exceeded messages using ICMP.
-func TraceRoute(host string, port, timeout, maxHops int, rc helper.RetryConfig) (map[int][]Hop, error) {
+func TraceRoute(ctx context.Context, host string, port, timeout, maxHops int, rc helper.RetryConfig) (map[int][]Hop, error) {
 	// this could also be a 2d array, but I feel like using an int map here makes the json easier to understand
 	// as it explicitly shows a mapping of ttl->hops
-	var hops map[int][]Hop
+	hops := make(map[int][]Hop)
+	log := logger.FromContext(ctx).With("target", host)
 
-	toDuration := time.Duration(timeout) * time.Second
+	timeoutDuration := time.Duration(timeout) * time.Second
 
 	addr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("%s:%d", host, port))
 	if err != nil {
+		log.Error("failed to resolve target name", "err", err.Error())
 		return nil, err
 	}
 
@@ -102,16 +105,21 @@ func TraceRoute(host string, port, timeout, maxHops int, rc helper.RetryConfig) 
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			helper.Retry(func(ctx context.Context) error {
-				reached, err := traceroute(results, addr, ttl, toDuration, rc)
+			err := helper.Retry(func(ctx context.Context) error {
+				reached, err := traceroute(results, addr, ttl, timeoutDuration)
 				if err != nil {
+					log.Error("traceroute failed", "err", err.Error(), "ttl", ttl)
 					return err
 				}
 				if !reached {
-					return errors.New("failed to reach target, please retry")
+					log.Debug("failed to reach target, retrying", "ttl", ttl)
+					return errors.New("failed to reach target")
 				}
 				return nil
 			}, rc)
+			if err != nil {
+				log.Error("traceroute could not reach target", "ttl", ttl)
+			}
 		}()
 	}
 
@@ -122,8 +130,7 @@ func TraceRoute(host string, port, timeout, maxHops int, rc helper.RetryConfig) 
 		hops[r.Ttl] = append(hops[r.Ttl], r)
 	}
 
-	// TODO: log this on debug level
-	printHops(hops)
+	log.Debug("finished trace", "hops", printHops(hops))
 
 	return hops, nil
 }
@@ -140,7 +147,7 @@ func ipFromAddr(remoteAddr net.Addr) net.IP {
 	return nil
 }
 
-func traceroute(results chan Hop, addr net.Addr, ttl int, timeout time.Duration, rc helper.RetryConfig) (bool, error) {
+func traceroute(results chan Hop, addr net.Addr, ttl int, timeout time.Duration) (bool, error) {
 	icmpListener, err := icmp.ListenPacket("ip4:icmp", "0.0.0.0")
 	if err != nil {
 		return false, err
@@ -224,14 +231,17 @@ type Hop struct {
 	Reached bool
 }
 
-func printHops(mapHops map[int][]Hop) {
+func printHops(mapHops map[int][]Hop) string {
+	out := ""
 	for ttl, hops := range mapHops {
 		for _, hop := range hops {
-			fmt.Printf("%d %s %s %v ", ttl, hop.Addr, hop.Name, hop.Latency)
+			out += fmt.Sprintf("%d %s %s %v ", ttl, hop.Addr, hop.Name, hop.Latency)
 			if hop.Reached {
-				fmt.Print("( Reached )")
+				out += "( Reached )"
 			}
-			fmt.Println()
+			out += "\n"
 		}
 	}
+
+	return out
 }

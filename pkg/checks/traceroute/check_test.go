@@ -75,7 +75,7 @@ func newForTest(f tracerouteFactory, targets []string) *Traceroute {
 
 // success produces a tracerouteFactory that returns a traceroute result with nHops hops
 func success(nHops int) tracerouteFactory {
-	return func(dest string, port, timeout, maxHops int, _ helper.RetryConfig) (map[int][]Hop, error) {
+	return func(ctx context.Context, dest string, port, timeout, maxHops int, _ helper.RetryConfig) (map[int][]Hop, error) {
 		hops := make(map[int][]Hop)
 		for i := 1; i < nHops; i++ {
 			hops[i] = []Hop{
@@ -106,7 +106,7 @@ func success(nHops int) tracerouteFactory {
 }
 
 func returnError(err error) tracerouteFactory {
-	return func(string, int, int, int, helper.RetryConfig) (map[int][]Hop, error) {
+	return func(context.Context, string, int, int, int, helper.RetryConfig) (map[int][]Hop, error) {
 		return map[int][]Hop{}, err
 	}
 }
