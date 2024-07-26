@@ -41,13 +41,13 @@ type Traceroute struct {
 	traceroute tracerouteFactory
 }
 
-type tracerouteFactory func(dest string, port, timeout, maxHops int, rc helper.RetryConfig) ([]Hop, error)
+type tracerouteFactory func(dest string, port, timeout, maxHops int, rc helper.RetryConfig) (map[int][]Hop, error)
 
 type result struct {
 	// The minimum number of hops required to reach the target
 	NumHops int
 	// The path taken to the destination
-	Hops []Hop
+	Hops map[int][]Hop
 }
 
 // Run runs the check in a loop sending results to the provided channel
@@ -120,10 +120,13 @@ func (tr *Traceroute) check(ctx context.Context) map[string]result {
 				Hops: trace,
 			}
 
-			for i, h := range trace {
-				if h.Reached {
-					r.NumHops = i + 1
-					break
+		reached:
+			for i, hops := range trace {
+				for _, hop := range hops {
+					if hop.Reached {
+						r.NumHops = i
+						break reached
+					}
 				}
 			}
 

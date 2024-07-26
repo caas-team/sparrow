@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math/rand"
 	"net"
-	"slices"
 	"sync"
 	"syscall"
 	"time"
@@ -83,10 +82,11 @@ func readIcmpMessage(icmpListener *icmp.PacketConn, timeout time.Duration) (int,
 	return destPort, routerAddr, nil
 }
 
-func TraceRoute(host string, port, timeout, maxHops int, rc helper.RetryConfig) ([]Hop, error) {
-	// TraceRoute performs a traceroute to the specified host using TCP and listens for ICMP Time Exceeded messages using datagram-oriented ICMP.
-	// func TraceRoute(host string, port int, maxHops int, timeout time.Duration) ([]Hop, error) {
-	var hops []Hop
+// TraceRoute performs a traceroute to the specified host using TCP and listens for ICMP Time Exceeded messages using ICMP.
+func TraceRoute(host string, port, timeout, maxHops int, rc helper.RetryConfig) (map[int][]Hop, error) {
+	// this could also be a 2d array, but I feel like using an int map here makes the json easier to understand
+	// as it explicitly shows a mapping of ttl->hops
+	var hops map[int][]Hop
 
 	toDuration := time.Duration(timeout) * time.Second
 
@@ -119,14 +119,11 @@ func TraceRoute(host string, port, timeout, maxHops int, rc helper.RetryConfig) 
 	close(results)
 
 	for r := range results {
-		hops = append(hops, r)
+		hops[r.Ttl] = append(hops[r.Ttl], r)
 	}
 
-	slices.SortFunc(hops, func(a, b Hop) int {
-		return a.Ttl - b.Ttl
-	})
-
-	PrintHops(hops)
+	// TODO: log this on debug level
+	printHops(hops)
 
 	return hops, nil
 }
@@ -227,12 +224,14 @@ type Hop struct {
 	Reached bool
 }
 
-func PrintHops(hops []Hop) {
-	for _, hop := range hops {
-		fmt.Printf("%d %s %s %v ", hop.Ttl, hop.Addr, hop.Name, hop.Latency)
-		if hop.Reached {
-			fmt.Print("( Reached )")
+func printHops(mapHops map[int][]Hop) {
+	for ttl, hops := range mapHops {
+		for _, hop := range hops {
+			fmt.Printf("%d %s %s %v ", ttl, hop.Addr, hop.Name, hop.Latency)
+			if hop.Reached {
+				fmt.Print("( Reached )")
+			}
+			fmt.Println()
 		}
-		fmt.Println()
 	}
 }
