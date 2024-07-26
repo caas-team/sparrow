@@ -17,8 +17,10 @@ import (
 )
 
 // randomPort returns a random port in the interval [ 30_000, 40_000 [
+//
+//nolint:all
 func randomPort() int {
-	return rand.Intn(10_000) + 30_000 //nolint:gosec,mnd // #nosec G404 // math.rand is fine here, we're not doing encryption
+	return rand.Intn(10_000) + 30_000 // #nosec G404 // math.rand is fine here, we're not doing encryption
 }
 
 func tcpHop(addr net.Addr, ttl int, timeout time.Duration) (net.Conn, int, error) {
