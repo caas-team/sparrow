@@ -7,10 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/go-cmp/cmp"
-
-	"github.com/caas-team/sparrow/internal/helper"
 	"github.com/caas-team/sparrow/pkg/checks"
+	"github.com/google/go-cmp/cmp"
 )
 
 func TestCheck(t *testing.T) {
@@ -75,7 +73,7 @@ func newForTest(f tracerouteFactory, targets []string) *Traceroute {
 
 // success produces a tracerouteFactory that returns a traceroute result with nHops hops
 func success(nHops int) tracerouteFactory {
-	return func(ctx context.Context, dest string, port, timeout, maxHops int, _ helper.RetryConfig) (map[int][]Hop, error) {
+	return func(ctx context.Context, cfg tracerouteConfig) (map[int][]Hop, error) {
 		hops := make(map[int][]Hop)
 		for i := 1; i < nHops; i++ {
 			hops[i] = []Hop{
@@ -106,7 +104,7 @@ func success(nHops int) tracerouteFactory {
 }
 
 func returnError(err error) tracerouteFactory {
-	return func(context.Context, string, int, int, int, helper.RetryConfig) (map[int][]Hop, error) {
+	return func(_ context.Context, _ tracerouteConfig) (map[int][]Hop, error) {
 		return map[int][]Hop{}, err
 	}
 }

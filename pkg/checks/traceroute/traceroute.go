@@ -86,24 +86,24 @@ func readIcmpMessage(icmpListener *icmp.PacketConn, timeout time.Duration) (int,
 }
 
 // TraceRoute performs a traceroute to the specified host using TCP and listens for ICMP Time Exceeded messages using ICMP.
-func TraceRoute(ctx context.Context, host string, port, timeout, maxHops int, rc helper.RetryConfig) (map[int][]Hop, error) {
+func TraceRoute(ctx context.Context, cfg tracerouteConfig) (map[int][]Hop, error) {
 	// this could also be a 2d array, but I feel like using an int map here makes the json easier to understand
 	// as it explicitly shows a mapping of ttl->hops
 	hops := make(map[int][]Hop)
-	log := logger.FromContext(ctx).With("target", host)
+	log := logger.FromContext(ctx).With("target", cfg.Dest)
 
-	timeoutDuration := time.Duration(timeout) * time.Second
+	timeoutDuration := time.Duration(cfg.Timeout) * time.Second
 
-	addr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("%s:%d", host, port))
+	addr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("%s:%d", cfg.Dest, cfg.Port))
 	if err != nil {
 		log.Error("failed to resolve target name", "err", err.Error())
 		return nil, err
 	}
 
-	results := make(chan Hop, maxHops)
+	results := make(chan Hop, cfg.MaxHops)
 	var wg sync.WaitGroup
 
-	for ttl := 1; ttl <= maxHops; ttl++ {
+	for ttl := 1; ttl <= cfg.MaxHops; ttl++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -118,7 +118,7 @@ func TraceRoute(ctx context.Context, host string, port, timeout, maxHops int, rc
 					return errors.New("failed to reach target")
 				}
 				return nil
-			}, rc)(ctx)
+			}, cfg.Rc)(ctx)
 			if err != nil {
 				log.Error("traceroute could not reach target", "ttl", ttl)
 			}

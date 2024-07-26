@@ -41,7 +41,14 @@ type Traceroute struct {
 	traceroute tracerouteFactory
 }
 
-type tracerouteFactory func(ctx context.Context, dest string, port, timeout, maxHops int, rc helper.RetryConfig) (map[int][]Hop, error)
+type tracerouteConfig struct {
+	Dest    string
+	Port    int
+	Timeout int
+	MaxHops int
+	Rc      helper.RetryConfig
+}
+type tracerouteFactory func(ctx context.Context, cfg tracerouteConfig) (map[int][]Hop, error)
 
 type result struct {
 	// The minimum number of hops required to reach the target
@@ -109,7 +116,13 @@ func (tr *Traceroute) check(ctx context.Context) map[string]result {
 			l.Debug("Running traceroute")
 
 			start := time.Now()
-			trace, err := tr.traceroute(ctx, t.Addr, int(t.Port), int(tr.config.Timeout/time.Millisecond), tr.config.MaxHops, tr.config.Retry)
+			trace, err := tr.traceroute(ctx, tracerouteConfig{
+				Dest:    t.Addr,
+				Port:    int(t.Port),
+				Timeout: int(tr.config.Timeout / time.Millisecond),
+				MaxHops: tr.config.MaxHops,
+				Rc:      tr.config.Retry,
+			})
 			duration := time.Since(start)
 			if err != nil {
 				l.Error("Error running traceroute", "error", err)
