@@ -2,7 +2,7 @@ package traceroute
 
 import (
 	"context"
-	"fmt"
+	"math"
 	"sync"
 	"time"
 
@@ -32,6 +32,7 @@ func NewCheck() checks.Check {
 		},
 		config:     Config{},
 		traceroute: TraceRoute,
+		metrics:    newMetrics(),
 	}
 }
 
@@ -39,6 +40,7 @@ type Traceroute struct {
 	checks.CheckBase
 	config     Config
 	traceroute tracerouteFactory
+	metrics    metrics
 }
 
 type tracerouteConfig struct {
@@ -52,7 +54,7 @@ type tracerouteFactory func(ctx context.Context, cfg tracerouteConfig) (map[int]
 
 type result struct {
 	// The minimum number of hops required to reach the target
-	NumHops int
+	MinHops int
 	// The path taken to the destination
 	Hops map[int][]Hop
 }
@@ -72,11 +74,8 @@ func (tr *Traceroute) Run(ctx context.Context, cResult chan checks.ResultDTO) er
 		case <-tr.DoneChan:
 			return nil
 		case <-time.After(tr.config.Interval):
-			fmt.Println("Running traceroute")
 			res := tr.check(ctx)
-
-			fmt.Println(res)
-
+			tr.metrics.MinHops(res)
 			cResult <- checks.ResultDTO{
 				Name: tr.Name(),
 				Result: &checks.Result{
@@ -123,22 +122,23 @@ func (tr *Traceroute) check(ctx context.Context) map[string]result {
 				MaxHops: tr.config.MaxHops,
 				Rc:      tr.config.Retry,
 			})
-			duration := time.Since(start)
+			elapsed := time.Since(start)
 			if err != nil {
 				l.Error("Error running traceroute", "error", err)
 			}
 
-			l.Debug("Ran traceroute", "result", trace, "duration", duration)
+			tr.metrics.CheckDuration(t.Addr, elapsed)
+
+			l.Debug("Ran traceroute", "result", trace, "duration", elapsed)
 			r := result{
-				Hops: trace,
+				Hops:    trace,
+				MinHops: math.MaxInt,
 			}
 
-		reached:
 			for i, hops := range trace {
 				for _, hop := range hops {
-					if hop.Reached {
-						r.NumHops = i
-						break reached
+					if hop.Reached && hop.Ttl < r.MinHops {
+						r.MinHops = i
 					}
 				}
 			}
@@ -187,7 +187,7 @@ func (tr *Traceroute) Schema() (*openapi3.SchemaRef, error) {
 
 // GetMetricCollectors allows the check to provide prometheus metric collectors
 func (tr *Traceroute) GetMetricCollectors() []prometheus.Collector {
-	return []prometheus.Collector{}
+	return tr.metrics.List()
 }
 
 // Name returns the name of the check

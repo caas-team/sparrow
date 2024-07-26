@@ -156,7 +156,6 @@ func traceroute(results chan Hop, addr net.Addr, ttl int, timeout time.Duration)
 		if !errors.Is(err, syscall.EPERM) {
 			return false, err
 		}
-		fmt.Println("no permission to create icmp sockets. continuing without")
 		canIcmp = false
 	}
 

@@ -22,7 +22,7 @@ func TestCheck(t *testing.T) {
 			c:    newForTest(success(5), []string{"8.8.8.8"}),
 			want: map[string]result{
 				"8.8.8.8": {
-					NumHops: 5,
+					MinHops: 5,
 					Hops: map[int][]Hop{
 						1: {{Addr: &net.TCPAddr{IP: net.ParseIP("0.0.0.1")}, Latency: 1 * time.Second, Reached: false, Ttl: 1}},
 						2: {{Addr: &net.TCPAddr{IP: net.ParseIP("0.0.0.2")}, Latency: 2 * time.Second, Reached: false, Ttl: 2}},
