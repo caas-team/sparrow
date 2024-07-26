@@ -483,7 +483,8 @@ dns:
 | ---------------- | ----------------- | ---------------------------------------------------------------------------- |
 | `interval`       | `duration`        | Interval to perform the Traceroute check.                                    |
 | `timeout`        | `duration`        | Timeout for every hop.                                                       |
-| `retries`        | `integer`         | Number of times to retry the traceroute for a target, if it fails.           |
+| `retry.count`    | `integer`         | Number of retries for the latency check.                                                                                                                     |
+| `retry.delay`    | `duration`        | Initial delay between retries for the latency check.                                                                                                         |
 | `maxHops`        | `integer`         | Maximum number of hops to try before giving up.                              |
 | `targets`        | `list of objects` | List of targets to traceroute to.                                            |
 | `targets[].addr` | `string`          | The address of the target to traceroute to. Can be an IP address or DNS name |
@@ -497,7 +498,9 @@ dns:
  traceroute:
   interval: 5s
   timeout: 3s
-  retries: 3
+  retry:
+    count: 3
+    delay: 1s
   maxHops: 30
   targets:
     - addr: 8.8.8.8
