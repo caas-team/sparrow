@@ -116,7 +116,7 @@ func TraceRoute(ctx context.Context, host string, port, timeout, maxHops int, rc
 					return errors.New("failed to reach target")
 				}
 				return nil
-			}, rc)
+			}, rc)(ctx)
 			if err != nil {
 				log.Error("traceroute could not reach target", "ttl", ttl)
 			}
@@ -148,11 +148,21 @@ func ipFromAddr(remoteAddr net.Addr) net.IP {
 }
 
 func traceroute(results chan Hop, addr net.Addr, ttl int, timeout time.Duration) (bool, error) {
+	canIcmp := true
 	icmpListener, err := icmp.ListenPacket("ip4:icmp", "0.0.0.0")
 	if err != nil {
-		return false, err
+		if !errors.Is(err, syscall.EPERM) {
+			return false, err
+		}
+		fmt.Println("no permission to create icmp sockets. continuing without")
+		canIcmp = false
 	}
-	defer icmpListener.Close()
+
+	defer func() {
+		if canIcmp {
+			icmpListener.Close()
+		}
+	}()
 	start := time.Now()
 	conn, clientPort, err := tcpHop(addr, ttl, timeout)
 	latency := time.Since(start)
@@ -181,18 +191,22 @@ func traceroute(results chan Hop, addr net.Addr, ttl int, timeout time.Duration)
 	deadline := time.Now().Add(5 * time.Second)
 
 	for time.Now().Unix() < deadline.Unix() && !found {
-		gotPort, addr, err := readIcmpMessage(icmpListener, timeout)
-		if err != nil {
-			results <- Hop{
-				Latency: latency,
-				Ttl:     ttl,
-				Reached: false,
+		gotPort := -1
+		var addr net.Addr
+		if canIcmp {
+			gotPort, addr, err = readIcmpMessage(icmpListener, timeout)
+			if err != nil {
+				results <- Hop{
+					Latency: latency,
+					Ttl:     ttl,
+					Reached: false,
+				}
+				return false, nil
 			}
-			return false, nil
 		}
 
 		// Check if the destination port matches our dialer's source port
-		if gotPort == clientPort {
+		if canIcmp && gotPort == clientPort {
 			ipaddr := ipFromAddr(addr)
 			names, _ := net.LookupAddr(ipaddr.String()) // we don't really care if this lookup works, so ignore the error
 
