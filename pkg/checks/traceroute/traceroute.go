@@ -18,7 +18,7 @@ import (
 
 // randomPort returns a random port in the interval [ 30_000, 40_000 [
 func randomPort() int {
-	return rand.Intn(10_000) + 30_000
+	return rand.Intn(10_000) + 30_000 //nolint:gosec,mnd // math.rand is fine here, we're not doing encryption
 }
 
 func tcpHop(addr net.Addr, ttl int, timeout time.Duration) (net.Conn, int, error) {
@@ -30,7 +30,7 @@ func tcpHop(addr net.Addr, ttl int, timeout time.Duration) (net.Conn, int, error
 				Port: port,
 			},
 			Timeout: timeout,
-			Control: func(network, address string, c syscall.RawConn) error {
+			Control: func(_, _ string, c syscall.RawConn) error {
 				var opErr error
 				if err := c.Control(func(fd uintptr) {
 					opErr = syscall.SetsockoptInt(int(fd), syscall.IPPROTO_IP, syscall.IP_TTL, ttl)
@@ -43,7 +43,7 @@ func tcpHop(addr net.Addr, ttl int, timeout time.Duration) (net.Conn, int, error
 
 		// Attempt to connect to the target host
 		conn, err := dialer.Dial("tcp", addr.String())
-		if !errors.Is(err, syscall.Errno(syscall.EADDRINUSE)) {
+		if !errors.Is(err, syscall.EADDRINUSE) {
 			return conn, port, err
 		}
 	}
@@ -55,12 +55,14 @@ func tcpHop(addr net.Addr, ttl int, timeout time.Duration) (net.Conn, int, error
 // an icmp packet was either not received, or the received packet was not a time exceeded.
 func readIcmpMessage(icmpListener *icmp.PacketConn, timeout time.Duration) (int, net.Addr, error) {
 	// Expected to fail due to TTL expiry, listen for ICMP response
-	icmpListener.SetReadDeadline(time.Now().Add(timeout))
-	buffer := make([]byte, 1500) // Standard MTU size
+	if err := icmpListener.SetReadDeadline(time.Now().Add(timeout)); err != nil {
+		return 0, nil, fmt.Errorf("failed to set icmp read deadline: %w", err)
+	}
+	buffer := make([]byte, 1500) //nolint:mnd // Standard MTU size
 	n, routerAddr, err := icmpListener.ReadFrom(buffer)
 	if err != nil {
 		// we probably timed out so return
-		return 0, nil, fmt.Errorf("Failed to read from icmp connection: %w", err)
+		return 0, nil, fmt.Errorf("failed to read from icmp connection: %w", err)
 	}
 
 	// Parse the ICMP message
@@ -71,7 +73,7 @@ func readIcmpMessage(icmpListener *icmp.PacketConn, timeout time.Duration) (int,
 
 	// Ensure the message is an ICMP Time Exceeded message
 	if msg.Type != ipv4.ICMPTypeTimeExceeded {
-		return 0, nil, errors.New("Message is not 'Time Exceeded'")
+		return 0, nil, errors.New("message is not 'Time Exceeded'")
 	}
 
 	// The first 20 bytes of Data are the IP header, so the TCP segment starts at byte 20
@@ -105,7 +107,7 @@ func TraceRoute(ctx context.Context, host string, port, timeout, maxHops int, rc
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			err := helper.Retry(func(ctx context.Context) error {
+			err := helper.Retry(func(_ context.Context) error {
 				reached, err := traceroute(results, addr, ttl, timeoutDuration)
 				if err != nil {
 					log.Error("traceroute failed", "err", err.Error(), "ttl", ttl)
@@ -188,7 +190,7 @@ func traceroute(results chan Hop, addr net.Addr, ttl int, timeout time.Duration)
 	}
 
 	found := false
-	deadline := time.Now().Add(5 * time.Second)
+	deadline := time.Now().Add(timeout)
 
 	for time.Now().Unix() < deadline.Unix() && !found {
 		gotPort := -1
