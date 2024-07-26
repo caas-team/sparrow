@@ -18,7 +18,7 @@ import (
 
 // randomPort returns a random port in the interval [ 30_000, 40_000 [
 func randomPort() int {
-	return rand.Intn(10_000) + 30_000 //nolint:gosec,mnd // math.rand is fine here, we're not doing encryption
+	return rand.Intn(10_000) + 30_000 //nolint:gosec,mnd // #nosec G404 // math.rand is fine here, we're not doing encryption
 }
 
 func tcpHop(addr net.Addr, ttl int, timeout time.Duration) (net.Conn, int, error) {
@@ -161,14 +161,14 @@ func traceroute(results chan Hop, addr net.Addr, ttl int, timeout time.Duration)
 
 	defer func() {
 		if canIcmp {
-			icmpListener.Close()
+			icmpListener.Close() // #nosec G104
 		}
 	}()
 	start := time.Now()
 	conn, clientPort, err := tcpHop(addr, ttl, timeout)
 	latency := time.Since(start)
 	if err == nil {
-		conn.Close()
+		conn.Close() // #nosec G104
 
 		ipaddr := ipFromAddr(addr)
 		names, _ := net.LookupAddr(ipaddr.String()) // we don't care about this lookup failling
