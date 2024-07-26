@@ -14,6 +14,10 @@ In this folder run:
 ```bash
 kathara lstart
 ```
+To prevent kathara from creating a terminal window for every container:
+```bash
+kathara lstart --noterminals
+```
 
 This starts the test-lab ([ topology ](https://github.com/KatharaFramework/Kathara-Labs/blob/main/main-labs/basic-topics/static-routing/004-kathara-lab_static-routing.pdf))
 
@@ -124,3 +128,9 @@ wireshark -r dump.pcap
 
 
 Happy Debugging!
+
+6. Cleaning up
+Cleanup is simple:
+```bash
+kathara lclean
+```
