@@ -28,7 +28,7 @@ func NewCheck() checks.Check {
 	return &Traceroute{
 		CheckBase: checks.CheckBase{
 			Mu:       sync.Mutex{},
-			DoneChan: make(chan struct{}),
+			DoneChan: make(chan struct{}, 1),
 		},
 		config:     Config{},
 		traceroute: TraceRoute,
