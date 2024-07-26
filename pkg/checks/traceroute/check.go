@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/caas-team/sparrow/internal/helper"
 	"github.com/caas-team/sparrow/internal/logger"
 	"github.com/caas-team/sparrow/pkg/checks"
 	"github.com/getkin/kin-openapi/openapi3"
@@ -40,7 +41,7 @@ type Traceroute struct {
 	traceroute tracerouteFactory
 }
 
-type tracerouteFactory func(dest string, port, timeout, retries, maxHops int) ([]Hop, error)
+type tracerouteFactory func(dest string, port, timeout, maxHops int, rc helper.RetryConfig) ([]Hop, error)
 
 type result struct {
 	// The minimum number of hops required to reach the target
@@ -108,7 +109,7 @@ func (tr *Traceroute) check(ctx context.Context) map[string]result {
 			l.Debug("Running traceroute")
 
 			start := time.Now()
-			trace, err := tr.traceroute(t.Addr, int(t.Port), int(tr.config.Timeout/time.Millisecond), tr.config.Retries, tr.config.MaxHops)
+			trace, err := tr.traceroute(t.Addr, int(t.Port), int(tr.config.Timeout/time.Millisecond), tr.config.MaxHops, tr.config.Retry)
 			duration := time.Since(start)
 			if err != nil {
 				l.Error("Error running traceroute", "error", err)

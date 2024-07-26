@@ -1,6 +1,7 @@
 package traceroute
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -10,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/caas-team/sparrow/internal/helper"
 	"golang.org/x/net/icmp"
 	"golang.org/x/net/ipv4"
 )
@@ -81,7 +83,7 @@ func readIcmpMessage(icmpListener *icmp.PacketConn, timeout time.Duration) (int,
 	return destPort, routerAddr, nil
 }
 
-func TraceRoute(host string, port, timeout, retries, maxHops int) ([]Hop, error) {
+func TraceRoute(host string, port, timeout, maxHops int, rc helper.RetryConfig) ([]Hop, error) {
 	// TraceRoute performs a traceroute to the specified host using TCP and listens for ICMP Time Exceeded messages using datagram-oriented ICMP.
 	// func TraceRoute(host string, port int, maxHops int, timeout time.Duration) ([]Hop, error) {
 	var hops []Hop
@@ -100,7 +102,16 @@ func TraceRoute(host string, port, timeout, retries, maxHops int) ([]Hop, error)
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			traceroute(results, addr, ttl, toDuration)
+			helper.Retry(func(ctx context.Context) error {
+				reached, err := traceroute(results, addr, ttl, toDuration, rc)
+				if err != nil {
+					return err
+				}
+				if !reached {
+					return errors.New("failed to reach target, please retry")
+				}
+				return nil
+			}, rc)
 		}()
 	}
 
@@ -132,10 +143,10 @@ func ipFromAddr(remoteAddr net.Addr) net.IP {
 	return nil
 }
 
-func traceroute(results chan Hop, addr net.Addr, ttl int, timeout time.Duration) error {
+func traceroute(results chan Hop, addr net.Addr, ttl int, timeout time.Duration, rc helper.RetryConfig) (bool, error) {
 	icmpListener, err := icmp.ListenPacket("ip4:icmp", "0.0.0.0")
 	if err != nil {
-		return err
+		return false, err
 	}
 	defer icmpListener.Close()
 	start := time.Now()
@@ -159,7 +170,7 @@ func traceroute(results chan Hop, addr net.Addr, ttl int, timeout time.Duration)
 			Name:    name,
 			Reached: true,
 		}
-		return nil
+		return true, nil
 	}
 
 	found := false
@@ -173,7 +184,7 @@ func traceroute(results chan Hop, addr net.Addr, ttl int, timeout time.Duration)
 				Ttl:     ttl,
 				Reached: false,
 			}
-			return nil
+			return false, nil
 		}
 
 		// Check if the destination port matches our dialer's source port
@@ -205,7 +216,7 @@ func traceroute(results chan Hop, addr net.Addr, ttl int, timeout time.Duration)
 		}
 	}
 
-	return nil
+	return false, nil
 }
 
 type Hop struct {

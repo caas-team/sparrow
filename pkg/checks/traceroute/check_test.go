@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
+	"github.com/caas-team/sparrow/internal/helper"
 	"github.com/caas-team/sparrow/pkg/checks"
 )
 
@@ -74,7 +75,7 @@ func newForTest(f tracerouteFactory, targets []string) *Traceroute {
 
 // success produces a tracerouteFactory that returns a traceroute result with nHops hops
 func success(nHops int) tracerouteFactory {
-	return func(dest string, port, timeout, retries, maxHops int) ([]Hop, error) {
+	return func(dest string, port, timeout, maxHops int, _ helper.RetryConfig) ([]Hop, error) {
 		hops := make([]Hop, nHops)
 		for i := 0; i < nHops-1; i++ {
 			hops[i] = Hop{
@@ -101,7 +102,7 @@ func success(nHops int) tracerouteFactory {
 }
 
 func returnError(err error) tracerouteFactory {
-	return func(dest string, port, timeout, retries, maxHops int) ([]Hop, error) {
+	return func(string, int, int, int, helper.RetryConfig) ([]Hop, error) {
 		return []Hop{}, err
 	}
 }
