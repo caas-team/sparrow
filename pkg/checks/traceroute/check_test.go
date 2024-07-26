@@ -19,7 +19,7 @@ func TestCheck(t *testing.T) {
 	}{
 		{
 			name: "Success 5 hops",
-			c:    newForTest(success(5), []string{"8.8.8.8"}),
+			c:    newForTest(success(5), 10, []string{"8.8.8.8"}),
 			want: map[string]result{
 				"8.8.8.8": {
 					MinHops: 5,
@@ -35,9 +35,9 @@ func TestCheck(t *testing.T) {
 		},
 		{
 			name: "Traceroute internal error fails silently",
-			c:    newForTest(returnError(&net.DNSError{Err: "no such host", Name: "google.com", IsNotFound: true}), []string{"google.com"}),
+			c:    newForTest(returnError(&net.DNSError{Err: "no such host", Name: "google.com", IsNotFound: true}), 10, []string{"google.com"}),
 			want: map[string]result{
-				"google.com": {Hops: map[int][]Hop{}},
+				"google.com": {MinHops: 10, Hops: map[int][]Hop{}},
 			},
 		},
 	}
@@ -54,7 +54,7 @@ func TestCheck(t *testing.T) {
 	}
 }
 
-func newForTest(f tracerouteFactory, targets []string) *Traceroute {
+func newForTest(f tracerouteFactory, maxHops int, targets []string) *Traceroute {
 	t := make([]Target, len(targets))
 	for i, target := range targets {
 		t[i] = Target{Addr: target}
@@ -62,6 +62,7 @@ func newForTest(f tracerouteFactory, targets []string) *Traceroute {
 	return &Traceroute{
 		config: Config{
 			Targets: t,
+			MaxHops: maxHops,
 		},
 		traceroute: f,
 		metrics:    newMetrics(),

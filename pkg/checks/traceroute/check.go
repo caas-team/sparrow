@@ -2,7 +2,6 @@ package traceroute
 
 import (
 	"context"
-	"math"
 	"sync"
 	"time"
 
@@ -132,7 +131,7 @@ func (tr *Traceroute) check(ctx context.Context) map[string]result {
 			l.Debug("Ran traceroute", "result", trace, "duration", elapsed)
 			r := result{
 				Hops:    trace,
-				MinHops: math.MaxInt,
+				MinHops: tr.config.MaxHops,
 			}
 
 			for i, hops := range trace {
