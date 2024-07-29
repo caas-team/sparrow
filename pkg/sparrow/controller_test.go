@@ -116,7 +116,9 @@ func TestChecksController_Reconcile(t *testing.T) {
 			name:   "no checks registered yet but register one",
 			checks: []checks.Check{},
 			newRuntimeConfig: runtime.Config{Health: &health.Config{
-				Targets: []string{"https://gitlab.com"},
+				Targets:  []string{"https://gitlab.com"},
+				Interval: 1 * time.Second,
+				Timeout:  1 * time.Second,
 			}},
 		},
 		{
@@ -212,7 +214,7 @@ func TestChecksController_Reconcile(t *testing.T) {
 
 			cc.Reconcile(ctx, tt.newRuntimeConfig)
 
-			// iterate of the controllers checks and check if they are configured
+			// iterate of the controller's checks and check if they are configured
 			for _, c := range cc.checks.Iter() {
 				cfg := c.GetConfig()
 				assert.NotNil(t, cfg)
@@ -226,6 +228,9 @@ func TestChecksController_Reconcile(t *testing.T) {
 					assert.Equal(t, tt.newRuntimeConfig.Dns, cfg)
 				}
 			}
+
+			// check that the number of registered checks is correct
+			assert.Equal(t, len(tt.newRuntimeConfig.Iter()), len(cc.checks.Iter()))
 		})
 	}
 }
@@ -237,7 +242,7 @@ func TestChecksController_RegisterCheck(t *testing.T) {
 		check checks.Check
 	}{
 		{
-			name: "valid check",
+			name: "register one check",
 			setup: func() *ChecksController {
 				return NewChecksController(db.NewInMemory(), metrics.NewMetrics(metrics.Config{}))
 			},
@@ -258,8 +263,10 @@ func TestChecksController_RegisterCheck(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cc := tt.setup()
-
 			cc.RegisterCheck(context.Background(), tt.check)
+			if cc.checks.Iter()[0] != tt.check {
+				t.Errorf("Expected one check to be registered")
+			}
 		})
 	}
 }
@@ -271,10 +278,6 @@ func TestChecksController_UnregisterCheck(t *testing.T) {
 	}{
 		{
 			name:  "valid check",
-			check: health.NewCheck(),
-		},
-		{
-			name:  "unregister non-existent check",
 			check: health.NewCheck(),
 		},
 	}

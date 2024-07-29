@@ -49,7 +49,7 @@ func NewChecksController(dbase db.DB, mtrcs metrics.Metrics) *ChecksController {
 		db:      dbase,
 		metrics: mtrcs,
 		checks:  runtime.Checks{},
-		cResult: make(chan checks.ResultDTO, 8), //nolint:gomnd // Buffered channel to avoid blocking the checks
+		cResult: make(chan checks.ResultDTO, 8), //nolint:mnd // Buffered channel to avoid blocking the checks
 		cErr:    make(chan error, 1),
 		done:    make(chan struct{}, 1),
 	}
@@ -135,7 +135,7 @@ func (cc *ChecksController) RegisterCheck(ctx context.Context, check checks.Chec
 	// Add prometheus collectors of check to registry
 	for _, collector := range check.GetMetricCollectors() {
 		if err := cc.metrics.GetRegistry().Register(collector); err != nil {
-			log.ErrorContext(ctx, "Could not add metrics collector to registry")
+			log.ErrorContext(ctx, "Could not add metrics collector to registry", "error", err)
 		}
 	}
 

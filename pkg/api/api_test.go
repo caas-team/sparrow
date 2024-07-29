@@ -236,3 +236,28 @@ func TestAPI_OkHandler(t *testing.T) {
 			rr.Body.String(), expected)
 	}
 }
+
+func TestConfig_Validate(t *testing.T) {
+	cases := []struct {
+		name    string
+		config  Config
+		wantErr bool
+	}{
+		{"Empty address", Config{}, true},
+		{"Empty certpath", Config{Tls: TLSConfig{Enabled: true}}, true},
+		{"Empty keypath", Config{Tls: TLSConfig{Enabled: true}}, true},
+
+		{"Valid config", Config{ListeningAddress: ":8080"}, false},
+		{"Valid tls config", Config{ListeningAddress: ":8080", Tls: TLSConfig{Enabled: true, CertPath: "./mycert.pem", KeyPath: "mykey.key"}}, false},
+		{"Valid tls config without tls", Config{ListeningAddress: ":8080", Tls: TLSConfig{Enabled: false}}, false},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			err := c.config.Validate()
+			if (err != nil) != c.wantErr {
+				t.Errorf("Validate() error = %v, wantErr %v", err, c.wantErr)
+			}
+		})
+	}
+}

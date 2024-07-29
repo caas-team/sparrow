@@ -39,6 +39,7 @@ func TestTargetManagerConfig_Validate(t *testing.T) {
 			cfg: TargetManagerConfig{
 				Type: "gitlab",
 				General: General{
+					Scheme:               "http",
 					UnhealthyThreshold:   1 * time.Second,
 					CheckInterval:        1 * time.Second,
 					RegistrationInterval: 1 * time.Second,
@@ -51,6 +52,7 @@ func TestTargetManagerConfig_Validate(t *testing.T) {
 			cfg: TargetManagerConfig{
 				Type: "gitlab",
 				General: General{
+					Scheme:               "http",
 					UnhealthyThreshold:   0,
 					CheckInterval:        1 * time.Second,
 					RegistrationInterval: 0,
@@ -63,6 +65,7 @@ func TestTargetManagerConfig_Validate(t *testing.T) {
 			cfg: TargetManagerConfig{
 				Type: "gitlab",
 				General: General{
+					Scheme:               "http",
 					UnhealthyThreshold:   1 * time.Second,
 					CheckInterval:        0,
 					RegistrationInterval: 1 * time.Second,
@@ -76,6 +79,7 @@ func TestTargetManagerConfig_Validate(t *testing.T) {
 			cfg: TargetManagerConfig{
 				Type: "gitlab",
 				General: General{
+					Scheme:               "http",
 					UnhealthyThreshold:   -1 * time.Second,
 					CheckInterval:        1 * time.Second,
 					RegistrationInterval: 1 * time.Second,
@@ -89,6 +93,7 @@ func TestTargetManagerConfig_Validate(t *testing.T) {
 			cfg: TargetManagerConfig{
 				Type: "unknown",
 				General: General{
+					Scheme:               "http",
 					UnhealthyThreshold:   1 * time.Second,
 					CheckInterval:        1 * time.Second,
 					RegistrationInterval: 1 * time.Second,
@@ -96,6 +101,61 @@ func TestTargetManagerConfig_Validate(t *testing.T) {
 				},
 			},
 			wantErr: true,
+		},
+		{
+			name: "invalid config - wrong scheme",
+			cfg: TargetManagerConfig{
+				Type: "gitlab",
+				General: General{
+					Scheme:               "tcp",
+					UnhealthyThreshold:   1 * time.Second,
+					CheckInterval:        1 * time.Second,
+					RegistrationInterval: 1 * time.Second,
+					UpdateInterval:       1 * time.Second,
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid config - no scheme",
+			cfg: TargetManagerConfig{
+				Type: "gitlab",
+				General: General{
+					UnhealthyThreshold:   1 * time.Second,
+					CheckInterval:        1 * time.Second,
+					RegistrationInterval: 1 * time.Second,
+					UpdateInterval:       1 * time.Second,
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "valid config - http",
+			cfg: TargetManagerConfig{
+				Type: "gitlab",
+				General: General{
+					Scheme:               "http",
+					UnhealthyThreshold:   1 * time.Second,
+					CheckInterval:        1 * time.Second,
+					RegistrationInterval: 1 * time.Second,
+					UpdateInterval:       1 * time.Second,
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "valid config - https",
+			cfg: TargetManagerConfig{
+				Type: "gitlab",
+				General: General{
+					Scheme:               "https",
+					UnhealthyThreshold:   1 * time.Second,
+					CheckInterval:        1 * time.Second,
+					RegistrationInterval: 1 * time.Second,
+					UpdateInterval:       1 * time.Second,
+				},
+			},
+			wantErr: false,
 		},
 	}
 	for _, tt := range tests {

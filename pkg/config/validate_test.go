@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/caas-team/sparrow/internal/helper"
+	"github.com/caas-team/sparrow/pkg/api"
 )
 
 func TestConfig_Validate(t *testing.T) {
@@ -38,6 +39,9 @@ func TestConfig_Validate(t *testing.T) {
 			name: "config ok",
 			config: Config{
 				SparrowName: "sparrow.com",
+				Api: api.Config{
+					ListeningAddress: ":8080",
+				},
 				Loader: LoaderConfig{
 					Type: "http",
 					Http: HttpLoaderConfig{
@@ -57,6 +61,9 @@ func TestConfig_Validate(t *testing.T) {
 		{
 			name: "loader - url missing",
 			config: Config{
+				Api: api.Config{
+					ListeningAddress: ":8080",
+				},
 				SparrowName: "sparrow.com",
 				Loader: LoaderConfig{
 					Type: "http",
@@ -77,6 +84,9 @@ func TestConfig_Validate(t *testing.T) {
 		{
 			name: "loader - url malformed",
 			config: Config{
+				Api: api.Config{
+					ListeningAddress: ":8080",
+				},
 				SparrowName: "sparrow.com",
 				Loader: LoaderConfig{
 					Type: "http",
@@ -96,6 +106,9 @@ func TestConfig_Validate(t *testing.T) {
 		{
 			name: "loader - retry count to high",
 			config: Config{
+				Api: api.Config{
+					ListeningAddress: ":8080",
+				},
 				SparrowName: "sparrow.com",
 				Loader: LoaderConfig{
 					Type: "http",
@@ -115,6 +128,26 @@ func TestConfig_Validate(t *testing.T) {
 		{
 			name: "loader - file path malformed",
 			config: Config{
+				Api: api.Config{
+					ListeningAddress: ":8080",
+				},
+				SparrowName: "sparrow.com",
+				Loader: LoaderConfig{
+					Type: "file",
+					File: FileLoaderConfig{
+						Path: "",
+					},
+					Interval: time.Second,
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "targetManager - Wrong Scheme",
+			config: Config{
+				Api: api.Config{
+					ListeningAddress: ":8080",
+				},
 				SparrowName: "sparrow.com",
 				Loader: LoaderConfig{
 					Type: "file",

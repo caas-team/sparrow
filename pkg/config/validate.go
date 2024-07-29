@@ -55,6 +55,11 @@ func (c *Config) Validate(ctx context.Context) (err error) {
 		}
 	}
 
+	if vErr := c.Api.Validate(); vErr != nil {
+		log.Error("The api configuration is invalid")
+		err = errors.Join(err, vErr)
+	}
+
 	if err != nil {
 		return fmt.Errorf("validation of configuration failed: %w", err)
 	}

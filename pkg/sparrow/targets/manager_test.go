@@ -120,7 +120,7 @@ func Test_gitlabTargetManager_refreshTargets(t *testing.T) {
 				targets:    nil,
 				interactor: remote,
 				name:       "test",
-				cfg:        General{UnhealthyThreshold: time.Hour},
+				cfg:        General{UnhealthyThreshold: time.Hour, Scheme: "https"},
 			}
 			if err := gtm.refreshTargets(context.Background()); (err != nil) != (tt.wantErr != nil) {
 				t.Fatalf("refreshTargets() error = %v, wantErr %v", err, tt.wantErr)
@@ -192,7 +192,7 @@ func Test_gitlabTargetManager_refreshTargets_No_Threshold(t *testing.T) {
 				targets:    nil,
 				interactor: remote,
 				name:       "test",
-				cfg:        General{UnhealthyThreshold: 0},
+				cfg:        General{UnhealthyThreshold: 0, Scheme: "https"},
 			}
 			if err := gtm.refreshTargets(context.Background()); (err != nil) != (tt.wantErr != nil) {
 				t.Fatalf("refreshTargets() error = %v, wantErr %v", err, tt.wantErr)

@@ -3,6 +3,8 @@ snapshot:
   name_template: "commit-{{ .ShortCommit }}"
 builds:
   - env: [CGO_ENABLED=0]
+    flags:
+      - -tags=viper_bind_struct # https://github.com/caas-team/sparrow/issues/78, https://github.com/spf13/viper/pull/1429#issuecomment-1870976604
     ldflags:
       - -s -w -X main.version={{ .Version }}
       - -extldflags "-static"
