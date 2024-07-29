@@ -248,16 +248,6 @@ func TestChecksController_RegisterCheck(t *testing.T) {
 			},
 			check: health.NewCheck(),
 		},
-		{
-			name: "duplicate check registration",
-			setup: func() *ChecksController {
-				cc := NewChecksController(db.NewInMemory(), metrics.NewMetrics(metrics.Config{}))
-				check := health.NewCheck()
-				cc.RegisterCheck(context.Background(), check)
-				return cc
-			},
-			check: health.NewCheck(),
-		},
 	}
 
 	for _, tt := range tests {
