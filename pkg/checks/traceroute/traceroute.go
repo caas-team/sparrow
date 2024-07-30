@@ -101,12 +101,15 @@ func TraceRoute(ctx context.Context, cfg tracerouteConfig) (map[int][]Hop, error
 		return nil, err
 	}
 
-	results := make(chan Hop, cfg.MaxHops)
+	// if we don't add the +1, this causes issues, when the user does not want to retry,
+	// since the channels size would be zero, blocking all threads from sending
+	queueSize := cfg.MaxHops * (1 + cfg.Rc.Count)
+	results := make(chan Hop, queueSize)
 	var wg sync.WaitGroup
 
 	for ttl := 1; ttl <= cfg.MaxHops; ttl++ {
 		wg.Add(1)
-		go func() {
+		go func(ttl int) {
 			defer wg.Done()
 			err := helper.Retry(func(_ context.Context) error {
 				reached, err := traceroute(results, addr, ttl, timeoutDuration)
@@ -123,7 +126,7 @@ func TraceRoute(ctx context.Context, cfg tracerouteConfig) (map[int][]Hop, error
 			if err != nil {
 				log.Error("traceroute could not reach target", "ttl", ttl)
 			}
-		}()
+		}(ttl)
 	}
 
 	wg.Wait()
