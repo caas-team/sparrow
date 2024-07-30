@@ -159,44 +159,18 @@ func ipFromAddr(remoteAddr net.Addr) net.IP {
 // traceroute performs a traceroute to the given address with the specified TTL and timeout.
 // It returns a Hop struct containing the latency, TTL, address, and other details of the hop.
 func traceroute(addr net.Addr, ttl int, timeout time.Duration) (*Hop, error) {
-	canIcmp := true
-	icmpListener, err := icmp.ListenPacket("ip4:icmp", "0.0.0.0")
+	canIcmp, icmpListener, err := setupIcmpListener()
 	if err != nil {
-		if !errors.Is(err, syscall.EPERM) {
-			return nil, err
-		}
-		canIcmp = false
+		return nil, err
 	}
+	defer closeIcmpListener(canIcmp, icmpListener)
 
-	defer func() {
-		if canIcmp {
-			icmpListener.Close() // #nosec G104
-		}
-	}()
 	start := time.Now()
 	conn, clientPort, err := tcpHop(addr, ttl, timeout)
 	latency := time.Since(start)
 	if err == nil {
-		conn.Close() // #nosec G104
-
-		ipaddr := ipFromAddr(addr)
-		names, _ := net.LookupAddr(ipaddr.String()) // we don't care about this lookup failling
-
-		name := ""
-		if len(names) >= 1 {
-			name = names[0]
-		}
-
-		return &Hop{
-			Latency: latency,
-			Ttl:     ttl,
-			Addr:    addr,
-			Name:    name,
-			Reached: true,
-		}, nil
+		return handleTcpSuccess(conn, addr, ttl, latency), nil
 	}
-
-	deadline := time.Now().Add(timeout)
 
 	if !canIcmp {
 		return &Hop{
@@ -206,15 +180,59 @@ func traceroute(addr net.Addr, ttl int, timeout time.Duration) (*Hop, error) {
 		}, nil
 	}
 
+	h := handleIcmpResponse(icmpListener, clientPort, ttl, timeout)
+	h.Latency = latency
+	return &h, nil
+}
+
+func setupIcmpListener() (bool, *icmp.PacketConn, error) {
+	icmpListener, err := icmp.ListenPacket("ip4:icmp", "0.0.0.0")
+	if err != nil {
+		if !errors.Is(err, syscall.EPERM) {
+			return false, nil, err
+		}
+		return false, nil, nil
+	}
+	return true, icmpListener, nil
+}
+
+func closeIcmpListener(canIcmp bool, icmpListener *icmp.PacketConn) {
+	if canIcmp && icmpListener != nil {
+		icmpListener.Close() // #nosec G104
+	}
+}
+
+func handleTcpSuccess(conn net.Conn, addr net.Addr, ttl int, latency time.Duration) *Hop {
+	conn.Close() // #nosec G104
+
+	ipaddr := ipFromAddr(addr)
+	names, _ := net.LookupAddr(ipaddr.String()) // we don't care about this lookup failing
+
+	name := ""
+	if len(names) >= 1 {
+		name = names[0]
+	}
+
+	return &Hop{
+		Latency: latency,
+		Ttl:     ttl,
+		Addr:    addr,
+		Name:    name,
+		Reached: true,
+	}
+}
+
+// handleIcmpResponse attempts to read a time exceeded packet that matches clientPort until timeout is reached
+// if an error occurs while reading from the socket, handleIcmpResponse will silently fail and return a hop with hop.Reached=false
+func handleIcmpResponse(icmpListener *icmp.PacketConn, clientPort, ttl int, timeout time.Duration) Hop {
+	deadline := time.Now().Add(timeout)
+
 	for time.Now().Unix() < deadline.Unix() {
-		var addr net.Addr
 		gotPort, addr, err := readIcmpMessage(icmpListener, timeout)
 		if err != nil {
-			return &Hop{
-				Latency: latency,
-				Ttl:     ttl,
-				Reached: false,
-			}, nil
+			return Hop{
+				Ttl: ttl,
+			}
 		}
 
 		// Check if the destination port matches our dialer's source port
@@ -227,21 +245,17 @@ func traceroute(addr net.Addr, ttl int, timeout time.Duration) (*Hop, error) {
 				name = names[0]
 			}
 
-			return &Hop{
-				Latency: latency,
-				Ttl:     ttl,
-				Addr:    addr,
-				Reached: false,
-				Name:    name,
-			}, nil
+			return Hop{
+				Ttl:  ttl,
+				Addr: addr,
+				Name: name,
+			}
 		}
 	}
 
-	return &Hop{
-		Latency: latency,
-		Ttl:     ttl,
-		Reached: false,
-	}, nil
+	return Hop{
+		Ttl: ttl,
+	}
 }
 
 type Hop struct {
