@@ -129,20 +129,20 @@ func (tr *Traceroute) check(ctx context.Context) map[string]result {
 			tr.metrics.CheckDuration(t.Addr, elapsed)
 
 			l.Debug("Ran traceroute", "result", trace, "duration", elapsed)
-			r := result{
+			res := result{
 				Hops:    trace,
 				MinHops: tr.config.MaxHops,
 			}
 
-			for i, hops := range trace {
-				for _, hop := range hops {
-					if hop.Reached && hop.Ttl < r.MinHops {
-						r.MinHops = i
+			for ttl, hop := range trace {
+				for _, attempt := range hop {
+					if attempt.Reached && attempt.Ttl < res.MinHops {
+						res.MinHops = ttl
 					}
 				}
 			}
 
-			cResult <- internalResult{addr: t.Addr, res: r}
+			cResult <- internalResult{addr: t.Addr, res: res}
 		}(t)
 	}
 
