@@ -89,8 +89,7 @@ func readIcmpMessage(icmpListener *icmp.PacketConn, timeout time.Duration) (int,
 
 // TraceRoute performs a traceroute to the specified host using TCP and listens for ICMP Time Exceeded messages using ICMP.
 func TraceRoute(ctx context.Context, cfg tracerouteConfig) (map[int][]Hop, error) {
-	// this could also be a 2d array, but I feel like using an int map here makes the json easier to understand
-	// as it explicitly shows a mapping of ttl->hops
+	// maps ttl -> attempted hops for that ttl
 	hops := make(map[int][]Hop)
 	log := logger.FromContext(ctx).With("target", cfg.Dest)
 
