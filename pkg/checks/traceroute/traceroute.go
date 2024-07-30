@@ -112,12 +112,15 @@ func TraceRoute(ctx context.Context, cfg tracerouteConfig) (map[int][]Hop, error
 		go func(ttl int) {
 			defer wg.Done()
 			err := helper.Retry(func(_ context.Context) error {
-				reached, err := traceroute(results, addr, ttl, timeoutDuration)
+				hop, err := traceroute(addr, ttl, timeoutDuration)
+				if hop != nil {
+					results <- *hop
+				}
 				if err != nil {
 					log.Error("traceroute failed", "err", err.Error(), "ttl", ttl)
 					return err
 				}
-				if !reached {
+				if !hop.Reached {
 					log.Debug("failed to reach target, retrying", "ttl", ttl)
 					return errors.New("failed to reach target")
 				}
@@ -153,12 +156,14 @@ func ipFromAddr(remoteAddr net.Addr) net.IP {
 	return nil
 }
 
-func traceroute(results chan Hop, addr net.Addr, ttl int, timeout time.Duration) (bool, error) {
+// traceroute performs a traceroute to the given address with the specified TTL and timeout.
+// It returns a Hop struct containing the latency, TTL, address, and other details of the hop.
+func traceroute(addr net.Addr, ttl int, timeout time.Duration) (*Hop, error) {
 	canIcmp := true
 	icmpListener, err := icmp.ListenPacket("ip4:icmp", "0.0.0.0")
 	if err != nil {
 		if !errors.Is(err, syscall.EPERM) {
-			return false, err
+			return nil, err
 		}
 		canIcmp = false
 	}
@@ -182,36 +187,38 @@ func traceroute(results chan Hop, addr net.Addr, ttl int, timeout time.Duration)
 			name = names[0]
 		}
 
-		results <- Hop{
+		return &Hop{
 			Latency: latency,
 			Ttl:     ttl,
 			Addr:    addr,
 			Name:    name,
 			Reached: true,
-		}
-		return true, nil
+		}, nil
 	}
 
-	found := false
 	deadline := time.Now().Add(timeout)
 
-	for time.Now().Unix() < deadline.Unix() && !found {
-		gotPort := -1
+	if !canIcmp {
+		return &Hop{
+			Latency: latency,
+			Ttl:     ttl,
+			Reached: false,
+		}, nil
+	}
+
+	for time.Now().Unix() < deadline.Unix() {
 		var addr net.Addr
-		if canIcmp {
-			gotPort, addr, err = readIcmpMessage(icmpListener, timeout)
-			if err != nil {
-				results <- Hop{
-					Latency: latency,
-					Ttl:     ttl,
-					Reached: false,
-				}
-				return false, nil
-			}
+		gotPort, addr, err := readIcmpMessage(icmpListener, timeout)
+		if err != nil {
+			return &Hop{
+				Latency: latency,
+				Ttl:     ttl,
+				Reached: false,
+			}, nil
 		}
 
 		// Check if the destination port matches our dialer's source port
-		if canIcmp && gotPort == clientPort {
+		if gotPort == clientPort {
 			ipaddr := ipFromAddr(addr)
 			names, _ := net.LookupAddr(ipaddr.String()) // we don't really care if this lookup works, so ignore the error
 
@@ -220,26 +227,21 @@ func traceroute(results chan Hop, addr net.Addr, ttl int, timeout time.Duration)
 				name = names[0]
 			}
 
-			results <- Hop{
+			return &Hop{
 				Latency: latency,
 				Ttl:     ttl,
 				Addr:    addr,
 				Reached: false,
 				Name:    name,
-			}
-			found = true
-			break
-		}
-	}
-	if !found {
-		results <- Hop{
-			Latency: latency,
-			Ttl:     ttl,
-			Reached: false,
+			}, nil
 		}
 	}
 
-	return false, nil
+	return &Hop{
+		Latency: latency,
+		Ttl:     ttl,
+		Reached: false,
+	}, nil
 }
 
 type Hop struct {
