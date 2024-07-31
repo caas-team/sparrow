@@ -17,9 +17,9 @@ jobs:
 
       - name: Install dependencies
         run: |
+          sudo add-apt-repository ppa:katharaframework/kathara
           sudo apt-get update
-          sudo apt-get install -y python3 python3-pip jq
-          pip3 install kathara
+          sudo apt-get install -y python3 python3-pip jq kathara
 
       - name: Build binary for e2e
         uses: goreleaser/goreleaser-action@v5
