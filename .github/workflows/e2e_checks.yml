@@ -1,0 +1,32 @@
+name: E2E - Test checks
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test_e2e:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3 python3-pip jq
+          pip3 install kathara
+
+      - name: Build binary for e2e
+        uses: goreleaser/goreleaser-action@v5
+        with:
+          version: latest
+          args: build --single-target --clean --config .goreleaser-ci.yaml
+
+      - name: Run e2e tests
+        run: |
+          ./scripts/run_e2e_tests.sh
