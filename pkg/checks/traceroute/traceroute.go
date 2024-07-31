@@ -56,7 +56,8 @@ func tcpHop(addr net.Addr, ttl int, timeout time.Duration) (net.Conn, int, error
 // it reads the address of the router that dropped created the icmp packet. It also reads the source port
 // from the payload and finds the source port used by the previous tcp connection. If any error is returned,
 // an icmp packet was either not received, or the received packet was not a time exceeded.
-func readIcmpMessage(icmpListener *icmp.PacketConn, timeout time.Duration) (int, net.Addr, error) {
+func readIcmpMessage(ctx context.Context, icmpListener *icmp.PacketConn, timeout time.Duration) (int, net.Addr, error) {
+	log := logger.FromContext(ctx)
 	// Expected to fail due to TTL expiry, listen for ICMP response
 	if err := icmpListener.SetReadDeadline(time.Now().Add(timeout)); err != nil {
 		return 0, nil, fmt.Errorf("failed to set icmp read deadline: %w", err)
@@ -76,6 +77,7 @@ func readIcmpMessage(icmpListener *icmp.PacketConn, timeout time.Duration) (int,
 
 	// Ensure the message is an ICMP Time Exceeded message
 	if msg.Type != ipv4.ICMPTypeTimeExceeded {
+		log.Debug("message is not 'Time Exceeded'", "type", msg.Type.Protocol())
 		return 0, nil, errors.New("message is not 'Time Exceeded'")
 	}
 
@@ -113,7 +115,7 @@ func TraceRoute(ctx context.Context, cfg tracerouteConfig) (map[int][]Hop, error
 		go func(ttl int) {
 			defer wg.Done()
 			err := helper.Retry(func(_ context.Context) error {
-				hop, err := traceroute(addr, ttl, timeoutDuration)
+				hop, err := traceroute(ctx, addr, ttl, timeoutDuration)
 				if hop != nil {
 					results <- *hop
 				}
@@ -159,9 +161,11 @@ func ipFromAddr(remoteAddr net.Addr) net.IP {
 
 // traceroute performs a traceroute to the given address with the specified TTL and timeout.
 // It returns a Hop struct containing the latency, TTL, address, and other details of the hop.
-func traceroute(addr net.Addr, ttl int, timeout time.Duration) (*Hop, error) {
+func traceroute(ctx context.Context, addr net.Addr, ttl int, timeout time.Duration) (*Hop, error) {
+	log := logger.FromContext(ctx)
 	canIcmp, icmpListener, err := setupIcmpListener()
 	if err != nil {
+		log.Error("Failed to open ICMP socket", "err", err.Error(), "ttl", ttl)
 		return nil, err
 	}
 	defer closeIcmpListener(canIcmp, icmpListener)
@@ -174,6 +178,7 @@ func traceroute(addr net.Addr, ttl int, timeout time.Duration) (*Hop, error) {
 	}
 
 	if !canIcmp {
+		log.Debug("No permission for icmp socket", "ttl", ttl)
 		return &Hop{
 			Latency: latency,
 			Ttl:     ttl,
@@ -181,7 +186,7 @@ func traceroute(addr net.Addr, ttl int, timeout time.Duration) (*Hop, error) {
 		}, nil
 	}
 
-	h := handleIcmpResponse(icmpListener, clientPort, ttl, timeout)
+	h := handleIcmpResponse(ctx, icmpListener, clientPort, ttl, timeout)
 	h.Latency = latency
 	return &h, nil
 }
@@ -246,15 +251,16 @@ func handleTcpSuccess(conn net.Conn, addr net.Addr, ttl int, latency time.Durati
 
 // handleIcmpResponse attempts to read a time exceeded packet that matches clientPort until timeout is reached
 // if an error occurs while reading from the socket, handleIcmpResponse will silently fail and return a hop with hop.Reached=false
-func handleIcmpResponse(icmpListener *icmp.PacketConn, clientPort, ttl int, timeout time.Duration) Hop {
+func handleIcmpResponse(ctx context.Context, icmpListener *icmp.PacketConn, clientPort, ttl int, timeout time.Duration) Hop {
+	log := logger.FromContext(ctx)
 	deadline := time.Now().Add(timeout)
 
 	for time.Now().Unix() < deadline.Unix() {
-		gotPort, addr, err := readIcmpMessage(icmpListener, timeout)
+		log.Debug("Reading ICMP message", "ttl", ttl)
+		gotPort, addr, err := readIcmpMessage(ctx, icmpListener, timeout)
 		if err != nil {
-			return Hop{
-				Ttl: ttl,
-			}
+			log.Debug("Failed to read ICMP message", "err", err.Error(), "ttl", ttl)
+			continue
 		}
 
 		// Check if the destination port matches our dialer's source port
@@ -275,6 +281,7 @@ func handleIcmpResponse(icmpListener *icmp.PacketConn, clientPort, ttl int, time
 		}
 	}
 
+	log.Debug("Deadline reached", "ttl", ttl)
 	return Hop{
 		Ttl: ttl,
 	}
