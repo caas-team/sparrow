@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net"
+	"slices"
 	"sync"
 	"syscall"
 	"time"
@@ -127,7 +128,7 @@ func TraceRoute(ctx context.Context, cfg tracerouteConfig) (map[int][]Hop, error
 				return nil
 			}, cfg.Rc)(ctx)
 			if err != nil {
-				log.Error("traceroute could not reach target", "ttl", ttl)
+				log.Debug("traceroute could not reach target", "ttl", ttl)
 			}
 		}(ttl)
 	}
@@ -139,7 +140,7 @@ func TraceRoute(ctx context.Context, cfg tracerouteConfig) (map[int][]Hop, error
 		hops[r.Ttl] = append(hops[r.Ttl], r)
 	}
 
-	log.Debug("finished trace", "hops", printHops(hops))
+	printHops(ctx, hops)
 
 	return hops, nil
 }
@@ -202,6 +203,27 @@ func closeIcmpListener(canIcmp bool, icmpListener *icmp.PacketConn) {
 	}
 }
 
+func newHopAddress(addr net.Addr) HopAddress {
+	switch addr := addr.(type) {
+	case *net.UDPAddr:
+		return HopAddress{
+			IP:   addr.IP.String(),
+			Port: addr.Port,
+		}
+	case *net.TCPAddr:
+		return HopAddress{
+			IP:   addr.IP.String(),
+			Port: addr.Port,
+		}
+	case *net.IPAddr:
+		return HopAddress{
+			IP: addr.IP.String(),
+		}
+	default:
+		return HopAddress{}
+	}
+}
+
 func handleTcpSuccess(conn net.Conn, addr net.Addr, ttl int, latency time.Duration) *Hop {
 	conn.Close() // #nosec G104
 
@@ -216,7 +238,7 @@ func handleTcpSuccess(conn net.Conn, addr net.Addr, ttl int, latency time.Durati
 	return &Hop{
 		Latency: latency,
 		Ttl:     ttl,
-		Addr:    addr,
+		Addr:    newHopAddress(addr),
 		Name:    name,
 		Reached: true,
 	}
@@ -247,7 +269,7 @@ func handleIcmpResponse(icmpListener *icmp.PacketConn, clientPort, ttl int, time
 
 			return Hop{
 				Ttl:  ttl,
-				Addr: addr,
+				Addr: newHopAddress(addr),
 				Name: name,
 			}
 		}
@@ -259,24 +281,41 @@ func handleIcmpResponse(icmpListener *icmp.PacketConn, clientPort, ttl int, time
 }
 
 type Hop struct {
-	Latency time.Duration
-	Addr    net.Addr
-	Name    string
-	Ttl     int
-	Reached bool
+	Latency time.Duration `json:"latency" yaml:"latency" mapstructure:"latency"`
+	Addr    HopAddress    `json:"addr" yaml:"addr" mapstructure:"addr"`
+	Name    string        `json:"name" yaml:"name" mapstructure:"name"`
+	Ttl     int           `json:"ttl" yaml:"ttl" mapstructure:"ttl"`
+	Reached bool          `json:"reached" yaml:"reached" mapstructure:"reached"`
 }
 
-func printHops(mapHops map[int][]Hop) string {
-	out := ""
-	for ttl, hops := range mapHops {
-		for _, hop := range hops {
-			out += fmt.Sprintf("%d %s %s %v ", ttl, hop.Addr, hop.Name, hop.Latency)
+type HopAddress struct {
+	IP   string `json:"ip" yaml:"ip" mapstructure:"ip"`
+	Port int    `json:"port" yaml:"port" mapstructure:"port"`
+}
+
+func (a HopAddress) String() string {
+	if a.Port != 0 {
+		return fmt.Sprintf("%s:%d", a.IP, a.Port)
+	}
+	return a.IP
+}
+
+func printHops(ctx context.Context, mapHops map[int][]Hop) {
+	log := logger.FromContext(ctx)
+
+	keys := []int{}
+	for k := range mapHops {
+		keys = append(keys, k)
+	}
+	slices.Sort(keys)
+
+	for _, key := range keys {
+		for _, hop := range mapHops[key] {
+			out := fmt.Sprintf("%d %s %s %v ", key, hop.Addr.String(), hop.Name, hop.Latency)
 			if hop.Reached {
 				out += "( Reached )"
 			}
-			out += "\n"
+			log.Debug(out)
 		}
 	}
-
-	return out
 }

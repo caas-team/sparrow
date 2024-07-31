@@ -24,11 +24,11 @@ func TestCheck(t *testing.T) {
 				"8.8.8.8": {
 					MinHops: 5,
 					Hops: map[int][]Hop{
-						1: {{Addr: &net.TCPAddr{IP: net.ParseIP("0.0.0.1")}, Latency: 1 * time.Second, Reached: false, Ttl: 1}},
-						2: {{Addr: &net.TCPAddr{IP: net.ParseIP("0.0.0.2")}, Latency: 2 * time.Second, Reached: false, Ttl: 2}},
-						3: {{Addr: &net.TCPAddr{IP: net.ParseIP("0.0.0.3")}, Latency: 3 * time.Second, Reached: false, Ttl: 3}},
-						4: {{Addr: &net.TCPAddr{IP: net.ParseIP("0.0.0.4")}, Latency: 4 * time.Second, Reached: false, Ttl: 4}},
-						5: {{Addr: &net.TCPAddr{IP: net.ParseIP("123.0.0.123"), Port: 53}, Name: "google-public-dns-a.google.com", Latency: 69 * time.Second, Reached: true, Ttl: 5}},
+						1: {{Addr: HopAddress{IP: "0.0.0.1"}, Latency: 1 * time.Second, Reached: false, Ttl: 1}},
+						2: {{Addr: HopAddress{IP: "0.0.0.2"}, Latency: 2 * time.Second, Reached: false, Ttl: 2}},
+						3: {{Addr: HopAddress{IP: "0.0.0.3"}, Latency: 3 * time.Second, Reached: false, Ttl: 3}},
+						4: {{Addr: HopAddress{IP: "0.0.0.4"}, Latency: 4 * time.Second, Reached: false, Ttl: 4}},
+						5: {{Addr: HopAddress{IP: "123.0.0.123", Port: 53}, Name: "google-public-dns-a.google.com", Latency: 69 * time.Second, Reached: true, Ttl: 5}},
 					},
 				},
 			},
@@ -81,7 +81,7 @@ func success(nHops int) tracerouteFactory {
 			hops[i] = []Hop{
 				{
 					Latency: time.Second * time.Duration(i),
-					Addr:    &net.TCPAddr{IP: net.ParseIP(ipFromInt(i))},
+					Addr:    HopAddress{IP: ipFromInt(i)},
 					Name:    "",
 					Ttl:     i,
 					Reached: false,
@@ -91,8 +91,8 @@ func success(nHops int) tracerouteFactory {
 		hops[nHops] = []Hop{
 			{
 				Latency: 69 * time.Second,
-				Addr: &net.TCPAddr{
-					IP:   net.ParseIP("123.0.0.123"),
+				Addr: HopAddress{
+					IP:   "123.0.0.123",
 					Port: 53,
 				},
 				Name:    "google-public-dns-a.google.com",

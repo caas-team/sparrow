@@ -53,9 +53,9 @@ type tracerouteFactory func(ctx context.Context, cfg tracerouteConfig) (map[int]
 
 type result struct {
 	// The minimum number of hops required to reach the target
-	MinHops int
+	MinHops int `json:"min_hops" yaml:"min_hops" mapstructure:"min_hops"`
 	// The path taken to the destination
-	Hops map[int][]Hop
+	Hops map[int][]Hop `json:"hops" yaml:"hops" mapstructure:"hops"`
 }
 
 // Run runs the check in a loop sending results to the provided channel
