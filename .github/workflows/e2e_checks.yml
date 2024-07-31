@@ -25,7 +25,7 @@ jobs:
         uses: goreleaser/goreleaser-action@v5
         with:
           version: latest
-          args: build --single-target --clean --config .goreleaser-ci.yaml
+          args: build --single-target --clean  --snapshot --config .goreleaser-ci.yaml
 
       - name: Run e2e tests
         run: |
