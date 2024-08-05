@@ -17,6 +17,7 @@ import (
 	"github.com/caas-team/sparrow/internal/logger"
 	"golang.org/x/net/icmp"
 	"golang.org/x/net/ipv4"
+	"golang.org/x/net/ipv6"
 )
 
 const (
@@ -83,7 +84,7 @@ func readIcmpMessage(ctx context.Context, icmpListener *icmp.PacketConn, timeout
 	}
 
 	// Ensure the message is an ICMP Time Exceeded message
-	if msg.Type != ipv4.ICMPTypeTimeExceeded {
+	if msg.Type != ipv4.ICMPTypeTimeExceeded && msg.Type != ipv6.ICMPTypeTimeExceeded {
 		log.Debug("message is not 'Time Exceeded'", "type", msg.Type.Protocol())
 		return 0, nil, errors.New("message is not 'Time Exceeded'")
 	}
