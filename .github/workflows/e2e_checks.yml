@@ -2,9 +2,6 @@ name: E2E - Test checks
 
 on:
   push:
-    branches:
-      - main
-  pull_request:
 
 permissions:
   contents: read
