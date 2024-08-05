@@ -519,7 +519,7 @@ of the hop that dropped a packet, will not be available. To enable this function
 sudo sparrow run --config config.yaml
 ```
 
-- allow sparrow to create raw sockets, by assignging the `CAP_NET_RAW` capability to the sparrow binary: 
+- allow sparrow to create raw sockets, by assigning the `CAP_NET_RAW` capability to the sparrow binary: 
 ```bash
 sudo setcap 'cap_net_raw=ep' sparrow
 ```

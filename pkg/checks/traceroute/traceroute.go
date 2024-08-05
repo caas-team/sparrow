@@ -11,6 +11,8 @@ import (
 	"syscall"
 	"time"
 
+	"golang.org/x/sys/unix"
+
 	"github.com/caas-team/sparrow/internal/helper"
 	"github.com/caas-team/sparrow/internal/logger"
 	"golang.org/x/net/icmp"
@@ -41,7 +43,7 @@ func tcpHop(addr net.Addr, ttl int, timeout time.Duration) (net.Conn, int, error
 			Control: func(_, _ string, c syscall.RawConn) error {
 				var opErr error
 				if err := c.Control(func(fd uintptr) {
-					opErr = syscall.SetsockoptInt(int(fd), syscall.IPPROTO_IP, syscall.IP_TTL, ttl)
+					opErr = unix.SetsockoptInt(int(fd), unix.IPPROTO_IP, unix.IP_TTL, ttl)
 				}); err != nil {
 					return err
 				}
@@ -51,7 +53,7 @@ func tcpHop(addr net.Addr, ttl int, timeout time.Duration) (net.Conn, int, error
 
 		// Attempt to connect to the target host
 		conn, err := dialer.Dial("tcp", addr.String())
-		if !errors.Is(err, syscall.EADDRINUSE) {
+		if !errors.Is(err, unix.EADDRINUSE) {
 			return conn, port, err
 		}
 	}
@@ -199,7 +201,7 @@ func traceroute(ctx context.Context, addr net.Addr, ttl int, timeout time.Durati
 func newIcmpListener() (bool, *icmp.PacketConn, error) {
 	icmpListener, err := icmp.ListenPacket("ip4:icmp", "0.0.0.0")
 	if err != nil {
-		if !errors.Is(err, syscall.EPERM) {
+		if !errors.Is(err, unix.EPERM) {
 			return false, nil, err
 		}
 		return false, nil, nil
