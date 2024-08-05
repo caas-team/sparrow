@@ -8,39 +8,38 @@
 </p>
 <!-- markdownlint-enable MD033 -->
 
-- [About this component](#about-this-component)
-- [Installation](#installation)
-  - [Binary](#binary)
-  - [Container Image](#container-image)
-  - [Helm](#helm)
-- [Usage](#usage)
-  - [Image](#image)
-- [Configuration](#configuration)
-  - [Startup](#startup)
-    - [Example Startup Configuration](#example-startup-configuration)
-    - [Loader](#loader)
-    - [Logging Configuration](#logging-configuration)
-  - [Checks](#checks)
-  - [Target Manager](#target-manager)
-  - [Check: Health](#check-health)
-    - [Example configuration](#example-configuration)
-    - [Health Metrics](#health-metrics)
-  - [Check: Latency](#check-latency)
-    - [Example configuration](#example-configuration-1)
-    - [Latency Metrics](#latency-metrics)
-  - [Check: DNS](#check-dns)
-    - [Example configuration](#example-configuration-2)
-    - [DNS Metrics](#dns-metrics)
-  - [Check: Traceroute](#check-traceroute)
-    - [Example configuration](#example-configuration-3)
-    - [Required Capabilities](#required-capabilities)
-- [API](#api)
-- [Metrics](#metrics)
-- [Code of Conduct](#code-of-conduct)
-- [Working Language](#working-language)
-- [Support and Feedback](#support-and-feedback)
-- [How to Contribute](#how-to-contribute)
-- [Licensing](#licensing)
+- [The telemetry exporter to use.](#the-telemetry-exporter-to-use)
+- [Options:](#options)
+- [grpc: Exports telemetry using OTLP via gRPC.](#grpc-exports-telemetry-using-otlp-via-grpc)
+- [http: Exports telemetry using OTLP via HTTP.](#http-exports-telemetry-using-otlp-via-http)
+- [stdout: Prints telemetry to stdout.](#stdout-prints-telemetry-to-stdout)
+- [noop | "": Disables telemetry.](#noop---disables-telemetry)
+- [The address to export telemetry to.](#the-address-to-export-telemetry-to)
+- [The token to use for authentication.](#the-token-to-use-for-authentication)
+- [If the exporter does not require a token, this can be left empty.](#if-the-exporter-does-not-require-a-token-this-can-be-left-empty)
+- [The path to the tls certificate to use.](#the-path-to-the-tls-certificate-to-use)
+- [To disable tls, either set this to an empty string or set it to insecure.](#to-disable-tls-either-set-this-to-an-empty-string-or-set-it-to-insecure)
+      - [Example configuration](#example-configuration)
+      - [Health Metrics](#health-metrics)
+    - [Check: Latency](#check-latency)
+      - [Example configuration](#example-configuration-1)
+      - [Latency Metrics](#latency-metrics)
+    - [Check: DNS](#check-dns)
+      - [Example configuration](#example-configuration-2)
+      - [DNS Metrics](#dns-metrics)
+    - [Check: Traceroute](#check-traceroute)
+      - [Example configuration](#example-configuration-3)
+      - [Required Capabilities](#required-capabilities)
+  - [API](#api)
+  - [Metrics](#metrics)
+    - [Metrics API](#metrics-api)
+      - [Prometheus Integration](#prometheus-integration)
+    - [Traces](#traces)
+  - [Code of Conduct](#code-of-conduct)
+  - [Working Language](#working-language)
+  - [Support and Feedback](#support-and-feedback)
+  - [How to Contribute](#how-to-contribute)
+  - [Licensing](#licensing)
 
 The `sparrow` is an infrastructure monitoring tool. The binary includes several checks (e.g. health check) that will be
 executed periodically.
@@ -268,6 +267,23 @@ targetManager:
     # The ID of your GitLab project. This is where Sparrow will register itself
     # and grab the list of other Sparrows from
     projectId: 18923
+# Configures the telemetry exporter.
+telemetry:
+  # The telemetry exporter to use.
+  # Options:
+  # grpc: Exports telemetry using OTLP via gRPC.
+  # http: Exports telemetry using OTLP via HTTP.
+  # stdout: Prints telemetry to stdout.
+  # noop | "": Disables telemetry.
+  exporter: grpc
+  # The address to export telemetry to.
+  url: localhost:4317
+  # The token to use for authentication.
+  # If the exporter does not require a token, this can be left empty.
+  token: ""
+  # The path to the tls certificate to use.
+  # To disable tls, either set this to an empty string or set it to insecure.
+  certPath: ""
 ```
 
 #### Loader
@@ -348,11 +364,23 @@ which is named after the DNS name of the `sparrow`. The state file contains the 
 
 Available configuration options:
 
-| Field         | Type              | Description                                                                                                                                                 |
-| ------------- | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `interval`    | `duration`        | Interval to perform the health check.                                                                                                                       |
-| `timeout`     | `duration`        | Timeout for the health check.                                                                                                                               |
-| `retry.count` | `integer`         | Number of retries for the health check.                                                                                                                     |
+| Field | Type | Description |
+| ----- | ---- | ----------- |telemetry:
+  # The telemetry exporter to use.
+  # Options:
+  # grpc: Exports telemetry using OTLP via gRPC.
+  # http: Exports telemetry using OTLP via HTTP.
+  # stdout: Prints telemetry to stdout.
+  # noop | "": Disables telemetry.
+  exporter: grpc
+  # The address to export telemetry to.
+  url: localhost:4317
+  # The token to use for authentication.
+  # If the exporter does not require a token, this can be left empty.
+  token: ""
+  # The path to the tls certificate to use.
+  # To disable tls, either set this to an empty string or set it to insecure.
+  certPath: ""                          |
 | `retry.delay` | `duration`        | Initial delay between retries for the health check.                                                                                                         |
 | `targets`     | `list of strings` | List of targets to send health probe. Needs to be a valid URL. Can be another `sparrow` instance. Automatically updated when a targetManager is configured. |
 
@@ -522,8 +550,49 @@ at `/v1/metrics/{check-name}`. The API's definition is available at `/openapi`.
 
 ## Metrics
 
+### Metrics API
+
 The `sparrow` provides a `/metrics` endpoint to expose application metrics. In addition to runtime information, the
 sparrow provides specific metrics for each check. Refer to the [Checks](#checks) section for more detailed information.
+
+#### Prometheus Integration
+
+The `sparrow` metrics API is designed to be compatible with Prometheus. To integrate `sparrow` with Prometheus, add the following scrape configuration to your Prometheus configuration file:
+
+```yaml
+scrape_configs:
+  - job_name: 'sparrow'
+    static_configs:
+      - targets: ['<sparrow_instance_address>:8080']
+```
+
+Replace `<sparrow_instance_address>` with the actual address of your `sparrow` instance.
+
+### Traces
+
+The `sparrow` supports exporting telemetry data using the OpenTelemetry Protocol (OTLP). This allows users to choose their preferred telemetry provider and collector. The following configuration options are available for setting up telemetry:
+
+```yaml
+telemetry:
+  # The telemetry exporter to use.
+  # Options:
+  # grpc: Exports telemetry using OTLP via gRPC.
+  # http: Exports telemetry using OTLP via HTTP.
+  # stdout: Prints telemetry to stdout.
+  # noop | "": Disables telemetry.
+  exporter: grpc
+  # The address to export telemetry to.
+  url: localhost:4317
+  # The token to use for authentication.
+  # If the exporter does not require a token, this can be left empty.
+  token: ""
+  # The path to the tls certificate to use.
+  # To disable tls, either set this to an empty string or set it to insecure.
+  certPath: ""
+```
+
+Since OTLP is a standard protocol, users can choose any collector that supports it. The `stdout` exporter can be used for debugging purposes to print telemetry data to the console, while the `noop` exporter disables telemetry. If an external collector is used, a bearer token for authentication and a TLS certificate path for secure communication can be provided.
+
 
 ## Code of Conduct
 
