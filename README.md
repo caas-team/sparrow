@@ -33,7 +33,9 @@
     - [DNS Metrics](#dns-metrics)
   - [Check: Traceroute](#check-traceroute)
     - [Example configuration](#example-configuration-3)
-    - [Required Capabilities](#required-capabilities)
+    - [Optional Capabilities](#optional-capabilities)
+    - [Traceroute Prometheus Metrics](#traceroute-prometheus-metrics)
+    - [Traceroute API Metrics](#traceroute-api-metrics)
 - [API](#api)
 - [Metrics](#metrics)
 - [Code of Conduct](#code-of-conduct)
@@ -409,7 +411,7 @@ latency:
 
 - `sparrow_latency_duration_seconds`
   - Type: Gauge
-  - Description: Latency with status information of targets. This metric is DEPRECATED. Use `sparrow_latency_seconds`. 
+  - Description: Latency with status information of targets. This metric is DEPRECATED. Use `sparrow_latency_seconds`.
   - Labelled with `target` and `status`
 
 - `sparrow_latency_seconds`
@@ -511,40 +513,45 @@ dns:
 
 #### Optional Capabilities
 
-Sparrow does not need any extra permissions to run this check. However, some data, like the ip address 
+Sparrow does not need any extra permissions to run this check. However, some data, like the ip address
 of the hop that dropped a packet, will not be available. To enable this functionality, there are two options:
 
-- run sparrow as root: 
-```bash
-sudo sparrow run --config config.yaml
-```
+- Run sparrow as root:
 
-- allow sparrow to create raw sockets, by assigning the `CAP_NET_RAW` capability to the sparrow binary: 
-```bash
-sudo setcap 'cap_net_raw=ep' sparrow
-```
+  ```bash
+  sudo sparrow run --config config.yaml
+  ```
+
+- Allow sparrow to create raw sockets, by assigning the `CAP_NET_RAW` capability to the sparrow binary:
+
+  ```bash
+  sudo setcap 'cap_net_raw=ep' sparrow
+  ```
 
 #### Traceroute Prometheus Metrics
 
-
 - `sparrow_traceroute_check_duration_ms{target="google.com"} 43150`
-    - Type: Gauge
-    - Description: How long the last traceroute took for this target in total
+  - Type: Gauge
+  - Description: How long the last traceroute took for this target in total
 - `sparrow_traceroute_minimum_hops{target="google.com"} 14`
-    - Type: Gauge
-    - Description: The minimum number of hops required to reach a target
+  - Type: Gauge
+  - Description: The minimum number of hops required to reach a target
 
 #### Traceroute API Metrics
+
 The traceroute check exposes additional data through its rest API that isn't available in prometheus.
-This data give a more detailed breakdown of the trace and can be found at `/v1/metrics/traceroute` and is 
+This data give a more detailed breakdown of the trace and can be found at `/v1/metrics/traceroute` and is
 meant to be a json representation of traditional traceroute output:
+
 ```bash
 $ traceroute -T -q 1 100.1.2.2
  1  200.2.0.1 (200.2.0.1)  2 ms
  2  11.0.0.34 (11.0.0.34)  5 ms
  ...
 ```
+
 Is roughly equal to this:
+
 ```json
 {
   "data": {
