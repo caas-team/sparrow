@@ -45,7 +45,7 @@ type Traceroute struct {
 type tracerouteConfig struct {
 	Dest    string
 	Port    int
-	Timeout int
+	Timeout time.Duration
 	MaxHops int
 	Rc      helper.RetryConfig
 }
@@ -117,7 +117,7 @@ func (tr *Traceroute) check(ctx context.Context) map[string]result {
 			trace, err := tr.traceroute(ctx, tracerouteConfig{
 				Dest:    t.Addr,
 				Port:    int(t.Port),
-				Timeout: int(tr.config.Timeout / time.Millisecond),
+				Timeout: tr.config.Timeout,
 				MaxHops: tr.config.MaxHops,
 				Rc:      tr.config.Retry,
 			})

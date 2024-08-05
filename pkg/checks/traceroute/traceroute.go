@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math/rand"
+	"math/rand/v2"
 	"net"
 	"slices"
 	"sync"
@@ -21,15 +21,21 @@ import (
 )
 
 const (
+	// IPv4HeaderSize is the size of an IPv4 header in bytes
 	IPv4HeaderSize = 20
-	mtuSize        = 1500 // Standard MTU size
+	// IPv6HeaderSize is the size of an IPv6 header in bytes
+	IPv6HeaderSize = 40
+	// mtuSize is the maximum transmission unit size
+	mtuSize = 1500
+	// basePort is the starting port for the TCP connection
+	basePort = 30000
+	// portRange is the range of ports to generate a random port from
+	portRange = 10000
 )
 
-// randomPort returns a random port in the interval [ 30_000, 40_000 [
-//
-//nolint:all
+// randomPort returns a random port in the interval [30_000, 40_000)
 func randomPort() int {
-	return rand.Intn(10_000) + 30_000 // #nosec G404 // math.rand is fine here, we're not doing encryption
+	return rand.N(portRange) + basePort // #nosec G404 // math.rand is fine here, we're not doing encryption
 }
 
 func tcpHop(ctx context.Context, addr net.Addr, ttl int, timeout time.Duration) (net.Conn, int, error) {
@@ -73,7 +79,7 @@ func readIcmpMessage(ctx context.Context, icmpListener *icmp.PacketConn, timeout
 	buffer := make([]byte, mtuSize)
 	n, routerAddr, err := icmpListener.ReadFrom(buffer)
 	if err != nil {
-		// we probably timed out so return
+		// This is probably a timeout, so we can return an error
 		return 0, nil, fmt.Errorf("failed to read from icmp connection: %w", err)
 	}
 
@@ -83,14 +89,17 @@ func readIcmpMessage(ctx context.Context, icmpListener *icmp.PacketConn, timeout
 		return 0, nil, err
 	}
 
-	// Ensure the message is an ICMP Time Exceeded message
-	if msg.Type != ipv4.ICMPTypeTimeExceeded && msg.Type != ipv6.ICMPTypeTimeExceeded {
+	// Extract the TCP segment from the ICMP message
+	var tcpSegment []byte
+	switch msg.Type {
+	case ipv4.ICMPTypeTimeExceeded:
+		tcpSegment = msg.Body.(*icmp.TimeExceeded).Data[IPv4HeaderSize:]
+	case ipv6.ICMPTypeTimeExceeded:
+		tcpSegment = msg.Body.(*icmp.TimeExceeded).Data[IPv6HeaderSize:]
+	default:
 		log.Debug("message is not 'Time Exceeded'", "type", msg.Type.Protocol())
 		return 0, nil, errors.New("message is not 'Time Exceeded'")
 	}
-
-	// The first 20 bytes of Data are the IP header, so the TCP segment starts at byte 20
-	tcpSegment := msg.Body.(*icmp.TimeExceeded).Data[IPv4HeaderSize:]
 
 	// Extract the source port from the TCP segment
 	destPort := int(tcpSegment[0])<<8 + int(tcpSegment[1])
@@ -103,8 +112,6 @@ func TraceRoute(ctx context.Context, cfg tracerouteConfig) (map[int][]Hop, error
 	// maps ttl -> attempted hops for that ttl
 	hops := make(map[int][]Hop)
 	log := logger.FromContext(ctx).With("target", cfg.Dest)
-
-	timeoutDuration := time.Duration(cfg.Timeout) * time.Second
 
 	addr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("%s:%d", cfg.Dest, cfg.Port))
 	if err != nil {
@@ -123,7 +130,7 @@ func TraceRoute(ctx context.Context, cfg tracerouteConfig) (map[int][]Hop, error
 		go func(ttl int) {
 			defer wg.Done()
 			err := helper.Retry(func(ctx context.Context) error {
-				hop, err := traceroute(ctx, addr, ttl, timeoutDuration)
+				hop, err := traceroute(ctx, addr, ttl, cfg.Timeout)
 				if hop != nil {
 					results <- *hop
 				}

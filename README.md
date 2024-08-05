@@ -497,7 +497,7 @@ dns:
 <!-- markdownlint-enable MD024 -->
 
 ```yaml
- traceroute:
+traceroute:
   interval: 5s
   timeout: 3s
   retry:
