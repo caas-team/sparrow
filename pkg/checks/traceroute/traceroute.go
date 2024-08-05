@@ -122,7 +122,7 @@ func TraceRoute(ctx context.Context, cfg tracerouteConfig) (map[int][]Hop, error
 		wg.Add(1)
 		go func(ttl int) {
 			defer wg.Done()
-			err := helper.Retry(func(_ context.Context) error {
+			err := helper.Retry(func(ctx context.Context) error {
 				hop, err := traceroute(ctx, addr, ttl, timeoutDuration)
 				if hop != nil {
 					results <- *hop
