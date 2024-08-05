@@ -32,7 +32,7 @@ func randomPort() int {
 	return rand.Intn(10_000) + 30_000 // #nosec G404 // math.rand is fine here, we're not doing encryption
 }
 
-func tcpHop(addr net.Addr, ttl int, timeout time.Duration) (net.Conn, int, error) {
+func tcpHop(ctx context.Context, addr net.Addr, ttl int, timeout time.Duration) (net.Conn, int, error) {
 	for {
 		port := randomPort()
 		// Dialer with control function to set IP_TTL
@@ -53,7 +53,7 @@ func tcpHop(addr net.Addr, ttl int, timeout time.Duration) (net.Conn, int, error
 		}
 
 		// Attempt to connect to the target host
-		conn, err := dialer.Dial("tcp", addr.String())
+		conn, err := dialer.DialContext(ctx, "tcp", addr.String())
 		if !errors.Is(err, unix.EADDRINUSE) {
 			return conn, port, err
 		}
@@ -179,7 +179,7 @@ func traceroute(ctx context.Context, addr net.Addr, ttl int, timeout time.Durati
 	defer closeIcmpListener(canIcmp, icmpListener)
 
 	start := time.Now()
-	conn, clientPort, err := tcpHop(addr, ttl, timeout)
+	conn, clientPort, err := tcpHop(ctx, addr, ttl, timeout)
 	latency := time.Since(start)
 	if err == nil {
 		return handleTcpSuccess(conn, addr, ttl, latency), nil

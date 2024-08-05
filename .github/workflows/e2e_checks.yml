@@ -10,9 +10,6 @@ permissions:
 jobs:
   test_e2e:
     runs-on: ubuntu-latest
-    env:
-      LOG_LEVEL: DEBUG
-      LOG_FORMAT: TEXT
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
