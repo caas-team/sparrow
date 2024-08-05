@@ -17,6 +17,11 @@ import (
 	"golang.org/x/net/ipv4"
 )
 
+const (
+	IPv4HeaderSize = 20
+	mtuSize        = 1500 // Standard MTU size
+)
+
 // randomPort returns a random port in the interval [ 30_000, 40_000 [
 //
 //nolint:all
@@ -62,7 +67,7 @@ func readIcmpMessage(ctx context.Context, icmpListener *icmp.PacketConn, timeout
 	if err := icmpListener.SetReadDeadline(time.Now().Add(timeout)); err != nil {
 		return 0, nil, fmt.Errorf("failed to set icmp read deadline: %w", err)
 	}
-	buffer := make([]byte, 1500) //nolint:mnd // Standard MTU size
+	buffer := make([]byte, mtuSize)
 	n, routerAddr, err := icmpListener.ReadFrom(buffer)
 	if err != nil {
 		// we probably timed out so return
@@ -82,7 +87,7 @@ func readIcmpMessage(ctx context.Context, icmpListener *icmp.PacketConn, timeout
 	}
 
 	// The first 20 bytes of Data are the IP header, so the TCP segment starts at byte 20
-	tcpSegment := msg.Body.(*icmp.TimeExceeded).Data[20:]
+	tcpSegment := msg.Body.(*icmp.TimeExceeded).Data[IPv4HeaderSize:]
 
 	// Extract the source port from the TCP segment
 	destPort := int(tcpSegment[0])<<8 + int(tcpSegment[1])
