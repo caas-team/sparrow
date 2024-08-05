@@ -163,7 +163,7 @@ func ipFromAddr(remoteAddr net.Addr) net.IP {
 // It returns a Hop struct containing the latency, TTL, address, and other details of the hop.
 func traceroute(ctx context.Context, addr net.Addr, ttl int, timeout time.Duration) (*Hop, error) {
 	log := logger.FromContext(ctx)
-	canIcmp, icmpListener, err := setupIcmpListener()
+	canIcmp, icmpListener, err := newIcmpListener()
 	if err != nil {
 		log.Error("Failed to open ICMP socket", "err", err.Error(), "ttl", ttl)
 		return nil, err
@@ -191,7 +191,7 @@ func traceroute(ctx context.Context, addr net.Addr, ttl int, timeout time.Durati
 	return &h, nil
 }
 
-func setupIcmpListener() (bool, *icmp.PacketConn, error) {
+func newIcmpListener() (bool, *icmp.PacketConn, error) {
 	icmpListener, err := icmp.ListenPacket("ip4:icmp", "0.0.0.0")
 	if err != nil {
 		if !errors.Is(err, syscall.EPERM) {
