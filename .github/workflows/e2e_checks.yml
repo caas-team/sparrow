@@ -2,6 +2,8 @@ name: E2E - Test checks
 
 on:
   push:
+    branches:
+      - main
   pull_request:
 
 permissions:
@@ -13,9 +15,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-      - uses: actions/setup-python@v5 
+      - uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: "3.12"
 
       - name: Install dependencies
         run: |
