@@ -20,7 +20,7 @@ type Target struct {
 	// The address of the target to traceroute to. Can be a DNS name or an IP address
 	Addr string `json:"addr" yaml:"addr" mapstructure:"addr"`
 	// The port to traceroute to
-	Port uint16 `json:"port" yaml:"port" mapstructure:"port"`
+	Port int `json:"port" yaml:"port" mapstructure:"port"`
 }
 
 func NewCheck() checks.Check {
@@ -106,6 +106,8 @@ func (tr *Traceroute) check(ctx context.Context) map[string]result {
 	cResult := make(chan internalResult, len(tr.config.Targets))
 	var wg sync.WaitGroup
 
+	start := time.Now()
+
 	wg.Add(len(tr.config.Targets))
 	for _, t := range tr.config.Targets {
 		go func(t Target) {
@@ -113,15 +115,15 @@ func (tr *Traceroute) check(ctx context.Context) map[string]result {
 			l := log.With("target", t.Addr)
 			l.Debug("Running traceroute")
 
-			start := time.Now()
+			targetstart := time.Now()
 			trace, err := tr.traceroute(ctx, tracerouteConfig{
 				Dest:    t.Addr,
-				Port:    int(t.Port),
+				Port:    t.Port,
 				Timeout: tr.config.Timeout,
 				MaxHops: tr.config.MaxHops,
 				Rc:      tr.config.Retry,
 			})
-			elapsed := time.Since(start)
+			elapsed := time.Since(targetstart)
 			if err != nil {
 				l.Error("Error running traceroute", "error", err)
 			}
@@ -152,6 +154,10 @@ func (tr *Traceroute) check(ctx context.Context) map[string]result {
 	for r := range cResult {
 		res[r.addr] = r.res
 	}
+
+	elapsed := time.Since(start)
+
+	log.Info("Finished traceroute check", "duration", elapsed)
 
 	return res
 }

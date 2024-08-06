@@ -129,23 +129,25 @@ func TraceRoute(ctx context.Context, cfg tracerouteConfig) (map[int][]Hop, error
 		wg.Add(1)
 		go func(ttl int) {
 			defer wg.Done()
+			l := log.With("ttl", ttl)
+			logctx := logger.IntoContext(ctx, l)
 			err := helper.Retry(func(ctx context.Context) error {
 				hop, err := traceroute(ctx, addr, ttl, cfg.Timeout)
 				if hop != nil {
 					results <- *hop
 				}
 				if err != nil {
-					log.Error("traceroute failed", "err", err.Error(), "ttl", ttl)
+					l.Error("traceroute failed", "err", err.Error())
 					return err
 				}
 				if !hop.Reached {
-					log.Debug("failed to reach target, retrying", "ttl", ttl)
+					l.Debug("failed to reach target, retrying")
 					return errors.New("failed to reach target")
 				}
 				return nil
-			}, cfg.Rc)(ctx)
+			}, cfg.Rc)(logctx)
 			if err != nil {
-				log.Debug("traceroute could not reach target", "ttl", ttl)
+				l.Debug("traceroute could not reach target")
 			}
 		}(ttl)
 	}
@@ -180,7 +182,7 @@ func traceroute(ctx context.Context, addr net.Addr, ttl int, timeout time.Durati
 	log := logger.FromContext(ctx)
 	canIcmp, icmpListener, err := newIcmpListener()
 	if err != nil {
-		log.Error("Failed to open ICMP socket", "err", err.Error(), "ttl", ttl)
+		log.Error("Failed to open ICMP socket", "err", err.Error())
 		return nil, err
 	}
 	defer closeIcmpListener(canIcmp, icmpListener)
@@ -193,7 +195,7 @@ func traceroute(ctx context.Context, addr net.Addr, ttl int, timeout time.Durati
 	}
 
 	if !canIcmp {
-		log.Debug("No permission for icmp socket", "ttl", ttl)
+		log.Debug("No permission for icmp socket")
 		return &Hop{
 			Latency: latency,
 			Ttl:     ttl,
@@ -271,10 +273,10 @@ func handleIcmpResponse(ctx context.Context, icmpListener *icmp.PacketConn, clie
 	deadline := time.Now().Add(timeout)
 
 	for time.Now().Unix() < deadline.Unix() {
-		log.Debug("Reading ICMP message", "ttl", ttl)
+		log.Debug("Reading ICMP message")
 		gotPort, addr, err := readIcmpMessage(ctx, icmpListener, timeout)
 		if err != nil {
-			log.Debug("Failed to read ICMP message", "err", err.Error(), "ttl", ttl)
+			log.Debug("Failed to read ICMP message", "err", err.Error())
 			continue
 		}
 
@@ -296,7 +298,7 @@ func handleIcmpResponse(ctx context.Context, icmpListener *icmp.PacketConn, clie
 		}
 	}
 
-	log.Debug("Deadline reached", "ttl", ttl)
+	log.Debug("Deadline reached")
 	return Hop{
 		Ttl: ttl,
 	}
