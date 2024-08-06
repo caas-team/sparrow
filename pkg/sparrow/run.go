@@ -51,7 +51,7 @@ type Sparrow struct {
 	// tarMan is the target manager that is used to manage global targets
 	tarMan targets.TargetManager
 	// metrics is used to collect metrics
-	metrics metrics.Metrics
+	metrics metrics.Provider
 	// controller is used to manage the checks
 	controller *ChecksController
 	// cRuntime is used to signal that the runtime configuration has changed
@@ -66,15 +66,15 @@ type Sparrow struct {
 
 // New creates a new sparrow from a given configfile
 func New(cfg *config.Config) *Sparrow {
-	mtrcs := metrics.NewMetrics(cfg.Telemetry)
+	m := metrics.New(cfg.Telemetry)
 	dbase := db.NewInMemory()
 
 	sparrow := &Sparrow{
 		config:     cfg,
 		db:         dbase,
 		api:        api.New(cfg.Api),
-		metrics:    mtrcs,
-		controller: NewChecksController(dbase, mtrcs),
+		metrics:    m,
+		controller: NewChecksController(dbase, m),
 		cRuntime:   make(chan runtime.Config, 1),
 		cErr:       make(chan error, 1),
 		cDone:      make(chan struct{}, 1),

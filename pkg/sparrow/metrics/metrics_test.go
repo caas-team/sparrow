@@ -29,26 +29,21 @@ import (
 )
 
 func TestPrometheusMetrics_GetRegistry(t *testing.T) {
-	type fields struct {
-		registry *prometheus.Registry
-	}
 	tests := []struct {
-		name   string
-		fields fields
-		want   *prometheus.Registry
+		name     string
+		registry *prometheus.Registry
+		want     *prometheus.Registry
 	}{
 		{
-			name: "simple registry",
-			fields: fields{
-				registry: prometheus.NewRegistry(),
-			},
-			want: prometheus.NewRegistry(),
+			name:     "simple registry",
+			registry: prometheus.NewRegistry(),
+			want:     prometheus.NewRegistry(),
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := &metrics{
-				registry: tt.fields.registry,
+			m := &manager{
+				registry: tt.registry,
 			}
 			if got := m.GetRegistry(); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("PrometheusMetrics.GetRegistry() = %v, want %v", got, tt.want)
@@ -58,7 +53,7 @@ func TestPrometheusMetrics_GetRegistry(t *testing.T) {
 }
 
 func TestNewMetrics(t *testing.T) {
-	testMetrics := NewMetrics(Config{})
+	testMetrics := New(Config{})
 	testGauge := prometheus.NewGauge(
 		prometheus.GaugeOpts{
 			Name: "TEST_GAUGE",
@@ -66,7 +61,7 @@ func TestNewMetrics(t *testing.T) {
 	)
 
 	t.Run("Register a collector", func(t *testing.T) {
-		testMetrics.(*metrics).registry.MustRegister(
+		testMetrics.(*manager).registry.MustRegister(
 			testGauge,
 		)
 	})
@@ -126,7 +121,7 @@ func TestMetrics_InitTracing(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := NewMetrics(tt.config)
+			m := New(tt.config)
 			if err := m.InitTracing(context.Background()); (err != nil) != tt.wantErr {
 				t.Errorf("Metrics.InitTracing() error = %v", err)
 			}

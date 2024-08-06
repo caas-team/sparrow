@@ -9,16 +9,16 @@ import (
 	"sync"
 )
 
-// Ensure, that MetricsMock does implement Metrics.
+// Ensure, that ProviderMock does implement Provider.
 // If this is not the case, regenerate this file with moq.
-var _ Metrics = &MetricsMock{}
+var _ Provider = &ProviderMock{}
 
-// MetricsMock is a mock implementation of Metrics.
+// ProviderMock is a mock implementation of Provider.
 //
-//	func TestSomethingThatUsesMetrics(t *testing.T) {
+//	func TestSomethingThatUsesProvider(t *testing.T) {
 //
-//		// make and configure a mocked Metrics
-//		mockedMetrics := &MetricsMock{
+//		// make and configure a mocked Provider
+//		mockedProvider := &ProviderMock{
 //			GetRegistryFunc: func() *prometheus.Registry {
 //				panic("mock out the GetRegistry method")
 //			},
@@ -30,11 +30,11 @@ var _ Metrics = &MetricsMock{}
 //			},
 //		}
 //
-//		// use mockedMetrics in code that requires Metrics
+//		// use mockedProvider in code that requires Provider
 //		// and then make assertions.
 //
 //	}
-type MetricsMock struct {
+type ProviderMock struct {
 	// GetRegistryFunc mocks the GetRegistry method.
 	GetRegistryFunc func() *prometheus.Registry
 
@@ -66,9 +66,9 @@ type MetricsMock struct {
 }
 
 // GetRegistry calls GetRegistryFunc.
-func (mock *MetricsMock) GetRegistry() *prometheus.Registry {
+func (mock *ProviderMock) GetRegistry() *prometheus.Registry {
 	if mock.GetRegistryFunc == nil {
-		panic("MetricsMock.GetRegistryFunc: method is nil but Metrics.GetRegistry was just called")
+		panic("ProviderMock.GetRegistryFunc: method is nil but Provider.GetRegistry was just called")
 	}
 	callInfo := struct {
 	}{}
@@ -81,8 +81,8 @@ func (mock *MetricsMock) GetRegistry() *prometheus.Registry {
 // GetRegistryCalls gets all the calls that were made to GetRegistry.
 // Check the length with:
 //
-//	len(mockedMetrics.GetRegistryCalls())
-func (mock *MetricsMock) GetRegistryCalls() []struct {
+//	len(mockedProvider.GetRegistryCalls())
+func (mock *ProviderMock) GetRegistryCalls() []struct {
 } {
 	var calls []struct {
 	}
@@ -93,9 +93,9 @@ func (mock *MetricsMock) GetRegistryCalls() []struct {
 }
 
 // InitTracing calls InitTracingFunc.
-func (mock *MetricsMock) InitTracing(ctx context.Context) error {
+func (mock *ProviderMock) InitTracing(ctx context.Context) error {
 	if mock.InitTracingFunc == nil {
-		panic("MetricsMock.InitTracingFunc: method is nil but Metrics.InitTracing was just called")
+		panic("ProviderMock.InitTracingFunc: method is nil but Provider.InitTracing was just called")
 	}
 	callInfo := struct {
 		Ctx context.Context
@@ -111,8 +111,8 @@ func (mock *MetricsMock) InitTracing(ctx context.Context) error {
 // InitTracingCalls gets all the calls that were made to InitTracing.
 // Check the length with:
 //
-//	len(mockedMetrics.InitTracingCalls())
-func (mock *MetricsMock) InitTracingCalls() []struct {
+//	len(mockedProvider.InitTracingCalls())
+func (mock *ProviderMock) InitTracingCalls() []struct {
 	Ctx context.Context
 } {
 	var calls []struct {
@@ -125,9 +125,9 @@ func (mock *MetricsMock) InitTracingCalls() []struct {
 }
 
 // Shutdown calls ShutdownFunc.
-func (mock *MetricsMock) Shutdown(ctx context.Context) error {
+func (mock *ProviderMock) Shutdown(ctx context.Context) error {
 	if mock.ShutdownFunc == nil {
-		panic("MetricsMock.ShutdownFunc: method is nil but Metrics.Shutdown was just called")
+		panic("ProviderMock.ShutdownFunc: method is nil but Provider.Shutdown was just called")
 	}
 	callInfo := struct {
 		Ctx context.Context
@@ -143,8 +143,8 @@ func (mock *MetricsMock) Shutdown(ctx context.Context) error {
 // ShutdownCalls gets all the calls that were made to Shutdown.
 // Check the length with:
 //
-//	len(mockedMetrics.ShutdownCalls())
-func (mock *MetricsMock) ShutdownCalls() []struct {
+//	len(mockedProvider.ShutdownCalls())
+func (mock *ProviderMock) ShutdownCalls() []struct {
 	Ctx context.Context
 } {
 	var calls []struct {

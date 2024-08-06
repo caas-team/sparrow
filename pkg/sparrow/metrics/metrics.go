@@ -31,10 +31,10 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.24.0"
 )
 
-var _ Metrics = &metrics{}
+var _ Provider = (*manager)(nil)
 
-//go:generate moq -out metrics_moq.go . Metrics
-type Metrics interface {
+//go:generate moq -out metrics_moq.go . Provider
+type Provider interface {
 	// GetRegistry returns the prometheus registry instance
 	// containing the registered prometheus collectors
 	GetRegistry() *prometheus.Registry
@@ -44,14 +44,14 @@ type Metrics interface {
 	Shutdown(ctx context.Context) error
 }
 
-type metrics struct {
+type manager struct {
 	config   Config
 	registry *prometheus.Registry
 	tp       *sdktrace.TracerProvider
 }
 
-// NewMetrics initializes the metrics and returns the PrometheusMetrics
-func NewMetrics(config Config) Metrics {
+// New initializes the metrics and returns the PrometheusMetrics
+func New(config Config) Provider {
 	registry := prometheus.NewRegistry()
 
 	registry.MustRegister(
@@ -59,19 +59,19 @@ func NewMetrics(config Config) Metrics {
 		collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
 	)
 
-	return &metrics{
+	return &manager{
 		config:   config,
 		registry: registry,
 	}
 }
 
 // GetRegistry returns the registry to register prometheus metrics
-func (m *metrics) GetRegistry() *prometheus.Registry {
+func (m *manager) GetRegistry() *prometheus.Registry {
 	return m.registry
 }
 
 // InitTracing initializes the OpenTelemetry tracing
-func (m *metrics) InitTracing(ctx context.Context) error {
+func (m *manager) InitTracing(ctx context.Context) error {
 	log := logger.FromContext(ctx)
 	res, err := resource.New(ctx,
 		resource.WithHost(),
@@ -107,13 +107,13 @@ func (m *metrics) InitTracing(ctx context.Context) error {
 }
 
 // Shutdown closes the metrics and tracing
-func (m *metrics) Shutdown(ctx context.Context) error {
+func (m *manager) Shutdown(ctx context.Context) error {
 	log := logger.FromContext(ctx)
 	if m.tp != nil {
 		err := m.tp.Shutdown(ctx)
 		if err != nil {
 			log.ErrorContext(ctx, "Failed to shutdown tracer provider", "error", err)
-			return fmt.Errorf("failed to shutdown tracer provider: %v", err)
+			return fmt.Errorf("failed to shutdown tracer provider: %w", err)
 		}
 	}
 

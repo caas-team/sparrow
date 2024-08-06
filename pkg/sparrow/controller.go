@@ -36,7 +36,7 @@ import (
 // ChecksController is responsible for managing checks.
 type ChecksController struct {
 	db      db.DB
-	metrics metrics.Metrics
+	metrics metrics.Provider
 	checks  runtime.Checks
 	cResult chan checks.ResultDTO
 	cErr    chan error
@@ -44,10 +44,10 @@ type ChecksController struct {
 }
 
 // NewChecksController creates a new ChecksController.
-func NewChecksController(dbase db.DB, mtrcs metrics.Metrics) *ChecksController {
+func NewChecksController(dbase db.DB, m metrics.Provider) *ChecksController {
 	return &ChecksController{
 		db:      dbase,
-		metrics: mtrcs,
+		metrics: m,
 		checks:  runtime.Checks{},
 		cResult: make(chan checks.ResultDTO, 8), //nolint:mnd // Buffered channel to avoid blocking the checks
 		cErr:    make(chan error, 1),
