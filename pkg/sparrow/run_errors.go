@@ -19,10 +19,11 @@
 package sparrow
 
 type ErrShutdown struct {
-	errAPI    error
-	errTarMan error
+	errAPI     error
+	errTarMan  error
+	errMetrics error
 }
 
 func (e ErrShutdown) HasError() bool {
-	return e.errAPI != nil || e.errTarMan != nil
+	return e.errAPI != nil || e.errTarMan != nil || e.errMetrics != nil
 }
