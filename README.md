@@ -33,7 +33,9 @@
     - [DNS Metrics](#dns-metrics)
   - [Check: Traceroute](#check-traceroute)
     - [Example configuration](#example-configuration-3)
-    - [Required Capabilities](#required-capabilities)
+    - [Optional Capabilities](#optional-capabilities)
+    - [Traceroute Prometheus Metrics](#traceroute-prometheus-metrics)
+    - [Traceroute API Metrics](#traceroute-api-metrics)
 - [API](#api)
 - [Metrics](#metrics)
   - [Prometheus Integration](#prometheus-integration)
@@ -504,7 +506,8 @@ dns:
 | ---------------- | ----------------- | ---------------------------------------------------------------------------- |
 | `interval`       | `duration`        | Interval to perform the Traceroute check.                                    |
 | `timeout`        | `duration`        | Timeout for every hop.                                                       |
-| `retries`        | `integer`         | Number of times to retry the traceroute for a target, if it fails.           |
+| `retry.count`    | `integer`         | Number of retries for the latency check.                                                                                                                     |
+| `retry.delay`    | `duration`        | Initial delay between retries for the latency check.                                                                                                         |
 | `maxHops`        | `integer`         | Maximum number of hops to try before giving up.                              |
 | `targets`        | `list of objects` | List of targets to traceroute to.                                            |
 | `targets[].addr` | `string`          | The address of the target to traceroute to. Can be an IP address or DNS name |
@@ -515,11 +518,13 @@ dns:
 <!-- markdownlint-enable MD024 -->
 
 ```yaml
- traceroute:
+traceroute:
   interval: 5s
   timeout: 3s
-  retries: 3
-  maxHops: 8
+  retry:
+    count: 3
+    delay: 1s
+  maxHops: 30
   targets:
     - addr: 8.8.8.8
       port: 53
@@ -527,13 +532,86 @@ dns:
       port: 80
 ```
 
-#### Required Capabilities
+#### Optional Capabilities
 
-To use this check, sparrow needs to be run with the `CAP_NET_RAW` capability or elevated privileges to be able to send raw packets.
-Using the `CAP_NET_RAW` capability is recommended over running sparrow as sudo.
+Sparrow does not need any extra permissions to run this check. However, some data, like the ip address
+of the hop that dropped a packet, will not be available. To enable this functionality, there are two options:
+
+- Run sparrow as root:
+
+  ```bash
+  sudo sparrow run --config config.yaml
+  ```
+
+- Allow sparrow to create raw sockets, by assigning the `CAP_NET_RAW` capability to the sparrow binary:
+
+  ```bash
+  sudo setcap 'cap_net_raw=ep' sparrow
+  ```
+
+#### Traceroute Prometheus Metrics
+
+- `sparrow_traceroute_check_duration_ms{target="google.com"} 43150`
+  - Type: Gauge
+  - Description: How long the last traceroute took for this target in total
+- `sparrow_traceroute_minimum_hops{target="google.com"} 14`
+  - Type: Gauge
+  - Description: The minimum number of hops required to reach a target
+
+#### Traceroute API Metrics
+
+The traceroute check exposes additional data through its rest API that isn't available in prometheus.
+This data give a more detailed breakdown of the trace and can be found at `/v1/metrics/traceroute` and is
+meant to be a json representation of traditional traceroute output:
 
 ```bash
-sudo setcap 'cap_net_raw=ep' sparrow
+$ traceroute -T -q 1 100.1.2.2
+ 1  200.2.0.1 (200.2.0.1)  2 ms
+ 2  11.0.0.34 (11.0.0.34)  5 ms
+ ...
+```
+
+Is roughly equal to this:
+
+```json
+{
+  "data": {
+    "100.1.2.2": {
+      "MinHops": 1,
+      "Hops": {
+        "1": [
+          {
+            "Latency": 2,
+            "Addr": {
+              "IP": "200.2.0.1",
+              "Port": 80,
+              "Zone": ""
+            },
+            "Name": "",
+            "Ttl": 1,
+            "Reached": false
+          }
+        ],
+        "2": [
+          {
+            "Latency": 5,
+            "Addr": {
+              "IP": "11.0.0.34",
+              "Port": 80,
+              "Zone": ""
+            },
+            "Name": "",
+            "Ttl": 2,
+            "Reached": false
+          }
+        ]
+        ...
+      }
+    },
+  },
+  "timestamp": "2024-07-26T15:49:39.60760766+02:00"
+}
+
 ```
 
 ## API

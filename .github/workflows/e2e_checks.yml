@@ -1,0 +1,55 @@
+name: E2E - Test checks
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  test_e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          sudo add-apt-repository ppa:katharaframework/kathara
+          sudo apt-get update
+          sudo apt-get install -y jq kathara
+      - name: Setup kathara
+        run: |
+          echo '{
+          "image": "kathara/base",
+          "manager_type": "docker",
+          "terminal": "/usr/bin/xterm",
+          "open_terminals": false,
+          "device_shell": "/bin/bash",
+          "net_prefix": "kathara",
+          "device_prefix": "kathara",
+          "debug_level": "INFO",
+          "print_startup_log": true,
+          "enable_ipv6": false,
+          "last_checked": 1721834897.2415252,
+          "hosthome_mount": false,
+          "shared_mount": true,
+          "image_update_policy": "Prompt",
+          "shared_cds": 1,
+          "remote_url": null,
+          "cert_path": null,
+          "network_plugin": "kathara/katharanp_vde"
+          }' > ~/.config/kathara.conf
+
+      - name: Build binary for e2e
+        uses: goreleaser/goreleaser-action@v5
+        with:
+          version: latest
+          args: build --single-target --clean  --snapshot --config .goreleaser-ci.yaml
+
+      - name: Run e2e tests
+        run: |
+          ./scripts/run_e2e_tests.sh
