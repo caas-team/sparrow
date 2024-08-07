@@ -36,6 +36,8 @@
     - [Required Capabilities](#required-capabilities)
 - [API](#api)
 - [Metrics](#metrics)
+  - [Prometheus Integration](#prometheus-integration)
+  - [Traces](#traces)
 - [Code of Conduct](#code-of-conduct)
 - [Working Language](#working-language)
 - [Support and Feedback](#support-and-feedback)
@@ -268,6 +270,25 @@ targetManager:
     # The ID of your GitLab project. This is where Sparrow will register itself
     # and grab the list of other Sparrows from
     projectId: 18923
+
+# Configures the telemetry exporter.
+# Omitting this section will disable telemetry.
+telemetry:
+  # The telemetry exporter to use.
+  # Options:
+  # grpc: Exports telemetry using OTLP via gRPC.
+  # http: Exports telemetry using OTLP via HTTP.
+  # stdout: Prints telemetry to stdout.
+  # noop | "": Disables telemetry.
+  exporter: grpc
+  # The address to export telemetry to.
+  url: localhost:4317
+  # The token to use for authentication.
+  # If the exporter does not require a token, this can be left empty.
+  token: ""
+  # The path to the tls certificate to use.
+  # To disable tls, either set this to an empty string or set it to insecure.
+  certPath: ""
 ```
 
 #### Loader
@@ -409,7 +430,7 @@ latency:
 
 - `sparrow_latency_duration_seconds`
   - Type: Gauge
-  - Description: Latency with status information of targets. This metric is DEPRECATED. Use `sparrow_latency_seconds`. 
+  - Description: Latency with status information of targets. This metric is DEPRECATED. Use `sparrow_latency_seconds`.
   - Labelled with `target` and `status`
 
 - `sparrow_latency_seconds`
@@ -522,8 +543,54 @@ at `/v1/metrics/{check-name}`. The API's definition is available at `/openapi`.
 
 ## Metrics
 
-The `sparrow` provides a `/metrics` endpoint to expose application metrics. In addition to runtime information, the
-sparrow provides specific metrics for each check. Refer to the [Checks](#checks) section for more detailed information.
+The `sparrow` provides a `/metrics` endpoint to expose application metrics. In addition to runtime information, the sparrow provides specific metrics for each check. Refer to the [Checks](#checks) section for more detailed information.
+
+### Prometheus Integration
+
+The `sparrow` metrics API is designed to be compatible with Prometheus. To integrate `sparrow` with Prometheus, add the following scrape configuration to your Prometheus configuration file:
+
+```yaml
+scrape_configs:
+  - job_name: 'sparrow'
+    static_configs:
+      - targets: ['<sparrow_instance_address>:8080']
+```
+
+Replace `<sparrow_instance_address>` with the actual address of your `sparrow` instance.
+
+### Traces
+
+The `sparrow` supports exporting telemetry data using the OpenTelemetry Protocol (OTLP). This allows users to choose their preferred telemetry provider and collector. The following configuration options are available for setting up telemetry:
+
+| Field      | Type     | Description                                                              |
+| ---------- | -------- | ------------------------------------------------------------------------ |
+| `exporter` | `string` | The telemetry exporter to use. Options: `grpc`, `http`, `stdout`, `noop` |
+| `url`      | `string` | The address to export telemetry to                                       |
+| `token`    | `string` | The token to use for authentication                                      |
+| `certPath` | `string` | The path to the TLS certificate to use                                   |
+
+For example, to export telemetry data using OTLP via gRPC, you can add the following configuration to your [startup configuration](#startup):
+
+```yaml
+telemetry:
+  # The telemetry exporter to use.
+  # Options:
+  # grpc: Exports telemetry using OTLP via gRPC.
+  # http: Exports telemetry using OTLP via HTTP.
+  # stdout: Prints telemetry to stdout.
+  # noop | "": Disables telemetry.
+  exporter: grpc
+  # The address to export telemetry to.
+  url: collector.example.com:4317
+  # The token to use for authentication.
+  # If the exporter does not require a token, this can be left empty.
+  token: ""
+  # The path to the tls certificate to use.
+  # To disable tls, either set this to an empty string or set it to insecure.
+  certPath: ""
+```
+
+Since [OTLP](https://opentelemetry.io/docs/specs/otlp/) is a standard protocol, you can choose any collector that supports it. The `stdout` exporter can be used for debugging purposes to print telemetry data to the console, while the `noop` exporter disables telemetry. If an external collector is used, a bearer token for authentication and a TLS certificate path for secure communication can be provided.
 
 ## Code of Conduct
 

@@ -32,6 +32,7 @@ import (
 	"github.com/caas-team/sparrow/pkg/checks/runtime"
 	"github.com/caas-team/sparrow/pkg/config"
 	"github.com/caas-team/sparrow/pkg/db"
+	"github.com/caas-team/sparrow/pkg/sparrow/metrics"
 	"github.com/caas-team/sparrow/pkg/sparrow/targets"
 )
 
@@ -50,7 +51,7 @@ type Sparrow struct {
 	// tarMan is the target manager that is used to manage global targets
 	tarMan targets.TargetManager
 	// metrics is used to collect metrics
-	metrics Metrics
+	metrics metrics.Provider
 	// controller is used to manage the checks
 	controller *ChecksController
 	// cRuntime is used to signal that the runtime configuration has changed
@@ -65,15 +66,15 @@ type Sparrow struct {
 
 // New creates a new sparrow from a given configfile
 func New(cfg *config.Config) *Sparrow {
-	metrics := NewMetrics()
+	m := metrics.New(cfg.Telemetry)
 	dbase := db.NewInMemory()
 
 	sparrow := &Sparrow{
 		config:     cfg,
 		db:         dbase,
 		api:        api.New(cfg.Api),
-		metrics:    metrics,
-		controller: NewChecksController(dbase, metrics),
+		metrics:    m,
+		controller: NewChecksController(dbase, m),
 		cRuntime:   make(chan runtime.Config, 1),
 		cErr:       make(chan error, 1),
 		cDone:      make(chan struct{}, 1),
@@ -94,6 +95,11 @@ func (s *Sparrow) Run(ctx context.Context) error {
 	ctx, cancel := logger.NewContextWithLogger(ctx)
 	log := logger.FromContext(ctx)
 	defer cancel()
+
+	err := s.metrics.InitTracing(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to initialize tracing: %w", err)
+	}
 
 	go func() {
 		s.cErr <- s.loader.Run(ctx)
@@ -181,6 +187,7 @@ func (s *Sparrow) shutdown(ctx context.Context) {
 			sErrs.errTarMan = s.tarMan.Shutdown(ctx)
 		}
 		sErrs.errAPI = s.api.Shutdown(ctx)
+		sErrs.errMetrics = s.metrics.Shutdown(ctx)
 		s.loader.Shutdown(ctx)
 		s.controller.Shutdown(ctx)
 
