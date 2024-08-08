@@ -322,10 +322,12 @@ func TestGenerateCheckSpecs(t *testing.T) {
 			},
 			wantErr: false,
 			validate: func(t *testing.T, doc openapi3.T) {
-				if _, ok := doc.Paths.Extensions["/v1/metrics/check1"]; !ok {
+				item := doc.Paths.Find("/v1/metrics/check1")
+				if item == nil {
 					t.Errorf("Expected path '/v1/metrics/check1' not found")
 				}
-				if _, ok := doc.Paths.Extensions["/v1/metrics/check2"]; !ok {
+				item = doc.Paths.Find("/v1/metrics/check2")
+				if item == nil {
 					t.Errorf("Expected path '/v1/metrics/check2' not found")
 				}
 			},
