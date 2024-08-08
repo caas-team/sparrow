@@ -33,9 +33,13 @@
     - [DNS Metrics](#dns-metrics)
   - [Check: Traceroute](#check-traceroute)
     - [Example configuration](#example-configuration-3)
-    - [Required Capabilities](#required-capabilities)
+    - [Optional Capabilities](#optional-capabilities)
+    - [Traceroute Prometheus Metrics](#traceroute-prometheus-metrics)
+    - [Traceroute API Metrics](#traceroute-api-metrics)
 - [API](#api)
 - [Metrics](#metrics)
+  - [Prometheus Integration](#prometheus-integration)
+  - [Traces](#traces)
 - [Code of Conduct](#code-of-conduct)
 - [Working Language](#working-language)
 - [Support and Feedback](#support-and-feedback)
@@ -226,10 +230,22 @@ loader:
 api:
   # Which address to expose Sparrow's REST API on
   address: :8080
+  # Configures tls for the http server
+  # including prometheus metrics etc
+  tls:
+    # whether to enable tls, default is false
+    enabled: true
+    # path to your x509 certificate
+    certPath: mycert.pem
+    # path to your certificate key
+    keyPath: mykey.key
+
 
 # Configures the target manager
 # Omitting this section will disable the target manager
 targetManager:
+  # whether to enable the target manager. defaults to false
+  enabled: true
   # Defines which target manager to use.
   type: gitlab
   # The interval for the target reconciliation process
@@ -244,6 +260,8 @@ targetManager:
   # before it is removed from the global target list
   # A duration of 0 means no removal
   unhealthyThreshold: 360m
+  # Scheme defines with which scheme sparrow should register itself
+  scheme: http
   # Configuration options for the GitLab target manager
   gitlab:
     # The URL of your GitLab host
@@ -254,6 +272,25 @@ targetManager:
     # The ID of your GitLab project. This is where Sparrow will register itself
     # and grab the list of other Sparrows from
     projectId: 18923
+
+# Configures the telemetry exporter.
+# Omitting this section will disable telemetry.
+telemetry:
+  # The telemetry exporter to use.
+  # Options:
+  # grpc: Exports telemetry using OTLP via gRPC.
+  # http: Exports telemetry using OTLP via HTTP.
+  # stdout: Prints telemetry to stdout.
+  # noop | "": Disables telemetry.
+  exporter: grpc
+  # The address to export telemetry to.
+  url: localhost:4317
+  # The token to use for authentication.
+  # If the exporter does not require a token, this can be left empty.
+  token: ""
+  # The path to the tls certificate to use.
+  # To disable tls, either set this to an empty string or set it to insecure.
+  certPath: ""
 ```
 
 #### Loader
@@ -304,16 +341,18 @@ the `TargetManager` interface. This feature is optional; if the startup configur
 the `targetManager`, it will not be used. When configured, it offers various settings, detailed below, which can be set
 in the startup YAML configuration file as shown in the [example configuration](#example-startup-configuration).
 
-| Type                                 | Description                                                                                  |
-| ------------------------------------ | -------------------------------------------------------------------------------------------- |
-| `targetManager.type`                 | Type of the target manager. Options: `gitlab`                                                |
-| `targetManager.checkInterval`        | Interval for checking new targets.                                                           |
-| `targetManager.unhealthyThreshold`   | Threshold for marking a target as unhealthy. 0 means no cleanup.                             |
-| `targetManager.registrationInterval` | Interval for registering the current sparrow at the target backend. 0 means no registration. |
-| `targetManager.updateInterval`       | Interval for updating the registration of the current sparrow. 0 means no update.            |
-| `targetManager.gitlab.baseUrl`       | Base URL of the GitLab instance.                                                             |
-| `targetManager.gitlab.token`         | Token for authenticating with the GitLab instance.                                           |
-| `targetManager.gitlab.projectId`     | Project ID for the GitLab project used as a remote state backend.                            |
+| Type                                 | Description                                                                                                                                     |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `targetManager.enabled`              | Whether to enable the target manager. Defaults to false                                                                                         |
+| `targetManager.type`                 | Type of the target manager. Options: `gitlab`                                                                                                   |
+| `targetManager.checkInterval`        | Interval for checking new targets.                                                                                                              |
+| `targetManager.unhealthyThreshold`   | Threshold for marking a target as unhealthy. 0 means no cleanup.                                                                                |
+| `targetManager.registrationInterval` | Interval for registering the current sparrow at the target backend. 0 means no registration.                                                    |
+| `targetManager.updateInterval`       | Interval for updating the registration of the current sparrow. 0 means no update.                                                               |
+| `targetManager.gitlab.baseUrl`       | Base URL of the GitLab instance.                                                                                                                |
+| `targetManager.gitlab.token`         | Token for authenticating with the GitLab instance.                                                                                              |
+| `targetManager.gitlab.projectId`     | Project ID for the GitLab project used as a remote state backend.                                                                               |
+| `targetManager.scheme`               | Should the target register itself as http or https. Can be `http` or `https`. This needs to be set to `https`, when `api.tls.enabled` == `true` |
 
 Currently, only one target manager exists: the Gitlab target manager. It uses a gitlab project as the remote state
 backend. The various `sparrow` instances can register themselves as targets in the project.
@@ -323,7 +362,7 @@ which is named after the DNS name of the `sparrow`. The state file contains the 
 
 ```json
 {
-  "url": "https://<SPARROW_DNS_NAME>",
+  "url": "<SCHEME>://<SPARROW_DNS_NAME>",
   "lastSeen": "2021-09-30T12:00:00Z"
 }
 ```
@@ -393,8 +432,13 @@ latency:
 
 - `sparrow_latency_duration_seconds`
   - Type: Gauge
-  - Description: Latency with status information of targets
+  - Description: Latency with status information of targets. This metric is DEPRECATED. Use `sparrow_latency_seconds`.
   - Labelled with `target` and `status`
+
+- `sparrow_latency_seconds`
+  - Type: Gauge
+  - Description: Latency information of targets
+  - Labelled with `target`
 
 - `sparrow_latency_count`
   - Type: Counter
@@ -462,7 +506,8 @@ dns:
 | ---------------- | ----------------- | ---------------------------------------------------------------------------- |
 | `interval`       | `duration`        | Interval to perform the Traceroute check.                                    |
 | `timeout`        | `duration`        | Timeout for every hop.                                                       |
-| `retries`        | `integer`         | Number of times to retry the traceroute for a target, if it fails.           |
+| `retry.count`    | `integer`         | Number of retries for the latency check.                                                                                                                     |
+| `retry.delay`    | `duration`        | Initial delay between retries for the latency check.                                                                                                         |
 | `maxHops`        | `integer`         | Maximum number of hops to try before giving up.                              |
 | `targets`        | `list of objects` | List of targets to traceroute to.                                            |
 | `targets[].addr` | `string`          | The address of the target to traceroute to. Can be an IP address or DNS name |
@@ -473,11 +518,13 @@ dns:
 <!-- markdownlint-enable MD024 -->
 
 ```yaml
- traceroute:
+traceroute:
   interval: 5s
   timeout: 3s
-  retries: 3
-  maxHops: 8
+  retry:
+    count: 3
+    delay: 1s
+  maxHops: 30
   targets:
     - addr: 8.8.8.8
       port: 53
@@ -485,13 +532,86 @@ dns:
       port: 80
 ```
 
-#### Required Capabilities
+#### Optional Capabilities
 
-To use this check, sparrow needs to be run with the `CAP_NET_RAW` capability or elevated privileges to be able to send raw packets.
-Using the `CAP_NET_RAW` capability is recommended over running sparrow as sudo.
+Sparrow does not need any extra permissions to run this check. However, some data, like the ip address
+of the hop that dropped a packet, will not be available. To enable this functionality, there are two options:
+
+- Run sparrow as root:
+
+  ```bash
+  sudo sparrow run --config config.yaml
+  ```
+
+- Allow sparrow to create raw sockets, by assigning the `CAP_NET_RAW` capability to the sparrow binary:
+
+  ```bash
+  sudo setcap 'cap_net_raw=ep' sparrow
+  ```
+
+#### Traceroute Prometheus Metrics
+
+- `sparrow_traceroute_check_duration_ms{target="google.com"} 43150`
+  - Type: Gauge
+  - Description: How long the last traceroute took for this target in total
+- `sparrow_traceroute_minimum_hops{target="google.com"} 14`
+  - Type: Gauge
+  - Description: The minimum number of hops required to reach a target
+
+#### Traceroute API Metrics
+
+The traceroute check exposes additional data through its rest API that isn't available in prometheus.
+This data give a more detailed breakdown of the trace and can be found at `/v1/metrics/traceroute` and is
+meant to be a json representation of traditional traceroute output:
 
 ```bash
-sudo setcap 'cap_net_raw=ep' sparrow
+$ traceroute -T -q 1 100.1.2.2
+ 1  200.2.0.1 (200.2.0.1)  2 ms
+ 2  11.0.0.34 (11.0.0.34)  5 ms
+ ...
+```
+
+Is roughly equal to this:
+
+```json
+{
+  "data": {
+    "100.1.2.2": {
+      "MinHops": 1,
+      "Hops": {
+        "1": [
+          {
+            "Latency": 2,
+            "Addr": {
+              "IP": "200.2.0.1",
+              "Port": 80,
+              "Zone": ""
+            },
+            "Name": "",
+            "Ttl": 1,
+            "Reached": false
+          }
+        ],
+        "2": [
+          {
+            "Latency": 5,
+            "Addr": {
+              "IP": "11.0.0.34",
+              "Port": 80,
+              "Zone": ""
+            },
+            "Name": "",
+            "Ttl": 2,
+            "Reached": false
+          }
+        ]
+        ...
+      }
+    },
+  },
+  "timestamp": "2024-07-26T15:49:39.60760766+02:00"
+}
+
 ```
 
 ## API
@@ -501,8 +621,54 @@ at `/v1/metrics/{check-name}`. The API's definition is available at `/openapi`.
 
 ## Metrics
 
-The `sparrow` provides a `/metrics` endpoint to expose application metrics. In addition to runtime information, the
-sparrow provides specific metrics for each check. Refer to the [Checks](#checks) section for more detailed information.
+The `sparrow` provides a `/metrics` endpoint to expose application metrics. In addition to runtime information, the sparrow provides specific metrics for each check. Refer to the [Checks](#checks) section for more detailed information.
+
+### Prometheus Integration
+
+The `sparrow` metrics API is designed to be compatible with Prometheus. To integrate `sparrow` with Prometheus, add the following scrape configuration to your Prometheus configuration file:
+
+```yaml
+scrape_configs:
+  - job_name: 'sparrow'
+    static_configs:
+      - targets: ['<sparrow_instance_address>:8080']
+```
+
+Replace `<sparrow_instance_address>` with the actual address of your `sparrow` instance.
+
+### Traces
+
+The `sparrow` supports exporting telemetry data using the OpenTelemetry Protocol (OTLP). This allows users to choose their preferred telemetry provider and collector. The following configuration options are available for setting up telemetry:
+
+| Field      | Type     | Description                                                              |
+| ---------- | -------- | ------------------------------------------------------------------------ |
+| `exporter` | `string` | The telemetry exporter to use. Options: `grpc`, `http`, `stdout`, `noop` |
+| `url`      | `string` | The address to export telemetry to                                       |
+| `token`    | `string` | The token to use for authentication                                      |
+| `certPath` | `string` | The path to the TLS certificate to use                                   |
+
+For example, to export telemetry data using OTLP via gRPC, you can add the following configuration to your [startup configuration](#startup):
+
+```yaml
+telemetry:
+  # The telemetry exporter to use.
+  # Options:
+  # grpc: Exports telemetry using OTLP via gRPC.
+  # http: Exports telemetry using OTLP via HTTP.
+  # stdout: Prints telemetry to stdout.
+  # noop | "": Disables telemetry.
+  exporter: grpc
+  # The address to export telemetry to.
+  url: collector.example.com:4317
+  # The token to use for authentication.
+  # If the exporter does not require a token, this can be left empty.
+  token: ""
+  # The path to the tls certificate to use.
+  # To disable tls, either set this to an empty string or set it to insecure.
+  certPath: ""
+```
+
+Since [OTLP](https://opentelemetry.io/docs/specs/otlp/) is a standard protocol, you can choose any collector that supports it. The `stdout` exporter can be used for debugging purposes to print telemetry data to the console, while the `noop` exporter disables telemetry. If an external collector is used, a bearer token for authentication and a TLS certificate path for secure communication can be provided.
 
 ## Code of Conduct
 
