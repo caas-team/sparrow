@@ -22,7 +22,7 @@ jobs:
           go-version-file: go.mod
 
       - name: Build snapshot artifacts
-        uses: goreleaser/goreleaser-action@v5
+        uses: goreleaser/goreleaser-action@v6
         with:
           version: latest
           args: release --snapshot --clean --config .goreleaser-ci.yaml
