@@ -31,4 +31,6 @@ var (
 	ErrInvalidUpdateInterval = errors.New("invalid update interval")
 	// ErrInvalidInteractorType is returned when the interactor type isn't recognized
 	ErrInvalidInteractorType = errors.New("invalid interactor type")
+	// ErrInvalidScheme is returned when the scheme is not http or https
+	ErrInvalidScheme = errors.New("scheme must be 'http' of 'https'")
 )
