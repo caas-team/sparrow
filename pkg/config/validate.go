@@ -48,6 +48,13 @@ func (c *Config) Validate(ctx context.Context) (err error) {
 		}
 	}
 
+	if c.HasTelemetry() {
+		if vErr := c.Telemetry.Validate(ctx); vErr != nil {
+			log.Error("The telemetry configuration is invalid")
+			err = errors.Join(err, vErr)
+		}
+	}
+
 	if vErr := c.Api.Validate(); vErr != nil {
 		log.Error("The api configuration is invalid")
 		err = errors.Join(err, vErr)

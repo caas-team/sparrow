@@ -4,7 +4,6 @@
 name: End2End Testing
 on:
   push:
-  pull_request:
 
 jobs:
   end2end:

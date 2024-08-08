@@ -29,13 +29,14 @@ import (
 	"github.com/caas-team/sparrow/pkg/checks/runtime"
 	"github.com/caas-team/sparrow/pkg/db"
 	"github.com/caas-team/sparrow/pkg/factory"
+	"github.com/caas-team/sparrow/pkg/sparrow/metrics"
 	"github.com/getkin/kin-openapi/openapi3"
 )
 
 // ChecksController is responsible for managing checks.
 type ChecksController struct {
 	db      db.DB
-	metrics Metrics
+	metrics metrics.Provider
 	checks  runtime.Checks
 	cResult chan checks.ResultDTO
 	cErr    chan error
@@ -43,10 +44,10 @@ type ChecksController struct {
 }
 
 // NewChecksController creates a new ChecksController.
-func NewChecksController(dbase db.DB, metrics Metrics) *ChecksController {
+func NewChecksController(dbase db.DB, m metrics.Provider) *ChecksController {
 	return &ChecksController{
 		db:      dbase,
-		metrics: metrics,
+		metrics: m,
 		checks:  runtime.Checks{},
 		cResult: make(chan checks.ResultDTO, 8), //nolint:mnd // Buffered channel to avoid blocking the checks
 		cErr:    make(chan error, 1),
