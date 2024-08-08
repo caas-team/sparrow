@@ -1,0 +1,25 @@
+# DNS sparrow is exposed on
+name: sparrow.caas-t21.telekom.de
+
+# Selects and configures a loader to continuously fetch the checks' configuration at runtime
+loader:
+  # Defines which loader to use. Options: "file | http"
+  type: file
+  # The interval in which sparrow tries to fetch a new configuration
+  # If this isn't set or set to 0, the loader will only retrieve the configuration once
+  interval: 30s
+
+  # Config specific to the file loader
+  # The file loader is not intended for production use
+  file:
+    # Location of the file in the local filesystem
+    path: /shared/config.yaml
+
+traceroute:
+  interval: 5s
+  timeout: 3s
+  retries: 3
+  maxHops: 3
+  targets:
+    - addr: 200.1.1.7
+      port: 80

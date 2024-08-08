@@ -29,13 +29,14 @@ import (
 	"github.com/caas-team/sparrow/pkg/checks/runtime"
 	"github.com/caas-team/sparrow/pkg/db"
 	"github.com/caas-team/sparrow/pkg/factory"
+	"github.com/caas-team/sparrow/pkg/sparrow/metrics"
 	"github.com/getkin/kin-openapi/openapi3"
 )
 
 // ChecksController is responsible for managing checks.
 type ChecksController struct {
 	db      db.DB
-	metrics Metrics
+	metrics metrics.Provider
 	checks  runtime.Checks
 	cResult chan checks.ResultDTO
 	cErr    chan error
@@ -43,10 +44,10 @@ type ChecksController struct {
 }
 
 // NewChecksController creates a new ChecksController.
-func NewChecksController(dbase db.DB, metrics Metrics) *ChecksController {
+func NewChecksController(dbase db.DB, m metrics.Provider) *ChecksController {
 	return &ChecksController{
 		db:      dbase,
-		metrics: metrics,
+		metrics: m,
 		checks:  runtime.Checks{},
 		cResult: make(chan checks.ResultDTO, 8), //nolint:mnd // Buffered channel to avoid blocking the checks
 		cErr:    make(chan error, 1),
@@ -204,23 +205,21 @@ func (cc *ChecksController) GenerateCheckSpecs(ctx context.Context) (openapi3.T,
 
 		routeDesc := fmt.Sprintf("Returns the performance data for check %s", name)
 		bodyDesc := fmt.Sprintf("Metrics for check %s", name)
-		doc.Paths.Extensions["/v1/metrics/"+name] = &openapi3.PathItem{
+		responses := &openapi3.Responses{}
+		responses.Set(fmt.Sprint(http.StatusOK), &openapi3.ResponseRef{
+			Value: &openapi3.Response{
+				Description: &bodyDesc,
+				Content:     openapi3.NewContentWithSchemaRef(ref, []string{"application/json"}),
+			},
+		})
+		doc.Paths.Set(fmt.Sprintf("/v1/metrics/%s", name), &openapi3.PathItem{
 			Description: name,
 			Get: &openapi3.Operation{
 				Description: routeDesc,
 				Tags:        []string{"Metrics", name},
-				Responses: &openapi3.Responses{
-					Extensions: map[string]any{
-						fmt.Sprint(http.StatusOK): &openapi3.ResponseRef{
-							Value: &openapi3.Response{
-								Description: &bodyDesc,
-								Content:     openapi3.NewContentWithSchemaRef(ref, []string{"application/json"}),
-							},
-						},
-					},
-				},
+				Responses:   responses,
 			},
-		}
+		})
 	}
 
 	return doc, nil

@@ -48,7 +48,8 @@ func TestSparrow_Run_FullComponentStart(t *testing.T) {
 			Interval: time.Second * 1,
 		},
 		TargetManager: targets.TargetManagerConfig{
-			Type: "gitlab",
+			Enabled: true,
+			Type:    "gitlab",
 			General: targets.General{
 				CheckInterval:        time.Second * 1,
 				RegistrationInterval: time.Second * 1,
@@ -111,6 +112,7 @@ func TestSparrow_Run_ContextCancel(t *testing.T) {
 // TestSparrow_enrichTargets tests that the enrichTargets method
 // updates the targets of the configured checks.
 func TestSparrow_enrichTargets(t *testing.T) {
+	t.Parallel()
 	now := time.Now()
 	testTarget := "https://localhost.de"
 	gt := []checks.GlobalTarget{
@@ -236,6 +238,28 @@ func TestSparrow_enrichTargets(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "global targets contains http and https - dns validation still works does not fail and splits off scheme",
+			config: runtime.Config{
+				Dns: &dns.Config{
+					Targets: []string{},
+				},
+			},
+			globalTargets: []checks.GlobalTarget{
+				{
+					Url:      "http://az1.sparrow.com",
+					LastSeen: now,
+				},
+				{
+					Url: "https://az2.sparrow.com",
+				},
+			},
+			expected: runtime.Config{
+				Dns: &dns.Config{
+					Targets: []string{"az1.sparrow.com", "az2.sparrow.com"},
+				},
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -248,7 +272,7 @@ func TestSparrow_enrichTargets(t *testing.T) {
 					SparrowName: "sparrow.com",
 				},
 			}
-			got := s.enrichTargets(tt.config)
+			got := s.enrichTargets(context.Background(), tt.config)
 			assert.Equal(t, tt.expected, got)
 		})
 	}

@@ -21,6 +21,7 @@ package sparrow
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"slices"
 	"strings"
 	"sync"
@@ -31,6 +32,7 @@ import (
 	"github.com/caas-team/sparrow/pkg/checks/runtime"
 	"github.com/caas-team/sparrow/pkg/config"
 	"github.com/caas-team/sparrow/pkg/db"
+	"github.com/caas-team/sparrow/pkg/sparrow/metrics"
 	"github.com/caas-team/sparrow/pkg/sparrow/targets"
 )
 
@@ -49,7 +51,7 @@ type Sparrow struct {
 	// tarMan is the target manager that is used to manage global targets
 	tarMan targets.TargetManager
 	// metrics is used to collect metrics
-	metrics Metrics
+	metrics metrics.Provider
 	// controller is used to manage the checks
 	controller *ChecksController
 	// cRuntime is used to signal that the runtime configuration has changed
@@ -64,15 +66,15 @@ type Sparrow struct {
 
 // New creates a new sparrow from a given configfile
 func New(cfg *config.Config) *Sparrow {
-	metrics := NewMetrics()
+	m := metrics.New(cfg.Telemetry)
 	dbase := db.NewInMemory()
 
 	sparrow := &Sparrow{
 		config:     cfg,
 		db:         dbase,
 		api:        api.New(cfg.Api),
-		metrics:    metrics,
-		controller: NewChecksController(dbase, metrics),
+		metrics:    m,
+		controller: NewChecksController(dbase, m),
 		cRuntime:   make(chan runtime.Config, 1),
 		cErr:       make(chan error, 1),
 		cDone:      make(chan struct{}, 1),
@@ -94,6 +96,11 @@ func (s *Sparrow) Run(ctx context.Context) error {
 	log := logger.FromContext(ctx)
 	defer cancel()
 
+	err := s.metrics.InitTracing(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to initialize tracing: %w", err)
+	}
+
 	go func() {
 		s.cErr <- s.loader.Run(ctx)
 	}()
@@ -114,7 +121,7 @@ func (s *Sparrow) Run(ctx context.Context) error {
 	for {
 		select {
 		case cfg := <-s.cRuntime:
-			cfg = s.enrichTargets(cfg)
+			cfg = s.enrichTargets(ctx, cfg)
 			s.controller.Reconcile(ctx, cfg)
 		case <-ctx.Done():
 			s.shutdown(ctx)
@@ -131,24 +138,33 @@ func (s *Sparrow) Run(ctx context.Context) error {
 
 // enrichTargets updates the targets of the sparrow's checks with the
 // global targets. Per default, the two target lists are merged.
-func (s *Sparrow) enrichTargets(cfg runtime.Config) runtime.Config {
+func (s *Sparrow) enrichTargets(ctx context.Context, cfg runtime.Config) runtime.Config {
+	l := logger.FromContext(ctx)
 	if cfg.Empty() || s.tarMan == nil {
 		return cfg
 	}
 
 	for _, gt := range s.tarMan.GetTargets() {
-		if gt.Url == fmt.Sprintf("https://%s", s.config.SparrowName) {
+		u, err := url.Parse(gt.Url)
+		if err != nil {
+			l.Error("Failed to parse global target URL", "error", err, "url", gt.Url)
 			continue
 		}
-		if cfg.HasHealthCheck() && !slices.Contains(cfg.Health.Targets, gt.Url) {
-			cfg.Health.Targets = append(cfg.Health.Targets, gt.Url)
+
+		// split off hostWithoutPort because it could contain a port
+		hostWithoutPort := strings.Split(u.Host, ":")[0]
+		if hostWithoutPort == s.config.SparrowName {
+			continue
 		}
-		if cfg.HasLatencyCheck() && !slices.Contains(cfg.Latency.Targets, gt.Url) {
-			cfg.Latency.Targets = append(cfg.Latency.Targets, gt.Url)
+
+		if cfg.HasHealthCheck() && !slices.Contains(cfg.Health.Targets, u.String()) {
+			cfg.Health.Targets = append(cfg.Health.Targets, u.String())
 		}
-		if cfg.HasDNSCheck() && !slices.Contains(cfg.Dns.Targets, gt.Url) {
-			t, _ := strings.CutPrefix(gt.Url, "https://")
-			cfg.Dns.Targets = append(cfg.Dns.Targets, t)
+		if cfg.HasLatencyCheck() && !slices.Contains(cfg.Latency.Targets, u.String()) {
+			cfg.Latency.Targets = append(cfg.Latency.Targets, u.String())
+		}
+		if cfg.HasDNSCheck() && !slices.Contains(cfg.Dns.Targets, hostWithoutPort) {
+			cfg.Dns.Targets = append(cfg.Dns.Targets, hostWithoutPort)
 		}
 	}
 
@@ -171,6 +187,7 @@ func (s *Sparrow) shutdown(ctx context.Context) {
 			sErrs.errTarMan = s.tarMan.Shutdown(ctx)
 		}
 		sErrs.errAPI = s.api.Shutdown(ctx)
+		sErrs.errMetrics = s.metrics.Shutdown(ctx)
 		s.loader.Shutdown(ctx)
 		s.controller.Shutdown(ctx)
 
