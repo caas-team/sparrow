@@ -3,7 +3,7 @@ module github.com/caas-team/sparrow
 go 1.22
 
 require (
-	github.com/getkin/kin-openapi v0.120.0
+	github.com/getkin/kin-openapi v0.127.0
 	github.com/go-chi/chi/v5 v5.1.0
 	github.com/google/go-cmp v0.6.0
 	github.com/jarcoal/httpmock v1.3.1

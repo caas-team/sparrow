@@ -180,7 +180,9 @@ var oapiBoilerplate = openapi3.T{
 			Name:  "CaaS Team",
 		},
 	},
-	Paths:      make(openapi3.Paths),
+	Paths: &openapi3.Paths{
+		Extensions: make(map[string]any),
+	},
 	Extensions: make(map[string]any),
 	Components: &openapi3.Components{
 		Schemas: make(openapi3.Schemas),
@@ -203,21 +205,21 @@ func (cc *ChecksController) GenerateCheckSpecs(ctx context.Context) (openapi3.T,
 
 		routeDesc := fmt.Sprintf("Returns the performance data for check %s", name)
 		bodyDesc := fmt.Sprintf("Metrics for check %s", name)
-		doc.Paths["/v1/metrics/"+name] = &openapi3.PathItem{
+		responses := &openapi3.Responses{}
+		responses.Set(fmt.Sprint(http.StatusOK), &openapi3.ResponseRef{
+			Value: &openapi3.Response{
+				Description: &bodyDesc,
+				Content:     openapi3.NewContentWithSchemaRef(ref, []string{"application/json"}),
+			},
+		})
+		doc.Paths.Set(fmt.Sprintf("/v1/metrics/%s", name), &openapi3.PathItem{
 			Description: name,
 			Get: &openapi3.Operation{
 				Description: routeDesc,
 				Tags:        []string{"Metrics", name},
-				Responses: openapi3.Responses{
-					fmt.Sprint(http.StatusOK): &openapi3.ResponseRef{
-						Value: &openapi3.Response{
-							Description: &bodyDesc,
-							Content:     openapi3.NewContentWithSchemaRef(ref, []string{"application/json"}),
-						},
-					},
-				},
+				Responses:   responses,
 			},
-		}
+		})
 	}
 
 	return doc, nil
