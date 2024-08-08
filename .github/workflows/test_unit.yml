@@ -2,7 +2,6 @@ name: Test - Unit
 
 on:
   push:
-  pull_request:
 
 permissions:
   contents: read

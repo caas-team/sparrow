@@ -41,9 +41,9 @@ func TestOpenapiFromPerfData(t *testing.T) {
 			args: args[string]{perfData: "hello world"},
 			want: &openapi3.SchemaRef{
 				Value: openapi3.NewObjectSchema().WithProperties(map[string]*openapi3.Schema{
-					"data": {Type: "string"},
+					"data": {Type: openapi3.NewStringSchema().Type},
 					"timestamp": {
-						Type:   "string",
+						Type:   openapi3.NewStringSchema().Type,
 						Format: "date-time",
 					},
 				}),

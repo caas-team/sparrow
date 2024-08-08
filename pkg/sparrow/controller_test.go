@@ -32,6 +32,7 @@ import (
 	"github.com/caas-team/sparrow/pkg/checks/latency"
 	"github.com/caas-team/sparrow/pkg/checks/runtime"
 	"github.com/caas-team/sparrow/pkg/db"
+	"github.com/caas-team/sparrow/pkg/sparrow/metrics"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
@@ -41,7 +42,7 @@ func TestRun_CheckRunError(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	cc := NewChecksController(db.NewInMemory(), NewMetrics())
+	cc := NewChecksController(db.NewInMemory(), metrics.New(metrics.Config{}))
 	mockCheck := &checks.CheckMock{
 		NameFunc: func() string { return "mockCheck" },
 		RunFunc: func(ctx context.Context, cResult chan checks.ResultDTO) error {
@@ -81,7 +82,7 @@ func TestRun_CheckRunError(t *testing.T) {
 func TestRun_ContextCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	cc := NewChecksController(db.NewInMemory(), NewMetrics())
+	cc := NewChecksController(db.NewInMemory(), metrics.New(metrics.Config{}))
 
 	done := make(chan struct{})
 	go func() {
@@ -205,7 +206,7 @@ func TestChecksController_Reconcile(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cc := NewChecksController(db.NewInMemory(), NewMetrics())
+			cc := NewChecksController(db.NewInMemory(), metrics.New(metrics.Config{}))
 
 			for _, c := range tt.checks {
 				cc.checks.Add(c)
@@ -243,7 +244,7 @@ func TestChecksController_RegisterCheck(t *testing.T) {
 		{
 			name: "register one check",
 			setup: func() *ChecksController {
-				return NewChecksController(db.NewInMemory(), NewMetrics())
+				return NewChecksController(db.NewInMemory(), metrics.New(metrics.Config{}))
 			},
 			check: health.NewCheck(),
 		},
@@ -273,7 +274,7 @@ func TestChecksController_UnregisterCheck(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cc := NewChecksController(db.NewInMemory(), NewMetrics())
+			cc := NewChecksController(db.NewInMemory(), metrics.New(metrics.Config{}))
 
 			cc.UnregisterCheck(context.Background(), tt.check)
 
@@ -303,7 +304,7 @@ func TestGenerateCheckSpecs(t *testing.T) {
 							name string
 						}
 						res := CheckResultSpec{name: "check1"}
-						return checks.OpenapiFromPerfData[CheckResultSpec](res)
+						return checks.OpenapiFromPerfData(res)
 					},
 				},
 				&checks.CheckMock{
@@ -315,16 +316,18 @@ func TestGenerateCheckSpecs(t *testing.T) {
 							name string
 						}
 						res := CheckResultSpec{name: "check2"}
-						return checks.OpenapiFromPerfData[CheckResultSpec](res)
+						return checks.OpenapiFromPerfData(res)
 					},
 				},
 			},
 			wantErr: false,
 			validate: func(t *testing.T, doc openapi3.T) {
-				if _, ok := doc.Paths["/v1/metrics/check1"]; !ok {
+				item := doc.Paths.Find("/v1/metrics/check1")
+				if item == nil {
 					t.Errorf("Expected path '/v1/metrics/check1' not found")
 				}
-				if _, ok := doc.Paths["/v1/metrics/check2"]; !ok {
+				item = doc.Paths.Find("/v1/metrics/check2")
+				if item == nil {
 					t.Errorf("Expected path '/v1/metrics/check2' not found")
 				}
 			},
