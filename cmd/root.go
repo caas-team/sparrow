@@ -80,6 +80,7 @@ func initConfig(cfgFile string) {
 		viper.SetConfigName(".sparrow")
 	}
 
+	viper.SetOptions(viper.ExperimentalBindStruct())
 	viper.SetEnvPrefix("sparrow")
 	dotreplacer := strings.NewReplacer(".", "_")
 	viper.SetEnvKeyReplacer(dotreplacer)
