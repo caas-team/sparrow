@@ -45,7 +45,7 @@ jobs:
           }' > ~/.config/kathara.conf
 
       - name: Build binary for e2e
-        uses: goreleaser/goreleaser-action@v5
+        uses: goreleaser/goreleaser-action@v6
         with:
           version: latest
           args: build --single-target --clean  --snapshot --config .goreleaser-ci.yaml
