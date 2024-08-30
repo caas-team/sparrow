@@ -27,7 +27,7 @@ repos:
   # If you have installed it in a different way, you should use the binary of the
   # go toolchain instead, because behavior may differ.
   - repo: https://github.com/norwoodj/helm-docs
-    rev: v1.13.1
+    rev: v1.14.2
     hooks:
       - id: helm-docs
         args:

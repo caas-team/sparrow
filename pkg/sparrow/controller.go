@@ -110,7 +110,8 @@ func (cc *ChecksController) Reconcile(ctx context.Context, cfg runtime.Config) {
 			unregList = append(unregList, c)
 			continue
 		}
-		err = c.SetConfig(conf)
+
+		err = c.UpdateConfig(conf)
 		if err != nil {
 			log.ErrorContext(ctx, "Failed to set config for check", "check", c.Name(), "error", err)
 		}

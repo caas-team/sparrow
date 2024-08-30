@@ -21,6 +21,7 @@ package dns
 import (
 	"context"
 	"net"
+	"slices"
 	"sync"
 	"time"
 
@@ -44,6 +45,10 @@ type DNS struct {
 	config  Config
 	metrics metrics
 	client  Resolver
+}
+
+func (d *DNS) RemoveLabelledMetric(label string) error {
+	return d.metrics.Remove(label)
 }
 
 func (d *DNS) GetConfig() checks.Runtime {
@@ -112,10 +117,20 @@ func (d *DNS) Shutdown() {
 	close(d.DoneChan)
 }
 
-func (d *DNS) SetConfig(cfg checks.Runtime) error {
+func (d *DNS) UpdateConfig(cfg checks.Runtime) error {
 	if c, ok := cfg.(*Config); ok {
 		d.Mu.Lock()
 		defer d.Mu.Unlock()
+
+		for _, target := range d.config.Targets {
+			if !slices.Contains(c.Targets, target) {
+				err := d.metrics.Remove(target)
+				if err != nil {
+					return err
+				}
+			}
+		}
+
 		d.config = *c
 		return nil
 	}

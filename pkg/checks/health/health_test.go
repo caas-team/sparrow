@@ -31,7 +31,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestHealth_SetConfig(t *testing.T) {
+func TestHealth_UpdateConfig(t *testing.T) {
 	tests := []struct {
 		name           string
 		inputConfig    checks.Runtime
@@ -73,8 +73,8 @@ func TestHealth_SetConfig(t *testing.T) {
 				metrics: newMetrics(),
 			}
 
-			if err := h.SetConfig(tt.inputConfig); (err != nil) != tt.wantErr {
-				t.Errorf("Health.SetConfig() error = %v, wantErr %v", err, tt.wantErr)
+			if err := h.UpdateConfig(tt.inputConfig); (err != nil) != tt.wantErr {
+				t.Errorf("Health.UpdateConfig() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			assert.Equal(t, tt.expectedConfig, h.config, "Runtime config is not equal")
 		})

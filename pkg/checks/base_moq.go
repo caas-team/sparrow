@@ -29,17 +29,20 @@ var _ Check = &CheckMock{}
 //			NameFunc: func() string {
 //				panic("mock out the Name method")
 //			},
+//			RemoveLabelledMetricFunc: func(label string) error {
+//				panic("mock out the RemoveLabelledMetric method")
+//			},
 //			RunFunc: func(ctx context.Context, cResult chan ResultDTO) error {
 //				panic("mock out the Run method")
 //			},
 //			SchemaFunc: func() (*openapi3.SchemaRef, error) {
 //				panic("mock out the Schema method")
 //			},
-//			SetConfigFunc: func(config Runtime) error {
-//				panic("mock out the SetConfig method")
-//			},
 //			ShutdownFunc: func()  {
 //				panic("mock out the Shutdown method")
+//			},
+//			UpdateConfigFunc: func(config Runtime) error {
+//				panic("mock out the UpdateConfig method")
 //			},
 //		}
 //
@@ -57,17 +60,20 @@ type CheckMock struct {
 	// NameFunc mocks the Name method.
 	NameFunc func() string
 
+	// RemoveLabelledMetricFunc mocks the RemoveLabelledMetric method.
+	RemoveLabelledMetricFunc func(label string) error
+
 	// RunFunc mocks the Run method.
 	RunFunc func(ctx context.Context, cResult chan ResultDTO) error
 
 	// SchemaFunc mocks the Schema method.
 	SchemaFunc func() (*openapi3.SchemaRef, error)
 
-	// SetConfigFunc mocks the SetConfig method.
-	SetConfigFunc func(config Runtime) error
-
 	// ShutdownFunc mocks the Shutdown method.
 	ShutdownFunc func()
+
+	// UpdateConfigFunc mocks the UpdateConfig method.
+	UpdateConfigFunc func(config Runtime) error
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -80,6 +86,11 @@ type CheckMock struct {
 		// Name holds details about calls to the Name method.
 		Name []struct {
 		}
+		// RemoveLabelledMetric holds details about calls to the RemoveLabelledMetric method.
+		RemoveLabelledMetric []struct {
+			// Label is the label argument value.
+			Label string
+		}
 		// Run holds details about calls to the Run method.
 		Run []struct {
 			// Ctx is the ctx argument value.
@@ -90,22 +101,23 @@ type CheckMock struct {
 		// Schema holds details about calls to the Schema method.
 		Schema []struct {
 		}
-		// SetConfig holds details about calls to the SetConfig method.
-		SetConfig []struct {
-			// Config is the config argument value.
-			Config Runtime
-		}
 		// Shutdown holds details about calls to the Shutdown method.
 		Shutdown []struct {
 		}
+		// UpdateConfig holds details about calls to the UpdateConfig method.
+		UpdateConfig []struct {
+			// Config is the config argument value.
+			Config Runtime
+		}
 	}
-	lockGetConfig           sync.RWMutex
-	lockGetMetricCollectors sync.RWMutex
-	lockName                sync.RWMutex
-	lockRun                 sync.RWMutex
-	lockSchema              sync.RWMutex
-	lockSetConfig           sync.RWMutex
-	lockShutdown            sync.RWMutex
+	lockGetConfig            sync.RWMutex
+	lockGetMetricCollectors  sync.RWMutex
+	lockName                 sync.RWMutex
+	lockRemoveLabelledMetric sync.RWMutex
+	lockRun                  sync.RWMutex
+	lockSchema               sync.RWMutex
+	lockShutdown             sync.RWMutex
+	lockUpdateConfig         sync.RWMutex
 }
 
 // GetConfig calls GetConfigFunc.
@@ -189,6 +201,38 @@ func (mock *CheckMock) NameCalls() []struct {
 	return calls
 }
 
+// RemoveLabelledMetric calls RemoveLabelledMetricFunc.
+func (mock *CheckMock) RemoveLabelledMetric(label string) error {
+	if mock.RemoveLabelledMetricFunc == nil {
+		panic("CheckMock.RemoveLabelledMetricFunc: method is nil but Check.RemoveLabelledMetric was just called")
+	}
+	callInfo := struct {
+		Label string
+	}{
+		Label: label,
+	}
+	mock.lockRemoveLabelledMetric.Lock()
+	mock.calls.RemoveLabelledMetric = append(mock.calls.RemoveLabelledMetric, callInfo)
+	mock.lockRemoveLabelledMetric.Unlock()
+	return mock.RemoveLabelledMetricFunc(label)
+}
+
+// RemoveLabelledMetricCalls gets all the calls that were made to RemoveLabelledMetric.
+// Check the length with:
+//
+//	len(mockedCheck.RemoveLabelledMetricCalls())
+func (mock *CheckMock) RemoveLabelledMetricCalls() []struct {
+	Label string
+} {
+	var calls []struct {
+		Label string
+	}
+	mock.lockRemoveLabelledMetric.RLock()
+	calls = mock.calls.RemoveLabelledMetric
+	mock.lockRemoveLabelledMetric.RUnlock()
+	return calls
+}
+
 // Run calls RunFunc.
 func (mock *CheckMock) Run(ctx context.Context, cResult chan ResultDTO) error {
 	if mock.RunFunc == nil {
@@ -252,38 +296,6 @@ func (mock *CheckMock) SchemaCalls() []struct {
 	return calls
 }
 
-// SetConfig calls SetConfigFunc.
-func (mock *CheckMock) SetConfig(config Runtime) error {
-	if mock.SetConfigFunc == nil {
-		panic("CheckMock.SetConfigFunc: method is nil but Check.SetConfig was just called")
-	}
-	callInfo := struct {
-		Config Runtime
-	}{
-		Config: config,
-	}
-	mock.lockSetConfig.Lock()
-	mock.calls.SetConfig = append(mock.calls.SetConfig, callInfo)
-	mock.lockSetConfig.Unlock()
-	return mock.SetConfigFunc(config)
-}
-
-// SetConfigCalls gets all the calls that were made to SetConfig.
-// Check the length with:
-//
-//	len(mockedCheck.SetConfigCalls())
-func (mock *CheckMock) SetConfigCalls() []struct {
-	Config Runtime
-} {
-	var calls []struct {
-		Config Runtime
-	}
-	mock.lockSetConfig.RLock()
-	calls = mock.calls.SetConfig
-	mock.lockSetConfig.RUnlock()
-	return calls
-}
-
 // Shutdown calls ShutdownFunc.
 func (mock *CheckMock) Shutdown() {
 	if mock.ShutdownFunc == nil {
@@ -308,5 +320,37 @@ func (mock *CheckMock) ShutdownCalls() []struct {
 	mock.lockShutdown.RLock()
 	calls = mock.calls.Shutdown
 	mock.lockShutdown.RUnlock()
+	return calls
+}
+
+// UpdateConfig calls UpdateConfigFunc.
+func (mock *CheckMock) UpdateConfig(config Runtime) error {
+	if mock.UpdateConfigFunc == nil {
+		panic("CheckMock.UpdateConfigFunc: method is nil but Check.UpdateConfig was just called")
+	}
+	callInfo := struct {
+		Config Runtime
+	}{
+		Config: config,
+	}
+	mock.lockUpdateConfig.Lock()
+	mock.calls.UpdateConfig = append(mock.calls.UpdateConfig, callInfo)
+	mock.lockUpdateConfig.Unlock()
+	return mock.UpdateConfigFunc(config)
+}
+
+// UpdateConfigCalls gets all the calls that were made to UpdateConfig.
+// Check the length with:
+//
+//	len(mockedCheck.UpdateConfigCalls())
+func (mock *CheckMock) UpdateConfigCalls() []struct {
+	Config Runtime
+} {
+	var calls []struct {
+		Config Runtime
+	}
+	mock.lockUpdateConfig.RLock()
+	calls = mock.calls.UpdateConfig
+	mock.lockUpdateConfig.RUnlock()
 	return calls
 }

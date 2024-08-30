@@ -64,6 +64,10 @@ linters-settings:
           - (github.com/golangci/golangci-lint/pkg/logutils.Log).Errorf
           - (github.com/golangci/golangci-lint/pkg/logutils.Log).Fatalf
 
+  gosec:
+    excludes:
+      - "G115" # Excluded per default https://github.com/golangci/golangci-lint/pull/4941
+
   lll:
     line-length: 140
   misspell:
@@ -86,7 +90,7 @@ linters:
     - dogsled
     - dupl
     - errcheck
-    - exportloopref
+    - copyloopvar
     - funlen
     - gocheckcompilerdirectives
     - gochecknoinits

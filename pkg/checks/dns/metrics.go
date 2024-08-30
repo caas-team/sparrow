@@ -19,6 +19,7 @@
 package dns
 
 import (
+	"github.com/caas-team/sparrow/pkg/checks"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -80,4 +81,25 @@ func (m *metrics) Set(target string, results map[string]result, status float64) 
 	m.histogram.WithLabelValues(target).Observe(results[target].Total)
 	m.status.WithLabelValues(target).Set(status)
 	m.count.WithLabelValues(target).Inc()
+}
+
+// Remove removes the metrics of one lookup target
+func (m *metrics) Remove(target string) error {
+	if !m.status.DeleteLabelValues(target) {
+		return checks.ErrMetricNotFound{Label: target}
+	}
+
+	if !m.duration.DeleteLabelValues(target) {
+		return checks.ErrMetricNotFound{Label: target}
+	}
+
+	if !m.count.DeleteLabelValues(target) {
+		return checks.ErrMetricNotFound{Label: target}
+	}
+
+	if !m.histogram.DeleteLabelValues(target) {
+		return checks.ErrMetricNotFound{Label: target}
+	}
+
+	return nil
 }

@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"slices"
 	"sync"
 	"time"
 
@@ -30,7 +31,6 @@ import (
 	"github.com/caas-team/sparrow/internal/logger"
 	"github.com/caas-team/sparrow/pkg/checks"
 	"github.com/getkin/kin-openapi/openapi3"
-	"github.com/prometheus/client_golang/prometheus"
 )
 
 var (
@@ -51,6 +51,11 @@ type Health struct {
 	metrics metrics
 }
 
+// RemoveLabelledMetric removes a metric with a specific label
+func (h *Health) RemoveLabelledMetric(label string) error {
+	return h.metrics.Remove(label)
+}
+
 // NewCheck creates a new instance of the health check
 func NewCheck() checks.Check {
 	return &Health{
@@ -63,11 +68,6 @@ func NewCheck() checks.Check {
 		},
 		metrics: newMetrics(),
 	}
-}
-
-// metrics contains the metric collectors for the Health check
-type metrics struct {
-	*prometheus.GaugeVec
 }
 
 // Run starts the health check
@@ -106,11 +106,21 @@ func (h *Health) Shutdown() {
 	close(h.DoneChan)
 }
 
-// SetConfig sets the configuration for the health check
-func (h *Health) SetConfig(cfg checks.Runtime) error {
+// UpdateConfig sets the configuration for the health check
+func (h *Health) UpdateConfig(cfg checks.Runtime) error {
 	if c, ok := cfg.(*Config); ok {
 		h.Mu.Lock()
 		defer h.Mu.Unlock()
+
+		for _, target := range h.config.Targets {
+			if !slices.Contains(c.Targets, target) {
+				err := h.metrics.Remove(target)
+				if err != nil {
+					return err
+				}
+			}
+		}
+
 		h.config = *c
 		return nil
 	}
@@ -137,28 +147,6 @@ func (h *Health) Name() string {
 // by the health check
 func (h *Health) Schema() (*openapi3.SchemaRef, error) {
 	return checks.OpenapiFromPerfData[map[string]string](map[string]string{})
-}
-
-// newMetrics initializes metric collectors of the health check
-func newMetrics() metrics {
-	return metrics{
-		GaugeVec: prometheus.NewGaugeVec(
-			prometheus.GaugeOpts{
-				Name: "sparrow_health_up",
-				Help: "Health of targets",
-			},
-			[]string{
-				"target",
-			},
-		),
-	}
-}
-
-// GetMetricCollectors returns all metric collectors of check
-func (h *Health) GetMetricCollectors() []prometheus.Collector {
-	return []prometheus.Collector{
-		h.metrics,
-	}
 }
 
 // check performs a health check using a retry function
