@@ -23,7 +23,6 @@ import (
 	"io"
 	"net/http"
 	"slices"
-	"strconv"
 	"sync"
 	"time"
 
@@ -72,7 +71,6 @@ type result struct {
 
 // metrics defines the metric collectors of the latency check
 type metrics struct {
-	duration      *prometheus.GaugeVec
 	totalDuration *prometheus.GaugeVec
 	count         *prometheus.CounterVec
 	histogram     *prometheus.HistogramVec
@@ -205,8 +203,6 @@ func (l *Latency) check(ctx context.Context) map[string]result {
 			mu.Lock()
 			defer mu.Unlock()
 
-			l.metrics.duration.DeletePartialMatch(prometheus.Labels{"target": target})
-			l.metrics.duration.WithLabelValues(target, strconv.Itoa(results[target].Code)).Set(results[target].Total)
 			l.metrics.totalDuration.WithLabelValues(target).Set(results[target].Total)
 			l.metrics.count.WithLabelValues(target).Inc()
 			l.metrics.histogram.WithLabelValues(target).Observe(results[target].Total)

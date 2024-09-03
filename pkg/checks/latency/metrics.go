@@ -8,16 +8,6 @@ import (
 // newMetrics initializes metric collectors of the latency check
 func newMetrics() metrics {
 	return metrics{
-		duration: prometheus.NewGaugeVec(
-			prometheus.GaugeOpts{
-				Name: "sparrow_latency_duration_seconds",
-				Help: "DEPRECATED Latency with status information of targets. Use sparrow_latency_seconds.",
-			},
-			[]string{
-				"target",
-				"status",
-			},
-		),
 		totalDuration: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
 				Name: "sparrow_latency_seconds",
@@ -51,7 +41,6 @@ func newMetrics() metrics {
 // GetMetricCollectors returns all metric collectors of check
 func (l *Latency) GetMetricCollectors() []prometheus.Collector {
 	return []prometheus.Collector{
-		l.metrics.duration,
 		l.metrics.totalDuration,
 		l.metrics.count,
 		l.metrics.histogram,
@@ -59,19 +48,15 @@ func (l *Latency) GetMetricCollectors() []prometheus.Collector {
 }
 
 func (m metrics) Remove(label string) error {
-	if !m.duration.DeleteLabelValues(label) {
+	if !m.totalDuration.Delete(map[string]string{"target": label}) {
 		return checks.ErrMetricNotFound{Label: label}
 	}
 
-	if !m.totalDuration.DeleteLabelValues(label) {
+	if !m.count.Delete(map[string]string{"target": label}) {
 		return checks.ErrMetricNotFound{Label: label}
 	}
 
-	if !m.count.DeleteLabelValues(label) {
-		return checks.ErrMetricNotFound{Label: label}
-	}
-
-	if !m.histogram.DeleteLabelValues(label) {
+	if !m.histogram.Delete(map[string]string{"target": label}) {
 		return checks.ErrMetricNotFound{Label: label}
 	}
 
