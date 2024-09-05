@@ -56,8 +56,8 @@ type Check interface {
 	Schema() (*openapi3.SchemaRef, error)
 	// GetMetricCollectors allows the check to provide prometheus metric collectors
 	GetMetricCollectors() []prometheus.Collector
-	// RemoveLabelledMetrics allows the check to remove prometheus metric collectors
-	// which have the provided target label
+	// RemoveLabelledMetrics allows the check to remove the prometheus metrics
+	// of the check whose `target` label matches the passed value
 	RemoveLabelledMetrics(target string) error
 }
 
