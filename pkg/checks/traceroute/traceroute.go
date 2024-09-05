@@ -50,7 +50,7 @@ func tcpHop(ctx context.Context, addr net.Addr, ttl int, timeout time.Duration) 
 			Control: func(_, _ string, c syscall.RawConn) error {
 				var opErr error
 				if err := c.Control(func(fd uintptr) {
-					opErr = unix.SetsockoptInt(int(fd), unix.IPPROTO_IP, unix.IP_TTL, ttl)
+					opErr = unix.SetsockoptInt(int(fd), unix.IPPROTO_IP, unix.IP_TTL, ttl) // #nosec G115 // The net package is safe to use
 				}); err != nil {
 					return err
 				}
