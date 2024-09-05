@@ -43,7 +43,6 @@ type Interactor interface {
 
 // File represents a file in the global targets repository
 type File struct {
-	Branch        string
 	AuthorEmail   string
 	AuthorName    string
 	CommitMessage string
@@ -51,9 +50,9 @@ type File struct {
 	Name          string
 }
 
-// Bytes returns the File as a byte array. The Content
-// is base64 encoded for Gitlab API compatibility.
-func (f *File) Bytes() (b []byte, err error) {
+// Serialize serializes the file to a byte slice. The branch is used to determine the branch to commit to
+// The serialized file is base64 encoded.
+func (f *File) Serialize(branch string) (b []byte, err error) {
 	content, err := json.Marshal(f.Content)
 	if err != nil {
 		return nil, err
@@ -70,7 +69,7 @@ func (f *File) Bytes() (b []byte, err error) {
 		return nil, err
 	}
 	return json.Marshal(map[string]string{
-		"branch":         f.Branch,
+		"branch":         branch,
 		"author_email":   f.AuthorEmail,
 		"author_name":    f.AuthorName,
 		"content":        string(content),
