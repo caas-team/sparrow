@@ -11,6 +11,8 @@ import (
 	"syscall"
 	"time"
 
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/sys/unix"
 
 	"github.com/caas-team/sparrow/internal/helper"
@@ -112,9 +114,13 @@ func TraceRoute(ctx context.Context, cfg tracerouteConfig) (map[int][]Hop, error
 	// maps ttl -> attempted hops for that ttl
 	hops := make(map[int][]Hop)
 	log := logger.FromContext(ctx).With("target", cfg.Dest)
+	span := trace.SpanFromContext(ctx)
+	span.SetAttributes(attribute.String("target", cfg.Dest))
+	defer span.End()
 
 	addr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("%s:%d", cfg.Dest, cfg.Port))
 	if err != nil {
+		span.RecordError(err)
 		log.Error("failed to resolve target name", "err", err.Error())
 		return nil, err
 	}
@@ -126,12 +132,19 @@ func TraceRoute(ctx context.Context, cfg tracerouteConfig) (map[int][]Hop, error
 	var wg sync.WaitGroup
 
 	for ttl := 1; ttl <= cfg.MaxHops; ttl++ {
+		ctx, span := span.TracerProvider().Tracer("something.else").Start(ctx, fmt.Sprintf("%d", ttl))
 		wg.Add(1)
 		go func(ttl int) {
+			defer span.End()
 			defer wg.Done()
 			l := log.With("ttl", ttl)
 			logctx := logger.IntoContext(ctx, l)
+			retry := 0
 			err := helper.Retry(func(ctx context.Context) error {
+				defer func() {
+					retry++
+				}()
+				span.AddEvent("traceroute", trace.WithAttributes(attribute.Int("ttl", ttl), attribute.Int("retry", retry)))
 				hop, err := traceroute(ctx, addr, ttl, cfg.Timeout)
 				if hop != nil {
 					results <- *hop

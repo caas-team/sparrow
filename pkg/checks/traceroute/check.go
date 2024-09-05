@@ -2,6 +2,7 @@ package traceroute
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -10,6 +11,8 @@ import (
 	"github.com/caas-team/sparrow/pkg/checks"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/prometheus/client_golang/prometheus"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/trace"
 )
 
 var _ checks.Check = (*Traceroute)(nil)
@@ -21,6 +24,10 @@ type Target struct {
 	Addr string `json:"addr" yaml:"addr" mapstructure:"addr"`
 	// The port to traceroute to
 	Port int `json:"port" yaml:"port" mapstructure:"port"`
+}
+
+func (t Target) String() string {
+	return fmt.Sprintf("%s:%d", t.Addr, t.Port)
 }
 
 func NewCheck() checks.Check {
@@ -63,6 +70,7 @@ func (tr *Traceroute) Run(ctx context.Context, cResult chan checks.ResultDTO) er
 	ctx, cancel := logger.NewContextWithLogger(ctx)
 	defer cancel()
 	log := logger.FromContext(ctx)
+	tracer := otel.Tracer("tracer.traceroute")
 
 	log.Info("Starting traceroute check", "interval", tr.config.Interval.String())
 	for {
@@ -73,7 +81,7 @@ func (tr *Traceroute) Run(ctx context.Context, cResult chan checks.ResultDTO) er
 		case <-tr.DoneChan:
 			return nil
 		case <-time.After(tr.config.Interval):
-			res := tr.check(ctx)
+			res := tr.check(tracer, ctx)
 			tr.metrics.MinHops(res)
 			cResult <- checks.ResultDTO{
 				Name: tr.Name(),
@@ -94,7 +102,7 @@ func (tr *Traceroute) GetConfig() checks.Runtime {
 	return &tr.config
 }
 
-func (tr *Traceroute) check(ctx context.Context) map[string]result {
+func (tr *Traceroute) check(tracer trace.Tracer, ctx context.Context) map[string]result {
 	res := make(map[string]result)
 	log := logger.FromContext(ctx)
 
@@ -112,8 +120,10 @@ func (tr *Traceroute) check(ctx context.Context) map[string]result {
 	for _, t := range tr.config.Targets {
 		go func(t Target) {
 			defer wg.Done()
-			l := log.With("target", t.Addr)
+			l := log.With("target", t.String())
 			l.Debug("Running traceroute")
+			ctx, span := tracer.Start(ctx, t.String())
+			defer span.End()
 
 			targetstart := time.Now()
 			trace, err := tr.traceroute(ctx, tracerouteConfig{
