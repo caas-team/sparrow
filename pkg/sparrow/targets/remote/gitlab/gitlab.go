@@ -39,7 +39,7 @@ var _ remote.Interactor = (*client)(nil)
 
 // client is the implementation of the remote.Interactor for gitlab
 type client struct {
-	// Config contains the configuration for the gitlab client
+	// config contains the configuration for the gitlab client
 	config Config
 	// client is the http client used to interact with the gitlab instance
 	client *http.Client
@@ -57,6 +57,7 @@ type Config struct {
 	Branch string `yaml:"branch" mapstructure:"branch"`
 }
 
+// New creates a new gitlab client
 func New(cfg Config) remote.Interactor {
 	c := &client{
 		config: cfg,
@@ -93,8 +94,9 @@ func (c *client) FetchFiles(ctx context.Context) ([]checks.GlobalTarget, error) 
 }
 
 // fetchFile fetches the file from the global targets repository from the configured gitlab repository
-func (c *client) fetchFile(ctx context.Context, f string) (res checks.GlobalTarget, err error) {
+func (c *client) fetchFile(ctx context.Context, f string) (checks.GlobalTarget, error) {
 	log := logger.FromContext(ctx).With("file", f)
+	var res checks.GlobalTarget
 	// URL encode the name
 	n := url.PathEscape(f)
 	req, err := http.NewRequestWithContext(ctx,
@@ -119,11 +121,7 @@ func (c *client) fetchFile(ctx context.Context, f string) (res checks.GlobalTarg
 	}
 
 	defer func() {
-		cErr := resp.Body.Close()
-		if cErr != nil {
-			log.ErrorContext(ctx, "Failed to close response body", "error", cErr)
-			err = errors.Join(err, cErr)
-		}
+		err = errors.Join(err, resp.Body.Close())
 	}()
 
 	if resp.StatusCode != http.StatusOK {
@@ -143,7 +141,7 @@ func (c *client) fetchFile(ctx context.Context, f string) (res checks.GlobalTarg
 
 // fetchFileList fetches the filenames from the global targets repository from the configured gitlab repository,
 // so they may be fetched individually
-func (c *client) fetchFileList(ctx context.Context) (files []string, err error) {
+func (c *client) fetchFileList(ctx context.Context) ([]string, error) {
 	log := logger.FromContext(ctx)
 	log.DebugContext(ctx, "Fetching file list from gitlab")
 	type file struct {
@@ -173,11 +171,7 @@ func (c *client) fetchFileList(ctx context.Context) (files []string, err error) 
 	}
 
 	defer func() {
-		cErr := resp.Body.Close()
-		if cErr != nil {
-			log.ErrorContext(ctx, "Failed to close response body", "error", cErr)
-			err = errors.Join(err, cErr)
-		}
+		err = errors.Join(err, resp.Body.Close())
 	}()
 
 	if resp.StatusCode != http.StatusOK {
@@ -192,6 +186,7 @@ func (c *client) fetchFileList(ctx context.Context) (files []string, err error) 
 		return nil, err
 	}
 
+	var files []string
 	for _, f := range fl {
 		if strings.HasSuffix(f.Name, ".json") {
 			files = append(files, f.Name)
@@ -204,7 +199,7 @@ func (c *client) fetchFileList(ctx context.Context) (files []string, err error) 
 
 // PutFile commits the current instance to the configured gitlab repository
 // as a global target for other sparrow instances to discover
-func (c *client) PutFile(ctx context.Context, file remote.File) (err error) { //nolint: dupl,gocritic // no need to refactor yet
+func (c *client) PutFile(ctx context.Context, file remote.File) error { //nolint: dupl,gocritic // no need to refactor yet
 	log := logger.FromContext(ctx)
 	log.DebugContext(ctx, "Registering sparrow instance to gitlab")
 
@@ -235,18 +230,14 @@ func (c *client) PutFile(ctx context.Context, file remote.File) (err error) { //
 	}
 
 	defer func() {
-		cErr := resp.Body.Close()
-		if cErr != nil {
-			log.ErrorContext(ctx, "Failed to close response body", "error", cErr)
-			err = errors.Join(err, cErr)
-		}
+		err = errors.Join(err, resp.Body.Close())
 	}()
 
-	if resp.StatusCode == http.StatusBadRequest {
-		log.ErrorContext(ctx, "Failed to push registration file, this is probably because the branch is protected", "status", resp.Status)
-		return fmt.Errorf("request failed, status is %s", resp.Status)
-	}
-
+	// Unfortunately the Gitlab API does not give any information about what went wrong and just returns a 400 Bad Request in case of
+	// an error while committing the file. A probable cause for this is that the branch does not exist or is protected.
+	// The documentation documents some more possible errors, but not all of them: https://docs.gitlab.com/ee/api/repository_files.html#update-existing-file-in-repository
+	// Therefore we just check for the status code and return an error if it is not 200 OK.
+	// This is not ideal, but the best we can do with the current API without implementing a full blown error handling mechanism.
 	if resp.StatusCode != http.StatusOK {
 		log.ErrorContext(ctx, "Failed to push registration file", "status", resp.Status)
 		return fmt.Errorf("request failed, status is %s", resp.Status)
@@ -257,13 +248,13 @@ func (c *client) PutFile(ctx context.Context, file remote.File) (err error) { //
 
 // PostFile commits the current instance to the configured gitlab repository
 // as a global target for other sparrow instances to discover
-func (c *client) PostFile(ctx context.Context, body remote.File) error { //nolint:dupl,gocritic // no need to refactor yet
+func (c *client) PostFile(ctx context.Context, file remote.File) error { //nolint:dupl,gocritic // no need to refactor yet
 	log := logger.FromContext(ctx)
 	log.DebugContext(ctx, "Posting registration file to gitlab")
 
 	// chose method based on whether the registration has already happened
-	n := url.PathEscape(body.Name)
-	b, err := body.Serialize(c.config.Branch)
+	n := url.PathEscape(file.Name)
+	b, err := file.Serialize(c.config.Branch)
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to create request", "error", err)
 		return err
@@ -288,18 +279,14 @@ func (c *client) PostFile(ctx context.Context, body remote.File) error { //nolin
 	}
 
 	defer func() {
-		cErr := resp.Body.Close()
-		if cErr != nil {
-			log.ErrorContext(ctx, "Failed to close response body", "error", cErr)
-			err = errors.Join(err, cErr)
-		}
+		err = errors.Join(err, resp.Body.Close())
 	}()
 
-	if resp.StatusCode == http.StatusBadRequest {
-		log.ErrorContext(ctx, "Failed to post file, this is probably because the branch is protected", "status", resp.Status)
-		return fmt.Errorf("request failed, status is %s", resp.Status)
-	}
-
+	// Unfortunately the Gitlab API does not give any information about what went wrong and just returns a 400 Bad Request in case of
+	// an error while committing the file. A probable cause for this is that the branch does not exist or is protected.
+	// The documentation documents some more possible errors, but not all of them: https://docs.gitlab.com/ee/api/repository_files.html#update-existing-file-in-repository
+	// Therefore we just check for the status code and return an error if it is not 200 OK.
+	// This is not ideal, but the best we can do with the current API without implementing a full blown error handling mechanism.
 	if resp.StatusCode != http.StatusCreated {
 		log.ErrorContext(ctx, "Failed to post file", "status", resp.Status)
 		return fmt.Errorf("request failed, status is %s", resp.Status)
@@ -359,13 +346,18 @@ func (c *client) DeleteFile(ctx context.Context, file remote.File) error { //nol
 	return nil
 }
 
+// fallbackBranch is the branch to use if no default branch is found
 const fallbackBranch = "main"
 
+// branch is a struct to decode the branches from the gitlab API
 type branch struct {
-	Name    string `json:"name"`
-	Default bool   `json:"default"`
+	// Name is the name of the branch
+	Name string `json:"name"`
+	// Default is true if the branch is the default branch
+	Default bool `json:"default"`
 }
 
+// fetchDefaultBranch fetches the default branch from the gitlab API
 func (c *client) fetchDefaultBranch() string {
 	ctx := context.Background()
 	log := logger.FromContext(ctx).With("gitlab", c.config.BaseURL)
