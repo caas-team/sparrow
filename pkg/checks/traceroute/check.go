@@ -213,7 +213,8 @@ func (tr *Traceroute) Name() string {
 	return CheckName
 }
 
-// RemoveLabelledMetric removes a metric with a specific label
-func (tr *Traceroute) RemoveLabelledMetric(label string) error {
-	return tr.metrics.Remove(label)
+// RemoveLabelledMetrics removes the metrics which have the passed
+// target as a label
+func (tr *Traceroute) RemoveLabelledMetrics(target string) error {
+	return tr.metrics.Remove(target)
 }

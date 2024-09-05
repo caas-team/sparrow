@@ -153,8 +153,10 @@ func (l *Latency) Schema() (*openapi3.SchemaRef, error) {
 	return checks.OpenapiFromPerfData[map[string]result](make(map[string]result))
 }
 
-func (l *Latency) RemoveLabelledMetric(label string) error {
-	return l.metrics.Remove(label)
+// RemoveLabelledMetrics removes the metrics which have the passed
+// target as a label
+func (l *Latency) RemoveLabelledMetrics(target string) error {
+	return l.metrics.Remove(target)
 }
 
 // check performs a latency check using a retry function

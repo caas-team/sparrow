@@ -29,8 +29,8 @@ var _ Check = &CheckMock{}
 //			NameFunc: func() string {
 //				panic("mock out the Name method")
 //			},
-//			RemoveLabelledMetricFunc: func(label string) error {
-//				panic("mock out the RemoveLabelledMetric method")
+//			RemoveLabelledMetricsFunc: func(target string) error {
+//				panic("mock out the RemoveLabelledMetrics method")
 //			},
 //			RunFunc: func(ctx context.Context, cResult chan ResultDTO) error {
 //				panic("mock out the Run method")
@@ -60,8 +60,8 @@ type CheckMock struct {
 	// NameFunc mocks the Name method.
 	NameFunc func() string
 
-	// RemoveLabelledMetricFunc mocks the RemoveLabelledMetric method.
-	RemoveLabelledMetricFunc func(label string) error
+	// RemoveLabelledMetricsFunc mocks the RemoveLabelledMetrics method.
+	RemoveLabelledMetricsFunc func(target string) error
 
 	// RunFunc mocks the Run method.
 	RunFunc func(ctx context.Context, cResult chan ResultDTO) error
@@ -86,10 +86,10 @@ type CheckMock struct {
 		// Name holds details about calls to the Name method.
 		Name []struct {
 		}
-		// RemoveLabelledMetric holds details about calls to the RemoveLabelledMetric method.
-		RemoveLabelledMetric []struct {
-			// Label is the label argument value.
-			Label string
+		// RemoveLabelledMetrics holds details about calls to the RemoveLabelledMetrics method.
+		RemoveLabelledMetrics []struct {
+			// Target is the target argument value.
+			Target string
 		}
 		// Run holds details about calls to the Run method.
 		Run []struct {
@@ -110,14 +110,14 @@ type CheckMock struct {
 			Config Runtime
 		}
 	}
-	lockGetConfig            sync.RWMutex
-	lockGetMetricCollectors  sync.RWMutex
-	lockName                 sync.RWMutex
-	lockRemoveLabelledMetric sync.RWMutex
-	lockRun                  sync.RWMutex
-	lockSchema               sync.RWMutex
-	lockShutdown             sync.RWMutex
-	lockUpdateConfig         sync.RWMutex
+	lockGetConfig             sync.RWMutex
+	lockGetMetricCollectors   sync.RWMutex
+	lockName                  sync.RWMutex
+	lockRemoveLabelledMetrics sync.RWMutex
+	lockRun                   sync.RWMutex
+	lockSchema                sync.RWMutex
+	lockShutdown              sync.RWMutex
+	lockUpdateConfig          sync.RWMutex
 }
 
 // GetConfig calls GetConfigFunc.
@@ -201,35 +201,35 @@ func (mock *CheckMock) NameCalls() []struct {
 	return calls
 }
 
-// RemoveLabelledMetric calls RemoveLabelledMetricFunc.
-func (mock *CheckMock) RemoveLabelledMetric(label string) error {
-	if mock.RemoveLabelledMetricFunc == nil {
-		panic("CheckMock.RemoveLabelledMetricFunc: method is nil but Check.RemoveLabelledMetric was just called")
+// RemoveLabelledMetrics calls RemoveLabelledMetricsFunc.
+func (mock *CheckMock) RemoveLabelledMetrics(target string) error {
+	if mock.RemoveLabelledMetricsFunc == nil {
+		panic("CheckMock.RemoveLabelledMetricsFunc: method is nil but Check.RemoveLabelledMetrics was just called")
 	}
 	callInfo := struct {
-		Label string
+		Target string
 	}{
-		Label: label,
+		Target: target,
 	}
-	mock.lockRemoveLabelledMetric.Lock()
-	mock.calls.RemoveLabelledMetric = append(mock.calls.RemoveLabelledMetric, callInfo)
-	mock.lockRemoveLabelledMetric.Unlock()
-	return mock.RemoveLabelledMetricFunc(label)
+	mock.lockRemoveLabelledMetrics.Lock()
+	mock.calls.RemoveLabelledMetrics = append(mock.calls.RemoveLabelledMetrics, callInfo)
+	mock.lockRemoveLabelledMetrics.Unlock()
+	return mock.RemoveLabelledMetricsFunc(target)
 }
 
-// RemoveLabelledMetricCalls gets all the calls that were made to RemoveLabelledMetric.
+// RemoveLabelledMetricsCalls gets all the calls that were made to RemoveLabelledMetrics.
 // Check the length with:
 //
-//	len(mockedCheck.RemoveLabelledMetricCalls())
-func (mock *CheckMock) RemoveLabelledMetricCalls() []struct {
-	Label string
+//	len(mockedCheck.RemoveLabelledMetricsCalls())
+func (mock *CheckMock) RemoveLabelledMetricsCalls() []struct {
+	Target string
 } {
 	var calls []struct {
-		Label string
+		Target string
 	}
-	mock.lockRemoveLabelledMetric.RLock()
-	calls = mock.calls.RemoveLabelledMetric
-	mock.lockRemoveLabelledMetric.RUnlock()
+	mock.lockRemoveLabelledMetrics.RLock()
+	calls = mock.calls.RemoveLabelledMetrics
+	mock.lockRemoveLabelledMetrics.RUnlock()
 	return calls
 }
 

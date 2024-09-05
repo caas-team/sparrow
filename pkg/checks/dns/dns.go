@@ -47,10 +47,6 @@ type DNS struct {
 	client  Resolver
 }
 
-func (d *DNS) RemoveLabelledMetric(label string) error {
-	return d.metrics.Remove(label)
-}
-
 func (d *DNS) GetConfig() checks.Runtime {
 	d.Mu.Lock()
 	defer d.Mu.Unlock()
@@ -150,6 +146,12 @@ func (d *DNS) Schema() (*openapi3.SchemaRef, error) {
 // GetMetricCollectors returns all metric collectors of check
 func (d *DNS) GetMetricCollectors() []prometheus.Collector {
 	return d.metrics.GetCollectors()
+}
+
+// RemoveLabelledMetrics removes the metrics which have the passed
+// target as a label
+func (d *DNS) RemoveLabelledMetrics(target string) error {
+	return d.metrics.Remove(target)
 }
 
 // check performs DNS checks for all configured targets using a custom net.Resolver.

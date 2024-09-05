@@ -56,8 +56,9 @@ type Check interface {
 	Schema() (*openapi3.SchemaRef, error)
 	// GetMetricCollectors allows the check to provide prometheus metric collectors
 	GetMetricCollectors() []prometheus.Collector
-	// RemoveLabelledMetric allows the check to remove prometheus metric collectors
-	RemoveLabelledMetric(label string) error
+	// RemoveLabelledMetrics allows the check to remove prometheus metric collectors
+	// which have the provided target label
+	RemoveLabelledMetrics(target string) error
 }
 
 // CheckBase is a struct providing common fields used by implementations of the Check interface.

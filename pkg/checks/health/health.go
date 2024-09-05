@@ -51,11 +51,6 @@ type Health struct {
 	metrics metrics
 }
 
-// RemoveLabelledMetric removes a metric with a specific label
-func (h *Health) RemoveLabelledMetric(label string) error {
-	return h.metrics.Remove(label)
-}
-
 // NewCheck creates a new instance of the health check
 func NewCheck() checks.Check {
 	return &Health{
@@ -147,6 +142,12 @@ func (h *Health) Name() string {
 // by the health check
 func (h *Health) Schema() (*openapi3.SchemaRef, error) {
 	return checks.OpenapiFromPerfData[map[string]string](map[string]string{})
+}
+
+// RemoveLabelledMetrics removes the metrics which have the passed
+// target as a label
+func (h *Health) RemoveLabelledMetrics(target string) error {
+	return h.metrics.Remove(target)
 }
 
 // check performs a health check using a retry function
