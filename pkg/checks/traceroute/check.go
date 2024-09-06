@@ -39,6 +39,7 @@ func NewCheck() checks.Check {
 		config:     Config{},
 		traceroute: TraceRoute,
 		metrics:    newMetrics(),
+		tracer:     otel.Tracer("tracer.traceroute"),
 	}
 }
 
@@ -47,6 +48,7 @@ type Traceroute struct {
 	config     Config
 	traceroute tracerouteFactory
 	metrics    metrics
+	tracer     trace.Tracer
 }
 
 type tracerouteConfig struct {
@@ -56,6 +58,7 @@ type tracerouteConfig struct {
 	MaxHops int
 	Rc      helper.RetryConfig
 }
+
 type tracerouteFactory func(ctx context.Context, cfg tracerouteConfig) (map[int][]Hop, error)
 
 type result struct {
@@ -70,7 +73,6 @@ func (tr *Traceroute) Run(ctx context.Context, cResult chan checks.ResultDTO) er
 	ctx, cancel := logger.NewContextWithLogger(ctx)
 	defer cancel()
 	log := logger.FromContext(ctx)
-	tracer := otel.Tracer("tracer.traceroute")
 
 	log.Info("Starting traceroute check", "interval", tr.config.Interval.String())
 	for {
@@ -81,7 +83,7 @@ func (tr *Traceroute) Run(ctx context.Context, cResult chan checks.ResultDTO) er
 		case <-tr.DoneChan:
 			return nil
 		case <-time.After(tr.config.Interval):
-			res := tr.check(tracer, ctx)
+			res := tr.check(ctx)
 			tr.metrics.MinHops(res)
 			cResult <- checks.ResultDTO{
 				Name: tr.Name(),
@@ -102,7 +104,7 @@ func (tr *Traceroute) GetConfig() checks.Runtime {
 	return &tr.config
 }
 
-func (tr *Traceroute) check(tracer trace.Tracer, ctx context.Context) map[string]result {
+func (tr *Traceroute) check(ctx context.Context) map[string]result {
 	res := make(map[string]result)
 	log := logger.FromContext(ctx)
 
@@ -122,11 +124,11 @@ func (tr *Traceroute) check(tracer trace.Tracer, ctx context.Context) map[string
 			defer wg.Done()
 			l := log.With("target", t.String())
 			l.Debug("Running traceroute")
-			ctx, span := tracer.Start(ctx, t.String())
+			c, span := tr.tracer.Start(ctx, t.String())
 			defer span.End()
 
 			targetstart := time.Now()
-			trace, err := tr.traceroute(ctx, tracerouteConfig{
+			hops, err := tr.traceroute(c, tracerouteConfig{
 				Dest:    t.Addr,
 				Port:    t.Port,
 				Timeout: tr.config.Timeout,
@@ -140,13 +142,13 @@ func (tr *Traceroute) check(tracer trace.Tracer, ctx context.Context) map[string
 
 			tr.metrics.CheckDuration(t.Addr, elapsed)
 
-			l.Debug("Ran traceroute", "result", trace, "duration", elapsed)
+			l.Debug("Ran traceroute", "result", hops, "duration", elapsed)
 			res := result{
-				Hops:    trace,
+				Hops:    hops,
 				MinHops: tr.config.MaxHops,
 			}
 
-			for ttl, hop := range trace {
+			for ttl, hop := range hops {
 				for _, attempt := range hop {
 					if attempt.Reached && attempt.Ttl < res.MinHops {
 						res.MinHops = ttl

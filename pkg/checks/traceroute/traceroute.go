@@ -132,19 +132,19 @@ func TraceRoute(ctx context.Context, cfg tracerouteConfig) (map[int][]Hop, error
 	var wg sync.WaitGroup
 
 	for ttl := 1; ttl <= cfg.MaxHops; ttl++ {
-		ctx, span := span.TracerProvider().Tracer("something.else").Start(ctx, fmt.Sprintf("%d", ttl))
+		c, sp := span.TracerProvider().Tracer("something.else").Start(ctx, fmt.Sprintf("%d", ttl))
 		wg.Add(1)
 		go func(ttl int) {
-			defer span.End()
+			defer sp.End()
 			defer wg.Done()
 			l := log.With("ttl", ttl)
-			logctx := logger.IntoContext(ctx, l)
+			logctx := logger.IntoContext(c, l)
 			retry := 0
 			err := helper.Retry(func(ctx context.Context) error {
 				defer func() {
 					retry++
 				}()
-				span.AddEvent("traceroute", trace.WithAttributes(attribute.Int("ttl", ttl), attribute.Int("retry", retry)))
+				sp.AddEvent("traceroute", trace.WithAttributes(attribute.Int("ttl", ttl), attribute.Int("retry", retry)))
 				hop, err := traceroute(ctx, addr, ttl, cfg.Timeout)
 				if hop != nil {
 					results <- *hop
