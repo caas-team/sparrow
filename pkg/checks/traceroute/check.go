@@ -12,6 +12,8 @@ import (
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -74,11 +76,11 @@ func (tr *Traceroute) Run(ctx context.Context, cResult chan checks.ResultDTO) er
 	defer cancel()
 	log := logger.FromContext(ctx)
 
-	log.Info("Starting traceroute check", "interval", tr.config.Interval.String())
+	log.InfoContext(ctx, "Starting traceroute check", "interval", tr.config.Interval.String())
 	for {
 		select {
 		case <-ctx.Done():
-			log.Error("Context canceled", "error", ctx.Err())
+			log.ErrorContext(ctx, "Context canceled", "error", ctx.Err())
 			return ctx.Err()
 		case <-tr.DoneChan:
 			return nil
@@ -92,7 +94,7 @@ func (tr *Traceroute) Run(ctx context.Context, cResult chan checks.ResultDTO) er
 					Timestamp: time.Now(),
 				},
 			}
-			log.Debug("Successfully finished traceroute check run")
+			log.DebugContext(ctx, "Successfully finished traceroute check run")
 		}
 	}
 }
@@ -115,19 +117,27 @@ func (tr *Traceroute) check(ctx context.Context) map[string]result {
 
 	cResult := make(chan internalResult, len(tr.config.Targets))
 	var wg sync.WaitGroup
-
 	start := time.Now()
-
 	wg.Add(len(tr.config.Targets))
+
 	for _, t := range tr.config.Targets {
 		go func(t Target) {
 			defer wg.Done()
 			l := log.With("target", t.String())
-			l.Debug("Running traceroute")
-			c, span := tr.tracer.Start(ctx, t.String())
+			l.DebugContext(ctx, "Running traceroute")
+
+			c, span := tr.tracer.Start(ctx, t.String(), trace.WithAttributes(
+				attribute.String("target.addr", t.Addr),
+				attribute.Int("target.port", t.Port),
+				attribute.Stringer("config.interval", tr.config.Interval),
+				attribute.Stringer("config.timeout", tr.config.Timeout),
+				attribute.Int("config.max_hops", tr.config.MaxHops),
+				attribute.Int("config.retry.count", tr.config.Retry.Count),
+				attribute.Stringer("config.retry.delay", tr.config.Retry.Delay),
+			))
 			defer span.End()
 
-			targetstart := time.Now()
+			s := time.Now()
 			hops, err := tr.traceroute(c, tracerouteConfig{
 				Dest:    t.Addr,
 				Port:    t.Port,
@@ -135,19 +145,23 @@ func (tr *Traceroute) check(ctx context.Context) map[string]result {
 				MaxHops: tr.config.MaxHops,
 				Rc:      tr.config.Retry,
 			})
-			elapsed := time.Since(targetstart)
+			elapsed := time.Since(s)
+
 			if err != nil {
-				l.Error("Error running traceroute", "error", err)
+				l.ErrorContext(ctx, "Error running traceroute", "error", err)
+				span.RecordError(err)
+				span.SetStatus(codes.Error, err.Error())
+			} else {
+				span.SetStatus(codes.Ok, "success")
 			}
 
 			tr.metrics.CheckDuration(t.Addr, elapsed)
+			l.DebugContext(ctx, "Ran traceroute", "result", hops, "duration", elapsed)
 
-			l.Debug("Ran traceroute", "result", hops, "duration", elapsed)
 			res := result{
 				Hops:    hops,
 				MinHops: tr.config.MaxHops,
 			}
-
 			for ttl, hop := range hops {
 				for _, attempt := range hop {
 					if attempt.Reached && attempt.Ttl < res.MinHops {
@@ -155,6 +169,12 @@ func (tr *Traceroute) check(ctx context.Context) map[string]result {
 					}
 				}
 			}
+
+			span.AddEvent("Traceroute completed", trace.WithAttributes(
+				attribute.Int("result.min_hops", res.MinHops),
+				attribute.Int("result.hop_count", len(hops)),
+				attribute.Stringer("result.elapsed_time", elapsed),
+			))
 
 			cResult <- internalResult{addr: t.Addr, res: res}
 		}(t)
@@ -168,9 +188,7 @@ func (tr *Traceroute) check(ctx context.Context) map[string]result {
 	}
 
 	elapsed := time.Since(start)
-
-	log.Info("Finished traceroute check", "duration", elapsed)
-
+	log.InfoContext(ctx, "Finished traceroute check", "duration", elapsed)
 	return res
 }
 

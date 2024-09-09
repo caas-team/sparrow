@@ -6,12 +6,14 @@ import (
 	"fmt"
 	"math/rand/v2"
 	"net"
+	"os"
 	"slices"
 	"sync"
 	"syscall"
 	"time"
 
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/sys/unix"
 
@@ -40,9 +42,14 @@ func randomPort() int {
 	return rand.N(portRange) + basePort // #nosec G404 // math.rand is fine here, we're not doing encryption
 }
 
-func tcpHop(ctx context.Context, addr net.Addr, ttl int, timeout time.Duration) (net.Conn, int, error) {
+// tcpHop attempts to connect to the target host using TCP with the specified TTL and timeout.
+// It returns a [net.Conn], the port used for the connection, and an error if the connection failed.
+func tcpHop(ctx context.Context, addr net.Addr, ttl int, timeout time.Duration) (conn net.Conn, port int, err error) {
+	span := trace.SpanFromContext(ctx)
+
 	for {
 		port := randomPort()
+
 		// Dialer with control function to set IP_TTL
 		dialer := net.Dialer{
 			LocalAddr: &net.TCPAddr{
@@ -60,11 +67,48 @@ func tcpHop(ctx context.Context, addr net.Addr, ttl int, timeout time.Duration) 
 			},
 		}
 
+		span.AddEvent("Attempting TCP connection", trace.WithAttributes(
+			attribute.String("remote_addr", addr.String()),
+			attribute.Int("ttl", ttl),
+			attribute.Int("port", port),
+		))
+
 		// Attempt to connect to the target host
 		conn, err := dialer.DialContext(ctx, "tcp", addr.String())
-		if !errors.Is(err, unix.EADDRINUSE) {
-			return conn, port, err
+
+		var opErr *net.OpError
+		switch {
+		case err == nil:
+			span.AddEvent("TCP connection succeeded", trace.WithAttributes(
+				attribute.Stringer("remote_addr", addr),
+				attribute.Int("ttl", ttl),
+				attribute.Int("port", port),
+			))
+			return conn, port, nil
+		case errors.Is(err, unix.EADDRINUSE):
+			// Address in use, retry by continuing the loop
+			continue
+		case errors.As(err, &opErr):
+			// No route to host is no error because we of how tcp traceroute works
+			// we are expecting the connection to fail because of TTL expiry
+			if sysErr, ok := opErr.Err.(*os.SyscallError); ok {
+				if errno, ok := sysErr.Err.(syscall.Errno); ok {
+					if errno == syscall.EHOSTUNREACH {
+						span.AddEvent("No route to host", trace.WithAttributes(
+							attribute.String("error", err.Error()),
+						))
+						logger.FromContext(ctx).DebugContext(ctx, "No route to host", "error", err.Error())
+						return conn, port, err
+					}
+				}
+			}
 		}
+
+		span.AddEvent("TCP connection failed", trace.WithAttributes(
+			attribute.String("error", err.Error()),
+		))
+		span.RecordError(err)
+		return conn, port, err
 	}
 }
 
@@ -99,7 +143,7 @@ func readIcmpMessage(ctx context.Context, icmpListener *icmp.PacketConn, timeout
 	case ipv6.ICMPTypeTimeExceeded:
 		tcpSegment = msg.Body.(*icmp.TimeExceeded).Data[IPv6HeaderSize:]
 	default:
-		log.Debug("message is not 'Time Exceeded'", "type", msg.Type.Protocol())
+		log.DebugContext(ctx, "message is not 'Time Exceeded'", "type", msg.Type.Protocol())
 		return 0, nil, errors.New("message is not 'Time Exceeded'")
 	}
 
@@ -111,17 +155,24 @@ func readIcmpMessage(ctx context.Context, icmpListener *icmp.PacketConn, timeout
 
 // TraceRoute performs a traceroute to the specified host using TCP and listens for ICMP Time Exceeded messages using ICMP.
 func TraceRoute(ctx context.Context, cfg tracerouteConfig) (map[int][]Hop, error) {
-	// maps ttl -> attempted hops for that ttl
+	span := trace.SpanFromContext(ctx)
+	tr := span.TracerProvider().Tracer("tracer.traceroute.trace")
+	ctx, sp := tr.Start(ctx, "TraceRoute", trace.WithAttributes(
+		attribute.String("target", cfg.Dest),
+		attribute.Int("port", cfg.Port),
+		attribute.Int("max_hops", cfg.MaxHops),
+		attribute.Stringer("timeout", cfg.Timeout),
+	))
+	defer sp.End()
+
+	// Maps ttl -> attempted hops for that ttl
 	hops := make(map[int][]Hop)
 	log := logger.FromContext(ctx).With("target", cfg.Dest)
-	span := trace.SpanFromContext(ctx)
-	span.SetAttributes(attribute.String("target", cfg.Dest))
-	defer span.End()
 
 	addr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("%s:%d", cfg.Dest, cfg.Port))
 	if err != nil {
-		span.RecordError(err)
-		log.Error("failed to resolve target name", "err", err.Error())
+		sp.RecordError(err)
+		log.ErrorContext(ctx, "failed to resolve target name", "err", err.Error())
 		return nil, err
 	}
 
@@ -132,35 +183,48 @@ func TraceRoute(ctx context.Context, cfg tracerouteConfig) (map[int][]Hop, error
 	var wg sync.WaitGroup
 
 	for ttl := 1; ttl <= cfg.MaxHops; ttl++ {
-		c, sp := span.TracerProvider().Tracer("something.else").Start(ctx, fmt.Sprintf("%d", ttl))
+		c, hopSpan := tr.Start(ctx, fmt.Sprintf("Hop %d", ttl), trace.WithAttributes(
+			attribute.Int("ttl", ttl),
+		))
 		wg.Add(1)
 		go func(ttl int) {
-			defer sp.End()
 			defer wg.Done()
+			defer hopSpan.End()
+
 			l := log.With("ttl", ttl)
 			logctx := logger.IntoContext(c, l)
+
 			retry := 0
 			err := helper.Retry(func(ctx context.Context) error {
 				defer func() {
 					retry++
 				}()
-				sp.AddEvent("traceroute", trace.WithAttributes(attribute.Int("ttl", ttl), attribute.Int("retry", retry)))
+				hopSpan.AddEvent("Attempting to hop", trace.WithAttributes(
+					attribute.Int("ttl", ttl),
+					attribute.Int("retry", retry),
+				))
+
 				hop, err := traceroute(ctx, addr, ttl, cfg.Timeout)
 				if hop != nil {
 					results <- *hop
 				}
 				if err != nil {
-					l.Error("traceroute failed", "err", err.Error())
+					l.ErrorContext(ctx, "Failed to trace route", "err", err.Error())
+					hopSpan.RecordError(err)
 					return err
 				}
 				if !hop.Reached {
-					l.Debug("failed to reach target, retrying")
+					l.DebugContext(ctx, "failed to reach target, retrying")
 					return errors.New("failed to reach target")
 				}
 				return nil
 			}, cfg.Rc)(logctx)
+
 			if err != nil {
-				l.Debug("traceroute could not reach target")
+				l.DebugContext(ctx, "Traceroute could not reach target")
+				hopSpan.SetStatus(codes.Error, "Hop failed")
+			} else {
+				hopSpan.SetStatus(codes.Ok, "Hop succeeded")
 			}
 		}(ttl)
 	}
@@ -168,12 +232,15 @@ func TraceRoute(ctx context.Context, cfg tracerouteConfig) (map[int][]Hop, error
 	wg.Wait()
 	close(results)
 
+	// Collect and log hops
 	for r := range results {
 		hops[r.Ttl] = append(hops[r.Ttl], r)
 	}
+	logHops(ctx, hops)
 
-	printHops(ctx, hops)
-
+	sp.AddEvent("TraceRoute completed", trace.WithAttributes(
+		attribute.Int("hops_count", len(hops)),
+	))
 	return hops, nil
 }
 
@@ -192,10 +259,12 @@ func ipFromAddr(remoteAddr net.Addr) net.IP {
 // traceroute performs a traceroute to the given address with the specified TTL and timeout.
 // It returns a Hop struct containing the latency, TTL, address, and other details of the hop.
 func traceroute(ctx context.Context, addr net.Addr, ttl int, timeout time.Duration) (*Hop, error) {
+	span := trace.SpanFromContext(ctx)
 	log := logger.FromContext(ctx)
 	canIcmp, icmpListener, err := newIcmpListener()
 	if err != nil {
-		log.Error("Failed to open ICMP socket", "err", err.Error())
+		log.ErrorContext(ctx, "Failed to open ICMP socket", "err", err.Error())
+		span.RecordError(err)
 		return nil, err
 	}
 	defer closeIcmpListener(canIcmp, icmpListener)
@@ -203,12 +272,17 @@ func traceroute(ctx context.Context, addr net.Addr, ttl int, timeout time.Durati
 	start := time.Now()
 	conn, clientPort, err := tcpHop(ctx, addr, ttl, timeout)
 	latency := time.Since(start)
+
+	span.SetAttributes(attribute.Int("ttl", ttl), attribute.String("addr", addr.String()))
 	if err == nil {
-		return handleTcpSuccess(conn, addr, ttl, latency), nil
+		hop := handleTcpSuccess(conn, addr, ttl, latency)
+		span.AddEvent("Hop succeeded", trace.WithAttributes(attribute.String("hop_addr", hop.Addr.String()), attribute.Stringer("latency", latency)))
+		return hop, nil
 	}
 
 	if !canIcmp {
-		log.Debug("No permission for icmp socket")
+		span.AddEvent("ICMP socket not available")
+		log.DebugContext(ctx, "No permission for icmp socket")
 		return &Hop{
 			Latency: latency,
 			Ttl:     ttl,
@@ -216,9 +290,17 @@ func traceroute(ctx context.Context, addr net.Addr, ttl int, timeout time.Durati
 		}, nil
 	}
 
-	h := handleIcmpResponse(ctx, icmpListener, clientPort, ttl, timeout)
-	h.Latency = latency
-	return &h, nil
+	hop := handleIcmpResponse(ctx, icmpListener, clientPort, ttl, timeout)
+	hop.Latency = latency
+	if hop.Reached {
+		span.AddEvent("ICMP hop reached", trace.WithAttributes(
+			attribute.String("hop_addr", hop.Addr.String()),
+			attribute.Stringer("latency", latency),
+		))
+	} else {
+		span.AddEvent("ICMP hop not reached", trace.WithAttributes(attribute.Stringer("latency", latency)))
+	}
+	return &hop, nil
 }
 
 func newIcmpListener() (bool, *icmp.PacketConn, error) {
@@ -238,6 +320,7 @@ func closeIcmpListener(canIcmp bool, icmpListener *icmp.PacketConn) {
 	}
 }
 
+// newHopAddress creates a new HopAddress from a [net.Addr].
 func newHopAddress(addr net.Addr) HopAddress {
 	switch addr := addr.(type) {
 	case *net.UDPAddr:
@@ -259,6 +342,7 @@ func newHopAddress(addr net.Addr) HopAddress {
 	}
 }
 
+// handleTcpSuccess handles a successful TCP connection by closing the connection and returning a Hop struct.
 func handleTcpSuccess(conn net.Conn, addr net.Addr, ttl int, latency time.Duration) *Hop {
 	conn.Close() // #nosec G104
 
@@ -286,10 +370,10 @@ func handleIcmpResponse(ctx context.Context, icmpListener *icmp.PacketConn, clie
 	deadline := time.Now().Add(timeout)
 
 	for time.Now().Unix() < deadline.Unix() {
-		log.Debug("Reading ICMP message")
+		log.DebugContext(ctx, "Reading ICMP message")
 		gotPort, addr, err := readIcmpMessage(ctx, icmpListener, timeout)
 		if err != nil {
-			log.Debug("Failed to read ICMP message", "err", err.Error())
+			log.DebugContext(ctx, "Failed to read ICMP message", "err", err.Error())
 			continue
 		}
 
@@ -311,12 +395,13 @@ func handleIcmpResponse(ctx context.Context, icmpListener *icmp.PacketConn, clie
 		}
 	}
 
-	log.Debug("Deadline reached")
+	log.DebugContext(ctx, "Deadline reached")
 	return Hop{
 		Ttl: ttl,
 	}
 }
 
+// Hop represents a single hop in a traceroute
 type Hop struct {
 	Latency time.Duration `json:"latency" yaml:"latency" mapstructure:"latency"`
 	Addr    HopAddress    `json:"addr" yaml:"addr" mapstructure:"addr"`
@@ -325,11 +410,13 @@ type Hop struct {
 	Reached bool          `json:"reached" yaml:"reached" mapstructure:"reached"`
 }
 
+// HopAddress represents an IP address and port
 type HopAddress struct {
 	IP   string `json:"ip" yaml:"ip" mapstructure:"ip"`
 	Port int    `json:"port" yaml:"port" mapstructure:"port"`
 }
 
+// String returns the string representation of the [HopAddress].
 func (a HopAddress) String() string {
 	if a.Port != 0 {
 		return fmt.Sprintf("%s:%d", a.IP, a.Port)
@@ -337,7 +424,8 @@ func (a HopAddress) String() string {
 	return a.IP
 }
 
-func printHops(ctx context.Context, mapHops map[int][]Hop) {
+// logHops logs the hops in the mapHops map
+func logHops(ctx context.Context, mapHops map[int][]Hop) {
 	log := logger.FromContext(ctx)
 
 	keys := []int{}
@@ -352,7 +440,7 @@ func printHops(ctx context.Context, mapHops map[int][]Hop) {
 			if hop.Reached {
 				out += "( Reached )"
 			}
-			log.Debug(out)
+			log.DebugContext(ctx, out)
 		}
 	}
 }
