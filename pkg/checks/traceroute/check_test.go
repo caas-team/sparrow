@@ -9,6 +9,7 @@ import (
 
 	"github.com/caas-team/sparrow/pkg/checks"
 	"github.com/google/go-cmp/cmp"
+	"go.opentelemetry.io/otel"
 )
 
 func TestCheck(t *testing.T) {
@@ -60,16 +61,11 @@ func newForTest(f tracerouteFactory, maxHops int, targets []string) *Traceroute 
 		t[i] = Target{Addr: target}
 	}
 	return &Traceroute{
-		config: Config{
-			Targets: t,
-			MaxHops: maxHops,
-		},
+		CheckBase:  checks.CheckBase{Mu: sync.Mutex{}, DoneChan: make(chan struct{})},
+		config:     Config{Targets: t, MaxHops: maxHops},
 		traceroute: f,
 		metrics:    newMetrics(),
-		CheckBase: checks.CheckBase{
-			Mu:       sync.Mutex{},
-			DoneChan: make(chan struct{}),
-		},
+		tracer:     otel.Tracer("tracer.traceroute"),
 	}
 }
 
