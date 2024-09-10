@@ -208,7 +208,6 @@ func (l *Latency) check(ctx context.Context) map[string]result {
 			l.metrics.totalDuration.WithLabelValues(target).Set(results[target].Total)
 			l.metrics.count.WithLabelValues(target).Inc()
 			l.metrics.histogram.WithLabelValues(target).Observe(results[target].Total)
-			l.metrics.count.WithLabelValues(target).Inc()
 		}()
 	}
 
