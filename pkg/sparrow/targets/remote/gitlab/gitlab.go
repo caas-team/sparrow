@@ -331,11 +331,7 @@ func (c *client) DeleteFile(ctx context.Context, file remote.File) error { //nol
 	}
 
 	defer func() {
-		cErr := resp.Body.Close()
-		if cErr != nil {
-			log.ErrorContext(ctx, "Failed to close response body", "error", cErr)
-			err = errors.Join(err, cErr)
-		}
+		err = errors.Join(err, resp.Body.Close())
 	}()
 
 	if resp.StatusCode != http.StatusNoContent {
@@ -383,10 +379,7 @@ func (c *client) fetchDefaultBranch() string {
 	}
 
 	defer func() {
-		err = resp.Body.Close()
-		if err != nil {
-			log.ErrorContext(ctx, "Failed to close response body", "error", err)
-		}
+		err = errors.Join(err, resp.Body.Close())
 	}()
 
 	if resp.StatusCode != http.StatusOK {
