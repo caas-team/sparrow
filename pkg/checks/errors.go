@@ -49,5 +49,5 @@ type ErrMetricNotFound struct {
 }
 
 func (e ErrMetricNotFound) Error() string {
-	return fmt.Sprintf("metric not found: %s", e.Label)
+	return fmt.Sprintf("metric %q not found", e.Label)
 }
