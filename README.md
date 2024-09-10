@@ -241,10 +241,9 @@ api:
     keyPath: mykey.key
 
 
-# Configures the target manager
-# Omitting this section will disable the target manager
+# Configures the target manager.
 targetManager:
-  # whether to enable the target manager. defaults to false
+  # whether to enable the target manager. (default: false)
   enabled: true
   # Defines which target manager to use.
   type: gitlab
@@ -274,8 +273,9 @@ targetManager:
     projectId: 18923
 
 # Configures the telemetry exporter.
-# Omitting this section will disable telemetry.
 telemetry:
+  # Whether to enable telemetry. (default: false)
+  enabled: true
   # The telemetry exporter to use.
   # Options:
   # grpc: Exports telemetry using OTLP via gRPC.
@@ -506,8 +506,8 @@ dns:
 | ---------------- | ----------------- | ---------------------------------------------------------------------------- |
 | `interval`       | `duration`        | Interval to perform the Traceroute check.                                    |
 | `timeout`        | `duration`        | Timeout for every hop.                                                       |
-| `retry.count`    | `integer`         | Number of retries for the latency check.                                                                                                                     |
-| `retry.delay`    | `duration`        | Initial delay between retries for the latency check.                                                                                                         |
+| `retry.count`    | `integer`         | Number of retries for the latency check.                                     |
+| `retry.delay`    | `duration`        | Initial delay between retries for the latency check.                         |
 | `maxHops`        | `integer`         | Maximum number of hops to try before giving up.                              |
 | `targets`        | `list of objects` | List of targets to traceroute to.                                            |
 | `targets[].addr` | `string`          | The address of the target to traceroute to. Can be an IP address or DNS name |

@@ -27,6 +27,8 @@ import (
 
 // Config holds the configuration for OpenTelemetry
 type Config struct {
+	// Enabled is a flag to enable or disable the OpenTelemetry
+	Enabled bool `yaml:"enabled" mapstructure:"enabled"`
 	// Exporter is the otlp exporter used to export the traces
 	Exporter Exporter `yaml:"exporter" mapstructure:"exporter"`
 	// Url is the Url of the collector to which the traces are exported

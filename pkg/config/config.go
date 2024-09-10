@@ -30,11 +30,15 @@ import (
 
 type Config struct {
 	// SparrowName is the DNS name of the sparrow
-	SparrowName   string                      `yaml:"name" mapstructure:"name"`
-	Loader        LoaderConfig                `yaml:"loader" mapstructure:"loader"`
-	Api           api.Config                  `yaml:"api" mapstructure:"api"`
+	SparrowName string `yaml:"name" mapstructure:"name"`
+	// Loader is the configuration for the loader
+	Loader LoaderConfig `yaml:"loader" mapstructure:"loader"`
+	// Api is the configuration for the api server
+	Api api.Config `yaml:"api" mapstructure:"api"`
+	// TargetManager is the configuration for the target manager
 	TargetManager targets.TargetManagerConfig `yaml:"targetManager" mapstructure:"targetManager"`
-	Telemetry     metrics.Config              `yaml:"telemetry" mapstructure:"telemetry"`
+	// Telemetry is the configuration for the telemetry
+	Telemetry metrics.Config `yaml:"telemetry" mapstructure:"telemetry"`
 }
 
 // LoaderConfig is the configuration for loader
@@ -45,8 +49,7 @@ type LoaderConfig struct {
 	File     FileLoaderConfig `yaml:"file" mapstructure:"file"`
 }
 
-// HttpLoaderConfig is the configuration
-// for the specific http loader
+// HttpLoaderConfig is the configuration for the http loader
 type HttpLoaderConfig struct {
 	Url      string             `yaml:"url" mapstructure:"url"`
 	Token    string             `yaml:"token" mapstructure:"token"`
@@ -54,6 +57,7 @@ type HttpLoaderConfig struct {
 	RetryCfg helper.RetryConfig `yaml:"retry" mapstructure:"retry"`
 }
 
+// FileLoaderConfig is the configuration for the file loader
 type FileLoaderConfig struct {
 	Path string `yaml:"path" mapstructure:"path"`
 }
@@ -63,6 +67,7 @@ func (c *Config) HasTargetManager() bool {
 	return c.TargetManager.Enabled
 }
 
+// HasTelemetry returns true if the config has telemetry enabled
 func (c *Config) HasTelemetry() bool {
-	return c.Telemetry != metrics.Config{}
+	return c.Telemetry.Enabled
 }
