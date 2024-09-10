@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math/rand/v2"
 	"net"
-	"os"
 	"slices"
 	"sync"
 	"syscall"
@@ -76,7 +75,6 @@ func tcpHop(ctx context.Context, addr net.Addr, ttl int, timeout time.Duration) 
 		// Attempt to connect to the target host
 		conn, err := dialer.DialContext(ctx, "tcp", addr.String())
 
-		var opErr *net.OpError
 		switch {
 		case err == nil:
 			span.AddEvent("TCP connection succeeded", trace.WithAttributes(
@@ -88,20 +86,15 @@ func tcpHop(ctx context.Context, addr net.Addr, ttl int, timeout time.Duration) 
 		case errors.Is(err, unix.EADDRINUSE):
 			// Address in use, retry by continuing the loop
 			continue
-		case errors.As(err, &opErr):
-			// No route to host is no error because we of how tcp traceroute works
+		case errors.Is(err, syscall.EHOSTUNREACH):
+			// No route to host is no error because of how tcp traceroute works
 			// we are expecting the connection to fail because of TTL expiry
-			if sysErr, ok := opErr.Err.(*os.SyscallError); ok {
-				if errno, ok := sysErr.Err.(syscall.Errno); ok {
-					if errno == syscall.EHOSTUNREACH {
-						span.AddEvent("No route to host", trace.WithAttributes(
-							attribute.String("error", err.Error()),
-						))
-						logger.FromContext(ctx).DebugContext(ctx, "No route to host", "error", err.Error())
-						return conn, port, err
-					}
-				}
-			}
+			span.SetStatus(codes.Unset, "No route to host")
+			span.AddEvent("No route to host", trace.WithAttributes(
+				attribute.String("error", err.Error()),
+			))
+			logger.FromContext(ctx).DebugContext(ctx, "No route to host", "error", err.Error())
+			return conn, port, err
 		}
 
 		span.AddEvent("TCP connection failed", trace.WithAttributes(
@@ -112,7 +105,7 @@ func tcpHop(ctx context.Context, addr net.Addr, ttl int, timeout time.Duration) 
 	}
 }
 
-// readIcmpMessage reads a packet from the provided icmp Connection. If the packet is 'Time Exceeded',
+// readIcmpMessage reads a packet from the provided [icmp.PacketConn]. If the packet is 'Time Exceeded',
 // it reads the address of the router that dropped created the icmp packet. It also reads the source port
 // from the payload and finds the source port used by the previous tcp connection. If any error is returned,
 // an icmp packet was either not received, or the received packet was not a time exceeded.
@@ -219,13 +212,14 @@ func TraceRoute(ctx context.Context, cfg tracerouteConfig) (map[int][]Hop, error
 				}
 				return nil
 			}, cfg.Rc)(logctx)
-
 			if err != nil {
 				l.DebugContext(ctx, "Traceroute could not reach target")
-				hopSpan.SetStatus(codes.Error, "Hop failed")
-			} else {
-				hopSpan.SetStatus(codes.Ok, "Hop succeeded")
+				if !errors.Is(err, syscall.EHOSTUNREACH) {
+					hopSpan.SetStatus(codes.Error, err.Error())
+				}
+				return
 			}
+			hopSpan.SetStatus(codes.Ok, "Hop succeeded")
 		}(ttl)
 	}
 
@@ -244,6 +238,7 @@ func TraceRoute(ctx context.Context, cfg tracerouteConfig) (map[int][]Hop, error
 	return hops, nil
 }
 
+// ipFromAddr returns the IP address from a [net.Addr].
 func ipFromAddr(remoteAddr net.Addr) net.IP {
 	switch addr := remoteAddr.(type) {
 	case *net.UDPAddr:
@@ -297,9 +292,9 @@ func traceroute(ctx context.Context, addr net.Addr, ttl int, timeout time.Durati
 			attribute.String("hop_addr", hop.Addr.String()),
 			attribute.Stringer("latency", latency),
 		))
-	} else {
-		span.AddEvent("ICMP hop not reached", trace.WithAttributes(attribute.Stringer("latency", latency)))
+		return &hop, nil
 	}
+	span.AddEvent("ICMP hop not reached", trace.WithAttributes(attribute.Stringer("latency", latency)))
 	return &hop, nil
 }
 
