@@ -33,7 +33,7 @@ func (t Target) String() string {
 }
 
 func NewCheck() checks.Check {
-	return &Traceroute{
+	c := &Traceroute{
 		CheckBase: checks.CheckBase{
 			Mu:       sync.Mutex{},
 			DoneChan: make(chan struct{}, 1),
@@ -41,8 +41,9 @@ func NewCheck() checks.Check {
 		config:     Config{},
 		traceroute: TraceRoute,
 		metrics:    newMetrics(),
-		tracer:     otel.Tracer("tracer.traceroute"),
 	}
+	c.tracer = otel.Tracer(c.Name())
+	return c
 }
 
 type Traceroute struct {
