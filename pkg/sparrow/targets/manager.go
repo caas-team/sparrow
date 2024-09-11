@@ -130,7 +130,6 @@ func (t *manager) Shutdown(ctx context.Context) error {
 
 	if t.registered {
 		f := remote.File{
-			Branch:        "main",
 			AuthorEmail:   fmt.Sprintf("%s@sparrow", t.name),
 			AuthorName:    t.name,
 			CommitMessage: "Unregistering global target",
@@ -166,7 +165,6 @@ func (t *manager) register(ctx context.Context) error {
 	}
 
 	f := remote.File{
-		Branch:        "main",
 		AuthorEmail:   fmt.Sprintf("%s@sparrow", t.name),
 		AuthorName:    t.name,
 		CommitMessage: "Initial registration",
@@ -198,7 +196,6 @@ func (t *manager) update(ctx context.Context) error {
 	}
 
 	f := remote.File{
-		Branch:        "main",
 		AuthorEmail:   fmt.Sprintf("%s@sparrow", t.name),
 		AuthorName:    t.name,
 		CommitMessage: "Updated registration",
