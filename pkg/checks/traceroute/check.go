@@ -2,6 +2,7 @@ package traceroute
 
 import (
 	"context"
+	"slices"
 	"sync"
 	"time"
 
@@ -49,14 +50,16 @@ type tracerouteConfig struct {
 	MaxHops int
 	Rc      helper.RetryConfig
 }
-type tracerouteFactory func(ctx context.Context, cfg tracerouteConfig) (map[int][]Hop, error)
 
-type result struct {
-	// The minimum number of hops required to reach the target
-	MinHops int `json:"min_hops" yaml:"min_hops" mapstructure:"min_hops"`
-	// The path taken to the destination
-	Hops map[int][]Hop `json:"hops" yaml:"hops" mapstructure:"hops"`
-}
+type (
+	tracerouteFactory func(ctx context.Context, cfg tracerouteConfig) (map[int][]Hop, error)
+	result            struct {
+		// The minimum number of hops required to reach the target
+		MinHops int `json:"min_hops" yaml:"min_hops" mapstructure:"min_hops"`
+		// The path taken to the destination
+		Hops map[int][]Hop `json:"hops" yaml:"hops" mapstructure:"hops"`
+	}
+)
 
 // Run runs the check in a loop sending results to the provided channel
 func (tr *Traceroute) Run(ctx context.Context, cResult chan checks.ResultDTO) error {
@@ -168,14 +171,24 @@ func (tr *Traceroute) Shutdown() {
 	close(tr.DoneChan)
 }
 
-// SetConfig is called once when the check is registered
+// UpdateConfig is called once when the check is registered
 // This is also called while the check is running, if the remote config is updated
 // This should return an error if the config is invalid
-func (tr *Traceroute) SetConfig(cfg checks.Runtime) error {
-	if cfg, ok := cfg.(*Config); ok {
+func (tr *Traceroute) UpdateConfig(cfg checks.Runtime) error {
+	if c, ok := cfg.(*Config); ok {
 		tr.Mu.Lock()
 		defer tr.Mu.Unlock()
-		tr.config = *cfg
+
+		for _, target := range tr.config.Targets {
+			if !slices.Contains(c.Targets, target) {
+				err := tr.metrics.Remove(target.Addr)
+				if err != nil {
+					return err
+				}
+			}
+		}
+
+		tr.config = *c
 		return nil
 	}
 
@@ -198,4 +211,10 @@ func (tr *Traceroute) GetMetricCollectors() []prometheus.Collector {
 // Name returns the name of the check
 func (tr *Traceroute) Name() string {
 	return CheckName
+}
+
+// RemoveLabelledMetrics removes the metrics which have the passed
+// target as a label
+func (tr *Traceroute) RemoveLabelledMetrics(target string) error {
+	return tr.metrics.Remove(target)
 }

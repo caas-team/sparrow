@@ -168,13 +168,13 @@ func TestDNS_Run(t *testing.T) {
 			cResult := make(chan checks.ResultDTO, 1)
 			defer close(cResult)
 
-			err := c.SetConfig(&Config{
+			err := c.UpdateConfig(&Config{
 				Targets:  tt.targets,
 				Interval: 1 * time.Second,
 				Timeout:  5 * time.Millisecond,
 			})
 			if err != nil {
-				t.Fatalf("DNS.SetConfig() error = %v", err)
+				t.Fatalf("DNS.UpdateConfig() error = %v", err)
 			}
 
 			go func() {
@@ -218,11 +218,11 @@ func TestDNS_Run_Context_Done(t *testing.T) {
 	cResult := make(chan checks.ResultDTO, 1)
 	defer close(cResult)
 
-	err := c.SetConfig(&Config{
+	err := c.UpdateConfig(&Config{
 		Interval: time.Second,
 	})
 	if err != nil {
-		t.Fatalf("DNS.SetConfig() error = %v", err)
+		t.Fatalf("DNS.UpdateConfig() error = %v", err)
 	}
 
 	go func() {
@@ -256,7 +256,7 @@ func TestDNS_Shutdown(t *testing.T) {
 	}
 }
 
-func TestDNS_SetConfig(t *testing.T) {
+func TestDNS_UpdateConfig(t *testing.T) {
 	tests := []struct {
 		name    string
 		input   checks.Runtime
@@ -301,8 +301,8 @@ func TestDNS_SetConfig(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			c := &DNS{}
 
-			if err := c.SetConfig(tt.input); (err != nil) != tt.wantErr {
-				t.Errorf("DNS.SetConfig() error = %v, wantErr %v", err, tt.wantErr)
+			if err := c.UpdateConfig(tt.input); (err != nil) != tt.wantErr {
+				t.Errorf("DNS.UpdateConfig() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			assert.Equal(t, tt.want, c.config, "Config is not equal")
 		})

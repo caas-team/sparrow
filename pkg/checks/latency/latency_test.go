@@ -129,13 +129,13 @@ func TestLatency_Run(t *testing.T) {
 			cResult := make(chan checks.ResultDTO, 1)
 			defer close(cResult)
 
-			err := c.SetConfig(&Config{
+			err := c.UpdateConfig(&Config{
 				Targets:  tt.targets,
 				Interval: time.Millisecond * 120,
 				Timeout:  time.Second * 1,
 			})
 			if err != nil {
-				t.Fatalf("Latency.SetConfig() error = %v", err)
+				t.Fatalf("Latency.UpdateConfig() error = %v", err)
 			}
 
 			go func() {
@@ -320,18 +320,18 @@ func TestLatency_Shutdown(t *testing.T) {
 	}
 }
 
-func TestLatency_SetConfig(t *testing.T) {
+func TestLatency_UpdateConfig(t *testing.T) {
 	c := Latency{}
 	wantCfg := Config{
 		Targets: []string{"http://localhost:9090"},
 	}
 
-	err := c.SetConfig(&wantCfg)
+	err := c.UpdateConfig(&wantCfg)
 	if err != nil {
-		t.Errorf("SetConfig() error = %v", err)
+		t.Errorf("UpdateConfig() error = %v", err)
 	}
 	if !reflect.DeepEqual(c.config, wantCfg) {
-		t.Errorf("SetConfig() = %v, want %v", c.config, wantCfg)
+		t.Errorf("UpdateConfig() = %v, want %v", c.config, wantCfg)
 	}
 }
 

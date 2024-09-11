@@ -109,14 +109,14 @@ func TestNewChecksFromConfig(t *testing.T) {
 // newHealthCheck creates a new health check with a testing configuration
 func newHealthCheck() checks.Check {
 	res := health.NewCheck()
-	_ = res.SetConfig(healthCfg)
+	_ = res.UpdateConfig(healthCfg)
 	return res
 }
 
 // newLatencyCheck creates a new latency check with a testing configuration
 func newLatencyCheck() checks.Check {
 	res := latency.NewCheck()
-	_ = res.SetConfig(latencyCfg)
+	_ = res.UpdateConfig(latencyCfg)
 	return res
 }
 

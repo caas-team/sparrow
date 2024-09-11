@@ -22,16 +22,16 @@ import (
 	"context"
 	"io"
 	"net/http"
-	"strconv"
+	"slices"
 	"sync"
 	"time"
 
-	"github.com/caas-team/sparrow/pkg/checks"
-	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/caas-team/sparrow/internal/helper"
 	"github.com/caas-team/sparrow/internal/logger"
+	"github.com/caas-team/sparrow/pkg/checks"
+	"github.com/getkin/kin-openapi/openapi3"
 )
 
 var (
@@ -69,14 +69,6 @@ type result struct {
 	Total float64 `json:"total"`
 }
 
-// metrics defines the metric collectors of the latency check
-type metrics struct {
-	duration      *prometheus.GaugeVec
-	totalDuration *prometheus.GaugeVec
-	count         *prometheus.CounterVec
-	histogram     *prometheus.HistogramVec
-}
-
 // Run starts the latency check
 func (l *Latency) Run(ctx context.Context, cResult chan checks.ResultDTO) error {
 	ctx, cancel := logger.NewContextWithLogger(ctx)
@@ -111,11 +103,21 @@ func (l *Latency) Shutdown() {
 	close(l.DoneChan)
 }
 
-// SetConfig sets the configuration for the latency check
-func (l *Latency) SetConfig(cfg checks.Runtime) error {
+// UpdateConfig sets the configuration for the latency check
+func (l *Latency) UpdateConfig(cfg checks.Runtime) error {
 	if c, ok := cfg.(*Config); ok {
 		l.Mu.Lock()
 		defer l.Mu.Unlock()
+
+		for _, target := range l.config.Targets {
+			if !slices.Contains(c.Targets, target) {
+				err := l.metrics.Remove(target)
+				if err != nil {
+					return err
+				}
+			}
+		}
+
 		l.config = *c
 		return nil
 	}
@@ -144,57 +146,18 @@ func (l *Latency) Schema() (*openapi3.SchemaRef, error) {
 	return checks.OpenapiFromPerfData[map[string]result](make(map[string]result))
 }
 
-// newMetrics initializes metric collectors of the latency check
-func newMetrics() metrics {
-	return metrics{
-		duration: prometheus.NewGaugeVec(
-			prometheus.GaugeOpts{
-				Name: "sparrow_latency_duration_seconds",
-				Help: "DEPRECATED Latency with status information of targets. Use sparrow_latency_seconds.",
-			},
-			[]string{
-				"target",
-				"status",
-			},
-		),
-		totalDuration: prometheus.NewGaugeVec(
-			prometheus.GaugeOpts{
-				Name: "sparrow_latency_seconds",
-				Help: "Latency for each target",
-			},
-			[]string{
-				"target",
-			},
-		),
-		count: prometheus.NewCounterVec(
-			prometheus.CounterOpts{
-				Name: "sparrow_latency_count",
-				Help: "Count of latency checks done",
-			},
-			[]string{
-				"target",
-			},
-		),
-		histogram: prometheus.NewHistogramVec(
-			prometheus.HistogramOpts{
-				Name: "sparrow_latency_duration",
-				Help: "Latency of targets in seconds",
-			},
-			[]string{
-				"target",
-			},
-		),
-	}
-}
-
 // GetMetricCollectors returns all metric collectors of check
 func (l *Latency) GetMetricCollectors() []prometheus.Collector {
 	return []prometheus.Collector{
-		l.metrics.duration,
 		l.metrics.totalDuration,
 		l.metrics.count,
 		l.metrics.histogram,
 	}
+}
+
+// RemoveLabelledMetrics removes the metrics which have the passed target as a label
+func (l *Latency) RemoveLabelledMetrics(target string) error {
+	return l.metrics.Remove(target)
 }
 
 // check performs a latency check using a retry function
@@ -243,12 +206,9 @@ func (l *Latency) check(ctx context.Context) map[string]result {
 			mu.Lock()
 			defer mu.Unlock()
 
-			l.metrics.duration.DeletePartialMatch(prometheus.Labels{"target": target})
-			l.metrics.duration.WithLabelValues(target, strconv.Itoa(results[target].Code)).Set(results[target].Total)
 			l.metrics.totalDuration.WithLabelValues(target).Set(results[target].Total)
 			l.metrics.count.WithLabelValues(target).Inc()
 			l.metrics.histogram.WithLabelValues(target).Observe(results[target].Total)
-			l.metrics.count.WithLabelValues(target).Inc()
 		}()
 	}
 
