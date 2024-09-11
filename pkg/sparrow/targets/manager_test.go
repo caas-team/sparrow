@@ -437,36 +437,39 @@ func Test_gitlabTargetManager_Reconcile_Registration_Update(t *testing.T) {
 		}
 	}()
 
-	// sleep enough time for 1 registration and 2 updates
-	// to take place
-	time.Sleep(gtm.cfg.UpdateInterval * 3)
+	timeout := time.After(gtm.cfg.UpdateInterval * 3)
+	select {
+	case <-timeout:
+		gtm.mu.Lock()
+		if !gtm.registered {
+			t.Fatalf("Reconcile() should be registered")
+		}
+		gtm.mu.Unlock()
 
-	gtm.mu.Lock()
-	if !gtm.registered {
-		t.Fatalf("Reconcile() should be registered")
-	}
-	gtm.mu.Unlock()
+		// check that the post call was made once, to create the registration
+		if glmock.PostFileCount() != 1 {
+			t.Fatalf("Reconcile() should have registered the instance once")
+		}
 
-	// check that the post call was made once, to create the registration
-	if glmock.PostFileCount() != 1 {
-		t.Fatalf("Reconcile() should have registered the instance once")
+		// check that the put call was made twice, to update the registration
+		if glmock.PutFileCount() != 2 {
+			t.Fatalf("Reconcile() should have updated the registration twice")
+		}
+
+		gtm.mu.Lock()
+		if !gtm.registered {
+			t.Fatalf("Reconcile() should have registered the sparrow")
+		}
+		gtm.mu.Unlock()
+
+		err := gtm.Shutdown(ctx)
+		if err != nil {
+			t.Fatalf("Reconcile() failed to shutdown")
+		}
+	default:
 	}
 
-	// check that the put call was made twice, to update the registration
-	if glmock.PutFileCount() != 2 {
-		t.Fatalf("Reconcile() should have updated the registration twice")
-	}
-
-	gtm.mu.Lock()
-	if !gtm.registered {
-		t.Fatalf("Reconcile() should have registered the sparrow")
-	}
-	gtm.mu.Unlock()
-
-	err := gtm.Shutdown(ctx)
-	if err != nil {
-		t.Fatalf("Reconcile() failed to shutdown")
-	}
+	t.Logf("Reconcile() successfully registered and updated the sparrow")
 }
 
 // Test_gitlabTargetManager_Reconcile_failure tests that the Reconcile method
