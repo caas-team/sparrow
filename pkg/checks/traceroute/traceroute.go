@@ -220,6 +220,7 @@ func TraceRoute(ctx context.Context, cfg tracerouteConfig) (map[int][]Hop, error
 				l.DebugContext(ctx, "Traceroute could not reach target")
 				if !errors.Is(err, syscall.EHOSTUNREACH) {
 					hopSpan.SetStatus(codes.Error, err.Error())
+					hopSpan.RecordError(err)
 				}
 				return
 			}
