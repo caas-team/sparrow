@@ -111,10 +111,13 @@ func Test_gitlab_fetchFileList(t *testing.T) {
 			httpmock.RegisterResponder("GET", "http://test/api/v4/projects/1/repository/tree?ref=main", resp)
 
 			g := &client{
-				baseUrl:   "http://test",
-				projectID: 1,
-				token:     "test",
-				client:    http.DefaultClient,
+				config: Config{
+					BaseURL:   "http://test",
+					ProjectID: 1,
+					Token:     "test",
+					Branch:    fallbackBranch,
+				},
+				client: http.DefaultClient,
 			}
 			got, err := g.fetchFileList(context.Background())
 			if (err != nil) != tt.wantErr {
@@ -191,10 +194,13 @@ func Test_gitlab_FetchFiles(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	g := &client{
-		baseUrl:   "http://test",
-		projectID: 1,
-		token:     "test",
-		client:    http.DefaultClient,
+		config: Config{
+			BaseURL:   "http://test",
+			ProjectID: 1,
+			Token:     "test",
+			Branch:    fallbackBranch,
+		},
+		client: http.DefaultClient,
 	}
 
 	for _, tt := range tests {
@@ -277,10 +283,13 @@ func Test_gitlab_fetchFiles_error_cases(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	g := &client{
-		baseUrl:   "http://test",
-		projectID: 1,
-		token:     "test",
-		client:    http.DefaultClient,
+		config: Config{
+			BaseURL:   "http://test",
+			ProjectID: 1,
+			Token:     "test",
+			Branch:    fallbackBranch,
+		},
+		client: http.DefaultClient,
 	}
 
 	for _, tt := range tests {
@@ -317,7 +326,6 @@ func TestClient_PutFile(t *testing.T) { //nolint:dupl // no need to refactor yet
 		{
 			name: "success",
 			file: remote.File{
-				Branch:      "main",
 				AuthorEmail: "test@sparrow",
 				AuthorName:  "sparrpw",
 				Content: checks.GlobalTarget{
@@ -332,7 +340,6 @@ func TestClient_PutFile(t *testing.T) { //nolint:dupl // no need to refactor yet
 		{
 			name: "failure - API error",
 			file: remote.File{
-				Branch:      "main",
 				AuthorEmail: "test@sparrow",
 				AuthorName:  "sparrpw",
 				Content: checks.GlobalTarget{
@@ -354,10 +361,13 @@ func TestClient_PutFile(t *testing.T) { //nolint:dupl // no need to refactor yet
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	g := &client{
-		baseUrl:   "http://test",
-		projectID: 1,
-		token:     "test",
-		client:    http.DefaultClient,
+		config: Config{
+			BaseURL:   "http://test",
+			ProjectID: 1,
+			Token:     "test",
+			Branch:    fallbackBranch,
+		},
+		client: http.DefaultClient,
 	}
 
 	for _, tt := range tests {
@@ -391,7 +401,6 @@ func TestClient_PostFile(t *testing.T) { //nolint:dupl // no need to refactor ye
 		{
 			name: "success",
 			file: remote.File{
-				Branch:      "main",
 				AuthorEmail: "test@sparrow",
 				AuthorName:  "sparrpw",
 				Content: checks.GlobalTarget{
@@ -406,7 +415,6 @@ func TestClient_PostFile(t *testing.T) { //nolint:dupl // no need to refactor ye
 		{
 			name: "failure - API error",
 			file: remote.File{
-				Branch:      "main",
 				AuthorEmail: "test@sparrow",
 				AuthorName:  "sparrpw",
 				Content: checks.GlobalTarget{
@@ -428,10 +436,13 @@ func TestClient_PostFile(t *testing.T) { //nolint:dupl // no need to refactor ye
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	g := &client{
-		baseUrl:   "http://test",
-		projectID: 1,
-		token:     "test",
-		client:    http.DefaultClient,
+		config: Config{
+			BaseURL:   "http://test",
+			ProjectID: 1,
+			Token:     "test",
+			Branch:    fallbackBranch,
+		},
+		client: http.DefaultClient,
 	}
 
 	for _, tt := range tests {
@@ -483,10 +494,13 @@ func TestClient_DeleteFile(t *testing.T) {
 	defer httpmock.DeactivateAndReset()
 	projID := 1
 	g := &client{
-		baseUrl:   "http://test",
-		projectID: projID,
-		token:     "test",
-		client:    http.DefaultClient,
+		config: Config{
+			BaseURL:   "http://test",
+			ProjectID: 1,
+			Token:     "test",
+			Branch:    fallbackBranch,
+		},
+		client: http.DefaultClient,
 	}
 
 	for _, tt := range tests {
@@ -499,10 +513,101 @@ func TestClient_DeleteFile(t *testing.T) {
 				CommitMessage: "Deleted registration file",
 				AuthorName:    "sparrow-test",
 				AuthorEmail:   "sparrow-test@sparrow",
-				Branch:        "main",
 			}
 			if err := g.DeleteFile(context.Background(), f); (err != nil) != tt.wantErr {
 				t.Fatalf("DeleteFile() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestClient_fetchDefaultBranch(t *testing.T) {
+	tests := []struct {
+		name     string
+		code     int
+		want     string
+		response any
+	}{
+		{
+			name: "success",
+			code: http.StatusOK,
+			want: "master",
+			response: []branch{
+				{
+					Name:    "master",
+					Default: true,
+				},
+			},
+		},
+		{
+			name: "success - multiple branches",
+			code: http.StatusOK,
+			want: "release",
+			response: []branch{
+				{
+					Name:    "master",
+					Default: false,
+				},
+				{
+					Name:    "release",
+					Default: true,
+				},
+			},
+		},
+		{
+			name: "success - multiple branches without default",
+			code: http.StatusOK,
+			want: fallbackBranch,
+			response: []branch{
+				{
+					Name:    "master",
+					Default: false,
+				},
+				{
+					Name:    "release",
+					Default: false,
+				},
+			},
+		},
+		{
+			name: "failure - API error",
+			code: http.StatusInternalServerError,
+			want: fallbackBranch,
+		},
+		{
+			name: "failure - invalid response",
+			code: http.StatusOK,
+			want: fallbackBranch,
+			response: struct {
+				Invalid bool `json:"invalid"`
+			}{
+				Invalid: true,
+			},
+		},
+	}
+
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	g := &client{
+		config: Config{
+			BaseURL:   "http://test",
+			ProjectID: 1,
+			Token:     "test",
+		},
+		client: http.DefaultClient,
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resp, err := httpmock.NewJsonResponder(tt.code, tt.response)
+			if err != nil {
+				t.Fatalf("error creating mock response: %v", err)
+			}
+			httpmock.RegisterResponder(http.MethodGet, "http://test/api/v4/projects/1/repository/branches", resp)
+
+			got := g.fetchDefaultBranch()
+			if got != tt.want {
+				t.Errorf("(*client).fetchDefaultBranch() got = %v, want %v", got, tt.want)
 			}
 		})
 	}
