@@ -22,64 +22,12 @@ import (
 	"context"
 	"net/http"
 	"testing"
-	"time"
 
 	"github.com/caas-team/sparrow/pkg/checks"
-	"github.com/caas-team/sparrow/pkg/checks/latency"
 
 	"github.com/jarcoal/httpmock"
 	"github.com/stretchr/testify/assert"
 )
-
-func TestHealth_SetConfig(t *testing.T) {
-	tests := []struct {
-		name           string
-		inputConfig    checks.Runtime
-		expectedConfig Config
-		wantErr        bool
-	}{
-		{
-			name: "simple config",
-			inputConfig: &Config{
-				Targets:  []string{"test"},
-				Interval: 10 * time.Second,
-				Timeout:  30 * time.Second,
-			},
-			expectedConfig: Config{
-				Targets:  []string{"test"},
-				Interval: 10 * time.Second,
-				Timeout:  30 * time.Second,
-			},
-			wantErr: false,
-		},
-		{
-			name:           "empty config",
-			inputConfig:    &Config{},
-			expectedConfig: Config{},
-			wantErr:        false,
-		},
-		{
-			name: "wrong type",
-			inputConfig: &latency.Config{
-				Targets: []string{"test"},
-			},
-			expectedConfig: Config{},
-			wantErr:        true,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			h := &Health{
-				metrics: newMetrics(),
-			}
-
-			if err := h.SetConfig(tt.inputConfig); (err != nil) != tt.wantErr {
-				t.Errorf("Health.SetConfig() error = %v, wantErr %v", err, tt.wantErr)
-			}
-			assert.Equal(t, tt.expectedConfig, h.config, "Runtime config is not equal")
-		})
-	}
-}
 
 func Test_getHealth(t *testing.T) {
 	httpmock.Activate()
@@ -228,11 +176,11 @@ func TestHealth_Check(t *testing.T) {
 			}
 
 			h := &Health{
-				config: Config{
+				Base: checks.NewBase("test", &Config{
 					Targets: tt.targets,
 					Timeout: 30,
 					Retry:   checks.DefaultRetry,
-				},
+				}),
 				metrics: newMetrics(),
 			}
 			got := h.check(tt.ctx)
@@ -246,34 +194,4 @@ func TestHealth_Check(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestHealth_Shutdown(t *testing.T) {
-	cDone := make(chan struct{}, 1)
-	c := Health{
-		CheckBase: checks.CheckBase{
-			DoneChan: cDone,
-		},
-	}
-	c.Shutdown()
-
-	if _, ok := <-cDone; !ok {
-		t.Error("Channel should be done")
-	}
-
-	assert.Panics(t, func() {
-		cDone <- struct{}{}
-	}, "Channel is closed, should panic")
-
-	hc := NewCheck()
-	hc.Shutdown()
-
-	_, ok := <-hc.(*Health).DoneChan
-	if !ok {
-		t.Error("Channel should be done")
-	}
-
-	assert.Panics(t, func() {
-		hc.(*Health).DoneChan <- struct{}{}
-	}, "Channel is closed, should panic")
 }

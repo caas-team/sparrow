@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/caas-team/sparrow/internal/helper"
+	"github.com/caas-team/sparrow/internal/logger"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -36,7 +37,7 @@ var DefaultRetry = helper.RetryConfig{
 
 // Check implementations are expected to perform specific monitoring tasks and report results.
 //
-//go:generate moq -out base_moq.go . Check
+//go:generate moq -out base_check_moq.go . Check
 type Check interface {
 	// Run is called once, to start running the check. The check should
 	// run until the context is canceled and handle problems itself.
@@ -58,16 +59,98 @@ type Check interface {
 	GetMetricCollectors() []prometheus.Collector
 }
 
-// CheckBase is a struct providing common fields used by implementations of the Check interface.
+// Base is a struct providing common fields used by implementations of the Check interface.
 // It serves as a foundational structure that should be embedded in specific check implementations.
-type CheckBase struct {
+type Base[T Runtime] struct {
+	// name is the name of the check
+	name string
+	// Config is the current configuration of the check
+	Config T
 	// Mutex for thread-safe access to shared resources within the check implementation
 	Mu sync.Mutex
 	// Signal channel used to notify about shutdown of a check
 	DoneChan chan struct{}
 }
 
+func NewBase[T Runtime](name string, config T) Base[T] {
+	return Base[T]{
+		name:     name,
+		Config:   config,
+		Mu:       sync.Mutex{},
+		DoneChan: make(chan struct{}, 1),
+	}
+}
+
+// Name returns the name of the check
+func (b *Base[T]) Name() string {
+	return b.name
+}
+
+// SetConfig sets the configuration of the check
+func (b *Base[T]) SetConfig(config Runtime) error {
+	if cfg, ok := config.(T); ok {
+		b.Mu.Lock()
+		defer b.Mu.Unlock()
+		b.Config = cfg
+		return nil
+	}
+
+	return ErrConfigMismatch{
+		Expected: b.Name(),
+		Current:  config.For(),
+	}
+}
+
+// GetConfig returns the current configuration of the check
+func (b *Base[T]) GetConfig() Runtime {
+	b.Mu.Lock()
+	defer b.Mu.Unlock()
+	return b.Config
+}
+
+// SendResult sends the result of a check run to the provided channel
+func (b *Base[T]) SendResult(channel chan ResultDTO, data any) {
+	channel <- ResultDTO{
+		Name:   b.Name(),
+		Result: &Result{Data: data, Timestamp: time.Now()},
+	}
+}
+
+// CheckFunc is a function that performs a check and returns the result
+type CheckFunc func(ctx context.Context) any
+
+// StartCheck runs the check indefinitely, sending results to the provided channel at the specified interval
+func (b *Base[T]) StartCheck(ctx context.Context, cResult chan ResultDTO, interval time.Duration, check CheckFunc) error {
+	ctx, cancel := logger.NewContextWithLogger(ctx)
+	defer cancel()
+	log := logger.FromContext(ctx).With("check", b.Name())
+
+	log.InfoContext(ctx, "Starting check", "interval", interval.String())
+	for {
+		select {
+		case <-ctx.Done():
+			log.ErrorContext(ctx, "Context canceled", "error", ctx.Err())
+			return ctx.Err()
+		case <-b.DoneChan:
+			log.InfoContext(ctx, "Shutdown signal received")
+			return nil
+		case <-time.After(interval):
+			res := check(ctx)
+			b.SendResult(cResult, res)
+			log.DebugContext(ctx, "Check run completed")
+		}
+	}
+}
+
+// Shutdown shuts down the check
+func (b *Base[T]) Shutdown() {
+	b.DoneChan <- struct{}{}
+	close(b.DoneChan)
+}
+
 // Runtime is the interface that all check configurations must implement
+//
+//go:generate moq -out base_runtime_moq.go . Runtime
 type Runtime interface {
 	// For returns the name of the check being configured
 	For() string
