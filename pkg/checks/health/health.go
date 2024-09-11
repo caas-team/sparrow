@@ -27,6 +27,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/caas-team/sparrow/internal/helper"
 	"github.com/caas-team/sparrow/internal/logger"
 	"github.com/caas-team/sparrow/pkg/checks"
@@ -142,6 +144,13 @@ func (h *Health) Name() string {
 // by the health check
 func (h *Health) Schema() (*openapi3.SchemaRef, error) {
 	return checks.OpenapiFromPerfData[map[string]string](map[string]string{})
+}
+
+// GetMetricCollectors returns all metric collectors of check
+func (h *Health) GetMetricCollectors() []prometheus.Collector {
+	return []prometheus.Collector{
+		h.metrics,
+	}
 }
 
 // RemoveLabelledMetrics removes the metrics which have the passed

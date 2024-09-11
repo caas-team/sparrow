@@ -25,15 +25,8 @@ func newMetrics() metrics {
 	}
 }
 
-// GetMetricCollectors returns all metric collectors of check
-func (h *Health) GetMetricCollectors() []prometheus.Collector {
-	return []prometheus.Collector{
-		h.metrics,
-	}
-}
-
 // Remove removes a metric with a specific label
-func (m metrics) Remove(label string) error {
+func (m *metrics) Remove(label string) error {
 	if !m.DeleteLabelValues(label) {
 		return checks.ErrMetricNotFound{Label: label}
 	}

@@ -26,12 +26,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/caas-team/sparrow/pkg/checks"
-	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/caas-team/sparrow/internal/helper"
 	"github.com/caas-team/sparrow/internal/logger"
+	"github.com/caas-team/sparrow/pkg/checks"
+	"github.com/getkin/kin-openapi/openapi3"
 )
 
 var (
@@ -67,13 +67,6 @@ type result struct {
 	Code  int     `json:"code"`
 	Error *string `json:"error"`
 	Total float64 `json:"total"`
-}
-
-// metrics defines the metric collectors of the latency check
-type metrics struct {
-	totalDuration *prometheus.GaugeVec
-	count         *prometheus.CounterVec
-	histogram     *prometheus.HistogramVec
 }
 
 // Run starts the latency check
@@ -153,8 +146,16 @@ func (l *Latency) Schema() (*openapi3.SchemaRef, error) {
 	return checks.OpenapiFromPerfData[map[string]result](make(map[string]result))
 }
 
-// RemoveLabelledMetrics removes the metrics which have the passed
-// target as a label
+// GetMetricCollectors returns all metric collectors of check
+func (l *Latency) GetMetricCollectors() []prometheus.Collector {
+	return []prometheus.Collector{
+		l.metrics.totalDuration,
+		l.metrics.count,
+		l.metrics.histogram,
+	}
+}
+
+// RemoveLabelledMetrics removes the metrics which have the passed target as a label
 func (l *Latency) RemoveLabelledMetrics(target string) error {
 	return l.metrics.Remove(target)
 }

@@ -5,6 +5,13 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
+// metrics defines the metric collectors of the latency check
+type metrics struct {
+	totalDuration *prometheus.GaugeVec
+	count         *prometheus.CounterVec
+	histogram     *prometheus.HistogramVec
+}
+
 // newMetrics initializes metric collectors of the latency check
 func newMetrics() metrics {
 	return metrics{
@@ -38,15 +45,7 @@ func newMetrics() metrics {
 	}
 }
 
-// GetMetricCollectors returns all metric collectors of check
-func (l *Latency) GetMetricCollectors() []prometheus.Collector {
-	return []prometheus.Collector{
-		l.metrics.totalDuration,
-		l.metrics.count,
-		l.metrics.histogram,
-	}
-}
-
+// Remove removes the metrics which have the passed target as a label
 func (m metrics) Remove(label string) error {
 	if !m.totalDuration.Delete(map[string]string{"target": label}) {
 		return checks.ErrMetricNotFound{Label: label}
