@@ -170,7 +170,7 @@ func TraceRoute(ctx context.Context, cfg tracerouteConfig) (map[int][]Hop, error
 	}
 
 	// if we don't add the +1, this causes issues, when the user does not want to retry,
-	// since the channels size would be zero, blocking all threads from sending
+	// since the channel's size would be zero, blocking all threads from sending
 	queueSize := cfg.MaxHops * (1 + cfg.Rc.Count)
 	results := make(chan Hop, queueSize)
 	var wg sync.WaitGroup
