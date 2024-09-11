@@ -271,6 +271,9 @@ targetManager:
     # The ID of your GitLab project. This is where Sparrow will register itself
     # and grab the list of other Sparrows from
     projectId: 18923
+    # The branch to use for the state file
+    # If not set, it tries to resolve the default branch otherwise it uses the 'main' branch
+    branch: main
 
 # Configures the telemetry exporter.
 telemetry:
@@ -345,6 +348,7 @@ in the startup YAML configuration file as shown in the [example configuration](#
 | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
 | `targetManager.enabled`              | Whether to enable the target manager. Defaults to false                                                                                         |
 | `targetManager.type`                 | Type of the target manager. Options: `gitlab`                                                                                                   |
+| `targetManager.scheme`               | Should the target register itself as http or https. Can be `http` or `https`. This needs to be set to `https`, when `api.tls.enabled` == `true` |
 | `targetManager.checkInterval`        | Interval for checking new targets.                                                                                                              |
 | `targetManager.unhealthyThreshold`   | Threshold for marking a target as unhealthy. 0 means no cleanup.                                                                                |
 | `targetManager.registrationInterval` | Interval for registering the current sparrow at the target backend. 0 means no registration.                                                    |
@@ -352,7 +356,7 @@ in the startup YAML configuration file as shown in the [example configuration](#
 | `targetManager.gitlab.baseUrl`       | Base URL of the GitLab instance.                                                                                                                |
 | `targetManager.gitlab.token`         | Token for authenticating with the GitLab instance.                                                                                              |
 | `targetManager.gitlab.projectId`     | Project ID for the GitLab project used as a remote state backend.                                                                               |
-| `targetManager.scheme`               | Should the target register itself as http or https. Can be `http` or `https`. This needs to be set to `https`, when `api.tls.enabled` == `true` |
+| `targetManager.gitlab.branch`        | Branch to use for the state file. If not set, it tries to resolve the default branch otherwise it uses the `main` branch.                       |
 
 Currently, only one target manager exists: the Gitlab target manager. It uses a gitlab project as the remote state
 backend. The various `sparrow` instances can register themselves as targets in the project.
