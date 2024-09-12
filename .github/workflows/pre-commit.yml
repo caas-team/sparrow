@@ -1,7 +1,6 @@
 name: pre-commit.ci
 
-on:
-  push:
+on: [pull_request]
 
 jobs:
   pre-commit:
