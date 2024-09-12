@@ -21,6 +21,7 @@ package dns
 import (
 	"context"
 	"net"
+	"slices"
 	"sync"
 	"time"
 
@@ -112,10 +113,20 @@ func (d *DNS) Shutdown() {
 	close(d.DoneChan)
 }
 
-func (d *DNS) SetConfig(cfg checks.Runtime) error {
+func (d *DNS) UpdateConfig(cfg checks.Runtime) error {
 	if c, ok := cfg.(*Config); ok {
 		d.Mu.Lock()
 		defer d.Mu.Unlock()
+
+		for _, target := range d.config.Targets {
+			if !slices.Contains(c.Targets, target) {
+				err := d.metrics.Remove(target)
+				if err != nil {
+					return err
+				}
+			}
+		}
+
 		d.config = *c
 		return nil
 	}
@@ -135,6 +146,12 @@ func (d *DNS) Schema() (*openapi3.SchemaRef, error) {
 // GetMetricCollectors returns all metric collectors of check
 func (d *DNS) GetMetricCollectors() []prometheus.Collector {
 	return d.metrics.GetCollectors()
+}
+
+// RemoveLabelledMetrics removes the metrics which have the passed
+// target as a label
+func (d *DNS) RemoveLabelledMetrics(target string) error {
+	return d.metrics.Remove(target)
 }
 
 // check performs DNS checks for all configured targets using a custom net.Resolver.

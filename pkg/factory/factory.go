@@ -37,7 +37,7 @@ func newCheck(cfg checks.Runtime) (checks.Check, error) {
 
 	if f, ok := registry[cfg.For()]; ok {
 		c := f()
-		err := c.SetConfig(cfg)
+		err := c.UpdateConfig(cfg)
 		return c, err
 	}
 	return nil, errors.New("unknown check type")

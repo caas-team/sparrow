@@ -3,6 +3,8 @@ package traceroute
 import (
 	"time"
 
+	"github.com/caas-team/sparrow/pkg/checks"
+
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -43,4 +45,15 @@ func newMetrics() metrics {
 			Name:      "check_duration_ms",
 		}, []string{labelTarget}),
 	}
+}
+
+// Remove removes a metric with a specific label
+func (m metrics) Remove(label string) error {
+	if !m.minHops.DeleteLabelValues(label) {
+		return checks.ErrMetricNotFound{Label: label}
+	}
+	if !m.checkDuration.DeleteLabelValues(label) {
+		return checks.ErrMetricNotFound{Label: label}
+	}
+	return nil
 }

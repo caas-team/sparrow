@@ -44,10 +44,10 @@ type Check interface {
 	Run(ctx context.Context, cResult chan ResultDTO) error
 	// Shutdown is called once when the check is unregistered or sparrow shuts down
 	Shutdown()
-	// SetConfig is called once when the check is registered
+	// UpdateConfig is called once when the check is registered
 	// This is also called while the check is running, if the remote config is updated
 	// This should return an error if the config is invalid
-	SetConfig(config Runtime) error
+	UpdateConfig(config Runtime) error
 	// GetConfig returns the current configuration of the check
 	GetConfig() Runtime
 	// Name returns the name of the check
@@ -56,6 +56,9 @@ type Check interface {
 	Schema() (*openapi3.SchemaRef, error)
 	// GetMetricCollectors allows the check to provide prometheus metric collectors
 	GetMetricCollectors() []prometheus.Collector
+	// RemoveLabelledMetrics allows the check to remove the prometheus metrics
+	// of the check whose `target` label matches the passed value
+	RemoveLabelledMetrics(target string) error
 }
 
 // CheckBase is a struct providing common fields used by implementations of the Check interface.
