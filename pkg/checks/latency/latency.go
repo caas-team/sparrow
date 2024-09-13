@@ -35,8 +35,9 @@ import (
 )
 
 var (
-	_ checks.Check   = (*Latency)(nil)
-	_ checks.Runtime = (*Config)(nil)
+	_ checks.Check          = (*Latency)(nil)
+	_ checks.MetricProvider = (*Latency)(nil)
+	_ checks.ConfigProvider = (*Config)(nil)
 )
 
 const CheckName = "latency"
@@ -104,7 +105,7 @@ func (l *Latency) Shutdown() {
 }
 
 // UpdateConfig sets the configuration for the latency check
-func (l *Latency) UpdateConfig(cfg checks.Runtime) error {
+func (l *Latency) UpdateConfig(cfg checks.ConfigProvider) error {
 	if c, ok := cfg.(*Config); ok {
 		l.Mu.Lock()
 		defer l.Mu.Unlock()
@@ -129,7 +130,7 @@ func (l *Latency) UpdateConfig(cfg checks.Runtime) error {
 }
 
 // GetConfig returns the current configuration of the latency Check
-func (l *Latency) GetConfig() checks.Runtime {
+func (l *Latency) GetConfig() checks.ConfigProvider {
 	l.Mu.Lock()
 	defer l.Mu.Unlock()
 	return &l.config

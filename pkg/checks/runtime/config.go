@@ -29,8 +29,7 @@ import (
 )
 
 // Config holds the runtime configuration
-// for the various checks
-// the sparrow supports
+// for the various checks the sparrow supports
 type Config struct {
 	Health     *health.Config     `yaml:"health" json:"health"`
 	Latency    *latency.Config    `yaml:"latency" json:"latency"`
@@ -54,8 +53,8 @@ func (c Config) Validate() (err error) {
 }
 
 // Iter returns configured checks in an iterable format
-func (c Config) Iter() []checks.Runtime {
-	var configs []checks.Runtime
+func (c Config) Iter() []checks.ConfigProvider {
+	var configs []checks.ConfigProvider
 	if c.Health != nil {
 		configs = append(configs, c.Health)
 	}
@@ -126,7 +125,7 @@ func (c Config) HasCheck(name string) bool {
 }
 
 // For returns the runtime configuration for the check with the given name
-func (c Config) For(name string) checks.Runtime {
+func (c Config) For(name string) checks.ConfigProvider {
 	switch name {
 	case health.CheckName:
 		if c.HasHealthCheck() {

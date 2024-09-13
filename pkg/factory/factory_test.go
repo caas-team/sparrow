@@ -123,7 +123,7 @@ func newLatencyCheck() checks.Check {
 func TestNewCheck(t *testing.T) {
 	tests := []struct {
 		name    string
-		cfg     checks.Runtime
+		cfg     checks.ConfigProvider
 		want    checks.Check
 		wantErr bool
 	}{

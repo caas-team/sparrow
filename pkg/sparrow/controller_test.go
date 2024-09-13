@@ -34,7 +34,6 @@ import (
 	"github.com/caas-team/sparrow/pkg/db"
 	"github.com/caas-team/sparrow/pkg/sparrow/metrics"
 	"github.com/getkin/kin-openapi/openapi3"
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -42,14 +41,11 @@ func TestRun_CheckRunError(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	cc := NewChecksController(db.NewInMemory(), metrics.New(metrics.Config{}))
+	cc := NewChecksController(db.NewInMemory(), metrics.New(metrics.Config{}, "v1.0.0"))
 	mockCheck := &checks.CheckMock{
 		NameFunc: func() string { return "mockCheck" },
 		RunFunc: func(ctx context.Context, cResult chan checks.ResultDTO) error {
 			return fmt.Errorf("some error")
-		},
-		GetMetricCollectorsFunc: func() []prometheus.Collector {
-			return []prometheus.Collector{}
 		},
 		ShutdownFunc: func() {},
 	}
@@ -82,7 +78,7 @@ func TestRun_CheckRunError(t *testing.T) {
 func TestRun_ContextCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	cc := NewChecksController(db.NewInMemory(), metrics.New(metrics.Config{}))
+	cc := NewChecksController(db.NewInMemory(), metrics.New(metrics.Config{}, "v1.0.0"))
 
 	done := make(chan struct{})
 	go func() {
@@ -206,7 +202,7 @@ func TestChecksController_Reconcile(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cc := NewChecksController(db.NewInMemory(), metrics.New(metrics.Config{}))
+			cc := NewChecksController(db.NewInMemory(), metrics.New(metrics.Config{}, "v1.0.0"))
 
 			for _, c := range tt.checks {
 				cc.checks.Add(c)
@@ -244,7 +240,7 @@ func TestChecksController_RegisterCheck(t *testing.T) {
 		{
 			name: "register one check",
 			setup: func() *ChecksController {
-				return NewChecksController(db.NewInMemory(), metrics.New(metrics.Config{}))
+				return NewChecksController(db.NewInMemory(), metrics.New(metrics.Config{}, "v1.0.0"))
 			},
 			check: health.NewCheck(),
 		},
@@ -274,7 +270,7 @@ func TestChecksController_UnregisterCheck(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cc := NewChecksController(db.NewInMemory(), metrics.New(metrics.Config{}))
+			cc := NewChecksController(db.NewInMemory(), metrics.New(metrics.Config{}, "v1.0.0"))
 
 			cc.UnregisterCheck(context.Background(), tt.check)
 

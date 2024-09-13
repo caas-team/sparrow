@@ -13,7 +13,11 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-var _ checks.Check = (*Traceroute)(nil)
+var (
+	_ checks.Check          = (*Traceroute)(nil)
+	_ checks.MetricProvider = (*Traceroute)(nil)
+	_ checks.ConfigProvider = (*Config)(nil)
+)
 
 const CheckName = "traceroute"
 
@@ -91,7 +95,7 @@ func (tr *Traceroute) Run(ctx context.Context, cResult chan checks.ResultDTO) er
 }
 
 // GetConfig returns the current configuration of the check
-func (tr *Traceroute) GetConfig() checks.Runtime {
+func (tr *Traceroute) GetConfig() checks.ConfigProvider {
 	tr.Mu.Lock()
 	defer tr.Mu.Unlock()
 	return &tr.config
@@ -174,7 +178,7 @@ func (tr *Traceroute) Shutdown() {
 // UpdateConfig is called once when the check is registered
 // This is also called while the check is running, if the remote config is updated
 // This should return an error if the config is invalid
-func (tr *Traceroute) UpdateConfig(cfg checks.Runtime) error {
+func (tr *Traceroute) UpdateConfig(cfg checks.ConfigProvider) error {
 	if c, ok := cfg.(*Config); ok {
 		tr.Mu.Lock()
 		defer tr.Mu.Unlock()

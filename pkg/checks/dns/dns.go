@@ -33,8 +33,9 @@ import (
 )
 
 var (
-	_ checks.Check   = (*DNS)(nil)
-	_ checks.Runtime = (*Config)(nil)
+	_ checks.Check          = (*DNS)(nil)
+	_ checks.MetricProvider = (*DNS)(nil)
+	_ checks.ConfigProvider = (*Config)(nil)
 )
 
 const CheckName = "dns"
@@ -47,7 +48,7 @@ type DNS struct {
 	client  Resolver
 }
 
-func (d *DNS) GetConfig() checks.Runtime {
+func (d *DNS) GetConfig() checks.ConfigProvider {
 	d.Mu.Lock()
 	defer d.Mu.Unlock()
 	return &d.config
@@ -113,7 +114,7 @@ func (d *DNS) Shutdown() {
 	close(d.DoneChan)
 }
 
-func (d *DNS) UpdateConfig(cfg checks.Runtime) error {
+func (d *DNS) UpdateConfig(cfg checks.ConfigProvider) error {
 	if c, ok := cfg.(*Config); ok {
 		d.Mu.Lock()
 		defer d.Mu.Unlock()

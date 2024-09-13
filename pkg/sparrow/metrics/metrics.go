@@ -21,6 +21,7 @@ package metrics
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/caas-team/sparrow/internal/logger"
 	"github.com/prometheus/client_golang/prometheus"
@@ -35,23 +36,33 @@ var _ Provider = (*manager)(nil)
 
 //go:generate moq -out metrics_moq.go . Provider
 type Provider interface {
-	// GetRegistry returns the prometheus registry instance
-	// containing the registered prometheus collectors
-	GetRegistry() *prometheus.Registry
-	// InitTracing initializes the OpenTelemetry tracing
-	InitTracing(ctx context.Context) error
-	// Shutdown closes the metrics and tracing
+	Tracer
+	Collector
+}
+
+// Tracer is the interface that wraps the basic methods of the OpenTelemetry tracer
+type Tracer interface {
+	// Initialize initializes the OpenTelemetry metrics with the given service name and version
+	Initialize(ctx context.Context) error
+	// Shutdown shuts down the OpenTelemetry tracer
 	Shutdown(ctx context.Context) error
+}
+
+// Collector is the interface that wraps the basic methods of the Prometheus collector
+type Collector interface {
+	// GetRegistry returns the prometheus registry instance containing the registered prometheus collectors
+	GetRegistry() *prometheus.Registry
 }
 
 type manager struct {
 	config   Config
+	version  string
 	registry *prometheus.Registry
 	tp       *sdktrace.TracerProvider
 }
 
 // New initializes the metrics and returns the PrometheusMetrics
-func New(config Config) Provider {
+func New(config Config, version string) Provider {
 	registry := prometheus.NewRegistry()
 
 	registry.MustRegister(
@@ -61,6 +72,7 @@ func New(config Config) Provider {
 
 	return &manager{
 		config:   config,
+		version:  version,
 		registry: registry,
 	}
 }
@@ -70,16 +82,24 @@ func (m *manager) GetRegistry() *prometheus.Registry {
 	return m.registry
 }
 
-// InitTracing initializes the OpenTelemetry tracing
-func (m *manager) InitTracing(ctx context.Context) error {
+const (
+	// batchTimeout is the maximum time the exporter will wait for a batch to be ready
+	batchTimeout = 5 * time.Second
+	// maxQueueSize is the maximum number of spans that can be queued before they are dropped
+	maxQueueSize = 1000
+	// maxBatchSize is the maximum number of spans that can be exported in a single batch
+	maxBatchSize = 100
+)
+
+// Initialize initializes the OpenTelemetry tracing
+func (m *manager) Initialize(ctx context.Context) error {
 	log := logger.FromContext(ctx)
 	res, err := resource.New(ctx,
 		resource.WithHost(),
 		resource.WithContainer(),
 		resource.WithAttributes(
 			semconv.ServiceNameKey.String("sparrow-metrics-api"),
-			// TODO: Maybe we should use the version that is set on build time in the main package
-			semconv.ServiceVersionKey.String("0.1.0"),
+			semconv.ServiceVersionKey.String(m.version),
 		),
 	)
 	if err != nil {
@@ -93,7 +113,11 @@ func (m *manager) InitTracing(ctx context.Context) error {
 		return fmt.Errorf("failed to create exporter: %v", err)
 	}
 
-	bsp := sdktrace.NewBatchSpanProcessor(exporter)
+	bsp := sdktrace.NewBatchSpanProcessor(exporter,
+		sdktrace.WithBatchTimeout(batchTimeout),
+		sdktrace.WithMaxQueueSize(maxQueueSize),
+		sdktrace.WithMaxExportBatchSize(maxBatchSize),
+	)
 	tp := sdktrace.NewTracerProvider(
 		// TODO: Keep track of the sampler if we run into traffic issues due to the high volume of data.
 		sdktrace.WithSampler(sdktrace.AlwaysSample()),

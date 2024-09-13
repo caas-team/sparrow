@@ -133,10 +133,12 @@ func (cc *ChecksController) Reconcile(ctx context.Context, cfg runtime.Config) {
 func (cc *ChecksController) RegisterCheck(ctx context.Context, check checks.Check) {
 	log := logger.FromContext(ctx).With("check", check.Name())
 
-	// Add prometheus collectors of check to registry
-	for _, collector := range check.GetMetricCollectors() {
-		if err := cc.metrics.GetRegistry().Register(collector); err != nil {
-			log.ErrorContext(ctx, "Could not add metrics collector to registry", "error", err)
+	if c, ok := check.(checks.MetricProvider); ok {
+		// Add prometheus collectors of check to registry
+		for _, collector := range c.GetMetricCollectors() {
+			if err := cc.metrics.GetRegistry().Register(collector); err != nil {
+				log.ErrorContext(ctx, "Could not add metrics collector to registry", "error", err)
+			}
 		}
 	}
 
@@ -159,9 +161,11 @@ func (cc *ChecksController) UnregisterCheck(ctx context.Context, check checks.Ch
 	log := logger.FromContext(ctx).With("check", check.Name())
 
 	// Remove prometheus collectors of check from registry
-	for _, metricsCollector := range check.GetMetricCollectors() {
-		if !cc.metrics.GetRegistry().Unregister(metricsCollector) {
-			log.ErrorContext(ctx, "Could not remove metrics collector from registry")
+	if c, ok := check.(checks.MetricProvider); ok {
+		for _, metricsCollector := range c.GetMetricCollectors() {
+			if !cc.metrics.GetRegistry().Unregister(metricsCollector) {
+				log.ErrorContext(ctx, "Could not remove metrics collector from registry")
+			}
 		}
 	}
 

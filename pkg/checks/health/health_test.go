@@ -34,7 +34,7 @@ import (
 func TestHealth_UpdateConfig(t *testing.T) {
 	tests := []struct {
 		name           string
-		inputConfig    checks.Runtime
+		inputConfig    checks.ConfigProvider
 		expectedConfig Config
 		wantErr        bool
 	}{

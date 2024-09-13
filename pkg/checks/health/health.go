@@ -36,9 +36,10 @@ import (
 )
 
 var (
-	_            checks.Check   = (*Health)(nil)
-	_            checks.Runtime = (*Config)(nil)
-	stateMapping                = map[int]string{
+	_            checks.Check          = (*Health)(nil)
+	_            checks.MetricProvider = (*Health)(nil)
+	_            checks.ConfigProvider = (*Config)(nil)
+	stateMapping                       = map[int]string{
 		0: "unhealthy",
 		1: "healthy",
 	}
@@ -104,7 +105,7 @@ func (h *Health) Shutdown() {
 }
 
 // UpdateConfig sets the configuration for the health check
-func (h *Health) UpdateConfig(cfg checks.Runtime) error {
+func (h *Health) UpdateConfig(cfg checks.ConfigProvider) error {
 	if c, ok := cfg.(*Config); ok {
 		h.Mu.Lock()
 		defer h.Mu.Unlock()
@@ -129,7 +130,7 @@ func (h *Health) UpdateConfig(cfg checks.Runtime) error {
 }
 
 // GetConfig returns the current configuration of the check
-func (h *Health) GetConfig() checks.Runtime {
+func (h *Health) GetConfig() checks.ConfigProvider {
 	h.Mu.Lock()
 	defer h.Mu.Unlock()
 	return &h.config

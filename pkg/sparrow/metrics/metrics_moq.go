@@ -22,8 +22,8 @@ var _ Provider = &ProviderMock{}
 //			GetRegistryFunc: func() *prometheus.Registry {
 //				panic("mock out the GetRegistry method")
 //			},
-//			InitTracingFunc: func(ctx context.Context) error {
-//				panic("mock out the InitTracing method")
+//			InitializeFunc: func(ctx context.Context) error {
+//				panic("mock out the Initialize method")
 //			},
 //			ShutdownFunc: func(ctx context.Context) error {
 //				panic("mock out the Shutdown method")
@@ -38,8 +38,8 @@ type ProviderMock struct {
 	// GetRegistryFunc mocks the GetRegistry method.
 	GetRegistryFunc func() *prometheus.Registry
 
-	// InitTracingFunc mocks the InitTracing method.
-	InitTracingFunc func(ctx context.Context) error
+	// InitializeFunc mocks the Initialize method.
+	InitializeFunc func(ctx context.Context) error
 
 	// ShutdownFunc mocks the Shutdown method.
 	ShutdownFunc func(ctx context.Context) error
@@ -49,8 +49,8 @@ type ProviderMock struct {
 		// GetRegistry holds details about calls to the GetRegistry method.
 		GetRegistry []struct {
 		}
-		// InitTracing holds details about calls to the InitTracing method.
-		InitTracing []struct {
+		// Initialize holds details about calls to the Initialize method.
+		Initialize []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 		}
@@ -61,7 +61,7 @@ type ProviderMock struct {
 		}
 	}
 	lockGetRegistry sync.RWMutex
-	lockInitTracing sync.RWMutex
+	lockInitialize  sync.RWMutex
 	lockShutdown    sync.RWMutex
 }
 
@@ -92,35 +92,35 @@ func (mock *ProviderMock) GetRegistryCalls() []struct {
 	return calls
 }
 
-// InitTracing calls InitTracingFunc.
-func (mock *ProviderMock) InitTracing(ctx context.Context) error {
-	if mock.InitTracingFunc == nil {
-		panic("ProviderMock.InitTracingFunc: method is nil but Provider.InitTracing was just called")
+// Initialize calls InitializeFunc.
+func (mock *ProviderMock) Initialize(ctx context.Context) error {
+	if mock.InitializeFunc == nil {
+		panic("ProviderMock.InitializeFunc: method is nil but Provider.Initialize was just called")
 	}
 	callInfo := struct {
 		Ctx context.Context
 	}{
 		Ctx: ctx,
 	}
-	mock.lockInitTracing.Lock()
-	mock.calls.InitTracing = append(mock.calls.InitTracing, callInfo)
-	mock.lockInitTracing.Unlock()
-	return mock.InitTracingFunc(ctx)
+	mock.lockInitialize.Lock()
+	mock.calls.Initialize = append(mock.calls.Initialize, callInfo)
+	mock.lockInitialize.Unlock()
+	return mock.InitializeFunc(ctx)
 }
 
-// InitTracingCalls gets all the calls that were made to InitTracing.
+// InitializeCalls gets all the calls that were made to Initialize.
 // Check the length with:
 //
-//	len(mockedProvider.InitTracingCalls())
-func (mock *ProviderMock) InitTracingCalls() []struct {
+//	len(mockedProvider.InitializeCalls())
+func (mock *ProviderMock) InitializeCalls() []struct {
 	Ctx context.Context
 } {
 	var calls []struct {
 		Ctx context.Context
 	}
-	mock.lockInitTracing.RLock()
-	calls = mock.calls.InitTracing
-	mock.lockInitTracing.RUnlock()
+	mock.lockInitialize.RLock()
+	calls = mock.calls.Initialize
+	mock.lockInitialize.RUnlock()
 	return calls
 }
 

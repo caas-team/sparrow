@@ -65,8 +65,8 @@ type Sparrow struct {
 }
 
 // New creates a new sparrow from a given configfile
-func New(cfg *config.Config) *Sparrow {
-	m := metrics.New(cfg.Telemetry)
+func New(cfg *config.Config, version string) *Sparrow {
+	m := metrics.New(cfg.Telemetry, version)
 	dbase := db.NewInMemory()
 
 	sparrow := &Sparrow{
@@ -96,7 +96,7 @@ func (s *Sparrow) Run(ctx context.Context) error {
 	log := logger.FromContext(ctx)
 	defer cancel()
 
-	err := s.metrics.InitTracing(ctx)
+	err := s.metrics.Initialize(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to initialize tracing: %w", err)
 	}

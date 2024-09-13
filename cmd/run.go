@@ -66,7 +66,7 @@ func NewCmdRun() *cobra.Command {
 
 // run is the entry point to start the sparrow
 func run() func(cmd *cobra.Command, args []string) error {
-	return func(_ *cobra.Command, _ []string) error {
+	return func(cmd *cobra.Command, _ []string) error {
 		cfg := &config.Config{}
 		err := viper.Unmarshal(cfg)
 		if err != nil {
@@ -84,16 +84,16 @@ func run() func(cmd *cobra.Command, args []string) error {
 		sigChan := make(chan os.Signal, 1)
 		signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
-		s := sparrow.New(cfg)
+		s := sparrow.New(cfg, cmd.Version)
 		cErr := make(chan error, 1)
-		log.Info("Running sparrow")
+		log.InfoContext(ctx, "Running sparrow", "version", cmd.Version)
 		go func() {
 			cErr <- s.Run(ctx)
 		}()
 
 		select {
 		case <-sigChan:
-			log.Info("Signal received, shutting down")
+			log.InfoContext(ctx, "Signal received, shutting down")
 			cancel()
 			<-cErr
 		case err := <-cErr:

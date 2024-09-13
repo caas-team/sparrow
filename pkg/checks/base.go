@@ -38,22 +38,46 @@ var DefaultRetry = helper.RetryConfig{
 //
 //go:generate moq -out base_moq.go . Check
 type Check interface {
+	Runner
+	Configurable
+	Identifiable
+	SchemaProvider
+}
+
+// Runner interface for running and shutting down the check
+type Runner interface {
 	// Run is called once, to start running the check. The check should
 	// run until the context is canceled and handle problems itself.
 	// Returning a non-nil error will cause the shutdown of the check.
 	Run(ctx context.Context, cResult chan ResultDTO) error
 	// Shutdown is called once when the check is unregistered or sparrow shuts down
 	Shutdown()
+}
+
+// Configurable interface for setting and getting configuration
+type Configurable interface {
 	// UpdateConfig is called once when the check is registered
 	// This is also called while the check is running, if the remote config is updated
 	// This should return an error if the config is invalid
-	UpdateConfig(config Runtime) error
+	UpdateConfig(config ConfigProvider) error
 	// GetConfig returns the current configuration of the check
-	GetConfig() Runtime
+	GetConfig() ConfigProvider
+}
+
+// Identifiable interface for getting the name of the check
+type Identifiable interface {
 	// Name returns the name of the check
 	Name() string
+}
+
+// SchemaProvider interface for providing schema
+type SchemaProvider interface {
 	// Schema returns an openapi3.SchemaRef of the result type returned by the check
 	Schema() (*openapi3.SchemaRef, error)
+}
+
+// MetricProvider interface for providing metric collectors
+type MetricProvider interface {
 	// GetMetricCollectors allows the check to provide prometheus metric collectors
 	GetMetricCollectors() []prometheus.Collector
 	// RemoveLabelledMetrics allows the check to remove the prometheus metrics
@@ -70,8 +94,8 @@ type CheckBase struct {
 	DoneChan chan struct{}
 }
 
-// Runtime is the interface that all check configurations must implement
-type Runtime interface {
+// ConfigProvider is the interface that all check configurations must implement
+type ConfigProvider interface {
 	// For returns the name of the check being configured
 	For() string
 	// Validate checks if the configuration is valid

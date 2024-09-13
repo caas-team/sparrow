@@ -259,7 +259,7 @@ func TestDNS_Shutdown(t *testing.T) {
 func TestDNS_UpdateConfig(t *testing.T) {
 	tests := []struct {
 		name    string
-		input   checks.Runtime
+		input   checks.ConfigProvider
 		want    Config
 		wantErr bool
 	}{
