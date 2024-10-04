@@ -7,7 +7,7 @@ require (
 	github.com/go-chi/chi/v5 v5.1.0
 	github.com/google/go-cmp v0.6.0
 	github.com/jarcoal/httpmock v1.3.1
-	github.com/prometheus/client_golang v1.20.3
+	github.com/prometheus/client_golang v1.20.4
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/viper v1.20.0-alpha.6
 	github.com/stretchr/testify v1.9.0
@@ -19,7 +19,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.30.0
 	golang.org/x/net v0.29.0
 	golang.org/x/sys v0.25.0
-	google.golang.org/grpc v1.66.1
+	google.golang.org/grpc v1.67.1
 	gopkg.in/yaml.v3 v3.0.1
 )
 
