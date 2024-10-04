@@ -43,7 +43,7 @@ func randomPort() int {
 
 // tcpHop attempts to connect to the target host using TCP with the specified TTL and timeout.
 // It returns a [net.Conn], the port used for the connection, and an error if the connection failed.
-func tcpHop(ctx context.Context, addr net.Addr, ttl int, timeout time.Duration) (conn net.Conn, port int, err error) {
+func tcpHop(ctx context.Context, addr net.Addr, ttl int, timeout time.Duration) (net.Conn, int, error) {
 	span := trace.SpanFromContext(ctx)
 
 	for {
@@ -86,10 +86,10 @@ func tcpHop(ctx context.Context, addr net.Addr, ttl int, timeout time.Duration) 
 		case errors.Is(err, unix.EADDRINUSE):
 			// Address in use, retry by continuing the loop
 			continue
-		case errors.Is(err, syscall.EHOSTUNREACH):
-			// No route to host is no error because of how tcp traceroute works
+		case errors.Is(err, unix.EHOSTUNREACH):
+			// No route to host is a special error because of how tcp traceroute works
 			// we are expecting the connection to fail because of TTL expiry
-			span.SetStatus(codes.Unset, "No route to host")
+			span.SetStatus(codes.Error, "No route to host")
 			span.AddEvent("No route to host", trace.WithAttributes(
 				attribute.String("error", err.Error()),
 			))
@@ -198,7 +198,7 @@ func TraceRoute(ctx context.Context, cfg tracerouteConfig) (map[int][]Hop, error
 					attribute.Int("retry", retry),
 				))
 
-				hop, hErr := hop(ctx, addr, ttl, cfg.Timeout)
+				hop, hErr := doHop(ctx, addr, ttl, cfg.Timeout)
 				if hop != nil {
 					results <- *hop
 				}
@@ -243,9 +243,9 @@ func TraceRoute(ctx context.Context, cfg tracerouteConfig) (map[int][]Hop, error
 	return hops, nil
 }
 
-// hop performs a hop to the given address with the specified TTL and timeout.
+// doHop performs a hop to the given address with the specified TTL and timeout.
 // It returns a Hop struct containing the latency, TTL, address, and other details of the hop.
-func hop(ctx context.Context, addr net.Addr, ttl int, timeout time.Duration) (*Hop, error) {
+func doHop(ctx context.Context, addr net.Addr, ttl int, timeout time.Duration) (*Hop, error) {
 	span := trace.SpanFromContext(ctx)
 	log := logger.FromContext(ctx)
 	canIcmp, icmpListener, err := newIcmpListener()
