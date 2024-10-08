@@ -21,6 +21,7 @@ package metrics
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/caas-team/sparrow/internal/logger"
 	"github.com/prometheus/client_golang/prometheus"
@@ -93,7 +94,16 @@ func (m *manager) InitTracing(ctx context.Context) error {
 		return fmt.Errorf("failed to create exporter: %v", err)
 	}
 
-	bsp := sdktrace.NewBatchSpanProcessor(exporter)
+	const (
+		batchTimeout = 5 * time.Second
+		maxQueueSize = 1000
+		maxBatchSize = 100
+	)
+	bsp := sdktrace.NewBatchSpanProcessor(exporter,
+		sdktrace.WithBatchTimeout(batchTimeout),
+		sdktrace.WithMaxQueueSize(maxQueueSize),
+		sdktrace.WithMaxExportBatchSize(maxBatchSize),
+	)
 	tp := sdktrace.NewTracerProvider(
 		// TODO: Keep track of the sampler if we run into traffic issues due to the high volume of data.
 		sdktrace.WithSampler(sdktrace.AlwaysSample()),

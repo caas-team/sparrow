@@ -241,10 +241,9 @@ api:
     keyPath: mykey.key
 
 
-# Configures the target manager
-# Omitting this section will disable the target manager
+# Configures the target manager.
 targetManager:
-  # whether to enable the target manager. defaults to false
+  # whether to enable the target manager. (default: false)
   enabled: true
   # Defines which target manager to use.
   type: gitlab
@@ -277,8 +276,9 @@ targetManager:
     branch: main
 
 # Configures the telemetry exporter.
-# Omitting this section will disable telemetry.
 telemetry:
+  # Whether to enable telemetry. (default: false)
+  enabled: true
   # The telemetry exporter to use.
   # Options:
   # grpc: Exports telemetry using OTLP via gRPC.
