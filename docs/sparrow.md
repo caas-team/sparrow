@@ -10,7 +10,7 @@ The check results are exposed via an API.
 ### Options
 
 ```
-      --config string   config file (default is $HOME/.sparrow.yaml)
+  -c, --config string   config file (default is $HOME/.sparrow.yaml)
   -h, --help            help for sparrow
 ```
 
