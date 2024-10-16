@@ -29,7 +29,7 @@ sparrow run [flags]
 ### Options inherited from parent commands
 
 ```
-      --config string   config file (default is $HOME/.sparrow.yaml)
+  -c, --config string   config file (default is $HOME/.sparrow.yaml)
 ```
 
 ### SEE ALSO

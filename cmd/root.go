@@ -43,7 +43,7 @@ func NewCmdRoot(version string) *cobra.Command {
 		initConfig(cfgFile)
 	})
 
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.sparrow.yaml)")
+	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "config file (default is $HOME/.sparrow.yaml)")
 
 	return rootCmd
 }
