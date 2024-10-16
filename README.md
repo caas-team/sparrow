@@ -667,9 +667,12 @@ telemetry:
   # The token to use for authentication.
   # If the exporter does not require a token, this can be left empty.
   token: ""
-  # The path to the tls certificate to use.
-  # To disable tls, either set this to an empty string or set it to insecure.
-  certPath: ""
+  tls:
+    # Enable or disable TLS
+    enabled: true
+    # The path to the tls certificate to use.
+    # Only required if your otel endpoint uses custom TLS certificates
+    certPath: ""
 ```
 
 Since [OTLP](https://opentelemetry.io/docs/specs/otlp/) is a standard protocol, you can choose any collector that supports it. The `stdout` exporter can be used for debugging purposes to print telemetry data to the console, while the `noop` exporter disables telemetry. If an external collector is used, a bearer token for authentication and a TLS certificate path for secure communication can be provided.
