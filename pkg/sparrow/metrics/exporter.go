@@ -100,8 +100,10 @@ func newHTTPExporter(ctx context.Context, config *Config) (sdktrace.SpanExporter
 		otlptracehttp.WithEndpoint(config.Url),
 		otlptracehttp.WithHeaders(headers),
 	}
-	if tlsCfg != nil {
-		opts = append(opts, otlptracehttp.WithTLSClientConfig(tlsCfg))
+	if config.Tls.Enabled {
+		if tlsCfg != nil {
+			opts = append(opts, otlptracehttp.WithTLSClientConfig(tlsCfg))
+		}
 	} else {
 		opts = append(opts, otlptracehttp.WithInsecure())
 	}
@@ -120,8 +122,10 @@ func newGRPCExporter(ctx context.Context, config *Config) (sdktrace.SpanExporter
 		otlptracegrpc.WithEndpoint(config.Url),
 		otlptracegrpc.WithHeaders(headers),
 	}
-	if tlsCfg != nil {
-		opts = append(opts, otlptracegrpc.WithTLSCredentials(credentials.NewTLS(tlsCfg)))
+	if config.Tls.Enabled {
+		if tlsCfg != nil {
+			opts = append(opts, otlptracegrpc.WithTLSCredentials(credentials.NewTLS(tlsCfg)))
+		}
 	} else {
 		opts = append(opts, otlptracegrpc.WithInsecure())
 	}
@@ -146,12 +150,15 @@ func getCommonConfig(config *Config) (map[string]string, *tls.Config, error) {
 		headers["Authorization"] = fmt.Sprintf("Bearer %s", config.Token)
 	}
 
-	tlsCfg, err := getTLSConfig(config.CertPath)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create TLS configuration: %w", err)
+	if config.Tls.Enabled {
+		tlsCfg, err := getTLSConfig(config.Tls.CertPath)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to create TLS configuration: %w", err)
+		}
+		return headers, tlsCfg, nil
 	}
 
-	return headers, tlsCfg, nil
+	return headers, nil, nil
 }
 
 // FileOpener is the function used to open a file
@@ -165,7 +172,7 @@ var openFile FileOpener = func() FileOpener {
 }()
 
 func getTLSConfig(certFile string) (conf *tls.Config, err error) {
-	if certFile == "" || certFile == "insecure" {
+	if certFile == "" {
 		return nil, nil
 	}
 
