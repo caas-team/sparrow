@@ -122,12 +122,13 @@ func newGRPCExporter(ctx context.Context, config *Config) (sdktrace.SpanExporter
 		otlptracegrpc.WithEndpoint(config.Url),
 		otlptracegrpc.WithHeaders(headers),
 	}
-	if config.Tls.Enabled {
-		if tlsCfg != nil {
-			opts = append(opts, otlptracegrpc.WithTLSCredentials(credentials.NewTLS(tlsCfg)))
-		}
-	} else {
+
+	if !config.Tls.Enabled {
 		opts = append(opts, otlptracegrpc.WithInsecure())
+		return otlptracegrpc.New(ctx, opts...)
+	}
+	if tlsCfg != nil {
+		opts = append(opts, otlptracegrpc.WithTLSCredentials(credentials.NewTLS(tlsCfg)))
 	}
 
 	return otlptracegrpc.New(ctx, opts...)
