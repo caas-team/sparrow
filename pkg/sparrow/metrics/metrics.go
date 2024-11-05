@@ -52,6 +52,8 @@ type manager struct {
 }
 
 // New initializes the metrics and returns the PrometheusMetrics
+//
+//nolint:gocritic
 func New(config Config) Provider {
 	registry := prometheus.NewRegistry()
 

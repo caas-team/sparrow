@@ -34,9 +34,14 @@ type Config struct {
 	// Url is the Url of the collector to which the traces are exported
 	Url string `yaml:"url" mapstructure:"url"`
 	// Token is the token used to authenticate with the collector
-	Token string `yaml:"token" mapstructure:"token"`
+	Token string    `yaml:"token" mapstructure:"token"`
+	Tls   TLSConfig `yaml:"tls" mapstructure:"tls"`
+}
+
+type TLSConfig struct {
 	// CertPath is the path to the tls certificate file
 	CertPath string `yaml:"certPath" mapstructure:"certPath"`
+	Enabled  bool   `yaml:"enabled" mapstructure:"enabled"`
 }
 
 func (c *Config) Validate(ctx context.Context) error {
