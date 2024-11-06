@@ -53,11 +53,9 @@ func (c *Config) Validate(ctx context.Context) error {
 		return err
 	}
 
-	if c.Exporter.IsExporting() {
-		if c.Url == "" {
-			log.ErrorContext(ctx, "Url is required for otlp exporter", "exporter", c.Exporter)
-			return fmt.Errorf("url is required for otlp exporter %q", c.Exporter)
-		}
+	if c.Exporter.IsExporting() && c.Url == "" {
+		log.ErrorContext(ctx, "Url is required for otlp exporter", "exporter", c.Exporter)
+		return fmt.Errorf("url is required for otlp exporter %q", c.Exporter)
 	}
 	return nil
 }
