@@ -34,14 +34,17 @@ type Config struct {
 	// Url is the Url of the collector to which the traces are exported
 	Url string `yaml:"url" mapstructure:"url"`
 	// Token is the token used to authenticate with the collector
-	Token string    `yaml:"token" mapstructure:"token"`
-	Tls   TLSConfig `yaml:"tls" mapstructure:"tls"`
+	Token string `yaml:"token" mapstructure:"token"`
+	// TLS holds the tls configuration
+	TLS TLSConfig `yaml:"tls" mapstructure:"tls"`
 }
 
 type TLSConfig struct {
-	// CertPath is the path to the tls certificate file
+	// Enabled is a flag to enable or disable the tls
+	Enabled bool `yaml:"enabled" mapstructure:"enabled"`
+	// CertPath is the path to the tls certificate file.
+	// This is only required if the otel backend uses custom TLS certificates.
 	CertPath string `yaml:"certPath" mapstructure:"certPath"`
-	Enabled  bool   `yaml:"enabled" mapstructure:"enabled"`
 }
 
 func (c *Config) Validate(ctx context.Context) error {
@@ -51,11 +54,9 @@ func (c *Config) Validate(ctx context.Context) error {
 		return err
 	}
 
-	if c.Exporter.IsExporting() {
-		if c.Url == "" {
-			log.ErrorContext(ctx, "Url is required for otlp exporter", "exporter", c.Exporter)
-			return fmt.Errorf("url is required for otlp exporter %q", c.Exporter)
-		}
+	if c.Exporter.IsExporting() && c.Url == "" {
+		log.ErrorContext(ctx, "Url is required for otlp exporter", "exporter", c.Exporter)
+		return fmt.Errorf("url is required for otlp exporter %q", c.Exporter)
 	}
 	return nil
 }

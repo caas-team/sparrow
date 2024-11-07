@@ -81,15 +81,14 @@ The binary is available for several distributions. To install the binary, use a 
 Replace `${RELEASE_VERSION}` with the desired release version:
 
 ```sh
-curl https://github.com/caas-team/sparrow/releases/download/v${RELEASE_VERSION}/sparrow_${RELEASE_VERSION}_linux_amd64.tar.gz -Lo sparrow.tar.gz
-curl https://github.com/caas-team/sparrow/releases/download/v${RELEASE_VERSION}/sparrow_${RELEASE_VERSION}_checksums.txt -Lo checksums.txt
+export RELEASE_VERSION=0.5.0
 ```
 
-For example, for release `v0.3.1`:
+Download the binary:
 
 ```sh
-curl https://github.com/caas-team/sparrow/releases/download/v0.3.1/sparrow_0.3.1_linux_amd64.tar.gz -Lo sparrow.tar.gz
-curl https://github.com/caas-team/sparrow/releases/download/v0.3.1/sparrow_0.3.1_checksums.txt -Lo checksums.txt
+curl https://github.com/caas-team/sparrow/releases/download/v${RELEASE_VERSION}/sparrow_${RELEASE_VERSION}_linux_amd64.tar.gz -Lo sparrow.tar.gz
+curl https://github.com/caas-team/sparrow/releases/download/v${RELEASE_VERSION}/sparrow_${RELEASE_VERSION}_checksums.txt -Lo checksums.txt
 ```
 
 Extract the binary:
@@ -291,9 +290,13 @@ telemetry:
   # The token to use for authentication.
   # If the exporter does not require a token, this can be left empty.
   token: ""
-  # The path to the tls certificate to use.
-  # To disable tls, either set this to an empty string or set it to insecure.
-  certPath: ""
+  # Configures tls for the telemetry exporter
+  tls:
+    # Enable or disable TLS
+    enabled: true
+    # The path to the tls certificate to use.
+    # Only required if your otel endpoint uses custom TLS certificates
+    certPath: ""
 ```
 
 #### Loader
@@ -644,17 +647,21 @@ Replace `<sparrow_instance_address>` with the actual address of your `sparrow` i
 
 The `sparrow` supports exporting telemetry data using the OpenTelemetry Protocol (OTLP). This allows users to choose their preferred telemetry provider and collector. The following configuration options are available for setting up telemetry:
 
-| Field      | Type     | Description                                                              |
-| ---------- | -------- | ------------------------------------------------------------------------ |
-| `exporter` | `string` | The telemetry exporter to use. Options: `grpc`, `http`, `stdout`, `noop` |
-| `url`      | `string` | The address to export telemetry to                                       |
-| `token`    | `string` | The token to use for authentication                                      |
-| `certPath` | `string` | The path to the TLS certificate to use                                   |
+| Field          | Type     | Description                                                                 |
+| -------------- | -------- | --------------------------------------------------------------------------- |
+| `enabled`      | `bool`   | Whether to enable telemetry. Default: `false`                               |
+| `exporter`     | `string` | The telemetry exporter to use. Options: `grpc`, `http`, `stdout`, `noop`    |
+| `url`          | `string` | The address to export telemetry to.                                         |
+| `token`        | `string` | The token to use for authentication.                                        |
+| `tls.enabled`  | `bool`   | Enable or disable TLS.                                                      |
+| `tls.certPath` | `string` | The path to the TLS certificate to use. Only required if custom TLS is used |
 
 For example, to export telemetry data using OTLP via gRPC, you can add the following configuration to your [startup configuration](#startup):
 
 ```yaml
 telemetry:
+  # Whether to enable telemetry. (default: false)
+  enabled: true
   # The telemetry exporter to use.
   # Options:
   # grpc: Exports telemetry using OTLP via gRPC.
