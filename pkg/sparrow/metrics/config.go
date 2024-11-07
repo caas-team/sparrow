@@ -42,7 +42,8 @@ type Config struct {
 type TLSConfig struct {
 	// Enabled is a flag to enable or disable the tls
 	Enabled bool `yaml:"enabled" mapstructure:"enabled"`
-	// CertPath is the path to the tls certificate file
+	// CertPath is the path to the tls certificate file.
+	// This is only required if the otel backend uses custom TLS certificates.
 	CertPath string `yaml:"certPath" mapstructure:"certPath"`
 }
 
