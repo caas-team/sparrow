@@ -2,6 +2,7 @@
     "go.testFlags": [
         "-race",
         "-cover",
-        "-count=1"
+        "-count=1",
+        "-timeout=120s",
     ]
 }

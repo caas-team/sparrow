@@ -29,7 +29,7 @@ import (
 	"github.com/caas-team/sparrow/internal/helper"
 	"github.com/caas-team/sparrow/internal/logger"
 	"github.com/caas-team/sparrow/pkg/checks/runtime"
-	"gopkg.in/yaml.v3"
+	"github.com/goccy/go-yaml"
 )
 
 type HttpLoader struct {
@@ -138,7 +138,7 @@ func (hl *HttpLoader) getRuntimeConfig(ctx context.Context) (cfg runtime.Config,
 	}
 	log.Debug("Successfully got response")
 
-	if err := yaml.Unmarshal(b, &cfg); err != nil {
+	if err := yaml.UnmarshalContext(ctx, b, &cfg); err != nil {
 		log.Error("Could not unmarshal response", "error", err.Error())
 		return cfg, err
 	}

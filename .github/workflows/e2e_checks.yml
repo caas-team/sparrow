@@ -1,7 +1,6 @@
-name: E2E - Test checks
+name: E2E - Traceroute Check
 
-on:
-  push:
+on: [push]
 
 permissions:
   contents: read
@@ -48,7 +47,7 @@ jobs:
         uses: goreleaser/goreleaser-action@v6
         with:
           version: latest
-          args: build --single-target --clean  --snapshot --config .goreleaser-ci.yaml
+          args: build --single-target --clean --snapshot --config .goreleaser-ci.yaml
 
       - name: Run e2e tests
         run: |

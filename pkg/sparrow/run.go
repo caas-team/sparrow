@@ -74,7 +74,7 @@ func New(cfg *config.Config) *Sparrow {
 		db:         dbase,
 		api:        api.New(cfg.Api),
 		metrics:    m,
-		controller: NewChecksController(dbase, m),
+		controller: NewChecksController(dbase, m, cfg.Version),
 		cRuntime:   make(chan runtime.Config, 1),
 		cErr:       make(chan error, 1),
 		cDone:      make(chan struct{}, 1),

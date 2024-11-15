@@ -41,10 +41,13 @@ type ChecksController struct {
 	cResult chan checks.ResultDTO
 	cErr    chan error
 	done    chan struct{}
+	// version is the version of the sparrow.
+	// This is set at build time by using -ldflags "-X main.version=x.x.x".
+	version string
 }
 
 // NewChecksController creates a new ChecksController.
-func NewChecksController(dbase db.DB, m metrics.Provider) *ChecksController {
+func NewChecksController(dbase db.DB, m metrics.Provider, version string) *ChecksController {
 	return &ChecksController{
 		db:      dbase,
 		metrics: m,
@@ -52,6 +55,7 @@ func NewChecksController(dbase db.DB, m metrics.Provider) *ChecksController {
 		cResult: make(chan checks.ResultDTO, 8), //nolint:mnd // Buffered channel to avoid blocking the checks
 		cErr:    make(chan error, 1),
 		done:    make(chan struct{}, 1),
+		version: version,
 	}
 }
 
@@ -170,15 +174,19 @@ func (cc *ChecksController) UnregisterCheck(ctx context.Context, check checks.Ch
 }
 
 var oapiBoilerplate = openapi3.T{
-	// this object should probably be user defined
 	OpenAPI: "3.0.0",
 	Info: &openapi3.Info{
 		Title:       "Sparrow Metrics API",
+		Version:     "0.5.0",
 		Description: "Serves metrics collected by sparrows checks",
 		Contact: &openapi3.Contact{
 			URL:   "https://caas.telekom.de",
 			Email: "caas-request@telekom.de",
 			Name:  "CaaS Team",
+		},
+		License: &openapi3.License{
+			Name: "Apache 2.0",
+			URL:  "http://www.apache.org/licenses/LICENSE-2.0",
 		},
 	},
 	Paths: &openapi3.Paths{
@@ -196,6 +204,7 @@ var oapiBoilerplate = openapi3.T{
 func (cc *ChecksController) GenerateCheckSpecs(ctx context.Context) (openapi3.T, error) {
 	log := logger.FromContext(ctx)
 	doc := oapiBoilerplate
+	doc.Info.Version = cc.version
 	for _, c := range cc.checks.Iter() {
 		name := c.Name()
 		ref, err := c.Schema()
