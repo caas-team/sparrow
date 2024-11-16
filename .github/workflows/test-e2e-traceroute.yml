@@ -1,4 +1,4 @@
-name: E2E - Traceroute Check
+name: Test - E2E - Traceroute Check
 
 on: [push]
 

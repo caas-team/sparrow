@@ -1,0 +1,87 @@
+# This workflow installs 1 instance of sparrow and
+# verify the API output
+
+name: Test - E2E - Kubernetes
+on:
+  push:
+
+jobs:
+  end2end:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+      - name: Set up K3S
+        uses: debianmaster/actions-k3s@master
+        id: k3s
+        with:
+          version: "v1.31.2-k3s1"
+      - name: Check Cluster
+        run: |
+          kubectl get nodes
+      - name: Check Coredns Deployment
+        run: |
+          kubectl -n kube-system rollout status deployment/coredns --timeout=60s
+          STATUS=$(kubectl -n kube-system get deployment coredns -o jsonpath={.status.readyReplicas})
+          if [[ $STATUS  -ne  1 ]]
+          then
+            echo "Deployment coredns not ready"
+            kubectl -n kube-system get events
+            exit 1
+          else
+            echo "Deployment coredns OK"
+          fi
+      - name: Check Metricsserver Deployment
+        run: |
+          kubectl -n kube-system rollout status deployment/metrics-server --timeout=60s
+          STATUS=$(kubectl -n kube-system get deployment metrics-server -o jsonpath={.status.readyReplicas})
+          if [[ $STATUS  -ne  1 ]]
+          then
+            echo "Deployment metrics-server not ready"
+            kubectl -n kube-system get events
+            exit 1
+          else
+            echo "Deployment metrics-server OK"
+          fi
+      - name: Setup Helm
+        run: |
+          curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+          helm version
+      - name: Get Image Tag
+        id: version
+        run: echo "value=commit-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+      - name: Install Sparrow
+        run: |
+          helm upgrade -i sparrow \
+            --atomic \
+            --timeout 300s \
+            --set image.tag=${{ steps.version.outputs.value }}  \
+            --set sparrowConfig.name=the-sparrow.com \
+            --set sparrowConfig.loader.type=file \
+            --set sparrowConfig.loader.interval=5s \
+            --set sparrowConfig.loader.file.path=/config/.sparrow.yaml \
+            --set checksConfig.health.interval=1s \
+            --set checksConfig.health.timeout=1s \
+            ./chart
+
+      - name: Check Pods
+        run: |
+          kubectl get pods
+      - name: Wait for Sparrow
+        run: |
+          sleep 60
+      - name: Healthcheck
+        run: |
+          kubectl create job curl --image=quay.io/curl/curl:latest -- curl -f -v -H 'Content-Type: application/json'  http://sparrow:8080/v1/metrics/health
+          kubectl wait --for=condition=complete job/curl
+          STATUS=$(kubectl get job curl -o jsonpath={.status.succeeded})
+          if [[ $STATUS  -ne  1 ]]
+          then
+            echo "Job failed"
+            kubectl logs -ljob-name=curl
+            kubectl delete job curl
+            exit 1
+          else
+            echo "Job OK"
+            kubectl delete job curl
+          fi
