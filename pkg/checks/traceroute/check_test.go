@@ -79,7 +79,7 @@ func newForTest(f tracerouteFactory, maxHops int, targets []string) *Traceroute 
 		t[i] = Target{Addr: target}
 	}
 	return &Traceroute{
-		CheckBase:  checks.CheckBase{Mu: sync.Mutex{}, DoneChan: make(chan struct{})},
+		Base:       checks.Base{Mu: sync.Mutex{}, DoneChan: make(chan struct{})},
 		config:     Config{Targets: t, MaxHops: maxHops},
 		traceroute: f,
 		metrics:    newMetrics(),

@@ -41,7 +41,7 @@ const CheckName = "dns"
 
 // DNS is a check that resolves the names and addresses
 type DNS struct {
-	checks.CheckBase
+	checks.Base
 	config  Config
 	metrics metrics
 	client  Resolver
@@ -60,7 +60,7 @@ func (d *DNS) Name() string {
 // NewCheck creates a new instance of the dns check
 func NewCheck() checks.Check {
 	return &DNS{
-		CheckBase: checks.CheckBase{
+		Base: checks.Base{
 			Mu:       sync.Mutex{},
 			DoneChan: make(chan struct{}, 1),
 		},
@@ -106,11 +106,6 @@ func (d *DNS) Run(ctx context.Context, cResult chan checks.ResultDTO) error {
 			log.Debug("Successfully finished dns check run")
 		}
 	}
-}
-
-func (d *DNS) Shutdown() {
-	d.DoneChan <- struct{}{}
-	close(d.DoneChan)
 }
 
 func (d *DNS) UpdateConfig(cfg checks.Runtime) error {

@@ -48,7 +48,7 @@ const CheckName = "health"
 
 // Health is a check that measures the availability of an endpoint
 type Health struct {
-	checks.CheckBase
+	checks.Base
 	config  Config
 	metrics metrics
 }
@@ -56,7 +56,7 @@ type Health struct {
 // NewCheck creates a new instance of the health check
 func NewCheck() checks.Check {
 	return &Health{
-		CheckBase: checks.CheckBase{
+		Base: checks.Base{
 			Mu:       sync.Mutex{},
 			DoneChan: make(chan struct{}, 1),
 		},
@@ -95,12 +95,6 @@ func (h *Health) Run(ctx context.Context, cResult chan checks.ResultDTO) error {
 			log.Debug("Successfully finished health check run")
 		}
 	}
-}
-
-// Shutdown is called once when the check is unregistered or sparrow shuts down
-func (h *Health) Shutdown() {
-	h.DoneChan <- struct{}{}
-	close(h.DoneChan)
 }
 
 // UpdateConfig sets the configuration for the health check

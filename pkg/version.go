@@ -1,5 +1,5 @@
 // sparrow
-// (C) 2023, Deutsche Telekom IT GmbH
+// (C) 2024, Deutsche Telekom IT GmbH
 //
 // Deutsche Telekom IT GmbH and all other contributors /
 // copyright owners license this file to you under the Apache
@@ -16,21 +16,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package main
+// Package pkg contains metadata about the sparrow.
+package pkg
 
-import (
-	"github.com/caas-team/sparrow/cmd"
-	"github.com/caas-team/sparrow/pkg"
-)
-
-// Version is the current version of sparrow
-// It is set at build time by using -ldflags "-X main.version=x.x.x"
-var version string
-
-func init() { //nolint:gochecknoinits // Required for version to be set on build
-	pkg.Version = version
-}
-
-func main() {
-	cmd.Execute(version)
-}
+// Version is the current version of sparrow.
+// It is set at build time by using -ldflags "-X main.version=x.x.x".
+var Version string

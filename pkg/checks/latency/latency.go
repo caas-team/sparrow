@@ -43,7 +43,7 @@ const CheckName = "latency"
 
 // Latency is a check that measures the latency to an endpoint
 type Latency struct {
-	checks.CheckBase
+	checks.Base
 	config  Config
 	metrics metrics
 }
@@ -51,7 +51,7 @@ type Latency struct {
 // NewCheck creates a new instance of the latency check
 func NewCheck() checks.Check {
 	return &Latency{
-		CheckBase: checks.CheckBase{
+		Base: checks.Base{
 			Mu:       sync.Mutex{},
 			DoneChan: make(chan struct{}, 1),
 		},
@@ -96,11 +96,6 @@ func (l *Latency) Run(ctx context.Context, cResult chan checks.ResultDTO) error 
 			log.Debug("Successfully finished latency check run")
 		}
 	}
-}
-
-func (l *Latency) Shutdown() {
-	l.DoneChan <- struct{}{}
-	close(l.DoneChan)
 }
 
 // UpdateConfig sets the configuration for the latency check

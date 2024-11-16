@@ -29,10 +29,6 @@ import (
 )
 
 type Config struct {
-	// Version is the version of the sparrow.
-	// This is set at build time by using -ldflags "-X main.version=x.x.x"
-	// and is not part of the configuration file or flags.
-	Version string `yaml:"-" mapstructure:"-"`
 	// SparrowName is the DNS name of the sparrow
 	SparrowName string `yaml:"name" mapstructure:"name"`
 	// Loader is the configuration for the loader

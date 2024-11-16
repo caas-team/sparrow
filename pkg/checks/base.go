@@ -61,13 +61,25 @@ type Check interface {
 	RemoveLabelledMetrics(target string) error
 }
 
-// CheckBase is a struct providing common fields used by implementations of the Check interface.
+// Base is a struct providing common fields and methods used by implementations of the [Check] interface.
 // It serves as a foundational structure that should be embedded in specific check implementations.
-type CheckBase struct {
+type Base struct {
 	// Mutex for thread-safe access to shared resources within the check implementation
 	Mu sync.Mutex
 	// Signal channel used to notify about shutdown of a check
 	DoneChan chan struct{}
+	// closed is a flag indicating if the check has been shut down.
+	closed bool
+}
+
+// Shutdown closes the DoneChan to signal the check to stop running.
+func (b *Base) Shutdown() {
+	b.Mu.Lock()
+	defer b.Mu.Unlock()
+	if !b.closed {
+		close(b.DoneChan)
+		b.closed = true
+	}
 }
 
 // Runtime is the interface that all check configurations must implement

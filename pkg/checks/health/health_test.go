@@ -247,33 +247,3 @@ func TestHealth_Check(t *testing.T) {
 		})
 	}
 }
-
-func TestHealth_Shutdown(t *testing.T) {
-	cDone := make(chan struct{}, 1)
-	c := Health{
-		CheckBase: checks.CheckBase{
-			DoneChan: cDone,
-		},
-	}
-	c.Shutdown()
-
-	if _, ok := <-cDone; !ok {
-		t.Error("Channel should be done")
-	}
-
-	assert.Panics(t, func() {
-		cDone <- struct{}{}
-	}, "Channel is closed, should panic")
-
-	hc := NewCheck()
-	hc.Shutdown()
-
-	_, ok := <-hc.(*Health).DoneChan
-	if !ok {
-		t.Error("Channel should be done")
-	}
-
-	assert.Panics(t, func() {
-		hc.(*Health).DoneChan <- struct{}{}
-	}, "Channel is closed, should panic")
-}

@@ -17,19 +17,22 @@ import (
 	"github.com/getkin/kin-openapi/routers/gorillamux"
 )
 
+const (
+	checkInterval = 20 * time.Second
+	checkTimeout  = 15 * time.Second
+)
+
 func TestSparrow_E2E(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping e2e tests")
 	}
 
-	type test struct {
+	tests := []struct {
 		name          string
 		startup       framework.ConfigBuilder
 		checks        []framework.CheckBuilder
 		wantEndpoints map[string]int
-	}
-
-	tests := []test{
+	}{
 		{
 			name:    "no checks",
 			startup: *framework.NewConfig(),
@@ -46,9 +49,9 @@ func TestSparrow_E2E(t *testing.T) {
 			startup: *framework.NewConfig(),
 			checks: []framework.CheckBuilder{
 				framework.NewHealthCheck().
-					WithInterval(20 * time.Second).
-					WithTimeout(15 * time.Second).
-					WithTargets([]string{"https://www.example.com/", "https://www.google.com/"}),
+					WithInterval(checkInterval).
+					WithTimeout(checkTimeout).
+					WithTargets("https://www.example.com/", "https://www.google.com/"),
 			},
 			wantEndpoints: map[string]int{
 				"http://localhost:8080/v1/metrics/health":     http.StatusOK,
@@ -62,17 +65,17 @@ func TestSparrow_E2E(t *testing.T) {
 			startup: *framework.NewConfig(),
 			checks: []framework.CheckBuilder{
 				framework.NewHealthCheck().
-					WithInterval(20 * time.Second).
-					WithTimeout(15 * time.Second).
-					WithTargets([]string{"https://www.example.com/"}),
+					WithInterval(checkInterval).
+					WithTimeout(checkTimeout).
+					WithTargets("https://www.example.com/"),
 				framework.NewLatencyCheck().
-					WithInterval(20 * time.Second).
-					WithTimeout(15 * time.Second).
-					WithTargets([]string{"https://www.example.com/"}),
+					WithInterval(checkInterval).
+					WithTimeout(checkTimeout).
+					WithTargets("https://www.example.com/"),
 				framework.NewDNSCheck().
-					WithInterval(20 * time.Second).
-					WithTimeout(15 * time.Second).
-					WithTargets([]string{"www.example.com"}),
+					WithInterval(checkInterval).
+					WithTimeout(checkTimeout).
+					WithTargets("www.example.com"),
 			},
 			wantEndpoints: map[string]int{
 				"http://localhost:8080/v1/metrics/health":     http.StatusOK,
@@ -101,15 +104,15 @@ func TestSparrow_E2E(t *testing.T) {
 			}()
 
 			// Wait for sparrow to be ready with a readiness probe.
-			readinessProbe(t, "http://localhost:8080", 15*time.Second)
+			readinessProbe(t, "http://localhost:8080", checkTimeout)
 
 			// Wait for the checks to be executed.
 			wait := 5 * time.Second
 			if len(tt.checks) > 0 {
-				wait = 35 * time.Second
+				wait = checkInterval + checkTimeout + 5*time.Second
 			}
+			t.Logf("Waiting %s for checks to be executed", wait.String())
 			<-time.After(wait)
-			t.Logf("Waited %s for checks to be executed", wait.String())
 
 			// Fetch, parse and create a new router from the OpenAPI schema, to be able to validate the responses.
 			schema, err := fetchOpenAPISchema("http://localhost:8080/openapi")

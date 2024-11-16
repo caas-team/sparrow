@@ -53,7 +53,7 @@ func NewHealthCheck() *healthCheckBuilder {
 }
 
 // WithTargets sets the targets for the health check.
-func (b *healthCheckBuilder) WithTargets(targets []string) *healthCheckBuilder {
+func (b *healthCheckBuilder) WithTargets(targets ...string) *healthCheckBuilder {
 	b.cfg.Targets = targets
 	return b
 }
@@ -98,7 +98,7 @@ func NewLatencyCheck() *latencyConfigBuilder {
 }
 
 // WithTargets sets the targets for the latency check.
-func (b *latencyConfigBuilder) WithTargets(targets []string) *latencyConfigBuilder {
+func (b *latencyConfigBuilder) WithTargets(targets ...string) *latencyConfigBuilder {
 	b.cfg.Targets = targets
 	return b
 }
@@ -143,7 +143,7 @@ func NewDNSCheck() *dnsConfigBuilder {
 }
 
 // WithTargets sets the targets for the dns check.
-func (b *dnsConfigBuilder) WithTargets(targets []string) *dnsConfigBuilder {
+func (b *dnsConfigBuilder) WithTargets(targets ...string) *dnsConfigBuilder {
 	b.cfg.Targets = targets
 	return b
 }
@@ -188,7 +188,7 @@ func NewTracerouteCheck() *tracerouteConfigBuilder {
 }
 
 // WithTargets sets the targets for the traceroute check.
-func (b *tracerouteConfigBuilder) WithTargets(targets []traceroute.Target) *tracerouteConfigBuilder {
+func (b *tracerouteConfigBuilder) WithTargets(targets ...traceroute.Target) *tracerouteConfigBuilder {
 	b.cfg.Targets = targets
 	return b
 }

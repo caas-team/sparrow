@@ -53,7 +53,7 @@ func (t Target) String() string {
 
 func NewCheck() checks.Check {
 	c := &Traceroute{
-		CheckBase: checks.CheckBase{
+		Base: checks.Base{
 			Mu:       sync.Mutex{},
 			DoneChan: make(chan struct{}, 1),
 		},
@@ -66,7 +66,7 @@ func NewCheck() checks.Check {
 }
 
 type Traceroute struct {
-	checks.CheckBase
+	checks.Base
 	config     Config
 	traceroute tracerouteFactory
 	metrics    metrics
@@ -210,12 +210,6 @@ func (tr *Traceroute) check(ctx context.Context) map[string]result {
 	elapsed := time.Since(start)
 	log.InfoContext(ctx, "Finished traceroute check", "duration", elapsed)
 	return res
-}
-
-// Shutdown is called once when the check is unregistered or sparrow shuts down
-func (tr *Traceroute) Shutdown() {
-	tr.DoneChan <- struct{}{}
-	close(tr.DoneChan)
 }
 
 // UpdateConfig is called once when the check is registered

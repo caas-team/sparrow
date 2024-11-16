@@ -305,21 +305,6 @@ func TestLatency_check(t *testing.T) {
 	}
 }
 
-func TestLatency_Shutdown(t *testing.T) {
-	cDone := make(chan struct{}, 1)
-	c := Latency{
-		CheckBase: checks.CheckBase{
-			DoneChan: cDone,
-		},
-	}
-	c.Shutdown()
-
-	_, ok := <-cDone
-	if !ok {
-		t.Error("Shutdown() should be ok")
-	}
-}
-
 func TestLatency_UpdateConfig(t *testing.T) {
 	c := Latency{}
 	wantCfg := Config{
