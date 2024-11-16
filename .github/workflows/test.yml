@@ -1,22 +1,89 @@
-name: Test - E2E - Kubernetes
+name: Tests
 
 on: [push]
 
+permissions:
+  contents: read
+
 jobs:
-  test:
-    name: Test
+  go:
+    # TODO: Split go tests into multiple jobs to reduce the time
+    # e.g. go-unit, go-e2e
+    name: Go - Tests
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Repo
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Run all go tests
+        run: |
+          go mod download
+          go test -race -count=1 -coverprofile cover.out -v ./...
+
+  traceroute:
+    name: E2E - Traceroute
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          sudo add-apt-repository ppa:katharaframework/kathara
+          sudo apt-get update
+          sudo apt-get install -y jq kathara
+
+      - name: Setup kathara
+        run: |
+          echo '{
+          "image": "kathara/base",
+          "manager_type": "docker",
+          "terminal": "/usr/bin/xterm",
+          "open_terminals": false,
+          "device_shell": "/bin/bash",
+          "net_prefix": "kathara",
+          "device_prefix": "kathara",
+          "debug_level": "INFO",
+          "print_startup_log": true,
+          "enable_ipv6": false,
+          "last_checked": 1721834897.2415252,
+          "hosthome_mount": false,
+          "shared_mount": true,
+          "image_update_policy": "Prompt",
+          "shared_cds": 1,
+          "remote_url": null,
+          "cert_path": null,
+          "network_plugin": "kathara/katharanp_vde"
+          }' > ~/.config/kathara.conf
+
+      - name: Build binary for e2e
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          version: latest
+          args: build --single-target --clean --snapshot --config .goreleaser-ci.yaml
+
+      - name: Run e2e tests
+        run: |
+          ./scripts/run_e2e_tests.sh
+
+  k8s:
+    name: E2E - Kubernetes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
       - name: Set up K3S
         uses: debianmaster/actions-k3s@master
         id: k3s
         with:
           version: "v1.31.2-k3s1"
+
       - name: Check Cluster
-        run: |
-          kubectl get nodes
+        run: kubectl get nodes
+
       - name: Check Coredns Deployment
         run: |
           kubectl -n kube-system rollout status deployment/coredns --timeout=60s
@@ -29,6 +96,7 @@ jobs:
           else
             echo "Deployment coredns OK"
           fi
+
       - name: Check Metricsserver Deployment
         run: |
           kubectl -n kube-system rollout status deployment/metrics-server --timeout=60s
@@ -41,13 +109,16 @@ jobs:
           else
             echo "Deployment metrics-server OK"
           fi
+
       - name: Setup Helm
         run: |
           curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
           helm version
+
       - name: Get Image Tag
         id: version
         run: echo "value=commit-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
       - name: Install Sparrow
         run: |
           helm upgrade -i sparrow \
@@ -63,11 +134,11 @@ jobs:
             ./chart
 
       - name: Check Pods
-        run: |
-          kubectl get pods
+        run: kubectl get pods
+
       - name: Wait for Sparrow
-        run: |
-          sleep 60
+        run: sleep 45
+
       - name: Healthcheck
         run: |
           kubectl create job curl --image=quay.io/curl/curl:latest -- curl -f -v -H 'Content-Type: application/json'  http://sparrow:8080/v1/metrics/health

@@ -1,9 +1,8 @@
-name: Test - SAST
+name: SAST
 
 on:
   push:
   schedule:
-    # Schedule the workflow to run at 00:00 on Sunday UTC time.
     - cron: "0 0 * * 0"
 
 permissions:
@@ -11,7 +10,8 @@ permissions:
   security-events: write
 
 jobs:
-  test:
+  go:
+    name: Go - Tests
     runs-on: ubuntu-latest
     env:
       GO111MODULE: on
