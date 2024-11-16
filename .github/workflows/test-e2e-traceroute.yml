@@ -6,7 +6,8 @@ permissions:
   contents: read
 
 jobs:
-  test_e2e:
+  test:
+    name: Test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository

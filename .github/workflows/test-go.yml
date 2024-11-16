@@ -1,15 +1,14 @@
 name: Test - Go
 
-on:
-  push:
+on: [push]
 
 permissions:
   contents: read
 
 jobs:
-  test_go:
+  test:
+    name: Test
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4

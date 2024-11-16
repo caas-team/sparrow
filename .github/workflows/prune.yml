@@ -10,10 +10,9 @@ permissions:
   security-events: write
 
 jobs:
-  prune_images:
-    name: Prune old sparrow images
+  prune:
+    name: Images and Charts
     runs-on: ubuntu-latest
-
     steps:
       - name: Prune Images
         uses: vlaurin/action-ghcr-prune@v0.6.0
