@@ -33,12 +33,12 @@ func TestBase_Shutdown(t *testing.T) {
 			tt.b.Shutdown()
 
 			if !tt.b.closed {
-				t.Error("Base.Shutdown() should close DoneChan")
+				t.Error("Base.Shutdown() should close Base.Done")
 			}
 
 			assert.Panics(t, func() {
 				tt.b.Done <- struct{}{}
-			}, "Base.DoneChan should be closed")
+			}, "Base.Done should be closed")
 		})
 	}
 }
