@@ -1,4 +1,4 @@
-package test
+package builder
 
 import (
 	"testing"
@@ -13,7 +13,7 @@ import (
 	"github.com/goccy/go-yaml"
 )
 
-type CheckBuilder interface {
+type Check interface {
 	// For returns the name of the check.
 	For() string
 	// Check returns the check.
@@ -50,7 +50,7 @@ func newCheckAsYAML(t *testing.T, cfg checkConfig) []byte {
 	return out
 }
 
-var _ CheckBuilder = (*healthCheckBuilder)(nil)
+var _ Check = (*healthCheckBuilder)(nil)
 
 type healthCheckBuilder struct{ cfg health.Config }
 
@@ -105,7 +105,7 @@ func (b *healthCheckBuilder) For() string {
 	return b.cfg.For()
 }
 
-var _ CheckBuilder = (*latencyConfigBuilder)(nil)
+var _ Check = (*latencyConfigBuilder)(nil)
 
 type latencyConfigBuilder struct{ cfg latency.Config }
 
@@ -160,7 +160,7 @@ func (b *latencyConfigBuilder) ExpectedWaitTime() time.Duration {
 	return b.cfg.Interval + b.cfg.Timeout + time.Duration(b.cfg.Retry.Count)*b.cfg.Retry.Delay
 }
 
-var _ CheckBuilder = (*dnsConfigBuilder)(nil)
+var _ Check = (*dnsConfigBuilder)(nil)
 
 type dnsConfigBuilder struct{ cfg dns.Config }
 
@@ -215,7 +215,7 @@ func (b *dnsConfigBuilder) For() string {
 	return b.cfg.For()
 }
 
-var _ CheckBuilder = (*tracerouteConfigBuilder)(nil)
+var _ Check = (*tracerouteConfigBuilder)(nil)
 
 type tracerouteConfigBuilder struct{ cfg traceroute.Config }
 

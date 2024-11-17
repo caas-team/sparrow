@@ -22,10 +22,13 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/caas-team/sparrow/test"
 	"github.com/getkin/kin-openapi/openapi3"
 )
 
 func TestOpenapiFromPerfData(t *testing.T) {
+	test.MarkAsShort(t)
+
 	type args[T any] struct {
 		perfData T
 	}

@@ -26,10 +26,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/caas-team/sparrow/test"
 	"github.com/go-chi/chi/v5"
 )
 
 func TestAPI_Run(t *testing.T) {
+	test.MarkAsShort(t)
+
 	tests := []struct {
 		name string
 		want struct {
@@ -96,6 +99,8 @@ func TestAPI_Run(t *testing.T) {
 }
 
 func TestAPI_RegisterRoutes(t *testing.T) {
+	test.MarkAsShort(t)
+
 	tests := []struct {
 		name   string
 		routes []Route
@@ -196,6 +201,8 @@ func TestAPI_RegisterRoutes(t *testing.T) {
 }
 
 func TestAPI_ShutdownWhenContextCanceled(t *testing.T) {
+	test.MarkAsShort(t)
+
 	a := api{
 		router: chi.NewRouter(),
 		server: &http.Server{}, //nolint:gosec
@@ -213,8 +220,9 @@ func TestAPI_ShutdownWhenContextCanceled(t *testing.T) {
 }
 
 func TestAPI_OkHandler(t *testing.T) {
-	ctx := context.Background()
+	test.MarkAsShort(t)
 
+	ctx := context.Background()
 	req, err := http.NewRequestWithContext(ctx, "GET", "/okHandler", http.NoBody)
 	if err != nil {
 		t.Fatal(err)
@@ -238,6 +246,8 @@ func TestAPI_OkHandler(t *testing.T) {
 }
 
 func TestConfig_Validate(t *testing.T) {
+	test.MarkAsShort(t)
+
 	cases := []struct {
 		name    string
 		config  Config

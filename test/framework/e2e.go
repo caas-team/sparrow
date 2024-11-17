@@ -1,4 +1,4 @@
-package test
+package framework
 
 import (
 	"bytes"
@@ -20,6 +20,7 @@ import (
 	"github.com/caas-team/sparrow/pkg/checks"
 	"github.com/caas-team/sparrow/pkg/config"
 	"github.com/caas-team/sparrow/pkg/sparrow"
+	"github.com/caas-team/sparrow/test/framework/builder"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/getkin/kin-openapi/routers"
 	"github.com/getkin/kin-openapi/routers/gorillamux"
@@ -33,7 +34,7 @@ type E2E struct {
 	config  config.Config
 	server  *http.Server
 	sparrow *sparrow.Sparrow
-	checks  map[string]CheckBuilder
+	checks  map[string]builder.Check
 	buf     bytes.Buffer
 	path    string
 	mu      sync.Mutex
@@ -47,7 +48,7 @@ func (t *E2E) WithConfigFile(path string) *E2E {
 }
 
 // WithChecks sets the checks in the test.
-func (t *E2E) WithChecks(builders ...CheckBuilder) *E2E {
+func (t *E2E) WithChecks(builders ...builder.Check) *E2E {
 	for _, b := range builders {
 		t.checks[b.For()] = b
 		t.buf.Write(b.YAML(t.t))
@@ -66,17 +67,20 @@ func (t *E2E) WithRemote() *E2E {
 }
 
 // UpdateChecks updates the checks of the test.
-func (t *E2E) UpdateChecks(builders ...CheckBuilder) *E2E {
-	t.checks = map[string]CheckBuilder{}
+func (t *E2E) UpdateChecks(builders ...builder.Check) *E2E {
+	t.checks = map[string]builder.Check{}
 	t.buf.Reset()
 	for _, b := range builders {
 		t.checks[b.For()] = b
 		t.buf.Write(b.YAML(t.t))
 	}
 
-	err := t.writeCheckConfig()
-	if err != nil {
-		t.t.Fatalf("Failed to write check config: %v", err)
+	// If the test is running with a remote server, we don't need to write the check config into a file.
+	if t.server == nil {
+		err := t.writeCheckConfig()
+		if err != nil {
+			t.t.Fatalf("Failed to write check config: %v", err)
+		}
 	}
 
 	return t
@@ -93,11 +97,6 @@ func (t *E2E) Run(ctx context.Context) error {
 		t.path = "testdata/checks.yaml"
 	}
 
-	err := t.writeCheckConfig()
-	if err != nil {
-		t.t.Fatalf("Failed to write check config: %v", err)
-	}
-
 	if t.server != nil {
 		go func() {
 			err := t.server.ListenAndServe()
@@ -111,6 +110,11 @@ func (t *E2E) Run(ctx context.Context) error {
 				t.t.Fatalf("Failed to shutdown server: %v", err)
 			}
 		}()
+	} else {
+		err := t.writeCheckConfig()
+		if err != nil {
+			t.t.Fatalf("Failed to write check config: %v", err)
+		}
 	}
 
 	t.mu.Lock()
@@ -252,19 +256,16 @@ func (a *e2eHttpAsserter) Assert(status int) {
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, a.url, http.NoBody)
 	if err != nil {
 		a.e2e.t.Fatalf("Failed to create request: %v", err)
-		return
 	}
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		a.e2e.t.Errorf("Failed to get %s: %v", a.url, err)
-		return
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != status {
 		a.e2e.t.Errorf("Want status code %d for %s, got %d", status, a.url, resp.StatusCode)
-		return
 	}
 	a.e2e.t.Logf("Got status code %d for %s", resp.StatusCode, a.url)
 
@@ -272,12 +273,11 @@ func (a *e2eHttpAsserter) Assert(status int) {
 		if a.schema != nil && a.router != nil {
 			if err = a.assertSchema(req, resp); err != nil {
 				a.e2e.t.Errorf("Response from %q does not match schema: %v", a.url, err)
-				return
 			}
 		}
 
 		if a.response != nil {
-			err := a.response.asserter(resp)
+			err = a.response.asserter(resp)
 			if err != nil {
 				a.e2e.t.Errorf("Failed to assert response: %v", err)
 			}
@@ -397,18 +397,21 @@ func (a *e2eHttpAsserter) assertCheckResponse(resp *http.Response) error {
 		a.e2e.t.Fatalf("Invalid response type: %T", a.response.want)
 	}
 
-	var res checks.Result
-	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+	var got checks.Result
+	if err := json.NewDecoder(resp.Body).Decode(&got); err != nil {
 		a.e2e.t.Errorf("Failed to decode response body: %v", err)
 	}
 
 	wantData := want.Data.(map[string]any)
-	gotData := res.Data.(map[string]any)
+	gotData, ok := got.Data.(map[string]any)
+	if !ok {
+		a.e2e.t.Errorf("Result.Data = %T (%v), want %T (%v)", got.Data, got.Data, want.Data, want.Data)
+	}
 	assertMapEqual(a.e2e.t, wantData, gotData)
 
 	const deltaTimeThreshold = 5 * time.Minute
-	if time.Since(res.Timestamp) > deltaTimeThreshold {
-		a.e2e.t.Errorf("Response timestamp is not recent: %v", res.Timestamp)
+	if time.Since(got.Timestamp) > deltaTimeThreshold {
+		a.e2e.t.Errorf("Response timestamp is not recent: %v", got.Timestamp)
 	}
 
 	return nil
@@ -425,7 +428,7 @@ func assertMapEqual(t *testing.T, want, got map[string]any) {
 	for k, w := range want {
 		g, ok := got[k]
 		if !ok {
-			t.Errorf("Missing key %q", k)
+			t.Errorf("got[%q] not found (%v), want %v", k, got, w)
 		}
 
 		if err := assertValueEqual(t, w, g); err != nil {
@@ -440,11 +443,11 @@ func assertMapEqual(t *testing.T, want, got map[string]any) {
 func assertValueEqual(t *testing.T, want, got any) error {
 	switch w := want.(type) {
 	case map[string]any:
-		gm, ok := got.(map[string]any)
+		gotMap, ok := got.(map[string]any)
 		if !ok {
 			return fmt.Errorf("%v (%T), want %v (%T)", got, got, w, w)
 		}
-		assertMapEqual(t, w, gm)
+		assertMapEqual(t, w, gotMap)
 		return nil
 	case time.Time, float32, float64:
 		// Timestamps and floating-point numbers are time-sensitive and are never equal.
@@ -461,13 +464,13 @@ func assertValueEqual(t *testing.T, want, got any) error {
 		if !ok {
 			return fmt.Errorf("%v (%T), want %v (%T)", got, got, w, w)
 		}
-		gss := make([]string, len(gs))
+		gotSlice := make([]string, len(gs))
 		for i, g := range gs {
-			gss[i] = g.(string)
+			gotSlice[i] = g.(string)
 		}
-		for _, ipStr := range w {
-			wIP := net.ParseIP(ipStr)
-			if wIP == nil {
+		for _, wantIPStr := range w {
+			wantIP := net.ParseIP(wantIPStr)
+			if wantIP == nil {
 				// This is a special case for string slices that might contain IP addresses.
 				// If the `want` value is not a valid IP address, we skip the IP validation
 				// and proceed to the default case for a generic equality check.
@@ -479,10 +482,10 @@ func assertValueEqual(t *testing.T, want, got any) error {
 				goto defaultCase
 			}
 
-			for _, gipStr := range gss {
-				gIP := net.ParseIP(gipStr)
-				if gIP == nil {
-					return fmt.Errorf("%q, want an IP address (%s)", gipStr, wIP)
+			for _, gotIPStr := range gotSlice {
+				gotIP := net.ParseIP(gotIPStr)
+				if gotIP == nil {
+					return fmt.Errorf("%q, want an IP address (%s)", gotIPStr, wantIP)
 				}
 			}
 		}

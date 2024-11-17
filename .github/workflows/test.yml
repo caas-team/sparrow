@@ -6,10 +6,28 @@ permissions:
   contents: read
 
 jobs:
-  go:
-    # TODO: Split go tests into multiple jobs to reduce the time
-    # e.g. go-unit, go-e2e
-    name: Go - Tests
+  go-unit:
+    name: Unit - Go
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Install dependencies
+        run: |
+          go install github.com/mfridman/tparse@latest
+          go mod download
+
+      - name: Run all go tests
+        run: |
+          go test -v -count=1 -test.short -race ./... -json -coverpkg ./... \
+            | tee output.jsonl | tparse -notests -follow -all || true
+          tparse -format markdown -file output.jsonl -all -slow 20 > $GITHUB_STEP_SUMMARY
+
+  go-e2e:
+    name: E2E - Go
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

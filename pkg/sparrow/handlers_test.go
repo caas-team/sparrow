@@ -32,12 +32,15 @@ import (
 	"github.com/caas-team/sparrow/pkg/checks"
 	"github.com/caas-team/sparrow/pkg/checks/runtime"
 	"github.com/caas-team/sparrow/pkg/db"
+	"github.com/caas-team/sparrow/test"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/go-chi/chi/v5"
 	"github.com/goccy/go-yaml"
 )
 
 func TestSparrow_handleOpenAPI(t *testing.T) {
+	test.MarkAsShort(t)
+
 	s := Sparrow{
 		controller: &ChecksController{
 			checks: runtime.Checks{},
@@ -91,6 +94,8 @@ func TestSparrow_handleOpenAPI(t *testing.T) {
 }
 
 func TestSparrow_handleCheckMetrics(t *testing.T) {
+	test.MarkAsShort(t)
+
 	tests := []struct {
 		name     string
 		want     []byte

@@ -34,12 +34,15 @@ import (
 	"github.com/caas-team/sparrow/pkg/sparrow/targets/interactor"
 	"github.com/caas-team/sparrow/pkg/sparrow/targets/remote/gitlab"
 	managermock "github.com/caas-team/sparrow/pkg/sparrow/targets/test"
+	"github.com/caas-team/sparrow/test"
 	"github.com/stretchr/testify/assert"
 )
 
 // TestSparrow_Run_FullComponentStart tests that the Run method starts the API,
 // loader and a targetManager all start.
 func TestSparrow_Run_FullComponentStart(t *testing.T) {
+	test.MarkAsShort(t)
+
 	c := &config.Config{
 		Api: api.Config{ListeningAddress: ":9090"},
 		Loader: config.LoaderConfig{
@@ -81,6 +84,8 @@ func TestSparrow_Run_FullComponentStart(t *testing.T) {
 // TestSparrow_Run_ContextCancel tests that after a context cancels the Run method
 // will return an error and all started components will be shut down.
 func TestSparrow_Run_ContextCancel(t *testing.T) {
+	test.MarkAsShort(t)
+
 	c := &config.Config{
 		Api: api.Config{ListeningAddress: ":9090"},
 		Loader: config.LoaderConfig{
@@ -112,6 +117,8 @@ func TestSparrow_Run_ContextCancel(t *testing.T) {
 // TestSparrow_enrichTargets tests that the enrichTargets method
 // updates the targets of the configured checks.
 func TestSparrow_enrichTargets(t *testing.T) {
+	test.MarkAsShort(t)
+
 	t.Parallel()
 	now := time.Now()
 	testTarget := "https://localhost.de"

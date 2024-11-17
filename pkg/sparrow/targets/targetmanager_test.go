@@ -22,9 +22,13 @@ import (
 	"context"
 	"testing"
 	"time"
+
+	"github.com/caas-team/sparrow/test"
 )
 
 func TestTargetManagerConfig_Validate(t *testing.T) {
+	test.MarkAsShort(t)
+
 	tests := []struct {
 		name    string
 		cfg     TargetManagerConfig

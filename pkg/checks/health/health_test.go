@@ -26,12 +26,15 @@ import (
 
 	"github.com/caas-team/sparrow/pkg/checks"
 	"github.com/caas-team/sparrow/pkg/checks/latency"
+	"github.com/caas-team/sparrow/test"
 
 	"github.com/jarcoal/httpmock"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestHealth_UpdateConfig(t *testing.T) {
+	test.MarkAsShort(t)
+
 	tests := []struct {
 		name           string
 		inputConfig    checks.Runtime
@@ -80,6 +83,8 @@ func TestHealth_UpdateConfig(t *testing.T) {
 }
 
 func Test_getHealth(t *testing.T) {
+	test.MarkAsShort(t)
+
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	endpoint := "https://api.test.com/test"
@@ -148,6 +153,8 @@ func Test_getHealth(t *testing.T) {
 }
 
 func TestHealth_Check(t *testing.T) {
+	test.MarkAsShort(t)
+
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 

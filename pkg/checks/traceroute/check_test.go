@@ -25,11 +25,14 @@ import (
 	"time"
 
 	"github.com/caas-team/sparrow/pkg/checks"
+	"github.com/caas-team/sparrow/test"
 	"github.com/google/go-cmp/cmp"
 	"go.opentelemetry.io/otel"
 )
 
 func TestCheck(t *testing.T) {
+	test.MarkAsShort(t)
+
 	cases := []struct {
 		name string
 		c    *check
@@ -137,6 +140,8 @@ func ipFromInt(i int) string {
 }
 
 func TestIpFromInt(t *testing.T) {
+	test.MarkAsShort(t)
+
 	cases := []struct {
 		In       int
 		Expected string

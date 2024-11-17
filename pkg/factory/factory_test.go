@@ -27,6 +27,7 @@ import (
 	"github.com/caas-team/sparrow/pkg/checks/health"
 	"github.com/caas-team/sparrow/pkg/checks/latency"
 	"github.com/caas-team/sparrow/pkg/checks/runtime"
+	"github.com/caas-team/sparrow/test"
 )
 
 var (
@@ -43,6 +44,8 @@ var (
 )
 
 func TestNewChecksFromConfig(t *testing.T) {
+	test.MarkAsShort(t)
+
 	tests := []struct {
 		name    string
 		cfg     runtime.Config
@@ -121,6 +124,8 @@ func newLatencyCheck() checks.Check {
 }
 
 func TestNewCheck(t *testing.T) {
+	test.MarkAsShort(t)
+
 	tests := []struct {
 		name    string
 		cfg     checks.Runtime

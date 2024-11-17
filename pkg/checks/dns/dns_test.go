@@ -28,6 +28,7 @@ import (
 
 	"github.com/caas-team/sparrow/pkg/checks"
 	"github.com/caas-team/sparrow/pkg/checks/health"
+	"github.com/caas-team/sparrow/test"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -40,6 +41,8 @@ const (
 )
 
 func TestDNS_Run(t *testing.T) {
+	test.MarkAsShort(t)
+
 	tests := []struct {
 		name      string
 		mockSetup func() *check
@@ -208,8 +211,9 @@ func TestDNS_Run(t *testing.T) {
 }
 
 func TestDNS_Run_Context_Done(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	test.MarkAsShort(t)
 
+	ctx, cancel := context.WithCancel(context.Background())
 	c := NewCheck()
 	cResult := make(chan checks.ResultDTO, 1)
 	defer close(cResult)
@@ -238,6 +242,8 @@ func TestDNS_Run_Context_Done(t *testing.T) {
 }
 
 func TestDNS_UpdateConfig(t *testing.T) {
+	test.MarkAsShort(t)
+
 	tests := []struct {
 		name    string
 		input   checks.Runtime
@@ -291,6 +297,8 @@ func TestDNS_UpdateConfig(t *testing.T) {
 }
 
 func TestNewCheck(t *testing.T) {
+	test.MarkAsShort(t)
+
 	c := NewCheck()
 	if c == nil {
 		t.Error("NewLatencyCheck() should not be nil")

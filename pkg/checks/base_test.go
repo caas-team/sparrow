@@ -3,10 +3,13 @@ package checks
 import (
 	"testing"
 
+	"github.com/caas-team/sparrow/test"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestBase_Shutdown(t *testing.T) {
+	test.MarkAsShort(t)
+
 	tests := []struct {
 		name string
 		b    *Base

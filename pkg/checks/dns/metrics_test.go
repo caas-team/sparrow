@@ -21,10 +21,13 @@ package dns
 import (
 	"testing"
 
+	"github.com/caas-team/sparrow/test"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
 func TestMetrics_GetCollectors(t *testing.T) {
+	test.MarkAsShort(t)
+
 	tests := []struct {
 		name    string
 		metrics metrics

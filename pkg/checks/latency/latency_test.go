@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/caas-team/sparrow/pkg/checks"
+	"github.com/caas-team/sparrow/test"
 
 	"github.com/jarcoal/httpmock"
 	"github.com/stretchr/testify/assert"
@@ -43,6 +44,8 @@ func stringPointer(s string) *string {
 }
 
 func TestLatency_Run(t *testing.T) {
+	test.MarkAsShort(t)
+
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 
@@ -180,9 +183,10 @@ func TestLatency_Run(t *testing.T) {
 }
 
 func TestLatency_check(t *testing.T) {
+	test.MarkAsShort(t)
+
 	httpmock.Activate()
 	t.Cleanup(httpmock.DeactivateAndReset)
-
 	tests := []struct {
 		name                string
 		registeredEndpoints []struct {
@@ -306,6 +310,8 @@ func TestLatency_check(t *testing.T) {
 }
 
 func TestLatency_UpdateConfig(t *testing.T) {
+	test.MarkAsShort(t)
+
 	c := NewCheck().(*check)
 	wantCfg := Config{
 		Targets: []string{"http://localhost:9090"},
@@ -321,6 +327,8 @@ func TestLatency_UpdateConfig(t *testing.T) {
 }
 
 func TestNewLatencyCheck(t *testing.T) {
+	test.MarkAsShort(t)
+
 	c := NewCheck()
 	if c == nil {
 		t.Error("NewLatencyCheck() should not be nil")

@@ -9,6 +9,8 @@ import (
 	"github.com/caas-team/sparrow/pkg/checks"
 	"github.com/caas-team/sparrow/pkg/config"
 	"github.com/caas-team/sparrow/test"
+	"github.com/caas-team/sparrow/test/framework"
+	"github.com/caas-team/sparrow/test/framework/builder"
 )
 
 const (
@@ -17,16 +19,18 @@ const (
 )
 
 func TestE2E_Sparrow_WithChecks_ConfigureOnce(t *testing.T) {
-	framework := test.NewFramework(t)
+	test.MarkAsLong(t)
+
+	fw := framework.New(t)
 	tests := []struct {
 		name          string
-		startup       test.ConfigBuilder
-		checks        []test.CheckBuilder
+		startup       builder.SparrowConfig
+		checks        []builder.Check
 		wantEndpoints map[string]int
 	}{
 		{
 			name:    "no checks",
-			startup: *test.NewSparrowConfig(),
+			startup: *builder.NewSparrowConfig(),
 			checks:  nil,
 			wantEndpoints: map[string]int{
 				"http://localhost:8080/v1/metrics/health":     http.StatusNotFound,
@@ -37,9 +41,9 @@ func TestE2E_Sparrow_WithChecks_ConfigureOnce(t *testing.T) {
 		},
 		{
 			name:    "with health check",
-			startup: *test.NewSparrowConfig(),
-			checks: []test.CheckBuilder{
-				test.NewHealthCheck().
+			startup: *builder.NewSparrowConfig(),
+			checks: []builder.Check{
+				builder.NewHealthCheck().
 					WithInterval(checkInterval).
 					WithTimeout(checkTimeout).
 					WithTargets("https://www.example.com/", "https://www.google.com/"),
@@ -53,17 +57,17 @@ func TestE2E_Sparrow_WithChecks_ConfigureOnce(t *testing.T) {
 		},
 		{
 			name:    "with health, latency and dns checks",
-			startup: *test.NewSparrowConfig(),
-			checks: []test.CheckBuilder{
-				test.NewHealthCheck().
+			startup: *builder.NewSparrowConfig(),
+			checks: []builder.Check{
+				builder.NewHealthCheck().
 					WithInterval(checkInterval).
 					WithTimeout(checkTimeout).
 					WithTargets("https://www.example.com/"),
-				test.NewLatencyCheck().
+				builder.NewLatencyCheck().
 					WithInterval(checkInterval).
 					WithTimeout(checkTimeout).
 					WithTargets("https://www.example.com/"),
-				test.NewDNSCheck().
+				builder.NewDNSCheck().
 					WithInterval(checkInterval).
 					WithTimeout(checkTimeout).
 					WithTargets("www.example.com"),
@@ -79,7 +83,7 @@ func TestE2E_Sparrow_WithChecks_ConfigureOnce(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			e2e := framework.E2E(t, tt.startup.Config(t)).WithChecks(tt.checks...)
+			e2e := fw.E2E(t, tt.startup.Config(t)).WithChecks(tt.checks...)
 			ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 			defer cancel()
 
@@ -107,25 +111,26 @@ type result struct {
 }
 
 func TestE2E_Sparrow_WithChecks_Reconfigure(t *testing.T) {
-	framework := test.NewFramework(t)
+	test.MarkAsLong(t)
 
+	fw := framework.New(t)
 	tests := []struct {
 		name          string
-		startup       test.ConfigBuilder
-		initialChecks []test.CheckBuilder
+		startup       builder.SparrowConfig
+		initialChecks []builder.Check
 		wantInitial   map[string]result
-		secondChecks  []test.CheckBuilder
+		secondChecks  []builder.Check
 		wantSecond    map[string]result
 	}{
 		{
 			name: "with health check then latency check",
-			startup: *test.NewSparrowConfig().WithLoader(
-				test.NewLoaderConfig().
+			startup: *builder.NewSparrowConfig().WithLoader(
+				builder.NewLoaderConfig().
 					WithInterval(loaderInterval).
 					Build(),
 			),
-			initialChecks: []test.CheckBuilder{
-				test.NewHealthCheck().
+			initialChecks: []builder.Check{
+				builder.NewHealthCheck().
 					WithInterval(checkInterval).
 					WithTimeout(checkTimeout).
 					WithTargets("https://www.example.com/", "https://www.google.com/"),
@@ -145,8 +150,8 @@ func TestE2E_Sparrow_WithChecks_Reconfigure(t *testing.T) {
 				"http://localhost:8080/v1/metrics/dns":        {status: http.StatusNotFound},
 				"http://localhost:8080/v1/metrics/traceroute": {status: http.StatusNotFound},
 			},
-			secondChecks: []test.CheckBuilder{
-				test.NewLatencyCheck().
+			secondChecks: []builder.Check{
+				builder.NewLatencyCheck().
 					WithInterval(checkInterval).
 					WithTimeout(checkTimeout).
 					WithTargets("https://www.example.com/"),
@@ -181,13 +186,13 @@ func TestE2E_Sparrow_WithChecks_Reconfigure(t *testing.T) {
 		},
 		{
 			name: "with health check then dns check",
-			startup: *test.NewSparrowConfig().WithLoader(
-				test.NewLoaderConfig().
+			startup: *builder.NewSparrowConfig().WithLoader(
+				builder.NewLoaderConfig().
 					WithInterval(loaderInterval).
 					Build(),
 			),
-			initialChecks: []test.CheckBuilder{
-				test.NewHealthCheck().
+			initialChecks: []builder.Check{
+				builder.NewHealthCheck().
 					WithInterval(checkInterval).
 					WithTimeout(checkTimeout).
 					WithTargets("https://www.example.com/"),
@@ -206,8 +211,8 @@ func TestE2E_Sparrow_WithChecks_Reconfigure(t *testing.T) {
 				"http://localhost:8080/v1/metrics/dns":        {status: http.StatusNotFound},
 				"http://localhost:8080/v1/metrics/traceroute": {status: http.StatusNotFound},
 			},
-			secondChecks: []test.CheckBuilder{
-				test.NewDNSCheck().
+			secondChecks: []builder.Check{
+				builder.NewDNSCheck().
 					WithInterval(checkInterval).
 					WithTimeout(checkTimeout).
 					WithTargets("www.example.com"),
@@ -241,13 +246,13 @@ func TestE2E_Sparrow_WithChecks_Reconfigure(t *testing.T) {
 		},
 		{
 			name: "with health check then updated health check",
-			startup: *test.NewSparrowConfig().WithLoader(
-				test.NewLoaderConfig().
+			startup: *builder.NewSparrowConfig().WithLoader(
+				builder.NewLoaderConfig().
 					WithInterval(loaderInterval).
 					Build(),
 			),
-			initialChecks: []test.CheckBuilder{
-				test.NewHealthCheck().
+			initialChecks: []builder.Check{
+				builder.NewHealthCheck().
 					WithInterval(checkInterval).
 					WithTimeout(checkTimeout).
 					WithTargets("https://www.example.com/"),
@@ -266,8 +271,8 @@ func TestE2E_Sparrow_WithChecks_Reconfigure(t *testing.T) {
 				"http://localhost:8080/v1/metrics/dns":        {status: http.StatusNotFound},
 				"http://localhost:8080/v1/metrics/traceroute": {status: http.StatusNotFound},
 			},
-			secondChecks: []test.CheckBuilder{
-				test.NewHealthCheck().
+			secondChecks: []builder.Check{
+				builder.NewHealthCheck().
 					WithInterval(checkInterval).
 					WithTimeout(checkTimeout).
 					WithTargets("https://www.google.com/"),
@@ -289,13 +294,13 @@ func TestE2E_Sparrow_WithChecks_Reconfigure(t *testing.T) {
 		},
 		{
 			name: "with health check then no checks",
-			startup: *test.NewSparrowConfig().WithLoader(
-				test.NewLoaderConfig().
+			startup: *builder.NewSparrowConfig().WithLoader(
+				builder.NewLoaderConfig().
 					WithInterval(loaderInterval).
 					Build(),
 			),
-			initialChecks: []test.CheckBuilder{
-				test.NewHealthCheck().
+			initialChecks: []builder.Check{
+				builder.NewHealthCheck().
 					WithInterval(checkInterval).
 					WithTimeout(checkTimeout).
 					WithTargets("https://www.example.com/"),
@@ -334,7 +339,7 @@ func TestE2E_Sparrow_WithChecks_Reconfigure(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			e2e := framework.E2E(t, tt.startup.Config(t)).WithChecks(tt.initialChecks...)
+			e2e := fw.E2E(t, tt.startup.Config(t)).WithChecks(tt.initialChecks...)
 			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 			defer cancel()
 
@@ -366,32 +371,35 @@ func TestE2E_Sparrow_WithChecks_Reconfigure(t *testing.T) {
 }
 
 func TestE2E_Sparrow_WithRemoteConfig(t *testing.T) {
-	framework := test.NewFramework(t)
+	test.MarkAsLong(t)
+
+	fw := framework.New(t)
 	tests := []struct {
 		name          string
-		startup       test.ConfigBuilder
-		initialChecks []test.CheckBuilder
+		startup       builder.SparrowConfig
+		initialChecks []builder.Check
 		wantInitial   map[string]result
-		secondChecks  []test.CheckBuilder
+		secondChecks  []builder.Check
 		wantSecond    map[string]result
 	}{
 		{
 			name: "with health check in remote config",
-			startup: *test.NewSparrowConfig().
+			startup: *builder.NewSparrowConfig().
+				WithAPI(builder.NewAPIConfig("localhost:8081")).
 				WithLoader(
-					test.NewLoaderConfig().
+					builder.NewLoaderConfig().
 						WithInterval(loaderInterval).
 						FromHTTP(config.HttpLoaderConfig{Url: "http://localhost:50505/", Timeout: 5 * time.Second}).
 						Build(),
 				),
-			initialChecks: []test.CheckBuilder{
-				test.NewHealthCheck().
+			initialChecks: []builder.Check{
+				builder.NewHealthCheck().
 					WithInterval(checkInterval).
 					WithTimeout(checkTimeout).
 					WithTargets("https://www.example.com/"),
 			},
 			wantInitial: map[string]result{
-				"http://localhost:8080/v1/metrics/health": {
+				"http://localhost:8081/v1/metrics/health": {
 					status: http.StatusOK,
 					response: checks.Result{
 						Data: map[string]any{
@@ -400,28 +408,29 @@ func TestE2E_Sparrow_WithRemoteConfig(t *testing.T) {
 						Timestamp: time.Now(),
 					},
 				},
-				"http://localhost:8080/v1/metrics/latency":    {status: http.StatusNotFound},
-				"http://localhost:8080/v1/metrics/dns":        {status: http.StatusNotFound},
-				"http://localhost:8080/v1/metrics/traceroute": {status: http.StatusNotFound},
+				"http://localhost:8081/v1/metrics/latency":    {status: http.StatusNotFound},
+				"http://localhost:8081/v1/metrics/dns":        {status: http.StatusNotFound},
+				"http://localhost:8081/v1/metrics/traceroute": {status: http.StatusNotFound},
 			},
 		},
 		{
 			name: "with health check in remote config then dns check",
-			startup: *test.NewSparrowConfig().
+			startup: *builder.NewSparrowConfig().
+				WithAPI(builder.NewAPIConfig("localhost:8081")).
 				WithLoader(
-					test.NewLoaderConfig().
+					builder.NewLoaderConfig().
 						WithInterval(loaderInterval).
 						FromHTTP(config.HttpLoaderConfig{Url: "http://localhost:50505/", Timeout: 5 * time.Second}).
 						Build(),
 				),
-			initialChecks: []test.CheckBuilder{
-				test.NewHealthCheck().
+			initialChecks: []builder.Check{
+				builder.NewHealthCheck().
 					WithInterval(checkInterval).
 					WithTimeout(checkTimeout).
 					WithTargets("https://www.example.com/"),
 			},
 			wantInitial: map[string]result{
-				"http://localhost:8080/v1/metrics/health": {
+				"http://localhost:8081/v1/metrics/health": {
 					status: http.StatusOK,
 					response: checks.Result{
 						Data: map[string]any{
@@ -430,18 +439,18 @@ func TestE2E_Sparrow_WithRemoteConfig(t *testing.T) {
 						Timestamp: time.Now(),
 					},
 				},
-				"http://localhost:8080/v1/metrics/latency":    {status: http.StatusNotFound},
-				"http://localhost:8080/v1/metrics/dns":        {status: http.StatusNotFound},
-				"http://localhost:8080/v1/metrics/traceroute": {status: http.StatusNotFound},
+				"http://localhost:8081/v1/metrics/latency":    {status: http.StatusNotFound},
+				"http://localhost:8081/v1/metrics/dns":        {status: http.StatusNotFound},
+				"http://localhost:8081/v1/metrics/traceroute": {status: http.StatusNotFound},
 			},
-			secondChecks: []test.CheckBuilder{
-				test.NewDNSCheck().
+			secondChecks: []builder.Check{
+				builder.NewDNSCheck().
 					WithInterval(checkInterval).
 					WithTimeout(checkTimeout).
 					WithTargets("www.example.com"),
 			},
 			wantSecond: map[string]result{ //nolint:dupl // This is a test
-				"http://localhost:8080/v1/metrics/health": {
+				"http://localhost:8081/v1/metrics/health": {
 					status: http.StatusOK,
 					response: checks.Result{
 						Data: map[string]any{
@@ -450,8 +459,8 @@ func TestE2E_Sparrow_WithRemoteConfig(t *testing.T) {
 						Timestamp: time.Now(),
 					},
 				},
-				"http://localhost:8080/v1/metrics/latency": {status: http.StatusNotFound},
-				"http://localhost:8080/v1/metrics/dns": {
+				"http://localhost:8081/v1/metrics/latency": {status: http.StatusNotFound},
+				"http://localhost:8081/v1/metrics/dns": {
 					status: http.StatusOK,
 					response: checks.Result{
 						Data: map[string]any{
@@ -464,14 +473,14 @@ func TestE2E_Sparrow_WithRemoteConfig(t *testing.T) {
 						Timestamp: time.Now(),
 					},
 				},
-				"http://localhost:8080/v1/metrics/traceroute": {status: http.StatusNotFound},
+				"http://localhost:8081/v1/metrics/traceroute": {status: http.StatusNotFound},
 			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			e2e := framework.E2E(t, tt.startup.Config(t)).
+			e2e := fw.E2E(t, tt.startup.Config(t)).
 				WithChecks(tt.initialChecks...).
 				WithRemote()
 
@@ -482,7 +491,7 @@ func TestE2E_Sparrow_WithRemoteConfig(t *testing.T) {
 			go func() {
 				finish <- e2e.Run(ctx)
 			}()
-			e2e.AwaitStartup("http://localhost:8080", checkTimeout).AwaitChecks()
+			e2e.AwaitStartup("http://localhost:8081", checkTimeout).AwaitChecks()
 
 			for url, result := range tt.wantInitial {
 				e2e.HttpAssertion(url).
@@ -505,5 +514,3 @@ func TestE2E_Sparrow_WithRemoteConfig(t *testing.T) {
 		})
 	}
 }
-
-func TestE2E_Sparrow_WithTargetManager(t *testing.T) {}

@@ -1,4 +1,4 @@
-package test
+package builder
 
 import (
 	"context"
@@ -18,10 +18,10 @@ import (
 	"github.com/goccy/go-yaml"
 )
 
-type ConfigBuilder struct{ cfg config.Config }
+type SparrowConfig struct{ cfg config.Config }
 
-func NewSparrowConfig() *ConfigBuilder {
-	return &ConfigBuilder{
+func NewSparrowConfig() *SparrowConfig {
+	return &SparrowConfig{
 		cfg: config.Config{
 			SparrowName: "sparrow.telekom.com",
 			Loader:      NewLoaderConfig().Build(),
@@ -30,32 +30,32 @@ func NewSparrowConfig() *ConfigBuilder {
 	}
 }
 
-func (b *ConfigBuilder) WithName(n string) *ConfigBuilder {
+func (b *SparrowConfig) WithName(n string) *SparrowConfig {
 	b.cfg.SparrowName = n
 	return b
 }
 
-func (b *ConfigBuilder) WithLoader(cfg config.LoaderConfig) *ConfigBuilder { //nolint:gocritic // Performance is not a concern here
+func (b *SparrowConfig) WithLoader(cfg config.LoaderConfig) *SparrowConfig { //nolint:gocritic // Performance is not a concern here
 	b.cfg.Loader = cfg
 	return b
 }
 
-func (b *ConfigBuilder) WithAPI(cfg api.Config) *ConfigBuilder {
+func (b *SparrowConfig) WithAPI(cfg api.Config) *SparrowConfig {
 	b.cfg.Api = cfg
 	return b
 }
 
-func (b *ConfigBuilder) WithTargetManager(cfg targets.TargetManagerConfig) *ConfigBuilder { //nolint:gocritic // Performance is not a concern here
+func (b *SparrowConfig) WithTargetManager(cfg targets.TargetManagerConfig) *SparrowConfig { //nolint:gocritic // Performance is not a concern here
 	b.cfg.TargetManager = cfg
 	return b
 }
 
-func (b *ConfigBuilder) WithTelemetry(cfg metrics.Config) *ConfigBuilder { //nolint:gocritic // Performance is not a concern here
+func (b *SparrowConfig) WithTelemetry(cfg metrics.Config) *SparrowConfig { //nolint:gocritic // Performance is not a concern here
 	b.cfg.Telemetry = cfg
 	return b
 }
 
-func (b *ConfigBuilder) Config(t *testing.T) *config.Config {
+func (b *SparrowConfig) Config(t *testing.T) *config.Config {
 	t.Helper()
 	if err := b.cfg.Validate(context.Background()); err != nil {
 		t.Fatalf("config is not valid: %v", err)
@@ -63,7 +63,7 @@ func (b *ConfigBuilder) Config(t *testing.T) *config.Config {
 	return &b.cfg
 }
 
-func (b *ConfigBuilder) YAML(t *testing.T) []byte {
+func (b *SparrowConfig) YAML(t *testing.T) []byte {
 	t.Helper()
 	out, err := yaml.Marshal(b.cfg)
 	if err != nil {
