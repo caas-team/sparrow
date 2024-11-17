@@ -21,6 +21,7 @@ package traceroute
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"slices"
 	"sync"
 	"time"
@@ -36,7 +37,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-var _ checks.Check = (*Traceroute)(nil)
+var _ checks.Check = (*check)(nil)
 
 const CheckName = "traceroute"
 
@@ -51,26 +52,25 @@ func (t Target) String() string {
 	return fmt.Sprintf("%s:%d", t.Addr, t.Port)
 }
 
+// check is the implementation of the traceroute check.
+// It traces the path to a list of targets.
+type check struct {
+	checks.Base
+	config     Config
+	traceroute tracerouteFactory
+	metrics    metrics
+	tracer     trace.Tracer
+}
+
 func NewCheck() checks.Check {
-	c := &Traceroute{
-		Base: checks.Base{
-			Mu:       sync.Mutex{},
-			DoneChan: make(chan struct{}, 1),
-		},
+	c := &check{
+		Base:       checks.NewBase(),
 		config:     Config{},
 		traceroute: TraceRoute,
 		metrics:    newMetrics(),
 	}
 	c.tracer = otel.Tracer(c.Name())
 	return c
-}
-
-type Traceroute struct {
-	checks.Base
-	config     Config
-	traceroute tracerouteFactory
-	metrics    metrics
-	tracer     trace.Tracer
 }
 
 type tracerouteConfig struct {
@@ -91,24 +91,32 @@ type result struct {
 }
 
 // Run runs the check in a loop sending results to the provided channel
-func (tr *Traceroute) Run(ctx context.Context, cResult chan checks.ResultDTO) error {
+func (ch *check) Run(ctx context.Context, cResult chan checks.ResultDTO) error {
 	ctx, cancel := logger.NewContextWithLogger(ctx)
 	defer cancel()
 	log := logger.FromContext(ctx)
 
-	log.InfoContext(ctx, "Starting traceroute check", "interval", tr.config.Interval.String())
+	ticker := time.NewTicker(ch.config.Interval)
+	defer ticker.Stop()
+	log.InfoContext(ctx, "Starting traceroute check", "interval", ch.config.Interval.String())
 	for {
 		select {
 		case <-ctx.Done():
 			log.ErrorContext(ctx, "Context canceled", "error", ctx.Err())
 			return ctx.Err()
-		case <-tr.DoneChan:
+		case <-ch.Done:
 			return nil
-		case <-time.After(tr.config.Interval):
-			res := tr.check(ctx)
-			tr.metrics.MinHops(res)
+		case <-ch.Update:
+			ch.Mutex.Lock()
+			ticker.Stop()
+			ticker = time.NewTicker(ch.config.Interval)
+			log.DebugContext(ctx, "Interval of traceroute check updated", "interval", ch.config.Interval.String())
+			ch.Mutex.Unlock()
+		case <-ticker.C:
+			res := ch.check(ctx)
+			ch.metrics.MinHops(res)
 			cResult <- checks.ResultDTO{
-				Name: tr.Name(),
+				Name: ch.Name(),
 				Result: &checks.Result{
 					Data:      res,
 					Timestamp: time.Now(),
@@ -120,50 +128,53 @@ func (tr *Traceroute) Run(ctx context.Context, cResult chan checks.ResultDTO) er
 }
 
 // GetConfig returns the current configuration of the check
-func (tr *Traceroute) GetConfig() checks.Runtime {
-	tr.Mu.Lock()
-	defer tr.Mu.Unlock()
-	return &tr.config
+func (ch *check) GetConfig() checks.Runtime {
+	ch.Mutex.Lock()
+	defer ch.Mutex.Unlock()
+	return &ch.config
 }
 
-func (tr *Traceroute) check(ctx context.Context) map[string]result {
+func (ch *check) check(ctx context.Context) map[string]result {
 	res := make(map[string]result)
 	log := logger.FromContext(ctx)
+	ch.Mutex.Lock()
+	cfg := ch.config
+	ch.Mutex.Unlock()
 
 	type internalResult struct {
 		addr string
 		res  result
 	}
 
-	cResult := make(chan internalResult, len(tr.config.Targets))
+	cResult := make(chan internalResult, len(cfg.Targets))
 	var wg sync.WaitGroup
 	start := time.Now()
-	wg.Add(len(tr.config.Targets))
+	wg.Add(len(cfg.Targets))
 
-	for _, t := range tr.config.Targets {
+	for _, t := range cfg.Targets {
 		go func(t Target) {
 			defer wg.Done()
 			l := log.With("target", t.String())
 			l.DebugContext(ctx, "Running traceroute")
 
-			c, span := tr.tracer.Start(ctx, t.String(), trace.WithAttributes(
+			c, span := ch.tracer.Start(ctx, t.String(), trace.WithAttributes(
 				attribute.String("target.addr", t.Addr),
 				attribute.Int("target.port", t.Port),
-				attribute.Stringer("config.interval", tr.config.Interval),
-				attribute.Stringer("config.timeout", tr.config.Timeout),
-				attribute.Int("config.max_hops", tr.config.MaxHops),
-				attribute.Int("config.retry.count", tr.config.Retry.Count),
-				attribute.Stringer("config.retry.delay", tr.config.Retry.Delay),
+				attribute.Stringer("config.interval", cfg.Interval),
+				attribute.Stringer("config.timeout", cfg.Timeout),
+				attribute.Int("config.max_hops", cfg.MaxHops),
+				attribute.Int("config.retry.count", cfg.Retry.Count),
+				attribute.Stringer("config.retry.delay", cfg.Retry.Delay),
 			))
 			defer span.End()
 
 			s := time.Now()
-			hops, err := tr.traceroute(c, tracerouteConfig{
+			hops, err := ch.traceroute(c, tracerouteConfig{
 				Dest:    t.Addr,
 				Port:    t.Port,
-				Timeout: tr.config.Timeout,
-				MaxHops: tr.config.MaxHops,
-				Rc:      tr.config.Retry,
+				Timeout: cfg.Timeout,
+				MaxHops: cfg.MaxHops,
+				Rc:      cfg.Retry,
 			})
 			elapsed := time.Since(s)
 
@@ -175,12 +186,12 @@ func (tr *Traceroute) check(ctx context.Context) map[string]result {
 				span.SetStatus(codes.Ok, "success")
 			}
 
-			tr.metrics.CheckDuration(t.Addr, elapsed)
+			ch.metrics.CheckDuration(t.Addr, elapsed)
 			l.DebugContext(ctx, "Ran traceroute", "result", hops, "duration", elapsed)
 
 			res := result{
 				Hops:    hops,
-				MinHops: tr.config.MaxHops,
+				MinHops: cfg.MaxHops,
 			}
 			for ttl, hop := range hops {
 				for _, attempt := range hop {
@@ -212,24 +223,26 @@ func (tr *Traceroute) check(ctx context.Context) map[string]result {
 	return res
 }
 
-// UpdateConfig is called once when the check is registered
-// This is also called while the check is running, if the remote config is updated
-// This should return an error if the config is invalid
-func (tr *Traceroute) UpdateConfig(cfg checks.Runtime) error {
+// UpdateConfig updates the configuration of the check.
+func (ch *check) UpdateConfig(cfg checks.Runtime) error {
 	if c, ok := cfg.(*Config); ok {
-		tr.Mu.Lock()
-		defer tr.Mu.Unlock()
+		ch.Mutex.Lock()
+		defer ch.Mutex.Unlock()
+		if reflect.DeepEqual(ch.config, *c) {
+			return nil
+		}
 
-		for _, target := range tr.config.Targets {
+		for _, target := range ch.config.Targets {
 			if !slices.Contains(c.Targets, target) {
-				err := tr.metrics.Remove(target.Addr)
+				err := ch.metrics.Remove(target.Addr)
 				if err != nil {
 					return err
 				}
 			}
 		}
 
-		tr.config = *c
+		ch.config = *c
+		ch.Update <- struct{}{}
 		return nil
 	}
 
@@ -240,22 +253,22 @@ func (tr *Traceroute) UpdateConfig(cfg checks.Runtime) error {
 }
 
 // Schema returns an openapi3.SchemaRef of the result type returned by the check
-func (tr *Traceroute) Schema() (*openapi3.SchemaRef, error) {
+func (ch *check) Schema() (*openapi3.SchemaRef, error) {
 	return checks.OpenapiFromPerfData(map[string]result{})
 }
 
 // GetMetricCollectors allows the check to provide prometheus metric collectors
-func (tr *Traceroute) GetMetricCollectors() []prometheus.Collector {
-	return tr.metrics.List()
+func (ch *check) GetMetricCollectors() []prometheus.Collector {
+	return ch.metrics.List()
 }
 
 // Name returns the name of the check
-func (tr *Traceroute) Name() string {
+func (*check) Name() string {
 	return CheckName
 }
 
 // RemoveLabelledMetrics removes the metrics which have the passed
 // target as a label
-func (tr *Traceroute) RemoveLabelledMetrics(target string) error {
-	return tr.metrics.Remove(target)
+func (ch *check) RemoveLabelledMetrics(target string) error {
+	return ch.metrics.Remove(target)
 }

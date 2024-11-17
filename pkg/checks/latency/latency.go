@@ -20,8 +20,8 @@ package latency
 
 import (
 	"context"
-	"io"
 	"net/http"
+	"reflect"
 	"slices"
 	"sync"
 	"time"
@@ -35,14 +35,15 @@ import (
 )
 
 var (
-	_ checks.Check   = (*Latency)(nil)
+	_ checks.Check   = (*check)(nil)
 	_ checks.Runtime = (*Config)(nil)
 )
 
 const CheckName = "latency"
 
-// Latency is a check that measures the latency to an endpoint
-type Latency struct {
+// check is the implementation of the latency check.
+// It measures the latency to a list of targets.
+type check struct {
 	checks.Base
 	config  Config
 	metrics metrics
@@ -50,11 +51,8 @@ type Latency struct {
 
 // NewCheck creates a new instance of the latency check
 func NewCheck() checks.Check {
-	return &Latency{
-		Base: checks.Base{
-			Mu:       sync.Mutex{},
-			DoneChan: make(chan struct{}, 1),
-		},
+	return &check{
+		Base: checks.NewBase(),
 		config: Config{
 			Retry: checks.DefaultRetry,
 		},
@@ -70,50 +68,61 @@ type result struct {
 }
 
 // Run starts the latency check
-func (l *Latency) Run(ctx context.Context, cResult chan checks.ResultDTO) error {
+func (ch *check) Run(ctx context.Context, cResult chan checks.ResultDTO) error {
 	ctx, cancel := logger.NewContextWithLogger(ctx)
 	defer cancel()
 	log := logger.FromContext(ctx)
 
-	log.Info("Starting latency check", "interval", l.config.Interval.String())
+	ticker := time.NewTicker(ch.config.Interval)
+	defer ticker.Stop()
+	log.InfoContext(ctx, "Starting latency check", "interval", ch.config.Interval.String())
 	for {
 		select {
 		case <-ctx.Done():
-			log.Error("Context canceled", "err", ctx.Err())
+			log.ErrorContext(ctx, "Context canceled", "err", ctx.Err())
 			return ctx.Err()
-		case <-l.DoneChan:
+		case <-ch.Done:
 			return nil
-		case <-time.After(l.config.Interval):
-			res := l.check(ctx)
-
+		case <-ch.Update:
+			ch.Mutex.Lock()
+			ticker.Stop()
+			ticker = time.NewTicker(ch.config.Interval)
+			log.DebugContext(ctx, "Interval of latency check updated", "interval", ch.config.Interval.String())
+			ch.Mutex.Unlock()
+		case <-ticker.C:
+			res := ch.check(ctx)
 			cResult <- checks.ResultDTO{
-				Name: l.Name(),
+				Name: ch.Name(),
 				Result: &checks.Result{
 					Data:      res,
 					Timestamp: time.Now(),
 				},
 			}
-			log.Debug("Successfully finished latency check run")
+			log.DebugContext(ctx, "Successfully finished latency check run")
 		}
 	}
 }
 
 // UpdateConfig sets the configuration for the latency check
-func (l *Latency) UpdateConfig(cfg checks.Runtime) error {
+func (ch *check) UpdateConfig(cfg checks.Runtime) error {
 	if c, ok := cfg.(*Config); ok {
-		l.Mu.Lock()
-		defer l.Mu.Unlock()
+		ch.Mutex.Lock()
+		defer ch.Mutex.Unlock()
+		if reflect.DeepEqual(ch.config, *c) {
+			return nil
+		}
 
-		for _, target := range l.config.Targets {
+		for _, target := range ch.config.Targets {
 			if !slices.Contains(c.Targets, target) {
-				err := l.metrics.Remove(target)
+				err := ch.metrics.Remove(target)
 				if err != nil {
 					return err
 				}
 			}
 		}
 
-		l.config = *c
+		ch.config = *c
+		ch.Update <- struct{}{}
 		return nil
 	}
 
@@ -124,56 +133,60 @@ func (l *Latency) UpdateConfig(cfg checks.Runtime) error {
 }
 
 // GetConfig returns the current configuration of the latency Check
-func (l *Latency) GetConfig() checks.Runtime {
-	l.Mu.Lock()
-	defer l.Mu.Unlock()
-	return &l.config
+func (ch *check) GetConfig() checks.Runtime {
+	ch.Mutex.Lock()
+	defer ch.Mutex.Unlock()
+	return &ch.config
 }
 
 // Name returns the name of the check
-func (l *Latency) Name() string {
+func (*check) Name() string {
 	return CheckName
 }
 
 // Schema provides the schema of the data that will be provided
 // by the latency check
-func (l *Latency) Schema() (*openapi3.SchemaRef, error) {
-	return checks.OpenapiFromPerfData[map[string]result](make(map[string]result))
+func (ch *check) Schema() (*openapi3.SchemaRef, error) {
+	return checks.OpenapiFromPerfData(map[string]result{})
 }
 
 // GetMetricCollectors returns all metric collectors of check
-func (l *Latency) GetMetricCollectors() []prometheus.Collector {
+func (ch *check) GetMetricCollectors() []prometheus.Collector {
 	return []prometheus.Collector{
-		l.metrics.totalDuration,
-		l.metrics.count,
-		l.metrics.histogram,
+		ch.metrics.totalDuration,
+		ch.metrics.count,
+		ch.metrics.histogram,
 	}
 }
 
 // RemoveLabelledMetrics removes the metrics which have the passed target as a label
-func (l *Latency) RemoveLabelledMetrics(target string) error {
-	return l.metrics.Remove(target)
+func (ch *check) RemoveLabelledMetrics(target string) error {
+	return ch.metrics.Remove(target)
 }
 
 // check performs a latency check using a retry function
 // to get the latency to all targets
-func (l *Latency) check(ctx context.Context) map[string]result {
+func (ch *check) check(ctx context.Context) map[string]result {
 	log := logger.FromContext(ctx)
 	log.Debug("Checking latency")
-	if len(l.config.Targets) == 0 {
+	ch.Mutex.Lock()
+	cfg := ch.config
+	ch.Mutex.Unlock()
+
+	if len(cfg.Targets) == 0 {
 		log.Debug("No targets defined")
 		return map[string]result{}
 	}
-	log.Debug("Getting latency status for each target in separate routine", "amount", len(l.config.Targets))
+	log.Debug("Getting latency status for each target in separate routine", "amount", len(cfg.Targets))
 
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 	results := map[string]result{}
 
 	client := &http.Client{
-		Timeout: l.config.Timeout,
+		Timeout: cfg.Timeout,
 	}
-	for _, t := range l.config.Targets {
+	for _, t := range cfg.Targets {
 		target := t
 		wg.Add(1)
 		lo := log.With("target", target)
@@ -187,7 +200,7 @@ func (l *Latency) check(ctx context.Context) map[string]result {
 				return err
 			}
 			return nil
-		}, l.config.Retry)
+		}, cfg.Retry)
 
 		go func() {
 			defer wg.Done()
@@ -201,9 +214,9 @@ func (l *Latency) check(ctx context.Context) map[string]result {
 			mu.Lock()
 			defer mu.Unlock()
 
-			l.metrics.totalDuration.WithLabelValues(target).Set(results[target].Total)
-			l.metrics.count.WithLabelValues(target).Inc()
-			l.metrics.histogram.WithLabelValues(target).Observe(results[target].Total)
+			ch.metrics.totalDuration.WithLabelValues(target).Set(results[target].Total)
+			ch.metrics.count.WithLabelValues(target).Inc()
+			ch.metrics.histogram.WithLabelValues(target).Observe(results[target].Total)
 		}()
 	}
 
@@ -228,7 +241,7 @@ func getLatency(ctx context.Context, c *http.Client, url string) (result, error)
 	}
 
 	start := time.Now()
-	resp, err := c.Do(req) //nolint:bodyclose // Closed in defer below
+	resp, err := c.Do(req)
 	if err != nil {
 		log.Error("Error while checking latency", "error", err)
 		errval := err.Error()
@@ -236,12 +249,9 @@ func getLatency(ctx context.Context, c *http.Client, url string) (result, error)
 		return res, err
 	}
 	end := time.Now()
+	defer resp.Body.Close()
 
 	res.Code = resp.StatusCode
-	defer func(Body io.ReadCloser) {
-		_ = Body.Close()
-	}(resp.Body)
-
 	res.Total = end.Sub(start).Seconds()
 	return res, nil
 }

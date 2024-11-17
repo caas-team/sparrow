@@ -1,4 +1,4 @@
-package framework
+package test
 
 import (
 	"context"
@@ -20,10 +20,10 @@ import (
 
 type ConfigBuilder struct{ cfg config.Config }
 
-func NewConfig() *ConfigBuilder {
+func NewSparrowConfig() *ConfigBuilder {
 	return &ConfigBuilder{
 		cfg: config.Config{
-			SparrowName: "sparrow.de",
+			SparrowName: "sparrow.telekom.com",
 			Loader:      NewLoaderConfig().Build(),
 			Api:         NewAPIConfig("localhost:8080"),
 		},

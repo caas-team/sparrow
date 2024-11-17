@@ -42,42 +42,55 @@ type Check interface {
 	// run until the context is canceled and handle problems itself.
 	// Returning a non-nil error will cause the shutdown of the check.
 	Run(ctx context.Context, cResult chan ResultDTO) error
-	// Shutdown is called once when the check is unregistered or sparrow shuts down
+	// Shutdown is called once when the check is unregistered or sparrow shuts down.
 	Shutdown()
-	// UpdateConfig is called once when the check is registered
-	// This is also called while the check is running, if the remote config is updated
-	// This should return an error if the config is invalid
+	// UpdateConfig updates the configuration of the check.
+	// It is called when the runtime configuration is updated.
+	// The check should handle the update itself.
+	// Returns an error if the configuration is invalid.
 	UpdateConfig(config Runtime) error
-	// GetConfig returns the current configuration of the check
+	// GetConfig returns the current configuration of the check.
 	GetConfig() Runtime
-	// Name returns the name of the check
+	// Name returns the name of the check.
 	Name() string
-	// Schema returns an openapi3.SchemaRef of the result type returned by the check
+	// Schema returns an openapi3.SchemaRef of the result type returned by the check.
 	Schema() (*openapi3.SchemaRef, error)
-	// GetMetricCollectors allows the check to provide prometheus metric collectors
+	// GetMetricCollectors allows the check to provide prometheus metric collectors.
 	GetMetricCollectors() []prometheus.Collector
 	// RemoveLabelledMetrics allows the check to remove the prometheus metrics
-	// of the check whose `target` label matches the passed value
+	// of the check whose `target` label matches the passed value.
 	RemoveLabelledMetrics(target string) error
 }
 
 // Base is a struct providing common fields and methods used by implementations of the [Check] interface.
 // It serves as a foundational structure that should be embedded in specific check implementations.
 type Base struct {
-	// Mutex for thread-safe access to shared resources within the check implementation
-	Mu sync.Mutex
-	// Signal channel used to notify about shutdown of a check
-	DoneChan chan struct{}
+	// Mutex for thread-safe access to shared resources within the check implementation.
+	Mutex sync.Mutex
+	// Done channel is used to notify about shutdown of a check.
+	Done chan struct{}
+	// Update is a channel used to notify about configuration updates.
+	Update chan struct{}
 	// closed is a flag indicating if the check has been shut down.
 	closed bool
 }
 
+// NewBase creates a new instance of the [Base] struct.
+func NewBase() Base {
+	return Base{
+		Mutex:  sync.Mutex{},
+		Done:   make(chan struct{}, 1),
+		Update: make(chan struct{}, 3),
+		closed: false,
+	}
+}
+
 // Shutdown closes the DoneChan to signal the check to stop running.
 func (b *Base) Shutdown() {
-	b.Mu.Lock()
-	defer b.Mu.Unlock()
+	b.Mutex.Lock()
+	defer b.Mutex.Unlock()
 	if !b.closed {
-		close(b.DoneChan)
+		close(b.Done)
 		b.closed = true
 	}
 }

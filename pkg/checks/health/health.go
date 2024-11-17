@@ -21,8 +21,8 @@ package health
 import (
 	"context"
 	"fmt"
-	"io"
 	"net/http"
+	"reflect"
 	"slices"
 	"sync"
 	"time"
@@ -36,7 +36,7 @@ import (
 )
 
 var (
-	_            checks.Check   = (*Health)(nil)
+	_            checks.Check   = (*check)(nil)
 	_            checks.Runtime = (*Config)(nil)
 	stateMapping                = map[int]string{
 		0: "unhealthy",
@@ -46,8 +46,9 @@ var (
 
 const CheckName = "health"
 
-// Health is a check that measures the availability of an endpoint
-type Health struct {
+// check is the implementation of the health check.
+// It measures the availability of a list of targets.
+type check struct {
 	checks.Base
 	config  Config
 	metrics metrics
@@ -55,11 +56,8 @@ type Health struct {
 
 // NewCheck creates a new instance of the health check
 func NewCheck() checks.Check {
-	return &Health{
-		Base: checks.Base{
-			Mu:       sync.Mutex{},
-			DoneChan: make(chan struct{}, 1),
-		},
+	return &check{
+		Base: checks.NewBase(),
 		config: Config{
 			Retry: checks.DefaultRetry,
 		},
@@ -68,51 +66,61 @@ func NewCheck() checks.Check {
 }
 
 // Run starts the health check
-func (h *Health) Run(ctx context.Context, cResult chan checks.ResultDTO) error {
+func (ch *check) Run(ctx context.Context, cResult chan checks.ResultDTO) error {
 	ctx, cancel := logger.NewContextWithLogger(ctx)
 	defer cancel()
 	log := logger.FromContext(ctx)
 
-	log.Info("Starting healthcheck", "interval", h.config.Interval.String())
+	ticker := time.NewTicker(ch.config.Interval)
+	defer ticker.Stop()
+	log.InfoContext(ctx, "Starting health check", "interval", ch.config.Interval.String())
 	for {
 		select {
 		case <-ctx.Done():
-			log.Error("Context canceled", "err", ctx.Err())
+			log.ErrorContext(ctx, "Context canceled", "err", ctx.Err())
 			return ctx.Err()
-		case <-h.DoneChan:
-			log.Debug("Soft shut down")
+		case <-ch.Done:
 			return nil
-		case <-time.After(h.config.Interval):
-			res := h.check(ctx)
-
+		case <-ch.Update:
+			ch.Mutex.Lock()
+			ticker.Stop()
+			ticker = time.NewTicker(ch.config.Interval)
+			log.DebugContext(ctx, "Interval of health check updated", "interval", ch.config.Interval.String())
+			ch.Mutex.Unlock()
+		case <-ticker.C:
+			res := ch.check(ctx)
 			cResult <- checks.ResultDTO{
-				Name: h.Name(),
+				Name: ch.Name(),
 				Result: &checks.Result{
 					Data:      res,
 					Timestamp: time.Now(),
 				},
 			}
-			log.Debug("Successfully finished health check run")
+			log.DebugContext(ctx, "Successfully finished health check run")
 		}
 	}
 }
 
 // UpdateConfig sets the configuration for the health check
-func (h *Health) UpdateConfig(cfg checks.Runtime) error {
+func (ch *check) UpdateConfig(cfg checks.Runtime) error {
 	if c, ok := cfg.(*Config); ok {
-		h.Mu.Lock()
-		defer h.Mu.Unlock()
+		ch.Mutex.Lock()
+		defer ch.Mutex.Unlock()
+		if reflect.DeepEqual(ch.config, *c) {
+			return nil
+		}
 
-		for _, target := range h.config.Targets {
+		for _, target := range ch.config.Targets {
 			if !slices.Contains(c.Targets, target) {
-				err := h.metrics.Remove(target)
+				err := ch.metrics.Remove(target)
 				if err != nil {
 					return err
 				}
 			}
 		}
 
-		h.config = *c
+		ch.config = *c
+		ch.Update <- struct{}{}
 		return nil
 	}
 
@@ -123,62 +131,66 @@ func (h *Health) UpdateConfig(cfg checks.Runtime) error {
 }
 
 // GetConfig returns the current configuration of the check
-func (h *Health) GetConfig() checks.Runtime {
-	h.Mu.Lock()
-	defer h.Mu.Unlock()
-	return &h.config
+func (ch *check) GetConfig() checks.Runtime {
+	ch.Mutex.Lock()
+	defer ch.Mutex.Unlock()
+	return &ch.config
 }
 
 // Name returns the name of the check
-func (h *Health) Name() string {
+func (*check) Name() string {
 	return CheckName
 }
 
 // Schema provides the schema of the data that will be provided
 // by the health check
-func (h *Health) Schema() (*openapi3.SchemaRef, error) {
-	return checks.OpenapiFromPerfData[map[string]string](map[string]string{})
+func (ch *check) Schema() (*openapi3.SchemaRef, error) {
+	return checks.OpenapiFromPerfData(map[string]string{})
 }
 
 // GetMetricCollectors returns all metric collectors of check
-func (h *Health) GetMetricCollectors() []prometheus.Collector {
+func (ch *check) GetMetricCollectors() []prometheus.Collector {
 	return []prometheus.Collector{
-		h.metrics,
+		ch.metrics,
 	}
 }
 
 // RemoveLabelledMetrics removes the metrics which have the passed
 // target as a label
-func (h *Health) RemoveLabelledMetrics(target string) error {
-	return h.metrics.Remove(target)
+func (ch *check) RemoveLabelledMetrics(target string) error {
+	return ch.metrics.Remove(target)
 }
 
 // check performs a health check using a retry function
 // to get the health status for all targets
-func (h *Health) check(ctx context.Context) map[string]string {
+func (ch *check) check(ctx context.Context) map[string]string {
 	log := logger.FromContext(ctx)
 	log.Debug("Checking health")
-	if len(h.config.Targets) == 0 {
+	ch.Mutex.Lock()
+	cfg := ch.config
+	ch.Mutex.Unlock()
+
+	if len(cfg.Targets) == 0 {
 		log.Debug("No targets defined")
 		return map[string]string{}
 	}
-	log.Debug("Getting health status for each target in separate routine", "amount", len(h.config.Targets))
+	log.Debug("Getting health status for each target in separate routine", "amount", len(cfg.Targets))
 
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	results := map[string]string{}
 
 	client := &http.Client{
-		Timeout: h.config.Timeout,
+		Timeout: cfg.Timeout,
 	}
-	for _, t := range h.config.Targets {
+	for _, t := range cfg.Targets {
 		target := t
 		wg.Add(1)
 		l := log.With("target", target)
 
 		getHealthRetry := helper.Retry(func(ctx context.Context) error {
 			return getHealth(ctx, client, target)
-		}, h.config.Retry)
+		}, cfg.Retry)
 
 		go func() {
 			defer wg.Done()
@@ -187,7 +199,7 @@ func (h *Health) check(ctx context.Context) map[string]string {
 			l.Debug("Starting retry routine to get health status")
 			if err := getHealthRetry(ctx); err != nil {
 				state = 0
-				l.Warn(fmt.Sprintf("Health check failed after %d retries", h.config.Retry.Count), "error", err)
+				l.Warn(fmt.Sprintf("Health check failed after %d retries", cfg.Retry.Count), "error", err)
 			}
 
 			l.Debug("Successfully got health status of target", "status", stateMapping[state])
@@ -195,7 +207,7 @@ func (h *Health) check(ctx context.Context) map[string]string {
 			defer mu.Unlock()
 			results[target] = stateMapping[state]
 
-			h.metrics.WithLabelValues(target).Set(float64(state))
+			ch.metrics.WithLabelValues(target).Set(float64(state))
 		}()
 	}
 
@@ -216,17 +228,12 @@ func getHealth(ctx context.Context, client *http.Client, url string) error {
 		return err
 	}
 
-	resp, err := client.Do(req) //nolint:bodyclose // Closed in defer below
+	resp, err := client.Do(req)
 	if err != nil {
 		log.Error("Error while requesting health", "error", err)
 		return err
 	}
-	defer func(Body io.ReadCloser) {
-		err := Body.Close()
-		if err != nil {
-			log.Error("Failed to close response body", "error", err.Error())
-		}
-	}(resp.Body)
+	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		log.Warn("Health request was not ok (HTTP Status 200)", "status", resp.Status)

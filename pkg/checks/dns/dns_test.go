@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"net"
 	"reflect"
-	"sync"
 	"testing"
 	"time"
 
@@ -43,18 +42,15 @@ const (
 func TestDNS_Run(t *testing.T) {
 	tests := []struct {
 		name      string
-		mockSetup func() *DNS
+		mockSetup func() *check
 		targets   []string
 		want      checks.Result
 	}{
 		{
 			name: "success with no targets",
-			mockSetup: func() *DNS {
-				return &DNS{
-					Base: checks.Base{
-						Mu:       sync.Mutex{},
-						DoneChan: make(chan struct{}, 1),
-					},
+			mockSetup: func() *check {
+				return &check{
+					Base: checks.NewBase(),
 				}
 			},
 			targets: []string{},
@@ -64,7 +60,7 @@ func TestDNS_Run(t *testing.T) {
 		},
 		{
 			name: "success with one target lookup",
-			mockSetup: func() *DNS {
+			mockSetup: func() *check {
 				c := newCommonDNS()
 				c.client = &ResolverMock{
 					LookupHostFunc: func(ctx context.Context, addr string) ([]string, error) {
@@ -83,7 +79,7 @@ func TestDNS_Run(t *testing.T) {
 		},
 		{ //nolint:dupl // normal lookup
 			name: "success with multiple target lookups",
-			mockSetup: func() *DNS {
+			mockSetup: func() *check {
 				c := newCommonDNS()
 				c.client = &ResolverMock{
 					LookupHostFunc: func(ctx context.Context, addr string) ([]string, error) {
@@ -103,7 +99,7 @@ func TestDNS_Run(t *testing.T) {
 		},
 		{ //nolint:dupl // reverse lookup
 			name: "success with multiple target reverse lookups",
-			mockSetup: func() *DNS {
+			mockSetup: func() *check {
 				c := newCommonDNS()
 				c.client = &ResolverMock{
 					LookupAddrFunc: func(ctx context.Context, addr string) ([]string, error) {
@@ -123,7 +119,7 @@ func TestDNS_Run(t *testing.T) {
 		},
 		{
 			name: "error - lookup failure for a target",
-			mockSetup: func() *DNS {
+			mockSetup: func() *check {
 				c := newCommonDNS()
 				c.client = &ResolverMock{
 					LookupHostFunc: func(ctx context.Context, addr string) ([]string, error) {
@@ -142,7 +138,7 @@ func TestDNS_Run(t *testing.T) {
 		},
 		{
 			name: "error - timeout scenario for a target",
-			mockSetup: func() *DNS {
+			mockSetup: func() *check {
 				c := newCommonDNS()
 				c.client = &ResolverMock{
 					LookupHostFunc: func(ctx context.Context, addr string) ([]string, error) {
@@ -284,7 +280,7 @@ func TestDNS_UpdateConfig(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c := &DNS{}
+			c := &check{}
 
 			if err := c.UpdateConfig(tt.input); (err != nil) != tt.wantErr {
 				t.Errorf("DNS.UpdateConfig() error = %v, wantErr %v", err, tt.wantErr)
@@ -305,12 +301,9 @@ func stringPointer(s string) *string {
 	return &s
 }
 
-func newCommonDNS() *DNS {
-	return &DNS{
-		Base: checks.Base{
-			Mu:       sync.Mutex{},
-			DoneChan: make(chan struct{}, 1),
-		},
+func newCommonDNS() *check {
+	return &check{
+		Base:    checks.NewBase(),
 		metrics: newMetrics(),
 	}
 }

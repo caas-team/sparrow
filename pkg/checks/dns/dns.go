@@ -21,6 +21,7 @@ package dns
 import (
 	"context"
 	"net"
+	"reflect"
 	"slices"
 	"sync"
 	"time"
@@ -33,96 +34,104 @@ import (
 )
 
 var (
-	_ checks.Check   = (*DNS)(nil)
+	_ checks.Check   = (*check)(nil)
 	_ checks.Runtime = (*Config)(nil)
 )
 
 const CheckName = "dns"
 
-// DNS is a check that resolves the names and addresses
-type DNS struct {
+// check is the implementation of the dns check.
+// It resolves DNS names and IP addresses for a list of targets.
+type check struct {
 	checks.Base
 	config  Config
 	metrics metrics
 	client  Resolver
 }
 
-func (d *DNS) GetConfig() checks.Runtime {
-	d.Mu.Lock()
-	defer d.Mu.Unlock()
-	return &d.config
+func (ch *check) GetConfig() checks.Runtime {
+	ch.Mutex.Lock()
+	defer ch.Mutex.Unlock()
+	return &ch.config
 }
 
-func (d *DNS) Name() string {
+func (*check) Name() string {
 	return CheckName
 }
 
 // NewCheck creates a new instance of the dns check
 func NewCheck() checks.Check {
-	return &DNS{
-		Base: checks.Base{
-			Mu:       sync.Mutex{},
-			DoneChan: make(chan struct{}, 1),
-		},
+	return &check{
+		Base: checks.NewBase(),
 		config: Config{
 			Retry: checks.DefaultRetry,
 		},
 		metrics: newMetrics(),
-		client:  NewResolver(),
+		client:  newResolver(),
 	}
 }
 
 // result represents the result of a single DNS check for a specific target
 type result struct {
-	Resolved []string
-	Error    *string
-	Total    float64
+	Resolved []string `json:"resolved"`
+	Error    *string  `json:"error"`
+	Total    float64  `json:"total"`
 }
 
 // Run starts the dns check
-func (d *DNS) Run(ctx context.Context, cResult chan checks.ResultDTO) error {
+func (ch *check) Run(ctx context.Context, cResult chan checks.ResultDTO) error {
 	ctx, cancel := logger.NewContextWithLogger(ctx)
 	defer cancel()
 	log := logger.FromContext(ctx)
 
-	log.Info("Starting dns check", "interval", d.config.Interval.String())
+	ticker := time.NewTicker(ch.config.Interval)
+	log.InfoContext(ctx, "Starting dns check", "interval", ch.config.Interval.String())
 	for {
 		select {
 		case <-ctx.Done():
-			log.Error("Context canceled", "err", ctx.Err())
+			log.ErrorContext(ctx, "Context canceled", "err", ctx.Err())
 			return ctx.Err()
-		case <-d.DoneChan:
+		case <-ch.Done:
 			return nil
-		case <-time.After(d.config.Interval):
-			res := d.check(ctx)
-
+		case <-ch.Update:
+			ch.Mutex.Lock()
+			ticker.Stop()
+			ticker = time.NewTicker(ch.config.Interval)
+			log.DebugContext(ctx, "Interval of dns check updated", "interval", ch.config.Interval.String())
+			ch.Mutex.Unlock()
+		case <-ticker.C:
+			res := ch.check(ctx)
 			cResult <- checks.ResultDTO{
-				Name: d.Name(),
+				Name: ch.Name(),
 				Result: &checks.Result{
 					Data:      res,
 					Timestamp: time.Now(),
 				},
 			}
-			log.Debug("Successfully finished dns check run")
+			log.DebugContext(ctx, "Successfully finished dns check run")
 		}
 	}
 }
 
-func (d *DNS) UpdateConfig(cfg checks.Runtime) error {
+func (ch *check) UpdateConfig(cfg checks.Runtime) error {
 	if c, ok := cfg.(*Config); ok {
-		d.Mu.Lock()
-		defer d.Mu.Unlock()
+		ch.Mutex.Lock()
+		defer ch.Mutex.Unlock()
+		if reflect.DeepEqual(ch.config, *c) {
+			return nil
+		}
 
-		for _, target := range d.config.Targets {
+		for _, target := range ch.config.Targets {
 			if !slices.Contains(c.Targets, target) {
-				err := d.metrics.Remove(target)
+				err := ch.metrics.Remove(target)
 				if err != nil {
 					return err
 				}
 			}
 		}
 
-		d.config = *c
+		ch.config = *c
+		ch.Update <- struct{}{}
 		return nil
 	}
 
@@ -134,27 +143,31 @@ func (d *DNS) UpdateConfig(cfg checks.Runtime) error {
 
 // Schema provides the schema of the data that will be provided
 // by the dns check
-func (d *DNS) Schema() (*openapi3.SchemaRef, error) {
-	return checks.OpenapiFromPerfData(make(map[string]result))
+func (ch *check) Schema() (*openapi3.SchemaRef, error) {
+	return checks.OpenapiFromPerfData(map[string]result{})
 }
 
 // GetMetricCollectors returns all metric collectors of check
-func (d *DNS) GetMetricCollectors() []prometheus.Collector {
-	return d.metrics.GetCollectors()
+func (ch *check) GetMetricCollectors() []prometheus.Collector {
+	return ch.metrics.GetCollectors()
 }
 
 // RemoveLabelledMetrics removes the metrics which have the passed
 // target as a label
-func (d *DNS) RemoveLabelledMetrics(target string) error {
-	return d.metrics.Remove(target)
+func (ch *check) RemoveLabelledMetrics(target string) error {
+	return ch.metrics.Remove(target)
 }
 
 // check performs DNS checks for all configured targets using a custom net.Resolver.
 // Returns a map where each target is associated with its DNS check result.
-func (d *DNS) check(ctx context.Context) map[string]result {
+func (ch *check) check(ctx context.Context) map[string]result {
 	log := logger.FromContext(ctx)
 	log.Debug("Checking dns")
-	if len(d.config.Targets) == 0 {
+	ch.Mutex.Lock()
+	cfg := ch.config
+	ch.Mutex.Unlock()
+
+	if len(cfg.Targets) == 0 {
 		log.Debug("No targets defined")
 		return map[string]result{}
 	}
@@ -163,18 +176,18 @@ func (d *DNS) check(ctx context.Context) map[string]result {
 	var wg sync.WaitGroup
 	results := map[string]result{}
 
-	d.client.SetDialer(&net.Dialer{
-		Timeout: d.config.Timeout,
+	ch.client.SetDialer(&net.Dialer{
+		Timeout: cfg.Timeout,
 	})
 
-	log.Debug("Getting dns status for each target in separate routine", "amount", len(d.config.Targets))
-	for _, t := range d.config.Targets {
+	log.Debug("Getting dns status for each target in separate routine", "amount", len(cfg.Targets))
+	for _, t := range cfg.Targets {
 		target := t
 		wg.Add(1)
 		lo := log.With("target", target)
 
 		getDNSRetry := helper.Retry(func(ctx context.Context) error {
-			res, err := getDNS(ctx, d.client, target)
+			res, err := getDNS(ctx, ch.client, target)
 			mu.Lock()
 			defer mu.Unlock()
 			results[target] = res
@@ -182,7 +195,7 @@ func (d *DNS) check(ctx context.Context) map[string]result {
 				return err
 			}
 			return nil
-		}, d.config.Retry)
+		}, cfg.Retry)
 
 		go func() {
 			defer wg.Done()
@@ -197,7 +210,7 @@ func (d *DNS) check(ctx context.Context) map[string]result {
 
 			mu.Lock()
 			defer mu.Unlock()
-			d.metrics.Set(target, results, float64(status))
+			ch.metrics.Set(target, results, float64(status))
 		}()
 	}
 	wg.Wait()

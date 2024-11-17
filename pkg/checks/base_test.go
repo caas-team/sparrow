@@ -14,21 +14,21 @@ func TestBase_Shutdown(t *testing.T) {
 		{
 			name: "shutdown",
 			b: &Base{
-				DoneChan: make(chan struct{}, 1),
+				Done: make(chan struct{}, 1),
 			},
 		},
 		{
 			name: "already shutdown",
 			b: &Base{
-				DoneChan: make(chan struct{}, 1),
-				closed:   true,
+				Done:   make(chan struct{}, 1),
+				closed: true,
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.b.closed {
-				close(tt.b.DoneChan)
+				close(tt.b.Done)
 			}
 			tt.b.Shutdown()
 
@@ -37,7 +37,7 @@ func TestBase_Shutdown(t *testing.T) {
 			}
 
 			assert.Panics(t, func() {
-				tt.b.DoneChan <- struct{}{}
+				tt.b.Done <- struct{}{}
 			}, "Base.DoneChan should be closed")
 		})
 	}

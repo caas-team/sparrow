@@ -3,6 +3,7 @@
         "-race",
         "-cover",
         "-count=1",
-        "-timeout=120s",
+        "-timeout=240s",
+        "-v"
     ]
 }

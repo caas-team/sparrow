@@ -34,7 +34,7 @@ type resolver struct {
 	*net.Resolver
 }
 
-func NewResolver() Resolver {
+func newResolver() Resolver {
 	return &resolver{
 		Resolver: &net.Resolver{
 			// We need to set this so the custom dialer is used

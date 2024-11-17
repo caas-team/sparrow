@@ -1,4 +1,4 @@
-package framework
+package test
 
 import (
 	"testing"
@@ -14,8 +14,14 @@ import (
 )
 
 type CheckBuilder interface {
+	// For returns the name of the check.
+	For() string
+	// Check returns the check.
 	Check(t *testing.T) checks.Check
+	// YAML returns the yaml representation of the check.
 	YAML(t *testing.T) []byte
+	// ExpectedWaitTime returns the expected wait time for the check.
+	ExpectedWaitTime() time.Duration
 }
 
 // newCheck creates a new check with the given config.
@@ -31,9 +37,10 @@ func newCheck(t *testing.T, c checks.Check, config checks.Runtime) checks.Check 
 	return c
 }
 
-type marshalConfig map[string]any
+// checkConfig is a map of check names to their configuration.
+type checkConfig map[string]checks.Runtime
 
-func newCheckAsYAML(t *testing.T, cfg marshalConfig) []byte {
+func newCheckAsYAML(t *testing.T, cfg checkConfig) []byte {
 	t.Helper()
 	out, err := yaml.Marshal(cfg)
 	if err != nil {
@@ -85,7 +92,17 @@ func (b *healthCheckBuilder) Check(t *testing.T) checks.Check {
 // YAML returns the yaml representation of the health check.
 func (b *healthCheckBuilder) YAML(t *testing.T) []byte {
 	t.Helper()
-	return newCheckAsYAML(t, marshalConfig{b.cfg.For(): b.cfg})
+	return newCheckAsYAML(t, checkConfig{b.cfg.For(): &b.cfg})
+}
+
+// ExpectedWaitTime returns the expected wait time for the health check.
+func (b *healthCheckBuilder) ExpectedWaitTime() time.Duration {
+	return b.cfg.Interval + b.cfg.Timeout + time.Duration(b.cfg.Retry.Count)*b.cfg.Retry.Delay
+}
+
+// For returns the name of the check.
+func (b *healthCheckBuilder) For() string {
+	return b.cfg.For()
 }
 
 var _ CheckBuilder = (*latencyConfigBuilder)(nil)
@@ -130,7 +147,17 @@ func (b *latencyConfigBuilder) Check(t *testing.T) checks.Check {
 // YAML returns the yaml representation of the latency check.
 func (b *latencyConfigBuilder) YAML(t *testing.T) []byte {
 	t.Helper()
-	return newCheckAsYAML(t, marshalConfig{b.cfg.For(): b.cfg})
+	return newCheckAsYAML(t, checkConfig{b.cfg.For(): &b.cfg})
+}
+
+// For returns the name of the check.
+func (b *latencyConfigBuilder) For() string {
+	return b.cfg.For()
+}
+
+// ExpectedWaitTime returns the expected wait time for the health check.
+func (b *latencyConfigBuilder) ExpectedWaitTime() time.Duration {
+	return b.cfg.Interval + b.cfg.Timeout + time.Duration(b.cfg.Retry.Count)*b.cfg.Retry.Delay
 }
 
 var _ CheckBuilder = (*dnsConfigBuilder)(nil)
@@ -175,7 +202,17 @@ func (b *dnsConfigBuilder) Check(t *testing.T) checks.Check {
 // YAML returns the yaml representation of the dns check.
 func (b *dnsConfigBuilder) YAML(t *testing.T) []byte {
 	t.Helper()
-	return newCheckAsYAML(t, marshalConfig{b.cfg.For(): b.cfg})
+	return newCheckAsYAML(t, checkConfig{b.cfg.For(): &b.cfg})
+}
+
+// ExpectedWaitTime returns the expected wait time for the health check.
+func (b *dnsConfigBuilder) ExpectedWaitTime() time.Duration {
+	return b.cfg.Interval + b.cfg.Timeout + time.Duration(b.cfg.Retry.Count)*b.cfg.Retry.Delay
+}
+
+// For returns the name of the check.
+func (b *dnsConfigBuilder) For() string {
+	return b.cfg.For()
 }
 
 var _ CheckBuilder = (*tracerouteConfigBuilder)(nil)
@@ -226,5 +263,15 @@ func (b *tracerouteConfigBuilder) Check(t *testing.T) checks.Check {
 // YAML returns the yaml representation of the traceroute check.
 func (b *tracerouteConfigBuilder) YAML(t *testing.T) []byte {
 	t.Helper()
-	return newCheckAsYAML(t, marshalConfig{b.cfg.For(): b.cfg})
+	return newCheckAsYAML(t, checkConfig{b.cfg.For(): &b.cfg})
+}
+
+// ExpectedWaitTime returns the expected wait time for the health check.
+func (b *tracerouteConfigBuilder) ExpectedWaitTime() time.Duration {
+	return b.cfg.Interval + b.cfg.Timeout + time.Duration(b.cfg.Retry.Count)*b.cfg.Retry.Delay
+}
+
+// For returns the name of the check.
+func (b *tracerouteConfigBuilder) For() string {
+	return b.cfg.For()
 }

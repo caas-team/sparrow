@@ -69,7 +69,7 @@ func TestHealth_UpdateConfig(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := &Health{
+			h := &check{
 				metrics: newMetrics(),
 			}
 
@@ -227,7 +227,7 @@ func TestHealth_Check(t *testing.T) {
 				)
 			}
 
-			h := &Health{
+			h := &check{
 				config: Config{
 					Targets: tt.targets,
 					Timeout: 30,

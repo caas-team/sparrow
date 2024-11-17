@@ -274,7 +274,7 @@ func TestLatency_check(t *testing.T) {
 				}
 			}
 
-			l := &Latency{
+			l := &check{
 				config:  Config{Targets: tt.targets, Interval: time.Second * 120, Timeout: time.Second * 1},
 				metrics: newMetrics(),
 			}
@@ -306,7 +306,7 @@ func TestLatency_check(t *testing.T) {
 }
 
 func TestLatency_UpdateConfig(t *testing.T) {
-	c := Latency{}
+	c := check{}
 	wantCfg := Config{
 		Targets: []string{"http://localhost:9090"},
 	}
