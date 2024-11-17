@@ -69,8 +69,6 @@ type Base struct {
 	Mutex sync.Mutex
 	// Done channel is used to notify about shutdown of a check.
 	Done chan struct{}
-	// Update is a channel used to notify about configuration updates.
-	Update chan struct{}
 	// closed is a flag indicating if the check has been shut down.
 	closed bool
 }
@@ -80,7 +78,6 @@ func NewBase() Base {
 	return Base{
 		Mutex:  sync.Mutex{},
 		Done:   make(chan struct{}, 1),
-		Update: make(chan struct{}, 3),
 		closed: false,
 	}
 }

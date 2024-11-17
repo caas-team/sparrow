@@ -65,7 +65,7 @@ type check struct {
 func NewCheck() checks.Check {
 	c := &check{
 		Base:       checks.NewBase(),
-		config:     Config{},
+		config:     Config{Retry: checks.DefaultRetry},
 		traceroute: TraceRoute,
 		metrics:    newMetrics(),
 	}
@@ -105,11 +105,6 @@ func (ch *check) Run(ctx context.Context, cResult chan checks.ResultDTO) error {
 			return ctx.Err()
 		case <-ch.Done:
 			return nil
-		case <-ch.Update:
-			ch.Mutex.Lock()
-			timer.Reset(ch.config.Interval)
-			log.DebugContext(ctx, "Interval of traceroute check updated", "interval", ch.config.Interval.String())
-			ch.Mutex.Unlock()
 		case <-timer.C:
 			res := ch.check(ctx)
 			ch.metrics.MinHops(res)
@@ -229,7 +224,7 @@ func (ch *check) UpdateConfig(cfg checks.Runtime) error {
 	if c, ok := cfg.(*Config); ok {
 		ch.Mutex.Lock()
 		defer ch.Mutex.Unlock()
-		if reflect.DeepEqual(ch.config, *c) {
+		if c == nil || reflect.DeepEqual(&ch.config, c) {
 			return nil
 		}
 
@@ -243,7 +238,6 @@ func (ch *check) UpdateConfig(cfg checks.Runtime) error {
 		}
 
 		ch.config = *c
-		ch.Update <- struct{}{}
 		return nil
 	}
 
