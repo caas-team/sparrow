@@ -30,21 +30,14 @@ var _ Runner = (*E2E)(nil)
 
 // E2E is an end-to-end test.
 type E2E struct {
-	t       *testing.T
 	config  config.Config
-	server  *http.Server
-	sparrow *sparrow.Sparrow
-	checks  map[string]builder.Check
 	buf     bytes.Buffer
-	path    string
+	sparrow *sparrow.Sparrow
+	t       *testing.T
+	checks  map[string]builder.Check
+	server  *http.Server
 	mu      sync.Mutex
 	running bool
-}
-
-// WithConfigFile sets the path to the config file.
-func (t *E2E) WithConfigFile(path string) *E2E {
-	t.path = path
-	return t
 }
 
 // WithChecks sets the checks in the test.
@@ -91,10 +84,6 @@ func (t *E2E) UpdateChecks(builders ...builder.Check) *E2E {
 func (t *E2E) Run(ctx context.Context) error {
 	if t.isRunning() {
 		t.t.Fatal("E2E.Run must be called once")
-	}
-
-	if t.path == "" {
-		t.path = "testdata/checks.yaml"
 	}
 
 	if t.server != nil {
@@ -195,14 +184,15 @@ func (t *E2E) AwaitChecks() *E2E {
 // writeCheckConfig writes the check config to a file at the provided path.
 func (t *E2E) writeCheckConfig() error {
 	const fileMode = 0o755
-	err := os.MkdirAll(filepath.Dir(t.path), fileMode)
+	path := "testdata/checks.yaml"
+	err := os.MkdirAll(filepath.Dir(path), fileMode)
 	if err != nil {
-		return fmt.Errorf("failed to create %q: %w", filepath.Dir(t.path), err)
+		return fmt.Errorf("failed to create %q: %w", filepath.Dir(path), err)
 	}
 
-	err = os.WriteFile(t.path, t.buf.Bytes(), fileMode)
+	err = os.WriteFile(path, t.buf.Bytes(), fileMode)
 	if err != nil {
-		return fmt.Errorf("failed to write %q: %w", t.path, err)
+		return fmt.Errorf("failed to write %q: %w", path, err)
 	}
 	return nil
 }
@@ -233,6 +223,7 @@ type e2eHttpAsserter struct {
 	router   routers.Router
 }
 
+// e2eResponseAsserter is a response asserter for end-to-end tests.
 type e2eResponseAsserter struct {
 	want     any
 	asserter func(r *http.Response) error
@@ -376,7 +367,7 @@ func (a *e2eHttpAsserter) assertSchema(req *http.Request, resp *http.Response) e
 		return errors.New("no media type defined in OpenAPI schema for Content-Type 'application/json'")
 	}
 
-	var body any
+	var body map[string]any
 	if err = json.Unmarshal(data, &body); err != nil {
 		return fmt.Errorf("failed to unmarshal response body: %w", err)
 	}
