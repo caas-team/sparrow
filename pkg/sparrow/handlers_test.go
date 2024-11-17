@@ -132,12 +132,18 @@ func TestSparrow_handleCheckMetrics(t *testing.T) {
 			if tt.wantCode == http.StatusBadRequest {
 				r = chiRequest(httptest.NewRequest(http.MethodGet, "/v1/metrics/", bytes.NewBuffer([]byte{})), "")
 			}
+			r.Header.Add("Accept", "application/json")
 
 			s.handleCheckMetrics(w, r)
-			resp := w.Result() //nolint:bodyclose
+			resp := w.Result()
+			defer resp.Body.Close()
 			body, _ := io.ReadAll(resp.Body)
 
 			if tt.wantCode == http.StatusOK {
+				if w.Header().Get("Content-Type") != "application/json" {
+					t.Errorf("Sparrow.getCheckMetrics() = %v, want %v", w.Header().Get("Content-Type"), "application/json")
+				}
+
 				if tt.wantCode != resp.StatusCode {
 					t.Errorf("Sparrow.getCheckMetrics() = %v, want %v", resp.StatusCode, tt.wantCode)
 				}
@@ -155,13 +161,14 @@ func TestSparrow_handleCheckMetrics(t *testing.T) {
 				if reflect.DeepEqual(got, want) {
 					t.Errorf("Sparrow.getCheckMetrics() = %v, want %v", got, want)
 				}
-			} else {
-				if tt.wantCode != resp.StatusCode {
-					t.Errorf("Sparrow.getCheckMetrics() = %v, want %v", resp.StatusCode, tt.wantCode)
-				}
-				if !reflect.DeepEqual(body, tt.want) {
-					t.Errorf("Sparrow.getCheckMetrics() = %v, want %v", body, tt.want)
-				}
+				return
+			}
+
+			if tt.wantCode != resp.StatusCode {
+				t.Errorf("Sparrow.getCheckMetrics() = %v, want %v", resp.StatusCode, tt.wantCode)
+			}
+			if !reflect.DeepEqual(body, tt.want) {
+				t.Errorf("Sparrow.getCheckMetrics() = %v, want %v", body, tt.want)
 			}
 		})
 	}

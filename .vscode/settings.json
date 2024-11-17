@@ -4,6 +4,11 @@
         "-cover",
         "-count=1",
         "-timeout=240s",
-        "-v"
-    ]
+        // "-test.short",
+        "-v",
+    ],
+    "go.testEnvVars": {
+        // "LOG_LEVEL": "debug",
+        "LOG_FORMAT": "text",
+    }
 }

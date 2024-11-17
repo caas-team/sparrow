@@ -122,6 +122,7 @@ func (s *Sparrow) handleCheckMetrics(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	w.Header().Add("Content-Type", "application/json")
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
 
@@ -134,5 +135,4 @@ func (s *Sparrow) handleCheckMetrics(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	w.Header().Add("Content-Type", "application/json")
 }
