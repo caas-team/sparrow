@@ -306,7 +306,7 @@ func TestLatency_check(t *testing.T) {
 }
 
 func TestLatency_UpdateConfig(t *testing.T) {
-	c := check{}
+	c := NewCheck().(*check)
 	wantCfg := Config{
 		Targets: []string{"http://localhost:9090"},
 	}

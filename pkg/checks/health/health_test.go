@@ -63,15 +63,13 @@ func TestHealth_UpdateConfig(t *testing.T) {
 			inputConfig: &latency.Config{
 				Targets: []string{"test"},
 			},
-			expectedConfig: Config{},
+			expectedConfig: Config{Retry: checks.DefaultRetry},
 			wantErr:        true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := &check{
-				metrics: newMetrics(),
-			}
+			h := NewCheck().(*check)
 
 			if err := h.UpdateConfig(tt.inputConfig); (err != nil) != tt.wantErr {
 				t.Errorf("Health.UpdateConfig() error = %v, wantErr %v", err, tt.wantErr)

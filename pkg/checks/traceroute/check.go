@@ -96,8 +96,7 @@ func (ch *check) Run(ctx context.Context, cResult chan checks.ResultDTO) error {
 	defer cancel()
 	log := logger.FromContext(ctx)
 
-	ticker := time.NewTicker(ch.config.Interval)
-	defer ticker.Stop()
+	timer := time.NewTimer(ch.config.Interval)
 	log.InfoContext(ctx, "Starting traceroute check", "interval", ch.config.Interval.String())
 	for {
 		select {
@@ -108,11 +107,10 @@ func (ch *check) Run(ctx context.Context, cResult chan checks.ResultDTO) error {
 			return nil
 		case <-ch.Update:
 			ch.Mutex.Lock()
-			ticker.Stop()
-			ticker = time.NewTicker(ch.config.Interval)
+			timer.Reset(ch.config.Interval)
 			log.DebugContext(ctx, "Interval of traceroute check updated", "interval", ch.config.Interval.String())
 			ch.Mutex.Unlock()
-		case <-ticker.C:
+		case <-timer.C:
 			res := ch.check(ctx)
 			ch.metrics.MinHops(res)
 			cResult <- checks.ResultDTO{
@@ -123,6 +121,9 @@ func (ch *check) Run(ctx context.Context, cResult chan checks.ResultDTO) error {
 				},
 			}
 			log.DebugContext(ctx, "Successfully finished traceroute check run")
+			ch.Mutex.Lock()
+			timer.Reset(ch.config.Interval)
+			ch.Mutex.Unlock()
 		}
 	}
 }

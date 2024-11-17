@@ -274,7 +274,7 @@ func TestDNS_UpdateConfig(t *testing.T) {
 					exampleURL,
 				},
 			},
-			want:    Config{},
+			want:    Config{Retry: checks.DefaultRetry},
 			wantErr: true,
 		},
 	}
