@@ -31,6 +31,7 @@ var _ Runner = (*E2E)(nil)
 type E2E struct {
 	t       *testing.T
 	config  config.Config
+	server  *http.Server
 	sparrow *sparrow.Sparrow
 	checks  map[string]CheckBuilder
 	buf     bytes.Buffer
@@ -50,6 +51,16 @@ func (t *E2E) WithChecks(builders ...CheckBuilder) *E2E {
 	for _, b := range builders {
 		t.checks[b.For()] = b
 		t.buf.Write(b.YAML(t.t))
+	}
+	return t
+}
+
+// WithRemote sets up a remote server to serve the check config.
+func (t *E2E) WithRemote() *E2E {
+	t.server = &http.Server{
+		Addr:              "localhost:50505",
+		Handler:           http.HandlerFunc(t.serveConfig),
+		ReadHeaderTimeout: 3 * time.Second,
 	}
 	return t
 }
@@ -85,6 +96,21 @@ func (t *E2E) Run(ctx context.Context) error {
 	err := t.writeCheckConfig()
 	if err != nil {
 		t.t.Fatalf("Failed to write check config: %v", err)
+	}
+
+	if t.server != nil {
+		go func() {
+			err := t.server.ListenAndServe()
+			if err != nil && !errors.Is(err, http.ErrServerClosed) {
+				t.t.Errorf("Failed to start server: %v", err)
+			}
+		}()
+		defer func() {
+			err := t.server.Shutdown(ctx)
+			if err != nil {
+				t.t.Fatalf("Failed to shutdown server: %v", err)
+			}
+		}()
 	}
 
 	t.mu.Lock()
@@ -150,7 +176,7 @@ func (t *E2E) AwaitLoader() *E2E {
 func (t *E2E) AwaitChecks() *E2E {
 	t.t.Helper()
 	if !t.isRunning() {
-		t.t.Fatal("E2E.AwaitReadiness must be called after E2E.Run")
+		t.t.Fatal("E2E.AwaitChecks must be called after E2E.Run")
 	}
 
 	wait := 5 * time.Second
@@ -182,6 +208,16 @@ func (t *E2E) isRunning() bool {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	return t.running
+}
+
+// serveConfig serves the check config over HTTP as text/yaml.
+func (t *E2E) serveConfig(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "text/yaml")
+	w.WriteHeader(http.StatusOK)
+	_, err := w.Write(t.buf.Bytes())
+	if err != nil {
+		t.t.Fatalf("Failed to write response: %v", err)
+	}
 }
 
 // e2eHttpAsserter is an HTTP asserter for end-to-end tests.
