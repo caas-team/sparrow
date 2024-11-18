@@ -195,11 +195,11 @@ func TraceRoute(ctx context.Context, cfg tracerouteConfig) (map[int][]Hop, error
 	var wg sync.WaitGroup
 
 	for ttl := 1; ttl <= cfg.MaxHops; ttl++ {
-		c, hopSpan := tracer.Start(ctx, addr.String(), trace.WithAttributes(
-			attribute.Int("ttl", ttl),
-		))
 		wg.Add(1)
 		go func(ttl int) {
+			c, hopSpan := tracer.Start(ctx, addr.String(), trace.WithAttributes(
+				attribute.Int("ttl", ttl),
+			))
 			defer wg.Done()
 			defer hopSpan.End()
 
@@ -207,7 +207,7 @@ func TraceRoute(ctx context.Context, cfg tracerouteConfig) (map[int][]Hop, error
 			logctx := logger.IntoContext(c, l)
 
 			retry := 0
-			err = helper.Retry(func(ctx context.Context) error {
+			retryErr := helper.Retry(func(ctx context.Context) error {
 				defer func() {
 					retry++
 				}()
@@ -234,10 +234,10 @@ func TraceRoute(ctx context.Context, cfg tracerouteConfig) (map[int][]Hop, error
 				}
 				return nil
 			}, cfg.Rc)(logctx)
-			if err != nil {
+			if retryErr != nil {
 				l.DebugContext(ctx, "Traceroute could not reach target")
 				if !errors.Is(err, syscall.EHOSTUNREACH) {
-					hopSpan.SetStatus(codes.Error, err.Error())
+					hopSpan.SetStatus(codes.Error, retryErr.Error())
 					hopSpan.RecordError(err)
 				}
 				return
