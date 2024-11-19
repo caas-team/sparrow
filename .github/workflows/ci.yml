@@ -16,6 +16,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # We need to fetch tags because we want to name our snapshot artifacts <tag>-commit-<short-commit>.
+      # We don't use checkout/fetch-tags: true because it's broken.
+      # For more information see: https://github.com/actions/checkout/issues/1471
+      - name: Fetch tags explicitly
+        run: git fetch --prune --unshallow --tags
+
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
