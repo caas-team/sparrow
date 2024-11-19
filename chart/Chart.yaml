@@ -4,8 +4,6 @@ description: A Helm chart to install Sparrow
 type: application
 keywords:
   - monitoring
-version: 0.0.4
-appVersion: "v0.5.0"
 icon: https://github.com/caas-team/sparrow/blob/main/docs/img/sparrow.png
 sources:
   - https://github.com/caas-team/sparrow
@@ -22,3 +20,8 @@ maintainers:
   - name: lvlcn-t
     email: tom.vendolsky@telekom.de
     url: https://www.telekom.com
+
+# EVERYTHING BELOW THIS LINE IS AUTOMATICALLY GENERATED. DO NOT EDIT.
+# The version and appVersion fields are set automatically by the release toolchain.
+version: 0.0.0
+appVersion: "v0.0.0"

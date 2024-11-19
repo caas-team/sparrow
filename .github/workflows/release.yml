@@ -15,7 +15,6 @@ jobs:
     name: Release Sparrow
     runs-on: ubuntu-latest
     steps:
-
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -45,7 +44,7 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  
+
   helm:
     runs-on: ubuntu-latest
     steps:
@@ -57,21 +56,13 @@ jobs:
       - name: Fetch tags explicitly
         run: git fetch --prune --unshallow --tags
 
-      - name: Prepare Helm chart
-        run: |
-          app_version=$(git describe --tags --abbrev=0)
-          sed -i "s/^appVersion: .*/appVersion: \"$app_version\"/" chart/Chart.yaml
-
       - name: Registry login
         run: |
           helm registry login ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
           helm registry login mtr.devops.telekom.de -u ${{ secrets.MTR_USERNAME }} -p ${{ secrets.MTR_PASSWORD }}
 
-      - name: Helm lint
-        run: helm lint ./chart
-
-      - name: Helm package
-        run: helm package ./chart -d ./chart
+      - name: Build Helm package
+        run: cd chart && make package
 
       - name: Push helm package
         run: |

@@ -31,7 +31,7 @@ jobs:
 
       - name: Get Version
         id: version
-        run: echo "value=commit-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+        run: echo "value=$(git describe --tags --abbrev=0)-commit-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
 
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
@@ -64,7 +64,6 @@ jobs:
           docker push ghcr.io/${{ github.repository }}:${{ steps.version.outputs.value }}
           docker push mtr.devops.telekom.de/sparrow/sparrow:${{ steps.version.outputs.value }}
 
-
   helm:
     runs-on: ubuntu-latest
     steps:
@@ -76,25 +75,13 @@ jobs:
       - name: Fetch tags explicitly
         run: git fetch --tags
 
-      - name: Get App Version
-        id: appVersion
-        run: echo "value=commit-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
-
-      - name: Get Chart Version
-        id: chartVersion
-        # produces a tag like: 0.2.2-commit-asdf3
-        run: echo "value=$(git tag --sort=taggerdate | tail -1 | cut -c 2-)-commit-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
-
       - name: Registry login
         run: |
           helm registry login ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
           helm registry login mtr.devops.telekom.de -u ${{ secrets.MTR_USERNAME }} -p ${{ secrets.MTR_PASSWORD }}
 
-      - name: Helm lint
-        run: helm lint ./chart
-
-      - name: Helm package
-        run: helm package ./chart -d ./chart --version ${{ steps.chartVersion.outputs.value }} --app-version ${{ steps.appVersion.outputs.value }}
+      - name: Build helm package
+        run: cd chart && make package
 
       - name: Push helm package
         run: |
