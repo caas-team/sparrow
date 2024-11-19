@@ -72,8 +72,10 @@ jobs:
         with:
           fetch-tags: true
 
+      # We don't use checkout/fetch-tags: true because it's broken
+      # For more information see: https://github.com/actions/checkout/issues/1471
       - name: Fetch tags explicitly
-        run: git fetch --tags
+        run: git fetch --prune --unshallow --tags
 
       - name: Registry login
         run: |
