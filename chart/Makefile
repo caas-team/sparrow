@@ -22,7 +22,7 @@ docs:
 	VERSION=$${VERSION#v}; \
 	cp -f Chart.yaml Chart.yaml.bak; \
 	sed -i "s/^version:.*/version: $${VERSION}/" Chart.yaml; \
-	sed -i "s/^appVersion:.*/appVersion: \"$${VERSION}\"/" Chart.yaml; \
+	sed -i "s/^appVersion:.*/appVersion: \"v$${VERSION}\"/" Chart.yaml; \
 	echo "Generating docs for version $${VERSION} (appVersion: v$${VERSION})"; \
 	helm-docs; \
 	mv -f Chart.yaml.bak Chart.yaml
