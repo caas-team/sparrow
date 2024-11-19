@@ -5,14 +5,20 @@ type: application
 keywords:
   - monitoring
 version: 0.0.4
-appVersion: "v0.3.2"
+appVersion: "v0.5.0"
 icon: https://github.com/caas-team/sparrow/blob/main/docs/img/sparrow.png
 sources:
   - https://github.com/caas-team/sparrow
 maintainers:
-  - name: eumel8
-    email: f.kloeker@telekom.de
-    url: https://www.telekom.com
   - name: y-eight
     email: maximilian.schubert@telekom.de
+    url: https://www.telekom.com
+  - name: puffitos
+    email: bruno.bressi@telekom.de
+    url: https://www.telekom.com
+  - name: niklastreml
+    email: niklas.treml@telekom.de
+    url: https://www.telekom.com
+  - name: lvlcn-t
+    email: tom.vendolsky@telekom.de
     url: https://www.telekom.com
