@@ -2,30 +2,31 @@
 
 WITH_V ?= 0
 
+BASE_VERSION = $(shell (git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0") | sed 's/^v//')
 CHART_VERSION ?= $(shell $(MAKE) -s version)
 CHART_APP_VERSION ?= $(shell $(MAKE) -s WITH_V=1 version)
 
 .PHONY: package
 package: lint build
 
+.PHONY: gen
+gen:
+	@cp -f Chart.template.yaml Chart.yaml
+	@sed -i "/^version:.*/c\version: $(BASE_VERSION)" Chart.yaml || echo "version: $(BASE_VERSION)" >> Chart.yaml
+	@sed -i "/^appVersion:.*/c\appVersion: \"v$(BASE_VERSION)\"" Chart.yaml || echo "appVersion: \"v$(BASE_VERSION)\"" >> Chart.yaml
+
 .PHONY: lint
-lint:
+lint: gen
 	@helm lint .
 
 .PHONY: build
-build:
+build: gen
 	@helm package . --version $(CHART_VERSION) --app-version $(CHART_APP_VERSION)
 
 .PHONY: docs
-docs:
-	@VERSION=$$(git describe --tags --abbrev=0 2>/dev/null || echo "0.0.0"); \
-	VERSION=$${VERSION#v}; \
-	cp -f Chart.yaml Chart.yaml.bak; \
-	sed -i "s/^version:.*/version: $${VERSION}/" Chart.yaml; \
-	sed -i "s/^appVersion:.*/appVersion: \"v$${VERSION}\"/" Chart.yaml; \
-	echo "Generating docs for version $${VERSION} (appVersion: v$${VERSION})"; \
-	helm-docs; \
-	mv -f Chart.yaml.bak Chart.yaml
+docs: gen
+	@echo "Generating docs for version $(BASE_VERSION) (appVersion: v$(BASE_VERSION))"
+	@helm-docs
 
 .PHONY: version
 version:
@@ -33,7 +34,7 @@ version:
 	if [ -n "$$TAG" ]; then \
 		VERSION="$$TAG"; \
 	else \
-		VERSION="$$(git describe --tags --abbrev=0 2>/dev/null)-commit-$$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")"; \
+		VERSION="v$(BASE_VERSION)-commit-$$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")"; \
 	fi; \
 	if [ "$(WITH_V)" = "1" ]; then \
 		echo "$$VERSION"; \
