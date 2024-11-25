@@ -11,11 +11,10 @@ permissions:
   packages: write
 
 jobs:
-  main:
+  release:
     name: Release Sparrow
     runs-on: ubuntu-latest
     steps:
-
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -45,8 +44,8 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  
   helm:
+    name: Release Helm Chart
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repo

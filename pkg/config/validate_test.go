@@ -25,11 +25,13 @@ import (
 
 	"github.com/caas-team/sparrow/internal/helper"
 	"github.com/caas-team/sparrow/pkg/api"
+	"github.com/caas-team/sparrow/test"
 )
 
 func TestConfig_Validate(t *testing.T) {
-	ctx := context.Background()
+	test.MarkAsShort(t)
 
+	ctx := context.Background()
 	tests := []struct {
 		name    string
 		config  Config
@@ -170,6 +172,8 @@ func TestConfig_Validate(t *testing.T) {
 }
 
 func Test_isDNSName(t *testing.T) {
+	test.MarkAsShort(t)
+
 	tests := []struct {
 		name    string
 		dnsName string

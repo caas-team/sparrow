@@ -1,0 +1,231 @@
+name: Tests
+
+on:
+  push:
+  workflow_dispatch:
+    inputs:
+      log_format:
+        description: "Log format"
+        required: false
+        default: "text"
+        type: string
+      log_level:
+        description: "Log level"
+        required: false
+        default: "info"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  go-unit:
+    name: Unit - Go
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Install dependencies
+        run: |
+          go install github.com/mfridman/tparse@latest
+          go mod download
+
+      - name: Set log format and level
+        id: inputs
+        run: |
+          if [ -z "${{ inputs.log_format }}" ]; then
+            echo "LOG_FORMAT=text" >> $GITHUB_OUTPUT
+          else
+            echo "LOG_FORMAT=${{ inputs.log_format }}" >> $GITHUB_OUTPUT
+          fi
+          if [ -z "${{ inputs.log_level }}" ]; then
+            echo "LOG_LEVEL=info" >> $GITHUB_OUTPUT
+          else
+            echo "LOG_LEVEL=${{ inputs.log_level }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run go unit tests
+        env:
+          LOG_FORMAT: ${{ steps.inputs.outputs.LOG_FORMAT }}
+          LOG_LEVEL: ${{ steps.inputs.outputs.LOG_LEVEL }}
+        run: |
+          go test -v -count=1 -test.short -race ./... -json -coverpkg ./... \
+            | tee output.jsonl | tparse -notests -follow -all || true
+          tparse -format markdown -file output.jsonl -all -slow 20 > $GITHUB_STEP_SUMMARY
+
+  go-e2e:
+    name: E2E - Go
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Install dependencies
+        run: |
+          go install github.com/mfridman/tparse@latest
+          go mod download
+
+      - name: Set log format and level
+        id: inputs
+        run: |
+          if [ -z "${{ inputs.log_format }}" ]; then
+            echo "No log format provided, using default: text"
+            echo "LOG_FORMAT=text" >> $GITHUB_OUTPUT
+          else
+            echo "Log format provided: ${{ inputs.log_format }}"
+            echo "LOG_FORMAT=${{ inputs.log_format }}" >> $GITHUB_OUTPUT
+          fi
+          if [ -z "${{ inputs.log_level }}" ]; then
+            echo "No log level provided, using default: info"
+            echo "LOG_LEVEL=info" >> $GITHUB_OUTPUT
+          else
+            echo "Log level provided: ${{ inputs.log_level }}"
+            echo "LOG_LEVEL=${{ inputs.log_level }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run go e2e tests
+        env:
+          LOG_FORMAT: ${{ steps.inputs.outputs.LOG_FORMAT }}
+          LOG_LEVEL: ${{ steps.inputs.outputs.LOG_LEVEL }}
+        run: |
+          go test -v -count=1 -race ./... -json -coverpkg ./... \
+            | tee output.jsonl | tparse -notests -follow -all || true
+          tparse -format markdown -file output.jsonl -all -slow 20 > $GITHUB_STEP_SUMMARY
+
+  traceroute:
+    name: E2E - Traceroute
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          sudo add-apt-repository ppa:katharaframework/kathara
+          sudo apt-get update
+          sudo apt-get install -y jq kathara
+
+      - name: Setup kathara
+        run: |
+          echo '{
+          "image": "kathara/base",
+          "manager_type": "docker",
+          "terminal": "/usr/bin/xterm",
+          "open_terminals": false,
+          "device_shell": "/bin/bash",
+          "net_prefix": "kathara",
+          "device_prefix": "kathara",
+          "debug_level": "INFO",
+          "print_startup_log": true,
+          "enable_ipv6": false,
+          "last_checked": 1721834897.2415252,
+          "hosthome_mount": false,
+          "shared_mount": true,
+          "image_update_policy": "Prompt",
+          "shared_cds": 1,
+          "remote_url": null,
+          "cert_path": null,
+          "network_plugin": "kathara/katharanp_vde"
+          }' > ~/.config/kathara.conf
+
+      - name: Build binary for e2e
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          version: latest
+          args: build --single-target --clean --snapshot --config .goreleaser-ci.yaml
+
+      - name: Run e2e tests
+        run: |
+          ./scripts/run_e2e_tests.sh
+
+  k8s:
+    name: E2E - Kubernetes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up K3S
+        uses: debianmaster/actions-k3s@master
+        id: k3s
+        with:
+          version: "v1.31.2-k3s1"
+
+      - name: Check Cluster
+        run: kubectl get nodes
+
+      - name: Check Coredns Deployment
+        run: |
+          kubectl -n kube-system rollout status deployment/coredns --timeout=60s
+          STATUS=$(kubectl -n kube-system get deployment coredns -o jsonpath={.status.readyReplicas})
+          if [[ $STATUS  -ne  1 ]]
+          then
+            echo "Deployment coredns not ready"
+            kubectl -n kube-system get events
+            exit 1
+          else
+            echo "Deployment coredns OK"
+          fi
+
+      - name: Check Metricsserver Deployment
+        run: |
+          kubectl -n kube-system rollout status deployment/metrics-server --timeout=60s
+          STATUS=$(kubectl -n kube-system get deployment metrics-server -o jsonpath={.status.readyReplicas})
+          if [[ $STATUS  -ne  1 ]]
+          then
+            echo "Deployment metrics-server not ready"
+            kubectl -n kube-system get events
+            exit 1
+          else
+            echo "Deployment metrics-server OK"
+          fi
+
+      - name: Setup Helm
+        run: |
+          curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+          helm version
+
+      - name: Get Image Tag
+        id: version
+        run: echo "value=commit-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Install Sparrow
+        run: |
+          helm upgrade -i sparrow \
+            --atomic \
+            --timeout 300s \
+            --set image.tag=${{ steps.version.outputs.value }}  \
+            --set sparrowConfig.name=the-sparrow.com \
+            --set sparrowConfig.loader.type=file \
+            --set sparrowConfig.loader.interval=5s \
+            --set sparrowConfig.loader.file.path=/config/.sparrow.yaml \
+            --set checksConfig.health.interval=1s \
+            --set checksConfig.health.timeout=1s \
+            ./chart
+
+      - name: Check Pods
+        run: kubectl get pods
+
+      - name: Wait for Sparrow
+        run: sleep 45
+
+      - name: Healthcheck
+        run: |
+          kubectl create job curl --image=quay.io/curl/curl:latest -- curl -f -v -H 'Content-Type: application/json'  http://sparrow:8080/v1/metrics/health
+          kubectl wait --for=condition=complete job/curl
+          STATUS=$(kubectl get job curl -o jsonpath={.status.succeeded})
+          if [[ $STATUS  -ne  1 ]]
+          then
+            echo "Job failed"
+            kubectl logs -ljob-name=curl
+            kubectl delete job curl
+            exit 1
+          else
+            echo "Job OK"
+            kubectl delete job curl
+          fi

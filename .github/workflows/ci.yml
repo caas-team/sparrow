@@ -1,7 +1,6 @@
 name: Continuous Integration
 
-on:
-  push:
+on: [push]
 
 permissions:
   contents: write
@@ -9,8 +8,8 @@ permissions:
   security-events: write
 
 jobs:
-  rel:
-    name: Build, scan & push Snapshot
+  snapshot:
+    name: Build Snapshot
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -64,17 +63,17 @@ jobs:
           docker push ghcr.io/${{ github.repository }}:${{ steps.version.outputs.value }}
           docker push mtr.devops.telekom.de/sparrow/sparrow:${{ steps.version.outputs.value }}
 
-
   helm:
+    name: Build Helm Chart
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v4
-        with:
-          fetch-tags: true
 
+      # We don't use checkout/fetch-tags: true because it's broken
+      # For more information see: https://github.com/actions/checkout/issues/1471
       - name: Fetch tags explicitly
-        run: git fetch --tags
+        run: git fetch --prune --unshallow --tags
 
       - name: Get App Version
         id: appVersion

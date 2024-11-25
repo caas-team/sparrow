@@ -22,9 +22,13 @@ import (
 	"net"
 	"reflect"
 	"testing"
+
+	"github.com/caas-team/sparrow/test"
 )
 
 func TestHopAddress_String(t *testing.T) {
+	test.MarkAsShort(t)
+
 	type fields struct {
 		IP   string
 		Port int
@@ -51,6 +55,8 @@ func TestHopAddress_String(t *testing.T) {
 }
 
 func Test_newHopAddress(t *testing.T) {
+	test.MarkAsShort(t)
+
 	type args struct {
 		addr net.Addr
 	}

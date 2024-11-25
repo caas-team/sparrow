@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/caas-team/sparrow/pkg/checks"
+	"github.com/caas-team/sparrow/test"
 
 	"github.com/jarcoal/httpmock"
 	"github.com/stretchr/testify/assert"
@@ -43,6 +44,8 @@ func stringPointer(s string) *string {
 }
 
 func TestLatency_Run(t *testing.T) {
+	test.MarkAsShort(t)
+
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 
@@ -180,9 +183,10 @@ func TestLatency_Run(t *testing.T) {
 }
 
 func TestLatency_check(t *testing.T) {
+	test.MarkAsShort(t)
+
 	httpmock.Activate()
 	t.Cleanup(httpmock.DeactivateAndReset)
-
 	tests := []struct {
 		name                string
 		registeredEndpoints []struct {
@@ -274,7 +278,7 @@ func TestLatency_check(t *testing.T) {
 				}
 			}
 
-			l := &Latency{
+			l := &check{
 				config:  Config{Targets: tt.targets, Interval: time.Second * 120, Timeout: time.Second * 1},
 				metrics: newMetrics(),
 			}
@@ -305,23 +309,10 @@ func TestLatency_check(t *testing.T) {
 	}
 }
 
-func TestLatency_Shutdown(t *testing.T) {
-	cDone := make(chan struct{}, 1)
-	c := Latency{
-		CheckBase: checks.CheckBase{
-			DoneChan: cDone,
-		},
-	}
-	c.Shutdown()
-
-	_, ok := <-cDone
-	if !ok {
-		t.Error("Shutdown() should be ok")
-	}
-}
-
 func TestLatency_UpdateConfig(t *testing.T) {
-	c := Latency{}
+	test.MarkAsShort(t)
+
+	c := NewCheck().(*check)
 	wantCfg := Config{
 		Targets: []string{"http://localhost:9090"},
 	}
@@ -336,6 +327,8 @@ func TestLatency_UpdateConfig(t *testing.T) {
 }
 
 func TestNewLatencyCheck(t *testing.T) {
+	test.MarkAsShort(t)
+
 	c := NewCheck()
 	if c == nil {
 		t.Error("NewLatencyCheck() should not be nil")

@@ -2,6 +2,13 @@
     "go.testFlags": [
         "-race",
         "-cover",
-        "-count=1"
-    ]
+        "-count=1",
+        "-timeout=240s",
+        // "-test.short",
+        "-v",
+    ],
+    "go.testEnvVars": {
+        // "LOG_LEVEL": "debug",
+        "LOG_FORMAT": "text",
+    }
 }

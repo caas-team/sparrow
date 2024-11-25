@@ -21,19 +21,21 @@ package traceroute
 import (
 	"context"
 	"net"
-	"sync"
 	"testing"
 	"time"
 
 	"github.com/caas-team/sparrow/pkg/checks"
+	"github.com/caas-team/sparrow/test"
 	"github.com/google/go-cmp/cmp"
 	"go.opentelemetry.io/otel"
 )
 
 func TestCheck(t *testing.T) {
+	test.MarkAsShort(t)
+
 	cases := []struct {
 		name string
-		c    *Traceroute
+		c    *check
 		want map[string]result
 	}{
 		{
@@ -73,13 +75,13 @@ func TestCheck(t *testing.T) {
 	}
 }
 
-func newForTest(f tracerouteFactory, maxHops int, targets []string) *Traceroute {
+func newForTest(f tracerouteFactory, maxHops int, targets []string) *check {
 	t := make([]Target, len(targets))
 	for i, target := range targets {
 		t[i] = Target{Addr: target}
 	}
-	return &Traceroute{
-		CheckBase:  checks.CheckBase{Mu: sync.Mutex{}, DoneChan: make(chan struct{})},
+	return &check{
+		Base:       checks.NewBase(),
 		config:     Config{Targets: t, MaxHops: maxHops},
 		traceroute: f,
 		metrics:    newMetrics(),
@@ -138,6 +140,8 @@ func ipFromInt(i int) string {
 }
 
 func TestIpFromInt(t *testing.T) {
+	test.MarkAsShort(t)
+
 	cases := []struct {
 		In       int
 		Expected string

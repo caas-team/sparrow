@@ -30,7 +30,7 @@ import (
 
 	"github.com/caas-team/sparrow/internal/logger"
 	"github.com/caas-team/sparrow/pkg/checks/runtime"
-	"gopkg.in/yaml.v3"
+	"github.com/goccy/go-yaml"
 )
 
 var _ Loader = (*FileLoader)(nil)
@@ -120,7 +120,7 @@ func (f *FileLoader) getRuntimeConfig(ctx context.Context) (cfg runtime.Config, 
 		return cfg, fmt.Errorf("failed to read config file: %w", err)
 	}
 
-	if err := yaml.Unmarshal(b, &cfg); err != nil {
+	if err := yaml.UnmarshalContext(ctx, b, &cfg); err != nil {
 		log.Error("Failed to parse config file", "error", err)
 		return cfg, fmt.Errorf("failed to parse config file: %w", err)
 	}

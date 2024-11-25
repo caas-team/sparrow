@@ -23,8 +23,10 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	stdruntime "runtime"
 
 	"github.com/caas-team/sparrow/internal/logger"
+	"github.com/caas-team/sparrow/pkg"
 	"github.com/caas-team/sparrow/pkg/checks"
 	"github.com/caas-team/sparrow/pkg/checks/runtime"
 	"github.com/caas-team/sparrow/pkg/db"
@@ -72,7 +74,6 @@ func (cc *ChecksController) Run(ctx context.Context) error {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-cc.done:
-			cc.cErr <- nil
 			return nil
 		}
 	}
@@ -86,7 +87,6 @@ func (cc *ChecksController) Shutdown(ctx context.Context) {
 	for _, c := range cc.checks.Iter() {
 		cc.UnregisterCheck(ctx, c)
 	}
-	cc.done <- struct{}{}
 	close(cc.done)
 	close(cc.cResult)
 }
@@ -170,15 +170,28 @@ func (cc *ChecksController) UnregisterCheck(ctx context.Context, check checks.Ch
 }
 
 var oapiBoilerplate = openapi3.T{
-	// this object should probably be user defined
 	OpenAPI: "3.0.0",
 	Info: &openapi3.Info{
-		Title:       "Sparrow Metrics API",
+		Title: "Sparrow Metrics API",
+		Version: func() string {
+			version := pkg.Version
+			if version == "" {
+				return fmt.Sprintf("0.0.0-dev-%s", stdruntime.Version())
+			}
+			if version[0] == 'v' {
+				return version[1:]
+			}
+			return version
+		}(),
 		Description: "Serves metrics collected by sparrows checks",
 		Contact: &openapi3.Contact{
 			URL:   "https://caas.telekom.de",
 			Email: "caas-request@telekom.de",
 			Name:  "CaaS Team",
+		},
+		License: &openapi3.License{
+			Name: "Apache 2.0",
+			URL:  "http://www.apache.org/licenses/LICENSE-2.0",
 		},
 	},
 	Paths: &openapi3.Paths{

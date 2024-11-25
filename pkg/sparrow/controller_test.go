@@ -33,12 +33,15 @@ import (
 	"github.com/caas-team/sparrow/pkg/checks/runtime"
 	"github.com/caas-team/sparrow/pkg/db"
 	"github.com/caas-team/sparrow/pkg/sparrow/metrics"
+	"github.com/caas-team/sparrow/test"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestRun_CheckRunError(t *testing.T) {
+	test.MarkAsShort(t)
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -80,8 +83,10 @@ func TestRun_CheckRunError(t *testing.T) {
 }
 
 func TestRun_ContextCancellation(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	test.MarkAsShort(t)
 
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	cc := NewChecksController(db.NewInMemory(), metrics.New(metrics.Config{}))
 
 	done := make(chan struct{})
@@ -104,6 +109,8 @@ func TestRun_ContextCancellation(t *testing.T) {
 }
 
 func TestChecksController_Reconcile(t *testing.T) {
+	test.MarkAsShort(t)
+
 	ctx, cancel := logger.NewContextWithLogger(context.Background())
 	defer cancel()
 	rtcfg := &runtime.Config{}
@@ -236,6 +243,8 @@ func TestChecksController_Reconcile(t *testing.T) {
 }
 
 func TestChecksController_RegisterCheck(t *testing.T) {
+	test.MarkAsShort(t)
+
 	tests := []struct {
 		name  string
 		setup func() *ChecksController
@@ -262,6 +271,8 @@ func TestChecksController_RegisterCheck(t *testing.T) {
 }
 
 func TestChecksController_UnregisterCheck(t *testing.T) {
+	test.MarkAsShort(t)
+
 	tests := []struct {
 		name  string
 		check checks.Check
@@ -286,6 +297,8 @@ func TestChecksController_UnregisterCheck(t *testing.T) {
 }
 
 func TestGenerateCheckSpecs(t *testing.T) {
+	test.MarkAsShort(t)
+
 	tests := []struct {
 		name     string
 		checks   []checks.Check

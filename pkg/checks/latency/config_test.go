@@ -21,9 +21,13 @@ package latency
 import (
 	"testing"
 	"time"
+
+	"github.com/caas-team/sparrow/test"
 )
 
 func TestConfig_Validate(t *testing.T) {
+	test.MarkAsShort(t)
+
 	tests := []struct {
 		name    string
 		config  Config

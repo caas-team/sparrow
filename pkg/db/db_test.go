@@ -24,9 +24,12 @@ import (
 	"testing"
 
 	"github.com/caas-team/sparrow/pkg/checks"
+	"github.com/caas-team/sparrow/test"
 )
 
 func TestInMemory_Save(t *testing.T) {
+	test.MarkAsShort(t)
+
 	type fields struct {
 		data map[string]checks.Result
 	}
@@ -63,6 +66,8 @@ func TestInMemory_Save(t *testing.T) {
 }
 
 func TestNewInMemory(t *testing.T) {
+	test.MarkAsShort(t)
+
 	tests := []struct {
 		name string
 		want *InMemory
@@ -79,6 +84,8 @@ func TestNewInMemory(t *testing.T) {
 }
 
 func TestInMemory_Get(t *testing.T) {
+	test.MarkAsShort(t)
+
 	type fields struct {
 		data map[string]*checks.Result
 	}
@@ -121,6 +128,8 @@ func TestInMemory_Get(t *testing.T) {
 }
 
 func TestInMemory_List(t *testing.T) {
+	test.MarkAsShort(t)
+
 	type fields struct {
 		data map[string]*checks.Result
 	}
@@ -172,6 +181,8 @@ func TestInMemory_List(t *testing.T) {
 }
 
 func TestInMemory_ListThreadsafe(t *testing.T) {
+	test.MarkAsShort(t)
+
 	db := NewInMemory()
 	db.Save(checks.ResultDTO{Name: "alpha", Result: &checks.Result{Data: 0}})
 	db.Save(checks.ResultDTO{Name: "beta", Result: &checks.Result{Data: 1}})

@@ -26,9 +26,13 @@ import (
 	"os"
 	"reflect"
 	"testing"
+
+	"github.com/caas-team/sparrow/test"
 )
 
 func TestNewLogger(t *testing.T) {
+	test.MarkAsShort(t)
+
 	tests := []struct {
 		name     string
 		handlers []slog.Handler
@@ -81,6 +85,8 @@ func TestNewLogger(t *testing.T) {
 }
 
 func TestNewContextWithLogger(t *testing.T) {
+	test.MarkAsShort(t)
+
 	tests := []struct {
 		name      string
 		parentCtx context.Context
@@ -112,6 +118,8 @@ func TestNewContextWithLogger(t *testing.T) {
 }
 
 func TestFromContext(t *testing.T) {
+	test.MarkAsShort(t)
+
 	tests := []struct {
 		name string
 		ctx  context.Context
@@ -145,6 +153,8 @@ func TestFromContext(t *testing.T) {
 }
 
 func TestMiddleware(t *testing.T) {
+	test.MarkAsShort(t)
+
 	tests := []struct {
 		name        string
 		parentCtx   context.Context
@@ -181,6 +191,8 @@ func TestMiddleware(t *testing.T) {
 }
 
 func TestNewHandler(t *testing.T) {
+	test.MarkAsShort(t)
+
 	tests := []struct {
 		name      string
 		format    string
@@ -239,6 +251,8 @@ func TestNewHandler(t *testing.T) {
 }
 
 func TestGetLevel(t *testing.T) {
+	test.MarkAsShort(t)
+
 	tests := []struct {
 		name  string
 		input string
