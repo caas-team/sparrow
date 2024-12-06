@@ -11,6 +11,12 @@ jobs:
         with:
           python-version: "3.12"
 
+      # We need to fetch tags because of the helm-docs pre-commit hook which requires the latest tag.
+      # We don't use checkout/fetch-tags: true because it's broken
+      # For more information see: https://github.com/actions/checkout/issues/1471
+      - name: Fetch tags explicitly
+        run: git fetch --prune --unshallow --tags
+
       - uses: actions/setup-go@v5
         with:
           go-version-file: "go.mod"

@@ -26,9 +26,17 @@ repos:
   # go install github.com/norwoodj/helm-docs/cmd/helm-docs@latest
   # If you have installed it in a different way, you should use the binary of the
   # go toolchain instead, because behavior may differ.
-  - repo: https://github.com/norwoodj/helm-docs
-    rev: v1.14.2
+  - repo: local
     hooks:
-      - id: helm-docs
+      - id: helm-docs-repo
+        name: helm-docs
+        entry: /bin/bash
         args:
-          - --chart-search-root=chart
+          - -c
+          - |
+            cd chart
+            make docs
+        language: system
+        description: Uses 'helm-docs' to create documentation from the Helm chart's 'values.yaml' file, and inserts the result into a corresponding 'README.md' file.
+        files: (README\.md\.gotmpl|(Chart|requirements|values)\.yaml)$
+        require_serial: true

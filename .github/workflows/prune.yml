@@ -24,7 +24,7 @@ jobs:
           keep-younger-than: 7 # days
           prune-untagged: true
           prune-tags-regexes: |
-            ^commit-
+            commit-.*$
 
       - name: Prune Charts
         uses: vlaurin/action-ghcr-prune@v0.6.0

@@ -15,7 +15,6 @@ jobs:
     name: Release Sparrow
     runs-on: ubuntu-latest
     steps:
-
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -45,23 +44,25 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  
+
   helm:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v4
 
+      # We don't use checkout/fetch-tags: true because it's broken
+      # For more information see: https://github.com/actions/checkout/issues/1471
+      - name: Fetch tags explicitly
+        run: git fetch --prune --unshallow --tags
+
       - name: Registry login
         run: |
           helm registry login ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
           helm registry login mtr.devops.telekom.de -u ${{ secrets.MTR_USERNAME }} -p ${{ secrets.MTR_PASSWORD }}
 
-      - name: Helm lint
-        run: helm lint ./chart
-
-      - name: Helm package
-        run: helm package ./chart -d ./chart
+      - name: Build Helm package
+        run: cd chart && make package
 
       - name: Push helm package
         run: |
