@@ -26,14 +26,18 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/caas-team/sparrow/pkg/checks"
 	"github.com/caas-team/sparrow/pkg/sparrow/targets/remote"
 
+	"github.com/caas-team/sparrow/internal/helper"
 	"github.com/caas-team/sparrow/internal/logger"
 )
+
+const paginationPerPage = 30 // The amount of items the paginated request to gitlab should return
 
 var _ remote.Interactor = (*client)(nil)
 
@@ -74,7 +78,7 @@ func New(cfg Config) remote.Interactor {
 // FetchFiles fetches the files from the global targets repository from the configured gitlab repository
 func (c *client) FetchFiles(ctx context.Context) ([]checks.GlobalTarget, error) {
 	log := logger.FromContext(ctx)
-	fl, err := c.fetchFileList(ctx)
+	fl, err := c.fetchFiles(ctx)
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to fetch files", "error", err)
 		return nil, err
@@ -139,30 +143,45 @@ func (c *client) fetchFile(ctx context.Context, f string) (checks.GlobalTarget, 
 	return res, nil
 }
 
-// fetchFileList fetches the filenames from the global targets repository from the configured gitlab repository,
+// fetchFiles fetches the filenames from the global targets repository from the configured gitlab repository,
 // so they may be fetched individually
-func (c *client) fetchFileList(ctx context.Context) ([]string, error) {
+func (c *client) fetchFiles(ctx context.Context) ([]string, error) {
 	log := logger.FromContext(ctx)
 	log.DebugContext(ctx, "Fetching file list from gitlab")
+
+	rawUrl := fmt.Sprintf("%s/api/v4/projects/%d/repository/tree", c.config.BaseURL, c.config.ProjectID)
+	reqUrl, err := url.Parse(rawUrl)
+	if err != nil {
+		log.ErrorContext(ctx, "Could not parse GitLab API repository URL", "url", rawUrl, "error", err)
+	}
+	query := reqUrl.Query()
+	query.Set("ref", c.config.Branch)
+	query.Set("per_page", strconv.Itoa(paginationPerPage))
+	reqUrl.RawQuery = query.Encode()
+
+	files, err := c.fetchNextFileList(ctx, reqUrl.String())
+	if err != nil {
+		log.ErrorContext(ctx, "Could not fetch file list from GitLab", "error", err)
+		return nil, err
+	}
+
+	log.DebugContext(ctx, "Successfully fetched file list", "files", len(files))
+	return files, nil
+}
+
+func (c *client) fetchNextFileList(ctx context.Context, reqUrl string) ([]string, error) {
+	log := logger.FromContext(ctx)
+	log.DebugContext(ctx, "Fetching file list from gitlab")
+
 	type file struct {
 		Name string `json:"name"`
 	}
 
-	req, err := http.NewRequestWithContext(ctx,
-		http.MethodGet,
-		fmt.Sprintf("%s/api/v4/projects/%d/repository/tree", c.config.BaseURL, c.config.ProjectID),
-		http.NoBody,
-	)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqUrl, http.NoBody)
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to create request", "error", err)
 		return nil, err
 	}
-
-	req.Header.Add("PRIVATE-TOKEN", c.config.Token)
-	req.Header.Add("Content-Type", "application/json")
-	query := req.URL.Query()
-	query.Add("ref", c.config.Branch)
-	req.URL.RawQuery = query.Encode()
 
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -193,7 +212,14 @@ func (c *client) fetchFileList(ctx context.Context) ([]string, error) {
 		}
 	}
 
-	log.DebugContext(ctx, "Successfully fetched file list", "files", len(files))
+	if nextLink := helper.GetNextLink(resp.Header); nextLink != "" {
+		nextFiles, err := c.fetchNextFileList(ctx, nextLink)
+		if err != nil {
+			return nil, err
+		}
+		files = append(files, nextFiles...)
+	}
+
 	return files, nil
 }
 

@@ -119,7 +119,7 @@ func Test_gitlab_fetchFileList(t *testing.T) {
 				},
 				client: http.DefaultClient,
 			}
-			got, err := g.fetchFileList(context.Background())
+			got, err := g.fetchFiles(context.Background())
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("FetchFiles() error = %v, wantErr %v", err, tt.wantErr)
 			}
