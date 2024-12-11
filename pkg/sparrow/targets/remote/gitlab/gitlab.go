@@ -78,7 +78,7 @@ func New(cfg Config) remote.Interactor {
 // FetchFiles fetches the files from the global targets repository from the configured gitlab repository
 func (c *client) FetchFiles(ctx context.Context) ([]checks.GlobalTarget, error) {
 	log := logger.FromContext(ctx)
-	fl, err := c.fetchFiles(ctx)
+	fl, err := c.fetchFileList(ctx)
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to fetch files", "error", err)
 		return nil, err
@@ -143,9 +143,9 @@ func (c *client) fetchFile(ctx context.Context, f string) (checks.GlobalTarget, 
 	return res, nil
 }
 
-// fetchFiles fetches the filenames from the global targets repository from the configured gitlab repository,
+// fetchFileList fetches the filenames from the global targets repository from the configured gitlab repository,
 // so they may be fetched individually
-func (c *client) fetchFiles(ctx context.Context) ([]string, error) {
+func (c *client) fetchFileList(ctx context.Context) ([]string, error) {
 	log := logger.FromContext(ctx)
 	log.DebugContext(ctx, "Preparing fetching file list from gitlab")
 
