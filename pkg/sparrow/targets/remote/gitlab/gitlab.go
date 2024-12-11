@@ -147,7 +147,7 @@ func (c *client) fetchFile(ctx context.Context, f string) (checks.GlobalTarget, 
 // so they may be fetched individually
 func (c *client) fetchFiles(ctx context.Context) ([]string, error) {
 	log := logger.FromContext(ctx)
-	log.DebugContext(ctx, "Fetching file list from gitlab")
+	log.DebugContext(ctx, "Preparing fetching file list from gitlab")
 
 	rawUrl := fmt.Sprintf("%s/api/v4/projects/%d/repository/tree", c.config.BaseURL, c.config.ProjectID)
 	reqUrl, err := url.Parse(rawUrl)
@@ -159,19 +159,14 @@ func (c *client) fetchFiles(ctx context.Context) ([]string, error) {
 	query.Set("per_page", strconv.Itoa(paginationPerPage))
 	reqUrl.RawQuery = query.Encode()
 
-	files, err := c.fetchNextFileList(ctx, reqUrl.String())
-	if err != nil {
-		log.ErrorContext(ctx, "Could not fetch file list from GitLab", "error", err)
-		return nil, err
-	}
-
-	log.DebugContext(ctx, "Successfully fetched file list", "files", len(files))
-	return files, nil
+	return c.fetchNextFileList(ctx, reqUrl.String())
 }
 
+// fetchNextFileList is fetching files from GitLab.
+// Gitlab pagination is handled recursively.
 func (c *client) fetchNextFileList(ctx context.Context, reqUrl string) ([]string, error) {
 	log := logger.FromContext(ctx)
-	log.DebugContext(ctx, "Fetching file list from gitlab")
+	log.DebugContext(ctx, "Fetching file list page from gitlab")
 
 	type file struct {
 		Name string `json:"name"`
@@ -217,7 +212,10 @@ func (c *client) fetchNextFileList(ctx context.Context, reqUrl string) ([]string
 		if err != nil {
 			return nil, err
 		}
+		log.DebugContext(ctx, "Successfully fetched next file page, adding to file list")
 		files = append(files, nextFiles...)
+	} else {
+		log.DebugContext(ctx, "Successfully fetched complete file list", "files", len(files))
 	}
 
 	return files, nil
