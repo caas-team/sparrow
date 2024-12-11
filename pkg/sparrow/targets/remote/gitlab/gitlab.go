@@ -147,7 +147,7 @@ func (c *client) fetchFile(ctx context.Context, f string) (checks.GlobalTarget, 
 // so they may be fetched individually
 func (c *client) fetchFileList(ctx context.Context) ([]string, error) {
 	log := logger.FromContext(ctx)
-	log.DebugContext(ctx, "Preparing fetching file list from gitlab")
+	log.DebugContext(ctx, "Preparing to fetch file list from gitlab")
 
 	rawUrl := fmt.Sprintf("%s/api/v4/projects/%d/repository/tree", c.config.BaseURL, c.config.ProjectID)
 	reqUrl, err := url.Parse(rawUrl)
@@ -214,10 +214,9 @@ func (c *client) fetchNextFileList(ctx context.Context, reqUrl string) ([]string
 		}
 		log.DebugContext(ctx, "Successfully fetched next file page, adding to file list")
 		files = append(files, nextFiles...)
-	} else {
-		log.DebugContext(ctx, "Successfully fetched complete file list", "files", len(files))
 	}
 
+	log.DebugContext(ctx, "Successfully fetched file list recursively", "files", len(files))
 	return files, nil
 }
 
