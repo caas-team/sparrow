@@ -108,7 +108,7 @@ func Test_gitlab_fetchFileList(t *testing.T) {
 			if err != nil {
 				t.Fatalf("error creating mock response: %v", err)
 			}
-			httpmock.RegisterResponder("GET", "http://test/api/v4/projects/1/repository/tree?ref=main", resp)
+			httpmock.RegisterResponder("GET", "http://test/api/v4/projects/1/repository/tree?per_page=30&ref=main", resp)
 
 			g := &client{
 				config: Config{
