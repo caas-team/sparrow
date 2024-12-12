@@ -37,7 +37,8 @@ import (
 	"github.com/caas-team/sparrow/internal/logger"
 )
 
-const paginationPerPage = 30 // The amount of items the paginated request to gitlab should return
+// The amount of items the paginated request to gitlab should return
+const paginationPerPage = 30
 
 var _ remote.Interactor = (*client)(nil)
 
