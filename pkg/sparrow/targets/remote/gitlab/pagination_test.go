@@ -16,7 +16,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package helper
+package gitlab
 
 import (
 	"net/http"
@@ -73,7 +73,7 @@ func TestGetNextLink(t *testing.T) {
 			testHeader := http.Header{}
 			testHeader.Add(tt.header.key, tt.header.value)
 
-			assert.Equal(t, tt.want, GetNextLink(testHeader))
+			assert.Equal(t, tt.want, getNextLink(testHeader))
 		})
 	}
 }

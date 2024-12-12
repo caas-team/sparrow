@@ -16,7 +16,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package helper
+package gitlab
 
 import (
 	"net/http"
@@ -30,7 +30,7 @@ const (
 
 // getNextLink returns the url to the next page of
 // a paginated http response provided in the passed response header.
-func GetNextLink(header http.Header) string {
+func getNextLink(header http.Header) string {
 	link := header.Get("Link")
 	if link == "" {
 		return ""

@@ -33,7 +33,6 @@ import (
 	"github.com/caas-team/sparrow/pkg/checks"
 	"github.com/caas-team/sparrow/pkg/sparrow/targets/remote"
 
-	"github.com/caas-team/sparrow/internal/helper"
 	"github.com/caas-team/sparrow/internal/logger"
 )
 
@@ -208,7 +207,7 @@ func (c *client) fetchNextFileList(ctx context.Context, reqUrl string) ([]string
 		}
 	}
 
-	if nextLink := helper.GetNextLink(resp.Header); nextLink != "" {
+	if nextLink := getNextLink(resp.Header); nextLink != "" {
 		nextFiles, err := c.fetchNextFileList(ctx, nextLink)
 		if err != nil {
 			return nil, err
