@@ -721,7 +721,7 @@ func Test_client_fetchNextFileList(t *testing.T) {
 					resp, err := httpmock.NewJsonResponse(responder.statusCode, responder.response)
 
 					// Add link header for next page (pagination)
-					resp.Header.Set("link", responder.linkHeader)
+					resp.Header.Set(linkHeader, responder.linkHeader)
 					return resp, err
 				})
 			}

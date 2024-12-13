@@ -31,7 +31,7 @@ const (
 // getNextLink returns the url to the next page of
 // a paginated http response provided in the passed response header.
 func getNextLink(header http.Header) string {
-	link := header.Get("Link")
+	link := header.Get(linkHeader)
 	if link == "" {
 		return ""
 	}
