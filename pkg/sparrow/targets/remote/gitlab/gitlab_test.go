@@ -710,16 +710,20 @@ func Test_client_fetchNextFileList(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// prepare http mock responder for paginated requests
 			for _, responder := range tt.mock {
-				resp, err := httpmock.NewJsonResponder(responder.statusCode, responder.response)
-				if err != nil {
-					t.Fatalf("error creating mock response: %v", err)
-				}
+				httpmock.RegisterResponder(http.MethodGet, responder.reqUrl, func(req *http.Request) (*http.Response, error) {
+					// Check if header are properly set
+					token := req.Header.Get("PRIVATE-TOKEN")
+					cType := req.Header.Get("Content-Type")
+					if token == "" || cType == "" {
+						t.Error("Some header not properly set", "PRIVATE-TOKEN", token != "", "Content-Type", cType != "")
+					}
 
-				h := http.Header{}
-				h.Add("link", responder.linkHeader)
-				resp = resp.HeaderAdd(h)
+					resp, err := httpmock.NewJsonResponse(responder.statusCode, responder.response)
 
-				httpmock.RegisterResponder(http.MethodGet, responder.reqUrl, resp)
+					// Add link header for next page (pagination)
+					resp.Header.Set("link", responder.linkHeader)
+					return resp, err
+				})
 			}
 
 			got, err := c.fetchNextFileList(context.Background(), tt.mock[0].reqUrl)

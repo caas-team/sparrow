@@ -177,6 +177,8 @@ func (c *client) fetchNextFileList(ctx context.Context, reqUrl string) ([]string
 		log.ErrorContext(ctx, "Failed to create request", "error", err)
 		return nil, err
 	}
+	req.Header.Add("PRIVATE-TOKEN", c.config.Token)
+	req.Header.Add("Content-Type", "application/json")
 
 	resp, err := c.client.Do(req)
 	if err != nil {
