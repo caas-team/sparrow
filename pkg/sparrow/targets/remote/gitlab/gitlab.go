@@ -155,8 +155,12 @@ func (c *client) fetchFileList(ctx context.Context) ([]string, error) {
 		log.ErrorContext(ctx, "Could not parse GitLab API repository URL", "url", rawUrl, "error", err)
 	}
 	query := reqUrl.Query()
-	query.Set("ref", c.config.Branch)
+	query.Set("pagination", "keyset")
 	query.Set("per_page", strconv.Itoa(paginationPerPage))
+	query.Set("order_by", "id")
+	query.Set("sort", "asc")
+
+	query.Set("ref", c.config.Branch)
 	reqUrl.RawQuery = query.Encode()
 
 	return c.fetchNextFileList(ctx, reqUrl.String())

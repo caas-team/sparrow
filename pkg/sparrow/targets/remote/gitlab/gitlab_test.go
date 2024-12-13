@@ -107,7 +107,7 @@ func Test_gitlab_fetchFileList(t *testing.T) {
 			if err != nil {
 				t.Fatalf("error creating mock response: %v", err)
 			}
-			httpmock.RegisterResponder("GET", fmt.Sprintf("http://test/api/v4/projects/1/repository/tree?per_page=%d&ref=main", paginationPerPage), resp)
+			httpmock.RegisterResponder("GET", fmt.Sprintf("http://test/api/v4/projects/1/repository/tree?order_by=id&pagination=keyset&per_page=%d&ref=main&sort=asc", paginationPerPage), resp)
 
 			g := &client{
 				config: Config{
@@ -217,7 +217,7 @@ func Test_gitlab_FetchFiles(t *testing.T) {
 			if err != nil {
 				t.Fatalf("error creating mock response: %v", err)
 			}
-			httpmock.RegisterResponder("GET", fmt.Sprintf("http://test/api/v4/projects/1/repository/tree?per_page=%d&ref=main", paginationPerPage), resp)
+			httpmock.RegisterResponder("GET", fmt.Sprintf("http://test/api/v4/projects/1/repository/tree?order_by=id&pagination=keyset&per_page=%d&ref=main&sort=asc", paginationPerPage), resp)
 
 			got, err := g.FetchFiles(context.Background())
 			if (err != nil) != tt.wantErr {
