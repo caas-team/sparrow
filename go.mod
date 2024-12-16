@@ -4,7 +4,7 @@ go 1.23
 
 require (
 	github.com/getkin/kin-openapi v0.128.0
-	github.com/go-chi/chi/v5 v5.1.0
+	github.com/go-chi/chi/v5 v5.2.0
 	github.com/google/go-cmp v0.6.0
 	github.com/jarcoal/httpmock v1.3.1
 	github.com/prometheus/client_golang v1.20.5
