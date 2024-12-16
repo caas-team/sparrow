@@ -626,7 +626,7 @@ Is roughly equal to this:
 The `sparrow` exposes an API for accessing the results of various checks. Each check registers its own endpoint
 at `/v1/metrics/{check-name}`. The API's definition is available at `/openapi`.
 
-## Metrics
+## Metrics, Telemetry & Dashboards
 
 The `sparrow` provides a `/metrics` endpoint to expose application metrics. In addition to runtime information, the sparrow provides specific metrics for each check. Refer to the [Checks](#checks) section for more detailed information.
 
@@ -683,6 +683,12 @@ telemetry:
 ```
 
 Since [OTLP](https://opentelemetry.io/docs/specs/otlp/) is a standard protocol, you can choose any collector that supports it. The `stdout` exporter can be used for debugging purposes to print telemetry data to the console, while the `noop` exporter disables telemetry. If an external collector is used, a bearer token for authentication and a TLS certificate path for secure communication can be provided.
+
+### Grafana Dashboards
+
+A sample Grafana dashboard to visualize the metrics collected by the checks is available in the `examples` directory of the repository. How to import dashboards into Grafana is documented [here](https://grafana.com/docs/grafana/latest/reference/export_import/).
+
+<img src="examples/dashboard.png">
 
 ## Code of Conduct
 
