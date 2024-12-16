@@ -26,6 +26,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -34,6 +35,9 @@ import (
 
 	"github.com/caas-team/sparrow/internal/logger"
 )
+
+// The amount of items the paginated request to gitlab should return
+const paginationPerPage = 30
 
 var _ remote.Interactor = (*client)(nil)
 
@@ -143,26 +147,42 @@ func (c *client) fetchFile(ctx context.Context, f string) (checks.GlobalTarget, 
 // so they may be fetched individually
 func (c *client) fetchFileList(ctx context.Context) ([]string, error) {
 	log := logger.FromContext(ctx)
-	log.DebugContext(ctx, "Fetching file list from gitlab")
+	log.DebugContext(ctx, "Preparing to fetch file list from gitlab")
+
+	rawUrl := fmt.Sprintf("%s/api/v4/projects/%d/repository/tree", c.config.BaseURL, c.config.ProjectID)
+	reqUrl, err := url.Parse(rawUrl)
+	if err != nil {
+		log.ErrorContext(ctx, "Could not parse GitLab API repository URL", "url", rawUrl, "error", err)
+	}
+	query := reqUrl.Query()
+	query.Set("pagination", "keyset")
+	query.Set("per_page", strconv.Itoa(paginationPerPage))
+	query.Set("order_by", "id")
+	query.Set("sort", "asc")
+
+	query.Set("ref", c.config.Branch)
+	reqUrl.RawQuery = query.Encode()
+
+	return c.fetchNextFileList(ctx, reqUrl.String())
+}
+
+// fetchNextFileList is fetching files from GitLab.
+// Gitlab pagination is handled recursively.
+func (c *client) fetchNextFileList(ctx context.Context, reqUrl string) ([]string, error) {
+	log := logger.FromContext(ctx)
+	log.DebugContext(ctx, "Fetching file list page from gitlab")
+
 	type file struct {
 		Name string `json:"name"`
 	}
 
-	req, err := http.NewRequestWithContext(ctx,
-		http.MethodGet,
-		fmt.Sprintf("%s/api/v4/projects/%d/repository/tree", c.config.BaseURL, c.config.ProjectID),
-		http.NoBody,
-	)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqUrl, http.NoBody)
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to create request", "error", err)
 		return nil, err
 	}
-
 	req.Header.Add("PRIVATE-TOKEN", c.config.Token)
 	req.Header.Add("Content-Type", "application/json")
-	query := req.URL.Query()
-	query.Add("ref", c.config.Branch)
-	req.URL.RawQuery = query.Encode()
 
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -193,7 +213,16 @@ func (c *client) fetchFileList(ctx context.Context) ([]string, error) {
 		}
 	}
 
-	log.DebugContext(ctx, "Successfully fetched file list", "files", len(files))
+	if nextLink := getNextLink(resp.Header); nextLink != "" {
+		nextFiles, err := c.fetchNextFileList(ctx, nextLink)
+		if err != nil {
+			return nil, err
+		}
+		log.DebugContext(ctx, "Successfully fetched next file page, adding to file list")
+		files = append(files, nextFiles...)
+	}
+
+	log.DebugContext(ctx, "Successfully fetched file list recursively", "files", len(files))
 	return files, nil
 }
 

@@ -28,7 +28,6 @@ import (
 
 	"github.com/caas-team/sparrow/pkg/checks"
 	"github.com/caas-team/sparrow/pkg/sparrow/targets/remote"
-
 	"github.com/jarcoal/httpmock"
 )
 
@@ -108,7 +107,7 @@ func Test_gitlab_fetchFileList(t *testing.T) {
 			if err != nil {
 				t.Fatalf("error creating mock response: %v", err)
 			}
-			httpmock.RegisterResponder("GET", "http://test/api/v4/projects/1/repository/tree?ref=main", resp)
+			httpmock.RegisterResponder("GET", fmt.Sprintf("http://test/api/v4/projects/1/repository/tree?order_by=id&pagination=keyset&per_page=%d&ref=main&sort=asc", paginationPerPage), resp)
 
 			g := &client{
 				config: Config{
@@ -218,7 +217,7 @@ func Test_gitlab_FetchFiles(t *testing.T) {
 			if err != nil {
 				t.Fatalf("error creating mock response: %v", err)
 			}
-			httpmock.RegisterResponder("GET", "http://test/api/v4/projects/1/repository/tree?ref=main", resp)
+			httpmock.RegisterResponder("GET", fmt.Sprintf("http://test/api/v4/projects/1/repository/tree?order_by=id&pagination=keyset&per_page=%d&ref=main&sort=asc", paginationPerPage), resp)
 
 			got, err := g.FetchFiles(context.Background())
 			if (err != nil) != tt.wantErr {
@@ -608,6 +607,137 @@ func TestClient_fetchDefaultBranch(t *testing.T) {
 			got := g.fetchDefaultBranch()
 			if got != tt.want {
 				t.Errorf("(*client).fetchDefaultBranch() got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_client_fetchNextFileList(t *testing.T) {
+	type mockRespFile struct {
+		Name string `json:"name"`
+	}
+	type mockResponder struct {
+		reqUrl     string
+		linkHeader string
+		statusCode int
+		response   []mockRespFile
+	}
+
+	tests := []struct {
+		name    string
+		mock    []mockResponder
+		want    []string
+		wantErr bool
+	}{
+		{
+			name: "success - no pagination",
+			mock: []mockResponder{
+				{
+					reqUrl:     "https://test.de/pagination",
+					linkHeader: "",
+					statusCode: http.StatusOK,
+					response:   []mockRespFile{{Name: "file1.json"}, {Name: "file2.json"}},
+				},
+			},
+			want: []string{
+				"file1.json",
+				"file2.json",
+			},
+			wantErr: false,
+		},
+		{
+			name: "success - with pagination",
+			mock: []mockResponder{
+				{
+					reqUrl:     "https://test.de/pagination",
+					linkHeader: "<https://test.de/pagination?page=2>; rel=\"next\"",
+					statusCode: http.StatusOK,
+					response:   []mockRespFile{{Name: "file1.json"}},
+				},
+				{
+					reqUrl:     "https://test.de/pagination?page=2",
+					linkHeader: "<https://test.de/pagination?page=3>; rel=\"next\"",
+					statusCode: http.StatusOK,
+					response:   []mockRespFile{{Name: "file2.json"}},
+				},
+				{
+					reqUrl:     "https://test.de/pagination?page=3",
+					linkHeader: "",
+					statusCode: http.StatusOK,
+					response:   []mockRespFile{{Name: "file3.json"}},
+				},
+			},
+			want: []string{
+				"file1.json",
+				"file2.json",
+				"file3.json",
+			},
+			wantErr: false,
+		},
+		{
+			name: "fail - status code nok while paginated requests",
+			mock: []mockResponder{
+				{
+					reqUrl:     "https://test.de/pagination",
+					linkHeader: "<https://test.de/pagination?page=2>; rel=\"next\"",
+					statusCode: http.StatusOK,
+					response:   []mockRespFile{{Name: "file1.json"}},
+				},
+				{
+					reqUrl:     "https://test.de/pagination?page=2",
+					linkHeader: "",
+					statusCode: http.StatusBadRequest,
+					response:   []mockRespFile{{Name: "file2.json"}},
+				},
+			},
+			want:    []string{},
+			wantErr: true,
+		},
+	}
+
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	c := &client{
+		config: Config{
+			BaseURL:   "https://test.de",
+			ProjectID: 1,
+			Token:     "test",
+		},
+		client: http.DefaultClient,
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// prepare http mock responder for paginated requests
+			for _, responder := range tt.mock {
+				httpmock.RegisterResponder(http.MethodGet, responder.reqUrl, func(req *http.Request) (*http.Response, error) {
+					// Check if header are properly set
+					token := req.Header.Get("PRIVATE-TOKEN")
+					cType := req.Header.Get("Content-Type")
+					if token == "" || cType == "" {
+						t.Error("Some header not properly set", "PRIVATE-TOKEN", token != "", "Content-Type", cType != "")
+					}
+
+					resp, err := httpmock.NewJsonResponse(responder.statusCode, responder.response)
+
+					// Add link header for next page (pagination)
+					resp.Header.Set(linkHeader, responder.linkHeader)
+					return resp, err
+				})
+			}
+
+			got, err := c.fetchNextFileList(context.Background(), tt.mock[0].reqUrl)
+			if err != nil {
+				if !tt.wantErr {
+					t.Fatalf("fetchNextFileList() error = %v, wantErr %v", err, tt.wantErr)
+				}
+				return
+			}
+			if tt.wantErr {
+				t.Fatalf("fetchNextFileList() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Fatalf("fetchNextFileList() got = %v, want %v", got, tt.want)
 			}
 		})
 	}
