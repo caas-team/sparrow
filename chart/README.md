@@ -1,6 +1,6 @@
 # sparrow
 
-![Version: 0.0.4](https://img.shields.io/badge/Version-0.0.4-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v0.3.2](https://img.shields.io/badge/AppVersion-v0.3.2-informational?style=flat-square)
+![Version: 0.5.0-rc3](https://img.shields.io/badge/Version-0.5.0--rc3-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v0.5.0-rc3](https://img.shields.io/badge/AppVersion-v0.5.0--rc3-informational?style=flat-square)
 
 A Helm chart to install Sparrow
 
@@ -8,8 +8,10 @@ A Helm chart to install Sparrow
 
 | Name | Email | Url |
 | ---- | ------ | --- |
-| eumel8 | <f.kloeker@telekom.de> | <https://www.telekom.com> |
 | y-eight | <maximilian.schubert@telekom.de> | <https://www.telekom.com> |
+| puffitos | <bruno.bressi@telekom.de> | <https://www.telekom.com> |
+| niklastreml | <niklas.treml@telekom.de> | <https://www.telekom.com> |
+| lvlcn-t | <tom.vendolsky@telekom.de> | <https://www.telekom.com> |
 
 ## Source Code
 

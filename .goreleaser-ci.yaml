@@ -1,6 +1,6 @@
 project_name: sparrow
 snapshot:
-  name_template: "commit-{{ .ShortCommit }}"
+  version_template: "{{ .Tag }}-commit-{{ .ShortCommit }}"
 builds:
   - env: [CGO_ENABLED=0]
     ldflags:
