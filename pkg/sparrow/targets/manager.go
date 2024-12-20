@@ -25,6 +25,9 @@ import (
 	"sync"
 	"time"
 
+	smetrics "github.com/caas-team/sparrow/pkg/sparrow/metrics"
+	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/caas-team/sparrow/internal/logger"
 	"github.com/caas-team/sparrow/pkg/checks"
 	"github.com/caas-team/sparrow/pkg/sparrow/targets/remote"
@@ -50,16 +53,40 @@ type manager struct {
 	cfg General
 	// interactor is the remote interactor used to interact with the remote state backend
 	interactor remote.Interactor
+	// metrics allows access to the central metrics provider
+	metrics metrics
+	// metricsProvider is the metrics provider used to register the metrics
+	metricsProvider smetrics.Provider
+}
+
+// metrics contains the prometheus metrics for the target manager
+type metrics struct {
+	registered prometheus.Gauge
+}
+
+// newMetrics creates a new metrics struct
+func newMetrics() metrics {
+	return metrics{
+		registered: prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: "sparrow_target_manager_registered",
+			Help: "Indicates whether the instance is registered as a global target",
+		}),
+	}
 }
 
 // NewManager creates a new target manager
-func NewManager(name string, cfg TargetManagerConfig) TargetManager { //nolint:gocritic // no performance concerns yet
+func NewManager(name string, cfg TargetManagerConfig, mp smetrics.Provider) TargetManager { //nolint:gocritic // no performance concerns yet
+	m := newMetrics()
+	mp.GetRegistry().MustRegister(m.registered)
+
 	return &manager{
-		name:       name,
-		cfg:        cfg.General,
-		mu:         sync.RWMutex{},
-		done:       make(chan struct{}, 1),
-		interactor: cfg.Type.Interactor(&cfg.Config),
+		name:            name,
+		cfg:             cfg.General,
+		mu:              sync.RWMutex{},
+		done:            make(chan struct{}, 1),
+		interactor:      cfg.Type.Interactor(&cfg.Config),
+		metrics:         m,
+		metricsProvider: mp,
 	}
 }
 
@@ -141,6 +168,8 @@ func (t *manager) Shutdown(ctx context.Context) error {
 			return fmt.Errorf("failed to shutdown gracefully: %w", errors.Join(errC, err))
 		}
 		t.registered = false
+		t.metrics.registered.Set(0)
+		log.Info("Successfully unregistered as global target")
 	}
 
 	select {
@@ -178,8 +207,9 @@ func (t *manager) register(ctx context.Context) error {
 		log.Error("Failed to register global gitlabTargetManager", "error", err)
 		return err
 	}
-	log.Debug("Successfully registered")
+	log.Info("Successfully registered")
 	t.registered = true
+	t.metrics.registered.Set(1)
 
 	return nil
 }
@@ -230,6 +260,7 @@ func (t *manager) refreshTargets(ctx context.Context) error {
 		if !t.registered && target.Url == fmt.Sprintf("%s://%s", t.cfg.Scheme, t.name) {
 			log.Debug("Found self as global target", "lastSeenMin", time.Since(target.LastSeen).Minutes())
 			t.registered = true
+			t.metrics.registered.Set(1)
 		}
 
 		if t.cfg.UnhealthyThreshold == 0 {
