@@ -86,17 +86,18 @@ func run() func(cmd *cobra.Command, args []string) error {
 
 		s := sparrow.New(cfg)
 		cErr := make(chan error, 1)
-		log.Info("Running sparrow")
+		log.InfoContext(ctx, "Running sparrow")
 		go func() {
 			cErr <- s.Run(ctx)
 		}()
 
 		select {
 		case <-sigChan:
-			log.Info("Signal received, shutting down")
+			log.InfoContext(ctx, "Signal received, shutting down")
 			cancel()
 			<-cErr
-		case err := <-cErr:
+		case err = <-cErr:
+			log.InfoContext(ctx, "Sparrow was shut down")
 			return err
 		}
 

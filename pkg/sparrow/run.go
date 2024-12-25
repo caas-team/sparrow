@@ -131,6 +131,7 @@ func (s *Sparrow) Run(ctx context.Context) error {
 				s.shutdown(ctx)
 			}
 		case <-s.cDone:
+			log.InfoContext(ctx, "Sparrow was shut down")
 			return fmt.Errorf("sparrow was shut down")
 		}
 	}
@@ -181,7 +182,7 @@ func (s *Sparrow) shutdown(ctx context.Context) {
 	defer cancel()
 
 	s.shutOnce.Do(func() {
-		log.Info("Shutting down sparrow gracefully")
+		log.InfoContext(ctx, "Shutting down sparrow")
 		var sErrs ErrShutdown
 		if s.tarMan != nil {
 			sErrs.errTarMan = s.tarMan.Shutdown(ctx)
@@ -192,7 +193,7 @@ func (s *Sparrow) shutdown(ctx context.Context) {
 		s.controller.Shutdown(ctx)
 
 		if sErrs.HasError() {
-			log.Error("Failed to shutdown gracefully", "contextError", errC, "errors", sErrs)
+			log.ErrorContext(ctx, "Failed to shutdown gracefully", "contextError", errC, "errors", sErrs)
 		}
 
 		// Signal that shutdown is complete

@@ -19,6 +19,7 @@
 package runtime
 
 import (
+	"slices"
 	"sync"
 
 	"github.com/caas-team/sparrow/pkg/checks"
@@ -53,5 +54,5 @@ func (c *Checks) Delete(check checks.Check) {
 func (c *Checks) Iter() []checks.Check {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	return c.checks
+	return slices.Clone(c.checks)
 }
