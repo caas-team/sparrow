@@ -61,13 +61,15 @@ type Config struct {
 	Branch string `yaml:"branch" mapstructure:"branch"`
 }
 
-// badRequestError is an error type for bad requests to the gitlab API
-type badRequestError struct {
-	Message string `json:"message"`
+// apiError wraps non-expected API errors & status codes
+// during the interaction with the gitlab API
+type apiError struct {
+	message string
+	code    int
 }
 
-func (e badRequestError) Error() string {
-	return e.Message
+func (e apiError) Error() string {
+	return fmt.Sprintf("gitlab API sent an unexpected status code (%d) with the following error message: %s", e.code, e.message)
 }
 
 // New creates a new gitlab client
@@ -139,7 +141,7 @@ func (c *client) fetchFile(ctx context.Context, f string) (checks.GlobalTarget, 
 
 	if resp.StatusCode != http.StatusOK {
 		log.ErrorContext(ctx, "Failed to fetch file", "status", resp.Status)
-		return res, fmt.Errorf("request failed, status is %s", resp.Status)
+		return res, toError(resp)
 	}
 
 	err = json.NewDecoder(resp.Body).Decode(&res)
@@ -205,7 +207,7 @@ func (c *client) fetchNextFileList(ctx context.Context, reqUrl string) ([]string
 
 	if resp.StatusCode != http.StatusOK {
 		log.ErrorContext(ctx, "Failed to fetch file list", "status", resp.Status)
-		return nil, fmt.Errorf("request failed, status is %s", resp.Status)
+		return nil, toError(resp)
 	}
 
 	var fl []file
@@ -271,20 +273,9 @@ func (c *client) PutFile(ctx context.Context, file remote.File) error { //nolint
 		err = errors.Join(err, resp.Body.Close())
 	}()
 
-	// In case a of bad request we return the error message
-	// for more clarity. See https://docs.gitlab.com/ee/api/rest/troubleshooting.html#status-code-400
-	// for more information.
-	if resp.StatusCode == http.StatusBadRequest {
-		var bErr badRequestError
-		if err = json.NewDecoder(resp.Body).Decode(&bErr); err == nil {
-			return bErr
-		}
-		log.ErrorContext(ctx, "Failed to unmarshall bad request error", "error", err)
-	}
-
 	if resp.StatusCode != http.StatusOK {
 		log.ErrorContext(ctx, "Failed to push registration file", "status", resp.Status)
-		return fmt.Errorf("request failed, status is %s", resp.Status)
+		return toError(resp)
 	}
 
 	return nil
@@ -326,20 +317,9 @@ func (c *client) PostFile(ctx context.Context, file remote.File) error { //nolin
 		err = errors.Join(err, resp.Body.Close())
 	}()
 
-	// In case a of bad request we return the error message
-	// for more clarity. See https://docs.gitlab.com/ee/api/rest/troubleshooting.html#status-code-400
-	// for more information.
-	if resp.StatusCode == http.StatusBadRequest {
-		var bErr badRequestError
-		if err = json.NewDecoder(resp.Body).Decode(&bErr); err == nil {
-			return bErr
-		}
-		log.ErrorContext(ctx, "Failed to unmarshall bad request error", "error", err)
-	}
-
 	if resp.StatusCode != http.StatusCreated {
 		log.ErrorContext(ctx, "Failed to post file", "status", resp.Status)
-		return fmt.Errorf("request failed, status is %s", resp.Status)
+		return toError(resp)
 	}
 
 	return nil
@@ -386,7 +366,7 @@ func (c *client) DeleteFile(ctx context.Context, file remote.File) error { //nol
 
 	if resp.StatusCode != http.StatusNoContent {
 		log.ErrorContext(ctx, "Failed to delete file", "status", resp.Status)
-		return fmt.Errorf("request failed, status is %s", resp.Status)
+		return toError(resp)
 	}
 
 	return nil
@@ -453,4 +433,17 @@ func (c *client) fetchDefaultBranch() string {
 
 	log.WarnContext(ctx, "No default branch found, using fallback", "fallback", fallbackBranch)
 	return fallbackBranch
+}
+
+// toError reads the error response from the gitlab API
+func toError(resp *http.Response) error {
+	buf := new(bytes.Buffer)
+	_, err := buf.ReadFrom(resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read response body from API: %w", err)
+	}
+	return apiError{
+		message: buf.String(),
+		code:    resp.StatusCode,
+	}
 }
