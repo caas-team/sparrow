@@ -121,6 +121,7 @@ func Test_gitlabTargetManager_refreshTargets(t *testing.T) {
 				interactor: remote,
 				name:       "test",
 				cfg:        General{UnhealthyThreshold: time.Hour, Scheme: "https"},
+				metrics:    newMetrics(),
 			}
 			if err := gtm.refreshTargets(context.Background()); (err != nil) != (tt.wantErr != nil) {
 				t.Fatalf("refreshTargets() error = %v, wantErr %v", err, tt.wantErr)
@@ -193,6 +194,7 @@ func Test_gitlabTargetManager_refreshTargets_No_Threshold(t *testing.T) {
 				interactor: remote,
 				name:       "test",
 				cfg:        General{UnhealthyThreshold: 0, Scheme: "https"},
+				metrics:    newMetrics(),
 			}
 			if err := gtm.refreshTargets(context.Background()); (err != nil) != (tt.wantErr != nil) {
 				t.Fatalf("refreshTargets() error = %v, wantErr %v", err, tt.wantErr)
@@ -304,6 +306,7 @@ func Test_gitlabTargetManager_register(t *testing.T) {
 			}
 			gtm := &manager{
 				interactor: glmock,
+				metrics:    newMetrics(),
 			}
 			if err := gtm.register(context.Background()); (err != nil) != tt.wantErr {
 				t.Fatalf("register() error = %v, wantErr %v", err, tt.wantErr)
@@ -830,6 +833,7 @@ func mockGitlabTargetManager(g *remotemock.MockClient, name string) *manager { /
 		done:       make(chan struct{}, 1),
 		interactor: g,
 		name:       name,
+		metrics:    newMetrics(),
 		cfg: General{
 			CheckInterval:        100 * time.Millisecond,
 			UnhealthyThreshold:   1 * time.Second,
