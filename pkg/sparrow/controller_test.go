@@ -103,6 +103,58 @@ func TestRun_ContextCancellation(t *testing.T) {
 	}
 }
 
+// TestChecksController_Shutdown tests the shutdown of the ChecksController
+// when none, one or multiple checks are registered. The test checks that after shutdown no
+// checks are registered anymore (the checks slice is empty) and that the done channel is closed.
+func TestChecksController_Shutdown(t *testing.T) {
+	tests := []struct {
+		name   string
+		checks []checks.Check
+	}{
+		{
+			name:   "no checks registered",
+			checks: nil,
+		},
+		{
+			name:   "one check registered",
+			checks: []checks.Check{newMockCheck(t, "mockCheck")},
+		},
+		{
+			name: "multiple checks registered",
+			checks: []checks.Check{
+				newMockCheck(t, "mockCheck1"),
+				newMockCheck(t, "mockCheck2"),
+				newMockCheck(t, "mockCheck3"),
+				newMockCheck(t, "mockCheck4"),
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cc := NewChecksController(db.NewInMemory(), metrics.New(metrics.Config{}))
+
+			if tt.checks != nil {
+				for _, check := range tt.checks {
+					cc.RegisterCheck(context.Background(), check)
+				}
+			}
+
+			cc.Shutdown(context.Background())
+
+			select {
+			case <-cc.done:
+				if len(cc.checks.Iter()) != 0 {
+					t.Errorf("Expected no checks to be registered")
+				}
+				return
+			case <-time.After(time.Second):
+				t.Fatal("Expected done channel to be closed")
+			}
+		})
+	}
+}
+
 func TestChecksController_Reconcile(t *testing.T) {
 	ctx, cancel := logger.NewContextWithLogger(context.Background())
 	defer cancel()
@@ -377,5 +429,31 @@ func TestGenerateCheckSpecs(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// newMockCheck creates a new mock check with the given name.
+func newMockCheck(t *testing.T, name string) *checks.CheckMock {
+	return &checks.CheckMock{
+		GetMetricCollectorsFunc: func() []prometheus.Collector {
+			return []prometheus.Collector{
+				prometheus.NewCounter(prometheus.CounterOpts{
+					Name: fmt.Sprintf("%s_mock_metric", name),
+				}),
+			}
+		},
+		NameFunc: func() string {
+			return name
+		},
+		RemoveLabelledMetricsFunc: nil,
+		RunFunc: func(ctx context.Context, cResult chan checks.ResultDTO) error {
+			t.Logf("Run called for check %s", name)
+			return nil
+		},
+		SchemaFunc: nil,
+		ShutdownFunc: func() {
+			t.Logf("Shutdown called for check %s", name)
+		},
+		UpdateConfigFunc: nil,
 	}
 }
