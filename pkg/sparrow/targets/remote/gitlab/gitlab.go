@@ -61,6 +61,15 @@ type Config struct {
 	Branch string `yaml:"branch" mapstructure:"branch"`
 }
 
+// badRequestError is an error type for bad requests to the gitlab API
+type badRequestError struct {
+	Message string `json:"message"`
+}
+
+func (e badRequestError) Error() string {
+	return e.Message
+}
+
 // New creates a new gitlab client
 func New(cfg Config) remote.Interactor {
 	c := &client{
@@ -262,11 +271,17 @@ func (c *client) PutFile(ctx context.Context, file remote.File) error { //nolint
 		err = errors.Join(err, resp.Body.Close())
 	}()
 
-	// Unfortunately the Gitlab API does not give any information about what went wrong and just returns a 400 Bad Request in case of
-	// an error while committing the file. A probable cause for this is that the branch does not exist or is protected.
-	// The documentation documents some more possible errors, but not all of them: https://docs.gitlab.com/ee/api/repository_files.html#update-existing-file-in-repository
-	// Therefore we just check for the status code and return an error if it is not 200 OK.
-	// This is not ideal, but the best we can do with the current API without implementing a full blown error handling mechanism.
+	// In case a of bad request we return the error message
+	// for more clarity. See https://docs.gitlab.com/ee/api/rest/troubleshooting.html#status-code-400
+	// for more information.
+	if resp.StatusCode == http.StatusBadRequest {
+		var bErr badRequestError
+		if err = json.NewDecoder(resp.Body).Decode(&bErr); err == nil {
+			return bErr
+		}
+		log.ErrorContext(ctx, "Failed to unmarshall bad request error", "error", err)
+	}
+
 	if resp.StatusCode != http.StatusOK {
 		log.ErrorContext(ctx, "Failed to push registration file", "status", resp.Status)
 		return fmt.Errorf("request failed, status is %s", resp.Status)
@@ -311,11 +326,17 @@ func (c *client) PostFile(ctx context.Context, file remote.File) error { //nolin
 		err = errors.Join(err, resp.Body.Close())
 	}()
 
-	// Unfortunately the Gitlab API does not give any information about what went wrong and just returns a 400 Bad Request in case of
-	// an error while committing the file. A probable cause for this is that the branch does not exist or is protected.
-	// The documentation documents some more possible errors, but not all of them: https://docs.gitlab.com/ee/api/repository_files.html#update-existing-file-in-repository
-	// Therefore we just check for the status code and return an error if it is not 200 OK.
-	// This is not ideal, but the best we can do with the current API without implementing a full blown error handling mechanism.
+	// In case a of bad request we return the error message
+	// for more clarity. See https://docs.gitlab.com/ee/api/rest/troubleshooting.html#status-code-400
+	// for more information.
+	if resp.StatusCode == http.StatusBadRequest {
+		var bErr badRequestError
+		if err = json.NewDecoder(resp.Body).Decode(&bErr); err == nil {
+			return bErr
+		}
+		log.ErrorContext(ctx, "Failed to unmarshall bad request error", "error", err)
+	}
+
 	if resp.StatusCode != http.StatusCreated {
 		log.ErrorContext(ctx, "Failed to post file", "status", resp.Status)
 		return fmt.Errorf("request failed, status is %s", resp.Status)
