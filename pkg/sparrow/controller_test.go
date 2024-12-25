@@ -434,6 +434,7 @@ func TestGenerateCheckSpecs(t *testing.T) {
 
 // newMockCheck creates a new mock check with the given name.
 func newMockCheck(t *testing.T, name string) *checks.CheckMock {
+	t.Helper()
 	return &checks.CheckMock{
 		GetMetricCollectorsFunc: func() []prometheus.Collector {
 			return []prometheus.Collector{
