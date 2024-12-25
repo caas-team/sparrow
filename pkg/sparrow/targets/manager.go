@@ -106,31 +106,31 @@ func (t *manager) Reconcile(ctx context.Context) error {
 	defer registrationTimer.Stop()
 	defer updateTimer.Stop()
 
-	log.Info("Starting target manager reconciliation")
+	log.InfoContext(ctx, "Starting target manager reconciliation")
 	for {
 		select {
 		case <-ctx.Done():
-			log.Error("Error while reconciling targets", "err", ctx.Err())
+			log.ErrorContext(ctx, "Error while reconciling targets", "error", ctx.Err())
 			return ctx.Err()
 		case <-t.done:
-			log.Info("Target manager reconciliation stopped")
+			log.InfoContext(ctx, "Target manager reconciliation stopped")
 			return nil
 		case <-checkTimer.C:
 			err := t.refreshTargets(ctx)
 			if err != nil {
-				log.Warn("Failed to get global targets", "error", err)
+				log.WarnContext(ctx, "Failed to get global targets", "error", err)
 			}
 			checkTimer.Reset(t.cfg.CheckInterval)
 		case <-registrationTimer.C:
 			err := t.register(ctx)
 			if err != nil {
-				log.Warn("Failed to register self as global target", "error", err)
+				log.WarnContext(ctx, "Failed to register self as global target", "error", err)
 			}
 			registrationTimer.Reset(t.cfg.RegistrationInterval)
 		case <-updateTimer.C:
 			err := t.update(ctx)
 			if err != nil {
-				log.Warn("Failed to update registration", "error", err)
+				log.WarnContext(ctx, "Failed to update registration", "error", err)
 			}
 			updateTimer.Reset(t.cfg.UpdateInterval)
 		}
@@ -151,7 +151,7 @@ func (t *manager) Shutdown(ctx context.Context) error {
 
 	errC := ctx.Err()
 	log := logger.FromContext(ctx)
-	log.Debug("Shut down signal received")
+	log.DebugContext(ctx, "Shut down signal received")
 	ctxS, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 	defer cancel()
 
@@ -164,17 +164,17 @@ func (t *manager) Shutdown(ctx context.Context) error {
 		f.SetFileName(fmt.Sprintf("%s.json", t.name))
 		err := t.interactor.DeleteFile(ctxS, f)
 		if err != nil {
-			log.Error("Failed to shutdown gracefully", "error", err)
+			log.ErrorContext(ctx, "Failed to shutdown gracefully", "error", err)
 			return fmt.Errorf("failed to shutdown gracefully: %w", errors.Join(errC, err))
 		}
 		t.registered = false
 		t.metrics.registered.Set(0)
-		log.Info("Successfully unregistered as global target")
+		log.InfoContext(ctx, "Successfully unregistered as global target")
 	}
 
 	select {
 	case t.done <- struct{}{}:
-		log.Debug("Stopping gitlab reconciliation routine")
+		log.DebugContext(ctx, "Stopping gitlab reconciliation routine")
 	default:
 	}
 
@@ -189,7 +189,7 @@ func (t *manager) register(ctx context.Context) error {
 	defer t.mu.Unlock()
 
 	if t.registered {
-		log.Debug("Already registered as global target")
+		log.DebugContext(ctx, "Already registered as global target")
 		return nil
 	}
 
@@ -201,13 +201,13 @@ func (t *manager) register(ctx context.Context) error {
 	}
 	f.SetFileName(fmt.Sprintf("%s.json", t.name))
 
-	log.Debug("Registering as global target")
+	log.DebugContext(ctx, "Registering as global target")
 	err := t.interactor.PostFile(ctx, f)
 	if err != nil {
-		log.Error("Failed to register global gitlabTargetManager", "error", err)
+		log.ErrorContext(ctx, "Failed to register global gitlabTargetManager", "error", err)
 		return err
 	}
-	log.Info("Successfully registered")
+	log.InfoContext(ctx, "Successfully registered")
 	t.registered = true
 	t.metrics.registered.Set(1)
 
@@ -221,7 +221,7 @@ func (t *manager) update(ctx context.Context) error {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	if !t.registered {
-		log.Debug("Not registered as global target, no update done.")
+		log.DebugContext(ctx, "Not registered as global target, no update done.")
 		return nil
 	}
 
@@ -233,13 +233,13 @@ func (t *manager) update(ctx context.Context) error {
 	}
 	f.SetFileName(fmt.Sprintf("%s.json", t.name))
 
-	log.Debug("Updating instance registration")
+	log.DebugContext(ctx, "Updating instance registration")
 	err := t.interactor.PutFile(ctx, f)
 	if err != nil {
-		log.Error("Failed to update registration", "error", err)
+		log.ErrorContext(ctx, "Failed to update registration", "error", err)
 		return err
 	}
-	log.Debug("Successfully updated registration")
+	log.DebugContext(ctx, "Successfully updated registration")
 	return nil
 }
 
@@ -251,14 +251,14 @@ func (t *manager) refreshTargets(ctx context.Context) error {
 	var healthyTargets []checks.GlobalTarget
 	targets, err := t.interactor.FetchFiles(ctx)
 	if err != nil {
-		log.Error("Failed to update global targets", "error", err)
+		log.ErrorContext(ctx, "Failed to update global targets", "error", err)
 		return err
 	}
 
 	// filter unhealthy targets - this may be removed in the future
 	for _, target := range targets {
 		if !t.registered && target.Url == fmt.Sprintf("%s://%s", t.cfg.Scheme, t.name) {
-			log.Debug("Found self as global target", "lastSeenMin", time.Since(target.LastSeen).Minutes())
+			log.DebugContext(ctx, "Found self as global target", "lastSeenMinsAgo", time.Since(target.LastSeen).Minutes())
 			t.registered = true
 			t.metrics.registered.Set(1)
 		}
@@ -269,14 +269,14 @@ func (t *manager) refreshTargets(ctx context.Context) error {
 		}
 
 		if time.Now().Add(-t.cfg.UnhealthyThreshold).After(target.LastSeen) {
-			log.Debug("Skipping unhealthy target", "target", target)
+			log.DebugContext(ctx, "Skipping unhealthy target", "target", target)
 			continue
 		}
 		healthyTargets = append(healthyTargets, target)
 	}
 
 	t.targets = healthyTargets
-	log.Debug("Updated global targets", "targets", len(t.targets))
+	log.DebugContext(ctx, "Updated global targets", "targets", len(t.targets))
 	return nil
 }
 
