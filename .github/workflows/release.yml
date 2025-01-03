@@ -37,6 +37,9 @@ jobs:
           registry: mtr.devops.telekom.de
           username: ${{ secrets.MTR_USERNAME }}
           password: ${{ secrets.MTR_PASSWORD }}
+      
+      - name: Install syft for sbom generation
+        uses: anchore/sbom-action/download-syft@v0.17.9
 
       - name: Build, push & release
         uses: goreleaser/goreleaser-action@v6
