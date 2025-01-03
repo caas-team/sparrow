@@ -44,6 +44,9 @@ jobs:
           "network_plugin": "kathara/katharanp_vde"
           }' > ~/.config/kathara.conf
 
+      - name: Install syft for sbom generation
+        uses: anchore/sbom-action/download-syft@v0.17.9
+
       - name: Build binary for e2e
         uses: goreleaser/goreleaser-action@v6
         with:
