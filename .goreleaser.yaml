@@ -41,4 +41,7 @@ nfpms:
       - rpm
       - apk
 sboms:
-  - artifacts: archive
+  - id: archive
+    artifacts: archive
+  - id: source
+    artifacts: source
