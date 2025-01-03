@@ -25,3 +25,5 @@ dockers:
       - --label=org.opencontainers.image.created={{ .Timestamp }}
       - --label=org.opencontainers.image.revision={{ .FullCommit }}
       - --label=org.opencontainers.image.licenses="Apache 2.0"
+sboms:
+  - artifacts: archive

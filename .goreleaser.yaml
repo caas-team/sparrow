@@ -39,3 +39,5 @@ nfpms:
       - deb
       - rpm
       - apk
+sboms:
+  - artifacts: archive
