@@ -1,0 +1,5 @@
+| Package | Type | Version | Licenses |
+| ------- | ---- | ------- | -------- |
+{{- range .artifacts}}
+| {{.name}} | {{.type}} | {{.version}} | {{range .licenses}}{{.value}}, {{end}} |
+{{- end}}
