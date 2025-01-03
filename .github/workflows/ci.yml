@@ -21,7 +21,7 @@ jobs:
         with:
           go-version-file: go.mod
       
-      - name: install syft
+      - name: Install syft for sbom generation
         uses: anchore/sbom-action/download-syft@v0.17.9
 
       - name: Build snapshot artifacts
